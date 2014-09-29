@@ -22,3 +22,26 @@ videoscope 1.0
 wwxd 1.0
 vautodeint git20130608
 vsrawsource git20130731
+
+Sources:
+https://github.com/dubhater/vapoursynth-bifrost
+https://github.com/chikuzen/CombMask
+https://github.com/chikuzen/convo2d
+https://github.com/dwbuiten/d2vsource
+https://github.com/dubhater/vapoursynth-fieldhint
+https://github.com/dubhater/vapoursynth-fillborders
+https://github.com/dubhater/vapoursynth-fluxsmooth
+https://github.com/chikuzen/GenericFilters
+https://github.com/dubhater/vapoursynth-histogram
+https://github.com/dubhater/vapoursynth-msmoosh
+https://github.com/dubhater/vapoursynth-mvtools
+https://github.com/dubhater/vapoursynth-nnedi3
+https://github.com/chikuzen/vsrawsource
+https://github.com/dubhater/vapoursynth-scrawl
+https://github.com/dubhater/vapoursynth-scxvid
+https://github.com/dubhater/vapoursynth-ssiq
+https://github.com/dubhater/vapoursynth-tcomb
+https://github.com/dubhater/vapoursynth-temporalsoften
+https://github.com/gnaggnoyil/VAutoDeint
+https://github.com/dubhater/vapoursynth-videoscope
+https://github.com/dubhater/vapoursynth-wwxd
