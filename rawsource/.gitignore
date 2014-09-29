@@ -1,0 +1,11 @@
+*.o
+*.dll
+*.so
+*.py
+*.vpy
+*.avs
+*.raw
+*.yuv
+*.y4m
+*.mak
+.depend

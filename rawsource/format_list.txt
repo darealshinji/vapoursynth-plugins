@@ -1,0 +1,78 @@
+=========================================
+vsrawsource -- all supported format names
+=========================================
+
+- GrayScale 8bit format:
+    GRAY8, Y8, Y800
+    
+- GrayScale 16bit format(little endian):
+    GRAY16
+    
+- YUV4:2:0 8bit planar format:
+    YUV420P8, I420, IYUV, YV12, NV12, NV21
+    
+- YUV4:2:2 8bit planar format:
+    YUV422P8, I422, YV16
+    
+- YUV4:4:4 8bit planar format:
+    YUV444P8, I444, YV24
+    
+- YUV4:1:1 8bit planar format:
+    YUV411P8, YV411
+    
+- YUV4:1:0 8bit planar format:
+    YUV420P8, YUV9, YVU9
+    
+- YUV4:4:0 8bit planar format:
+    YUV440P8
+    
+- YUV4:2:0 9bit planar format(little endian):
+    YUV420P9
+    
+- YUV4:2:2 9bit planar format(little endian):
+    YUV422P9
+    
+- YUV4:4:4 9bit planar format(little endian):
+    YUV444P10
+    
+- YUV4:2:0 10bit planar format(little endian):
+    YUV420P10
+    
+- YUV4:2:2 10bit planar format(little endian):
+    YUV422P10
+    
+- YUV4:4:4 10bit planar format(little endian):
+    YUV444P10
+    
+- YUV4:2:0 16bit planar format(little endian):
+    YUV420P16, P010, P016
+    
+- YUV4:2:2 16bit planar format(little endian):
+    YUV422P16, P210, P216
+    
+- YUV4:4:4 16bit planar format(little endian):
+    YUV444P16
+    
+- RGB 8bit planar format:
+    RGBP8, GBRP8
+    
+- RGB 9bit planar format(little endian):
+    RGBP9, GBRP9
+    
+- RGB 10bit planar format(little endian):
+    RGBP10, GBRP10
+    
+- RGB 16bit planar format(little endian):
+    RGBP16, GBRP16
+    
+- YUV4:2:2 8bit packed format:
+    YUY2, YUYV, UYVY, YVYU, VYUV
+    
+- YUV4:4:4 8bit packed format:
+    AYUV
+    
+- RGB 8bit packed format:
+    RGB, BGR, RGBA, ARGB, BGRA, ABGR
+    
+- RGB 16bit packed format:
+    RGB48, BGR48
