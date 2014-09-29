@@ -1,0 +1,83 @@
+D2V Source for VapourSynth (Example)
+------------------------------------
+
+As the title says, this is a D2V parser and decoder for VapourSynth.
+There's not much else to say, so let's get right to an example:
+
+    import vapoursynth as vs
+
+    core = vs.get_core()
+
+    core.std.LoadPlugin(path=r'C:\path\to\d2vsource.dll')
+
+    ret = core.d2v.Source(input=r'C:\path\to\my.d2v')
+
+    ret.set_output()
+
+Parameters:
+    input   - Full path to input D2V file.
+    nocrop  - Always use direct-rendered buffer, which may need cropping.
+              Provides a speedup when you know you need to crop your image
+              anyway, by avoiding extra memcpy calls.
+    rff     - Invoke ApplyRFF (True by default)
+    threads - Number of threads FFmpeg should use. Default is 0 (auto).
+
+
+About RFF Flags
+---------------
+
+Unlike DGDecode, it's up to the user to apply RFF flags as they see fit,
+by passing rff=True to the source function, or by passing rff=False and
+using core.d2v.ApplyRFF(clip, d2v=r'C:\path\to\my.d2v') after calling
+the source function. Unless you know your source is 100% FILM, you
+probably want to apply these. DGDecode's traditional "Force FILM" mode
+isn't really present in this plugin, but if your source or part of it
+is 100% FILM, which is the only time you should be Force FILMing anyway,
+you can simply set Force FILM in DGIndex, which will set the framerate
+properly in the D2V file, and then not apply RFF flags. It's also
+feasible to trim away any non-FILM frames and still Force FILM.
+
+
+Parameters:
+    clip - Input clip.
+    d2v  - D2V file for parsing RFF flags. This will be optional
+           in the future, once VapourSynth gets global metadata
+           support.
+
+
+Known Limitations & Bugs
+------------------------
+
+* Only works with D2V files created by DGIndex (version flag 16).
+* Not all the IDCT algorithms in DGDecode are in libavcodec, so I've tried to
+  map them as best I could. See idct_algo_conv in d2v.hpp for more info.
+* Does not support user specified cropping. Would be easy to add, but I disagree
+  with the premise. Use VapourSynth's cropping.
+* There is no native way to create D2V files on Linux or OS X right now. I hope
+  to tackle this at some point. Use WINE for now.
+* Needs the full path to the D2V file.
+* Probably more I'm forgetting!
+
+
+How to Build
+------------
+
+At some point I will add a proper build system.
+
+On Windows (Visual Studio):
+
+    This assumes that you have the proper dependency paths in %INCLUDE% and %LIB%,
+    and that you have built FFmpeg with Visual Studio as well.
+
+    cl /c /O2 /MT /EHsc /Icore /Ivs core/d2v.cpp core/compat.cpp core/decode.cpp vs/directrender.cpp vs/applyrff.cpp vs/d2vsource.cpp vs/vapoursynth.cpp
+    link /dll /out:d2vsource.dll directrender.obj applyrff.obj d2vsource.obj d2v.obj compat.obj decode.obj vapoursynth.obj libavutil.a libavformat.a libavcodec.a advapi32.lib ws2_32.lib
+
+    Please note that MinGW-build FFmpeg will be faster than one build with Visual
+    Studio, due to its use of inline assembly. Also note that only MinGW-w64 is
+    supported.
+
+On Linux, Mac OS X, or MinGW:
+
+    ./configure
+    make
+    make install
