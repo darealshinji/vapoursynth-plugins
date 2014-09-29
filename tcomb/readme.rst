@@ -1,11 +1,11 @@
 Description
 ===========
 
-TComb is a temporal comb filter (it reduces cross-luminance (rainbowing)
-and cross-chrominance (dot crawl) artifacts in static areas of the picture).
-It will ONLY work with NTSC material, and WILL NOT work with telecined material
-where the rainbowing/dotcrawl was introduced prior to the telecine process!
-It must be used before ivtc or deinterlace.
+TComb is a temporal comb filter (it reduces rainbowing and dot crawl
+artifacts in static areas of the picture). It will ONLY work with NTSC
+material, and WILL NOT work with telecined material where the
+rainbowing/dotcrawl was introduced prior to the telecine process! It must be
+used before ivtc or deinterlace.
 
 
 Usage
