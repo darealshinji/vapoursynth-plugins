@@ -8,6 +8,7 @@ Build-Depends:
  libvapoursynth-dev,
  libavformat-dev,
  libavcodec-dev,
+ libavutil-dev,
  libxvidcore-dev,
  pkg-config (>= 0.9.0),
  yasm
