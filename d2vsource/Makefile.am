@@ -13,4 +13,4 @@ libd2vsource_la_SOURCES = \
 	src/directrender.cpp \
 	src/vapoursynth.cpp
 
-libd2vsource_la_LDFLAGS = -no-undefined -avoid-version  -lavformat -lavcodec
+libd2vsource_la_LDFLAGS = -no-undefined -avoid-version  -lavformat -lavcodec -lvapoursynth
