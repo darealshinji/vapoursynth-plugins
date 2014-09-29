@@ -65,6 +65,7 @@ install:
 	$(install) vautodeint/VAutoDeint.py $(DESTDIR)$(plugins)
 	$(foreach LIB,$(execstack_LIBS),$(execstack) --clear-execstack $(DESTDIR)$(plugins)/lib$(LIB).so $(NL))
 	$(install) README $(DESTDIR)$(docdir)
+	$(install) rawsource/format_list.txt $(DESTDIR)$(docdir)/rawsource_format_list
 	$(foreach FILE,$(shell echo */readme* */README*), \
 		$(install) $(FILE) $(DESTDIR)$(docdir)/$(shell echo $$(dirname $(FILE))) $(NL))
 
