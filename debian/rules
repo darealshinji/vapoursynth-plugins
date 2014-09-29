@@ -1,0 +1,18 @@
+#!/usr/bin/make -f
+
+export V=1
+
+
+%:
+	dh ${@} --parallel
+
+override_dh_auto_clean:
+	$(MAKE) clobber || true
+
+override_dh_install:
+	dh_install -pvapoursynth-extra-plugins -Xnnedi3
+	dh_install -pvapoursynth-nnedi3-plugin
+
+override_dh_builddeb:
+	dh_builddeb -- -Zxz -z9
+
