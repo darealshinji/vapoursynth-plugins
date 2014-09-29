@@ -126,7 +126,7 @@ for opt; do
             LDFLAGS="$LDFLAGS --sysroot=$optarg"
             ;;
         *)
-            error_exit "unknown option $opt"
+            echo "unknown option $opt"
             ;;
     esac
 done
