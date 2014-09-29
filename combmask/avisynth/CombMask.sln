@@ -1,0 +1,20 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual Studio 2010
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CombMask", "CombMask.vcxproj", "{164F8C0E-8168-0B20-983F-4E49CAD71BBA}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{164F8C0E-8168-0B20-983F-4E49CAD71BBA}.Debug|Win32.ActiveCfg = Debug|Win32
+		{164F8C0E-8168-0B20-983F-4E49CAD71BBA}.Debug|Win32.Build.0 = Debug|Win32
+		{164F8C0E-8168-0B20-983F-4E49CAD71BBA}.Release|Win32.ActiveCfg = Release|Win32
+		{164F8C0E-8168-0B20-983F-4E49CAD71BBA}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

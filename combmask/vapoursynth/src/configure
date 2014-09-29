@@ -1,0 +1,190 @@
+#!/bin/sh
+
+if test x"$1" = x"-h" -o x"$1" = x"--help" ; then
+cat << EOF
+Usage: ./configure [options]
+
+options:
+  -h, --help               print this message
+
+  --install=PATH           set dir for install library
+                           [/usr/local/lib/vapoursynth]
+  --cc=CC                  use a defined compiler for compilation and linking
+                           [gcc]
+  --target-os=OS           build programs to run on OS [auto]
+  --cross-prefix=PREFIX    use PREFIX for compilation tools [none]
+  --sysroot=DIR            specify toolchain's directory [none]
+  --enable-debug           compile with debug symbols and never strip
+
+  --extra-cflags=XCFLAGS   add XCFLAGS to CFLAGS
+  --extra-ldflags=XLDFLAGS add XLDFLAGS to LDFLAGS
+
+EOF
+exit 1
+fi
+
+error_exit()
+{
+    echo error: $1
+    exit 1
+}
+
+log_echo()
+{
+    echo $1
+    echo >> config.log
+    echo ---------------------------------- >> config.log
+    echo $1 >> config.log
+}
+
+cc_check()
+{
+    echo 'int main(void){return 0;}' > conftest.c
+    echo "$CC conftest.c $1 $2 -o conftest" >> config.log
+    $CC conftest.c $1 $2 -o conftest 2> /dev/null
+    ret=$?
+    echo $ret >> config.log
+    rm -f conftest*
+    return $ret
+}
+
+rm -f config.* conftest* .depend
+SRCDIR="$(cd $(dirname $0); pwd)"
+test "$SRCDIR" = "$(pwd)" && SRCDIR=.
+test -n "$(echo $SRCDIR | grep ' ')" && \
+    error_exit "out-of-tree builds are impossible with whitespace in source path"
+
+echo
+echo generating config.mak ...
+echo
+
+echo 
+libdir="/usr/local/lib/vapoursynth"
+TARGET_OS=""
+CROSS=""
+SYSROOT=""
+CC="gcc"
+LD="gcc"
+STRIP="strip"
+DEBUG=""
+LIBNAME=""
+CFLAGS="-Wshadow -Wall -Wextra -Wno-unused-parameter -std=gnu99 -msse2 -I. -I$SRCDIR"
+LDFLAGS="-shared"
+
+echo all command lines: > config.log
+echo "$*" >> config.log
+
+for opt; do
+    optarg="${opt#*=}"
+    case "$opt" in
+        --cc=*)
+            CC="$optarg"
+            LD="$optarg"
+            ;;
+        --target-os=*)
+            TARGET_OS="$optarg"
+            ;;
+        --cross-prefix=*)
+            CROSS="$optarg"
+            ;;
+        --sysroot=*)
+            CFLAGS="$CFLAGS --sysroot=$optarg"
+            LDFLAGS="$LDFLAGS --sysroot=$optarg"
+            ;;
+        --enable-debug)
+            DEBUG="enabled"
+            ;;
+        --extra-cflags=*)
+            XCFLAGS="$optarg"
+            ;;
+        --extra-ldflags=*)
+            XLDFLAGS="$optarg"
+            ;;
+        --install=*)
+            libdir="$optarg"
+            ;;
+        *)
+            error_exit "unknown option $opt"
+            ;;
+    esac
+done
+
+CC="${CROSS}${CC}"
+LD="${CROSS}${LD}"
+STRIP="${CROSS}${STRIP}"
+for f in "$CC" "$LD" "$STRIP"; do
+    test -n "$(which $f 2> /dev/null)" || error_exit "$f is not executable"
+done
+test -n "$DEBUG" && STRIP=""
+
+if test -n "$TARGET_OS"; then
+    TARGET_OS=$(echo $TARGET_OS | tr '[A-Z]' '[a-z]')
+else
+    TARGET_OS=$($CC -dumpmachine | tr '[A-Z]' '[a-z]')
+fi
+case "$TARGET_OS" in
+    *mingw*)
+        LIBNAME="combmask.dll"
+        LDFLAGS="$LDFLAGS -Wl,--dll,--add-stdcall-alias"
+        ;;
+    *linux*)
+        LIBNAME="libcombmask.so"
+        CFLAGS="$CFLAGS -fPIC"
+        LDFLAGS="-fPIC $LDFLAGS"
+        ;;
+    *darwin*)
+        LIBNAME="libcombmask.dylib"
+        test -n "$STRIP" && STRIP="$STRIP -x"
+        LDFLAGS="$LDFLAGS -dynamiclib -Wl,-undefined,suppress -Wl,-read_only_relocs,suppress -Wl,-flat_namespace"
+        echo "The autor has no Mac environment. Thus, this script has not tested. May the force be with you."
+        ;;
+    *)
+        error_exit "target is unsupported system."
+        ;;
+esac
+
+log_echo "CFLAGS/LDFLAGS checking..."
+
+CFLAGS="$CFLAGS $XCFLAGS"
+LDFLAGS="$LDFLAGS -L. $XLDFLAGS"
+
+if test -n "$DEBUG"; then
+    CFLAGS="$CFLAGS -g3 -O0"
+else
+    CFLAGS="-Os -g0 -ffast-math -fomit-frame-pointer -fno-zero-initialized-in-bss $CFLAGS"
+fi
+
+if ! cc_check "$CFLAGS" "$LDFLAGS"; then
+    error_exit "invalid CFLAGS/LDFLAGS"
+fi
+
+if cc_check "-march=i686 -mfpmath=sse $CFLAGS" "$LDFLAGS"; then
+    CFLAGS="-march=i686 -mfpmath=sse $CFLAGS"
+fi
+
+if cc_check "$CFLAGS -fexcess-precision=fast" "$LDFLAGS"; then
+    CFLAGS="$CFLAGS -fexcess-precision=fast"
+fi
+
+cat >> config.mak << EOF
+SRCDIR = $SRCDIR
+CC = $CC
+LD = $LD
+STRIP = $STRIP
+LIBNAME = $LIBNAME
+CFLAGS = $CFLAGS
+LDFLAGS = $LDFLAGS
+libdir = $libdir
+EOF
+
+cat >> config.log << EOF
+---------------------------------
+    setting
+---------------------------------
+EOF
+cat config.mak >> config.log
+
+test "$SRCDIR" = "." || ln -sf $SRCDIR/GNUmakefile .
+
+echo configure finished
+exit 0
