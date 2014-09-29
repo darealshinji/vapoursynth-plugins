@@ -1,0 +1,19 @@
+WWXD is basically Xvid's frame type decision code stuffed into a VapourSynth
+plugin.
+
+The output is somewhat different from Scxvid's, because Xvid's decisions are
+also affected by data calculated while encoding frames. WWXD may miss more
+scene changes than Scxvid. It may also detect some that Scxvid missed.
+
+WWXD is considerably faster than Scxvid, possibly about six times.
+
+There is no log file. Instead, the frames are tagged with the property
+"SceneChange" (1 or 0).
+
+The license is the same as Xvid's, i.e. GPL2.
+
+To compile:
+gcc -o libwwxd.so -fPIC -shared -O2 -Wall -Wextra -Wno-unused-parameter $(pkg-config --cflags vapoursynth) src/wwxd.c src/detection.c
+
+To use:
+core.wwxd.WWXD(clip=src)
