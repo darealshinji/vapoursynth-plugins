@@ -1,4 +1,4 @@
-Build dependencies: dh-autoreconf libvapoursynth-dev libavformat-dev libavcodec-dev libxvidcore-dev yasm
+Build dependencies: dh-autoreconf execstack libvapoursynth-dev libavutil-dev libavformat-dev libavcodec-dev libxvidcore-dev yasm
 
 Plugin versions:
 d2vsource beta7
