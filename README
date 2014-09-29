@@ -1,0 +1,24 @@
+Build dependencies: dh-autoreconf libvapoursynth-dev libavformat-dev libavcodec-dev libxvidcore-dev yasm
+
+Plugin versions:
+d2vsource beta7
+bifrost 2.2
+combmask 0.0.1
+convo2d 0.2.0
+fieldhint 1.0
+fillborders 1.0
+fluxsmooth 1.0
+genericfilters 1.0.0
+histogram 1.0
+msmoosh 1.1
+mvtools 2.0
+nnedi3 2.1
+scrawl 1.0+git20131016
+scxvid git20121203
+ssiq 1.0
+tcomb 1.0
+temporalsoften 1.0
+videoscope 1.0
+wwxd 1.0
+vautodeint git20130608
+vsrawsource git20130731
