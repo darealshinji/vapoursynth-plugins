@@ -23,7 +23,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 
 #include "VapourSynth.h"
 #include "VSHelper.h"
@@ -108,7 +107,7 @@ metricFuncType *metricFuncArray;
 
 static char VS_CC metricWay1(uint8_t a,uint8_t b,uint8_t c,uint8_t d,uint8_t e,int cthresh){
   int d1=c-b,d2=c-d;
-  if((d1>cthresh)&&(d2>cthresh)||(d1<-cthresh)&&(d2<-cthresh))
+  if(((d1>cthresh)&&(d2>cthresh))||((d1<-cthresh)&&(d2<-cthresh)))
     if(abs(a+(c<<2)+e+3*(b+d))>cthresh*6)
       return PIXEL_COMBED;
   return PIXEL_UNCOMBED;
@@ -165,7 +164,8 @@ static const VSFrameRef *VS_CC IsCombedTIVTCGetFrame(int n,int activationReason,
   
   for(y=0;y<height;y++){
     res[y]=(char *)malloc(sizeof(char)*width);
-    memset(res[y],0,sizeof(res[y]));
+    int sizeof_res_y = sizeof(res[y]);
+    memset(res[y],0,sizeof_res_y);
   }
   for(x=0;x<width;x++)
     res[0][x]=metricFunc(srcpnn[x],srcpn[x],srcp[x],srcpn[x],srcpnn[x],cthresh);
@@ -276,12 +276,12 @@ void VS_CC IsCombedTIVTCCreate(const VSMap *in,VSMap *out,void *userData,VSCore 
   data->blockx=(int)vsapi->propGetInt(in,"blockx",0,&err);
   if(err!=0)
     data->blockx=BLOCKX_DEFAULT;
-  FAIL_IF_ERROR((data->blockx<4)||(data->blockx>2048)||(lowbit(data->blockx)!=(data->blockx)),"undefined blockx value");
+  FAIL_IF_ERROR((data->blockx<4)||(data->blockx>2048)||((lowbit(data->blockx))!=(data->blockx)),"undefined blockx value");
   
   data->blocky=(int)vsapi->propGetInt(in,"blocky",0,&err);
   if(err!=0)
     data->blocky=BLOCKY_DEFAULT;
-  FAIL_IF_ERROR((data->blocky<4)||(data->blocky>2048)||(lowbit(data->blocky)!=(data->blocky)),"undefined blocky value");
+  FAIL_IF_ERROR((data->blocky<4)||(data->blocky>2048)||((lowbit(data->blocky))!=(data->blocky)),"undefined blocky value");
   
   data->MI=(int)vsapi->propGetInt(in,"MI",0,&err);
   if(err!=0)
