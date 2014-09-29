@@ -24,7 +24,7 @@ Usage
 =====
 ::
 
-   vscope.Scope(clip clip[, string mode="both", bint tickmarks=1, string side="Y", string bottom="Y", string corner="blank")
+   vscope.Scope(clip clip[, string mode="both", bint tickmarks=1, string side="Y", string bottom="Y", string corner="blank"])
 
 mode
    "side"
