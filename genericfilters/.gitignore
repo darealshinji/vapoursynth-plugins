@@ -1,9 +1,0 @@
-*.dll
-*.so
-*.dylib
-*.o
-.depend
-config.mak
-*.py
-*.vpy
-*.avs
