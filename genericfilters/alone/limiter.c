@@ -32,7 +32,8 @@ static void VS_CC set_lut(alone_t *ah, int min, int max)
     int i = 0;
     while (i < min) lut[i++] = min;
     for (; i < max; i++) lut[i] = i;
-    while (i < size) lut[i++] = max;
+    int size_ = size;
+    while (i < size_) lut[i++] = max;
 }
 
 

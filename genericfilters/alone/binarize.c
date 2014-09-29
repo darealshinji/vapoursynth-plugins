@@ -31,7 +31,8 @@ static void VS_CC set_lut(alone_t *ah, int thresh, uint16_t val0, uint16_t val1)
 
     int i = 0;
     while (i < thresh) lut[i++] = val0;
-    while (i < size) lut[i++] = val1;
+    int size_ = size;
+    while (i < size_) lut[i++] = val1;
 }
 
 

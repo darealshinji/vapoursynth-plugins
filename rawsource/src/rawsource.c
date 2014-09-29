@@ -624,7 +624,7 @@ static const char * VS_CC check_args(rs_hnd_t *rh, vs_args_t *va)
         { "P016",      2, 2, 2, 2, 0, { 0, 1, 2, 9 }, pfYUV420P16, write_px1x_frame    },
         { "P210",      2, 1, 2, 2, 0, { 0, 1, 2, 9 }, pfYUV422P16, write_px1x_frame    },
         { "P216",      2, 1, 2, 2, 0, { 0, 1, 2, 9 }, pfYUV422P16, write_px1x_frame    },
-        { rh->src_format, 0 }
+        { rh->src_format, 0, 0, 0, 0, 0, { 0, 0, 0, 0 }, 0, 0 }
     };
 
     int i = 0;

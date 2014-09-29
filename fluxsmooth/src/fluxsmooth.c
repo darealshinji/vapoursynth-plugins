@@ -35,16 +35,18 @@ extern void fluxsmooth_temporal_uint8_sse2(const uint8_t *srcpp, const uint8_t *
 extern void fluxsmooth_temporal_uint16_sse2(const uint8_t *srcpp, const uint8_t *srccp, const uint8_t *srcnp, uint8_t *dstp, intptr_t width, intptr_t height, intptr_t stride, intptr_t threshold);
 
 
+/*
 static void fluxsmooth_temporal_uint8_c(const uint8_t *srcpp, const uint8_t *srccp, const uint8_t *srcnp, uint8_t *dstp, int width, int height, int stride, int threshold) {
    int x, y;
    int16_t magic_numbers[] = { 0, 32767, 16384, 10923 };
+*/
    /* Calculated thusly:
    magic_numbers[1] = 32767;
    for (int i = 2; i < 4; i++) {
       magic_numbers[i] = (int16_t)(32768.0 / i + 0.5);
    }
    */
-
+/*
    for (y = 0; y < height; y++) {
       for (x = 0; x < width; x++) {
          uint8_t prev = srcpp[x];
@@ -82,8 +84,10 @@ static void fluxsmooth_temporal_uint8_c(const uint8_t *srcpp, const uint8_t *src
       dstp += stride;
    }
 }
+*/
 
 
+/*
 static void fluxsmooth_temporal_uint16_c(const uint8_t *srcpp, const uint8_t *srccp, const uint8_t *srcnp, uint8_t *dstp, int width, int height, int stride, int threshold) {
    int x, y;
    int magic_numbers[] = { 0, 262144, 131072, 87381 };
@@ -122,6 +126,7 @@ static void fluxsmooth_temporal_uint16_c(const uint8_t *srcpp, const uint8_t *sr
       dstp += stride;
    }
 }
+*/
 
 
 static const VSFrameRef *VS_CC fluxSmoothTGetFrame(int n, int activationReason, void **instanceData, void **frameData, VSFrameContext *frameCtx, VSCore *core, const VSAPI *vsapi) {
