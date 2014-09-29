@@ -12,8 +12,6 @@ endif
 install = install -m644 -D
 install_DIR = install -m755 -d
 
-extra_FLAGS = -I/usr/include/vapoursynth
-
 CLEANFILES = \
 	aclocal.m4 \
 	compile \
