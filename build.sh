@@ -4,7 +4,7 @@ pkgname="vapoursynth-extra-plugins"
 
 if test x"$1" = x"-h" -o x"$1" = x"--help" ; then
 cat << EOF
-Usage: ./configure [options]
+Usage: $0 [options]
 
 options:
   -h, --help               print this message
@@ -16,14 +16,6 @@ options:
 EOF
 exit 1
 fi
-
-execstack=""
-which execstack >/dev/null
-if test $(echo $?) -ne 0 ; then
-    echo "execstack not found!"
-    exit 1
-fi
-execstack=$(which execstack)
 
 for opt; do
     optarg="${opt#*=}"
@@ -46,19 +38,14 @@ test -n "$prefix" || prefix="/usr/local"
 test -n "$libdir" || libdir="\${prefix}/lib"
 test -n "$docdir" || docdir="\${prefix}/share/doc/${pkgname}"
 
-rm -f Makefile
-cat >> Makefile << EOF
+rm -f config.mak
+cat >> config.mak << EOF
 prefix = $prefix
 libdir = $libdir
 docdir = $docdir
-execstack = $execstack
 EOF
-cat Makefile.in >> Makefile
 
-echo "prefix = $prefix"
-echo "libdir = $libdir"
-echo "docdir = $docdir"
-echo "execstack = $execstack"
+cat config.mak
 echo "Now run 'make && make install'"
 
 exit 0

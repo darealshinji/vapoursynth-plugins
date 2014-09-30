@@ -4,6 +4,7 @@ Priority: optional
 Maintainer: Marshall Banana <djcj@gmx.de>
 Build-Depends:
  debhelper (>= 9),
+ dh-autoreconf,
  execstack,
  libvapoursynth-dev,
  libavformat-dev,

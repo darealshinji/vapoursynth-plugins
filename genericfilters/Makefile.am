@@ -1,4 +1,4 @@
-AM_CFLAGS = -Wall -Wextra -Wno-unused-parameter -std=gnu99 \
+AM_CFLAGS = -Wall -Wextra -Wno-unused-parameter \
 	-I./alone -I./common -I./convolution -I./neighbors -I./specific
 
 AM_CPPFLAGS = $(VapourSynth_CFLAGS)

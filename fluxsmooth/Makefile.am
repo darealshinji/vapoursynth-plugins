@@ -1,3 +1,5 @@
+ACLOCAL_AMFLAGS = -I m4
+
 AM_CFLAGS = -Wall -Wextra -Wno-unused-parameter
 
 AM_CPPFLAGS = $(VapourSynth_CFLAGS)
@@ -9,8 +11,13 @@ BUILT_SOURCES = src/asm/fluxsmooth.o
 CLEANFILES = $(BUILT_SOURCES)
 endif
 
+AM_V_YASM = $(am__v_YASM_$(V))
+am__v_YASM_ = $(am__v_YASM_$(AM_DEFAULT_VERBOSITY))
+am__v_YASM_0 = @echo "  YASM    " $@;
+am__v_YASM_1 = 
+
 .asm.o:
-	$(AS) $(ASFLAGS) -o $@ $<
+	$(AM_V_YASM)$(AS) $(ASFLAGS) -o $@ $<
 
 libfluxsmooth_la_SOURCES = src/fluxsmooth.c
 

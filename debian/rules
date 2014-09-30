@@ -2,12 +2,17 @@
 
 export V=1
 
+DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
+
 
 %:
 	dh ${@} --parallel
 
+override_dh_auto_configure:
+	./build.sh --prefix=/usr --libdir=/usr/lib/$(DEB_HOST_MULTIARCH)
+
 override_dh_auto_clean:
-	$(MAKE) clobber || true
+	$(MAKE) clobber
 
 override_dh_install:
 	dh_install -pvapoursynth-extra-plugins -Xnnedi3

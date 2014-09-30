@@ -4,11 +4,13 @@ AC_INIT([fluxsmooth], [1], [https://github.com/dubhater/vapoursynth-fluxsmooth/i
 
 AM_INIT_AUTOMAKE([foreign no-dist-gzip dist-xz subdir-objects no-define])
 AM_SILENT_RULES([yes])
+AC_CONFIG_MACRO_DIR([m4])
 
 LT_INIT([disable-static win32-dll])
 
 AC_CANONICAL_HOST
 
+AC_PROG_CC
 AC_PROG_CC_C99
 
 AS_IF(
@@ -67,6 +69,18 @@ AS_CASE(
 AC_SUBST([ASFLAGS])
 
 PKG_CHECK_MODULES([VapourSynth], [vapoursynth])
+
+# Checks for header files.
+AC_CHECK_HEADERS([stdint.h stdlib.h string.h])
+
+# Checks for typedefs, structures, and compiler characteristics.
+AC_TYPE_INT16_T
+AC_TYPE_INT64_T
+AC_TYPE_UINT16_T
+AC_TYPE_UINT8_T
+
+# Checks for library functions.
+AC_FUNC_MALLOC
 
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT

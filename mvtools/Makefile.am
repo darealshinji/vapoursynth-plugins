@@ -1,4 +1,6 @@
-AM_CXXFLAGS = -std=c++11 -msse2 -Wall -Wextra -Wno-unused-parameter
+ACLOCAL_AMFLAGS = -I m4
+
+AM_CXXFLAGS = -Wall -Wextra -Wno-unused-parameter -std=c++11
 
 AM_CPPFLAGS = $(VapourSynth_CFLAGS)
 
@@ -15,8 +17,13 @@ BUILT_SOURCES = src/asm/const-a.o \
 				src/asm/Variance.o
 CLEANFILES = $(BUILT_SOURCES)
 
+AM_V_YASM = $(am__v_YASM_$(V))
+am__v_YASM_ = $(am__v_YASM_$(AM_DEFAULT_VERBOSITY))
+am__v_YASM_0 = @echo "  YASM    " $@;
+am__v_YASM_1 = 
+
 .asm.o:
-	$(AS) $(ASFLAGS) -o $@ $<
+	$(AM_V_YASM)$(AS) $(ASFLAGS) -o $@ $<
 
 libmvtools_la_SOURCES = src/asm-placeholder.cpp \
 						src/CopyCode.cpp \
