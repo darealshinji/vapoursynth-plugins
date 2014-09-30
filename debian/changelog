@@ -1,10 +1,10 @@
-vapoursynth-extra-plugins (2013.09.29-1~trusty) trusty; urgency=low
+vapoursynth-extra-plugins (2014.09.29-1~trusty) trusty; urgency=low
 
   * close itp bug
 
  -- Marshall Banana <djcj@gmx.de>  Mon, 29 Sep 2014 12:37:55 +0200
 
-vapoursynth (2013.09.29) UNRELEASED; urgency=low
+vapoursynth (2014.09.29) UNRELEASED; urgency=low
 
   * Initial release
 
