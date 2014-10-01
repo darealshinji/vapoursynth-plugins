@@ -1,6 +1,6 @@
 ACLOCAL_AMFLAGS = -I m4
 
-AM_CXXFLAGS = -Wall -Wextra -Wno-unused-parameter -std=c++11
+AM_CXXFLAGS = -Wall -Wextra -Wno-unused-parameter -std=c++11 -msse2
 
 AM_CPPFLAGS = $(VapourSynth_CFLAGS)
 
