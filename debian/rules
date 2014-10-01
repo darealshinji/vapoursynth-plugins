@@ -12,7 +12,7 @@ override_dh_auto_configure:
 	./build.sh --prefix=/usr --libdir=/usr/lib/$(DEB_HOST_MULTIARCH)
 
 override_dh_auto_clean:
-	$(MAKE) clobber
+	$(MAKE) clobber || true
 
 override_dh_install:
 	dh_install -pvapoursynth-extra-plugins -Xnnedi3
