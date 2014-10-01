@@ -42,7 +42,9 @@ define NL
 endef
 
 
-all: autoreconf configure
+all:
+	test -f configure || $(AUTORECONF)
+	./configure
 	$(MAKE)
 
 all-am:
@@ -71,12 +73,6 @@ clobber:
 	rm -f config.mak $(CLEANFILES)
 	rm -rf autom4te.cache */autom4te.cache
 	$(foreach FILE,$(CLEANFILES),rm -f */$(FILE) ;)
-
-autoreconf:
-	$(AUTORECONF)
-
-configure:
-	./configure
 
 config.mak:
 	./build.sh
