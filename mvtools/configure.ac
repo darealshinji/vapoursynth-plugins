@@ -20,6 +20,7 @@ if test "$lt_cv_file_magic_cmd" = "func_win32_libid" ; then
     file_magic_cmd='$OBJDUMP -f'
 fi
 
+AM_CONDITIONAL([x86_64], [test "x$host_cpu" = "xx86_64"])
 
 AC_CHECK_PROGS([YASM], [yasm])
 AS_IF(

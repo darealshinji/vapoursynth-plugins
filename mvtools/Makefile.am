@@ -6,6 +6,7 @@ AM_CPPFLAGS = $(VapourSynth_CFLAGS)
 
 lib_LTLIBRARIES = libmvtools.la
 
+if x86_64
 BUILT_SOURCES = src/asm/const-a.o \
 				src/asm/cpu-a.o \
 				src/asm/pixel-a.o \
@@ -16,6 +17,7 @@ BUILT_SOURCES = src/asm/const-a.o \
 				src/asm/Overlap.o \
 				src/asm/Variance.o
 CLEANFILES = $(BUILT_SOURCES)
+endif
 
 AM_V_YASM = $(am__v_YASM_$(V))
 am__v_YASM_ = $(am__v_YASM_$(AM_DEFAULT_VERBOSITY))
@@ -51,19 +53,12 @@ libmvtools_la_SOURCES = src/asm-placeholder.cpp \
 						src/Overlap.cpp \
 						src/Padding.cpp \
 						src/PlaneOfBlocks.cpp \
-						src/SimpleResize.cpp \
-						src/asm/const-a.asm \
-						src/asm/cpu-a.asm \
-						src/asm/pixel-a.asm \
-						src/asm/sad-a.asm \
-						src/asm/CopyCode.asm \
-						src/asm/Interpolation.asm \
-						src/asm/MVDegrains.asm \
-						src/asm/Overlap.asm \
-						src/asm/Variance.asm
+						src/SimpleResize.cpp
 
-libmvtools_la_LDFLAGS = -no-undefined -avoid-version \
-						-Xlinker src/asm/const-a.o \
+libmvtools_la_LDFLAGS = -no-undefined -avoid-version
+
+if x86_64
+libmvtools_la_LDFLAGS += -Xlinker src/asm/const-a.o \
 						-Xlinker src/asm/cpu-a.o \
 						-Xlinker src/asm/pixel-a.o \
 						-Xlinker src/asm/sad-a.o \
@@ -73,4 +68,15 @@ libmvtools_la_LDFLAGS = -no-undefined -avoid-version \
 						-Xlinker src/asm/Overlap.o \
 						-Xlinker src/asm/Variance.o
 
+libmvtools_la_SOURCES += src/asm/const-a.asm \
+						src/asm/cpu-a.asm \
+						src/asm/pixel-a.asm \
+						src/asm/sad-a.asm \
+						src/asm/CopyCode.asm \
+						src/asm/Interpolation.asm \
+						src/asm/MVDegrains.asm \
+						src/asm/Overlap.asm \
+						src/asm/Variance.asm
+
 libmvtools_la_DEPENDENCIES = $(BUILT_SOURCES)
+endif
