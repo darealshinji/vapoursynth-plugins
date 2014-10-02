@@ -48,7 +48,7 @@ Deactivate this patch on Ubuntu 14.10 or higher
          av_freep(&data->frame);
          free(data);
          return;
-@@ -232,14 +229,13 @@
+@@ -232,7 +229,7 @@
              vsapi->freeMap(ret);
              d2vfreep(&data->d2v);
              decodefreep(&data->dec);
@@ -57,13 +57,6 @@ Deactivate this patch on Ubuntu 14.10 or higher
              av_freep(&data->frame);
              free(data);
              return;
-         }
- 
-         after = vsapi->propGetNode(ret, "clip", 0, NULL);
--
-         vsapi->propSetNode(out, "clip", after, paReplace);
-         vsapi->freeNode(after);
-         vsapi->freeMap(ret);
 --- a/d2vsource/src/decode.cpp
 +++ b/d2vsource/src/decode.cpp
 @@ -230,9 +230,6 @@
