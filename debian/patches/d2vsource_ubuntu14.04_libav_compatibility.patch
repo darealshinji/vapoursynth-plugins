@@ -1,0 +1,183 @@
+Deactivate this patch on Ubuntu 14.10 or higher
+
+--- a/d2vsource/src/applyrff.cpp
++++ b/d2vsource/src/applyrff.cpp
+@@ -24,7 +24,6 @@
+ #include <stdint.h>
+ #include <stdlib.h>
+ }
+-
+ #include <algorithm>
+ 
+ #include <VapourSynth.h>
+--- a/d2vsource/src/d2vsource.cpp
++++ b/d2vsource/src/d2vsource.cpp
+@@ -47,9 +47,6 @@
+     string msg;
+     int ret;
+ 
+-    /* Unreference the previously decoded frame. */
+-    av_frame_unref(d->frame);
+-
+     ret = decodeframe(n, d->d2v, d->dec, d->frame, msg);
+     if (ret < 0) {
+         vsapi->setFilterError(msg.c_str(), frameCtx);
+@@ -87,7 +84,6 @@
+     d2vData *d = (d2vData *) instanceData;
+     d2vfreep(&d->d2v);
+     decodefreep(&d->dec);
+-    av_frame_unref(d->frame);
+     av_freep(&d->frame);
+     free(d);
+ }
+@@ -138,7 +134,8 @@
+      * set our custom get/release_buffer funcs.
+      */
+     data->dec->avctx->opaque         = (void *) data;
+-    data->dec->avctx->get_buffer2    = VSGetBuffer;
++    data->dec->avctx->get_buffer     = VSGetBuffer;
++    data->dec->avctx->release_buffer = VSReleaseBuffer;
+ 
+     /* Last frame is crashy right now. */
+     data->vi.numFrames = data->d2v->frames.size();
+@@ -158,7 +155,7 @@
+     data->aligned_width  = FFALIGN(data->vi.width, 16);
+     data->aligned_height = FFALIGN(data->vi.height, 32);
+ 
+-    data->frame = av_frame_alloc();
++    data->frame = avcodec_alloc_frame();
+     if (!data->frame) {
+         vsapi->setError(out, "Cannot allocate AVFrame.");
+         d2vfreep(&data->d2v);
+@@ -179,7 +176,7 @@
+         vsapi->setError(out, msg.c_str());
+         d2vfreep(&data->d2v);
+         decodefreep(&data->dec);
+-        av_frame_unref(data->frame);
++        avcodec_get_frame_defaults(data->frame);
+         av_freep(&data->frame);
+         free(data);
+         return;
+@@ -232,14 +229,13 @@
+             vsapi->freeMap(ret);
+             d2vfreep(&data->d2v);
+             decodefreep(&data->dec);
+-            av_frame_unref(data->frame);
++            avcodec_get_frame_defaults(data->frame);
+             av_freep(&data->frame);
+             free(data);
+             return;
+         }
+ 
+         after = vsapi->propGetNode(ret, "clip", 0, NULL);
+-
+         vsapi->propSetNode(out, "clip", after, paReplace);
+         vsapi->freeNode(after);
+         vsapi->freeMap(ret);
+--- a/d2vsource/src/decode.cpp
++++ b/d2vsource/src/decode.cpp
+@@ -230,9 +230,6 @@
+      */
+     ret->avctx->flags |= CODEC_FLAG_EMU_EDGE;
+ 
+-    /* Use refcounted frames. */
+-    ret->avctx->refcounted_frames = 1;
+-
+     /* Open it. */
+     av_ret = avcodec_open2(ret->avctx, ret->incodec, NULL);
+     if (av_ret < 0) {
+@@ -498,10 +495,6 @@
+                 av_read_frame(dctx->fctx, &dctx->inpkt);
+             } while(dctx->inpkt.stream_index != dctx->stream_index);
+         }
+-
+-        /* Unreference all but the last frame. */
+-        if (j != o)
+-            av_frame_unref(out);
+     }
+ 
+     /*
+--- a/d2vsource/src/directrender.cpp
++++ b/d2vsource/src/directrender.cpp
+@@ -33,9 +33,9 @@
+ #include <VapourSynth.h>
+ #include <VSHelper.h>
+ 
+-int VSGetBuffer(AVCodecContext *avctx, AVFrame *pic, int flag)
++int VSGetBuffer(AVCodecContext *avctx, AVFrame *pic)
+ {
+-    VSData *userdata;
++    VSFrameRef *vs_frame;
+     d2vData *data = (d2vData *) avctx->opaque;
+     int i;
+ 
+@@ -53,15 +53,10 @@
+         data->format_set = true;
+     }
+ 
+-    userdata = new VSData;
+-    userdata->d2v      = (d2vData *) avctx->opaque;
+-    userdata->vs_frame = data->api->newVideoFrame(data->vi.format, data->aligned_width, data->aligned_height, NULL, data->core);
+-
+-    pic->buf[0] = av_buffer_create(NULL, 0, VSReleaseBuffer, userdata, 0);
+-    if (!pic->buf[0])
+-        return -1;
++    vs_frame = data->api->newVideoFrame(data->vi.format, data->aligned_width, data->aligned_height, NULL, data->core);
+ 
+-    pic->opaque              = (void *) userdata->vs_frame;
++    pic->opaque              = (void *) vs_frame;
++    pic->type                = FF_BUFFER_TYPE_USER;
+     pic->extended_data       = pic->data;
+     pic->width               = data->aligned_width;
+     pic->height              = data->aligned_height;
+@@ -69,17 +64,25 @@
+     pic->sample_aspect_ratio = avctx->sample_aspect_ratio;
+ 
+     for(i = 0; i < data->vi.format->numPlanes; i++) {
+-        pic->data[i]     = data->api->getWritePtr(userdata->vs_frame, i);
+-        pic->linesize[i] = data->api->getStride(userdata->vs_frame, i);
++        pic->base[i]     = data->api->getWritePtr(vs_frame, i);
++        pic->data[i]     = pic->base[i];
++        pic->linesize[i] = data->api->getStride(vs_frame, i);
+     }
+ 
+     return 0;
+ }
+ 
+-void VSReleaseBuffer(void *opaque, uint8_t *data)
++void VSReleaseBuffer(AVCodecContext *avctx, AVFrame *pic)
+ {
+-    VSData *userdata = (VSData *) opaque;
++    VSFrameRef *vs_frame = (VSFrameRef *) pic->opaque;
++    d2vData *data = (d2vData *) avctx->opaque;
++    int i;
++
++    for(i = 0; i < data->vi.format->numPlanes; i++) {
++        pic->base[i]     = NULL;
++        pic->data[i]     = NULL;
++        pic->linesize[i] = 0;
++    }
+ 
+-    userdata->d2v->api->freeFrame(userdata->vs_frame);
+-    delete userdata;
++    data->api->freeFrame(vs_frame);
+ }
+--- a/d2vsource/src/directrender.hpp
++++ b/d2vsource/src/directrender.hpp
+@@ -27,14 +27,7 @@
+ #include <libavcodec/avcodec.h>
+ }
+ 
+-#include "d2v.hpp"
+-
+-typedef struct VSData {
+-    VSFrameRef *vs_frame;
+-    d2vData *d2v;
+-} VSData;
+-
+-int VSGetBuffer(AVCodecContext *avctx, AVFrame *pic, int flag);
+-void VSReleaseBuffer(void *opaque, uint8_t *data);
++int VSGetBuffer(AVCodecContext *avctx, AVFrame *pic);
++void VSReleaseBuffer(AVCodecContext *avctx, AVFrame *pic);
+ 
+ #endif
