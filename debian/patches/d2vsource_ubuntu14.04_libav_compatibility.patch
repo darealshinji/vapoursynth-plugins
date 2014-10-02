@@ -1,15 +1,5 @@
 Deactivate this patch on Ubuntu 14.10 or higher
 
---- a/d2vsource/src/applyrff.cpp
-+++ b/d2vsource/src/applyrff.cpp
-@@ -24,7 +24,6 @@
- #include <stdint.h>
- #include <stdlib.h>
- }
--
- #include <algorithm>
- 
- #include <VapourSynth.h>
 --- a/d2vsource/src/d2vsource.cpp
 +++ b/d2vsource/src/d2vsource.cpp
 @@ -47,9 +47,6 @@
