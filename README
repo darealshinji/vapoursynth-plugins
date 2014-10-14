@@ -1,47 +1,70 @@
 Build dependencies: dh-autoreconf execstack libvapoursynth-dev libavutil-dev libavformat-dev libavcodec-dev libxvidcore-dev yasm
 
 Plugin versions:
-d2vsource beta7
+addgrain 0+r2
 bifrost 2.2
 combmask 0.0.1
 convo2d 0.2.0
+ctmf 0+r1
+d2vsource beta7
+deblock 0+r2+git20141004
+delogo 0.11+git20141008
+eedi2 0+r3
 fieldhint 1.0
 fillborders 1.0
 fluxsmooth 1.0
 genericfilters 1.0.0
 histogram 1.0
+it 1.0
 msmoosh 1.1
 mvtools 2.0
 nnedi3 2.1
+sangnommod 0.1+20141011
+scenechange 0.2.0
 scrawl 1.0+git20131016
 scxvid git20121203
 ssiq 1.0
 tcomb 1.0
+templinearapproximate 0+r2
 temporalsoften 1.0
+temporalsoften2 0.1.1
 videoscope 1.0
-wwxd 1.0
 vautodeint git20130608
 vsrawsource git20130731
+wwxd 1.0
+yadifmod 0+r5
 
 Sources:
+https://github.com/HomeOfVapourSynthEvolution/VapourSynth-AddGrain
 https://github.com/dubhater/vapoursynth-bifrost
 https://github.com/chikuzen/CombMask
 https://github.com/chikuzen/convo2d
+https://github.com/HomeOfVapourSynthEvolution/VapourSynth-CTMF
 https://github.com/dwbuiten/d2vsource
+https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Deblock
+https://github.com/HomeOfVapourSynthEvolution/VapourSynth-DeLogo
+https://github.com/HomeOfVapourSynthEvolution/VapourSynth-EEDI2
 https://github.com/dubhater/vapoursynth-fieldhint
 https://github.com/dubhater/vapoursynth-fillborders
 https://github.com/dubhater/vapoursynth-fluxsmooth
 https://github.com/chikuzen/GenericFilters
 https://github.com/dubhater/vapoursynth-histogram
+https://github.com/HomeOfVapourSynthEvolution/VapourSynth-IT
 https://github.com/dubhater/vapoursynth-msmoosh
 https://github.com/dubhater/vapoursynth-mvtools
 https://github.com/dubhater/vapoursynth-nnedi3
 https://github.com/chikuzen/vsrawsource
+https://github.com/HomeOfVapourSynthEvolution/VapourSynth-SangNomMod
 https://github.com/dubhater/vapoursynth-scrawl
 https://github.com/dubhater/vapoursynth-scxvid
 https://github.com/dubhater/vapoursynth-ssiq
 https://github.com/dubhater/vapoursynth-tcomb
+https://bitbucket.org/mystery_keeper/templinearapproximate-vapoursynth
 https://github.com/dubhater/vapoursynth-temporalsoften
 https://github.com/gnaggnoyil/VAutoDeint
 https://github.com/dubhater/vapoursynth-videoscope
 https://github.com/dubhater/vapoursynth-wwxd
+https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Yadifmod
+http://forum.doom9.org/showthread.php?t=166769 (scenechange/temporalsoften2)
+
+

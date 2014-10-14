@@ -1,12 +1,47 @@
 Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 
-Files: combmask/* convo2d/* genericfilters/* rawsource/*
+Files: addgrain/*
+Copyright: 2002 Tom Barry
+           2006-2010 Foxyshadis <foxyshadis@hotmail.com>
+		   2010-2012 Firesledge
+		   2011 LaTo INV.
+		   2014 HolyWu
+License: GPL-2+
+
+Files: ctmf/*
+Copyright: 2006 Simon Perreault
+           2014 HolyWu
+License: GPL-2+
+
+Files: combmask/* convo2d/* genericfilters/* rawsource/* scenechange/* temporalsoften2/*
 Copyright: 2012-2013 Oka Motofumi
 License: LGPL-2.1
 
 Files: d2vsource/*
 Copyright: 2012-2014 Derek Buitenhuis
 License: LGPL-2.1
+
+Files: deblock/*
+Copyright: 2004 Manao
+           2006 Alexander Balakhnin
+           2014 HolyWu
+License: GPL-2+
+
+Files: delogo/*
+Copyright: 2003 MakKi
+           2014 msg7086
+License: GPL-2+
+
+Files: eedi2/*
+Copyright: 2005-2006 Kevin Stone
+           2014 HolyWu
+License: GPL-2+
+
+Files: it/*
+Copyright: 2002 thejam79
+           2003 minamina
+           2014 msg7086
+License: GPL-2+
 
 Files: msmoosh/* mvtools/* nnedi3/* tcomb/*
 Copyright: 2012-2014 dubhater
@@ -25,6 +60,10 @@ Copyright: 2005-2012 x264 project
            Henrik Gramner <hengar-6@student.ltu.se>
 License: ISC
 
+Files: sangnommod/*
+Copyright: 2014 msg7086
+License: GPL-2+
+
 Files: scrawl/* videoscope/*
 Copyright: 2013 dubhater
 License: WTFPL
@@ -32,6 +71,10 @@ License: WTFPL
 Files: scrawl/src/ter-116n.h
 Copyright: 2012 Dimitar Toshkov Zhekov
 License: OFL
+
+Files: templinearapproximate/*
+Copyright: 2014 Aleksey Lyashin <mystkeeper@gmail.com>
+License: MIT
 
 Files: vautodeint
 Copyright: 2013 Acfun
@@ -41,6 +84,17 @@ License: GPL-3+
 Files: wwxd/*
 Copyright: 2014 dubhater
 License: GPL-2+
+
+Files: yadifmod/*
+Copyright: 2007 Kevin Stone
+           2007 Alexander G. Balakhnin
+           2006 Michael Niedermayer <michaelni@gmx.at>
+           2014 HolyWu
+License: GPL-2+
+
+Files: yadifmod/src/vectorclass/*
+Copyright: 2012-2014 Agner Fog
+License: GPL-3+
 
 Files: debian/*
 Copyright: 2014 djcj <djcj@gmx.de>

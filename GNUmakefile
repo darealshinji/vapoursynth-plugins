@@ -36,6 +36,11 @@ CLEANFILES = \
 
 execstack_LIBS = fluxsmooth nnedi3 tcomb
 
+python_SCRIPTS = \
+	vautodeint/VAutoDeint.py \
+	temporalsoften2/TemporalSoften2.py \
+	templinearapproximate/MCDenoise.py
+
 define NL
 
 
@@ -54,7 +59,7 @@ install:
 	$(install_DIR) $(DESTDIR)$(docdir)
 	$(foreach LIB,$(shell echo */.libs/*.so),$(install) $(LIB) $(DESTDIR)$(plugins) $(NL))
 	$(foreach LIB,$(execstack_LIBS),execstack --clear-execstack $(DESTDIR)$(plugins)/lib$(LIB).so $(NL))
-	$(install) vautodeint/VAutoDeint.py $(DESTDIR)$(plugins)
+	$(foreach SCRIPT,$(python_SCRIPTS),$(install) $(SCRIPT) $(DESTDIR)$(plugins) $(NL))
 	$(install) README $(DESTDIR)$(docdir)
 	$(install) rawsource/format_list.txt $(DESTDIR)$(docdir)/rawsource_format_list
 	$(foreach FILE,$(shell echo */readme* */README*), \

@@ -86,23 +86,34 @@ AC_FUNC_MALLOC
 AC_CHECK_FUNCS([floor memset pow sqrt strcasecmp strchr strspn strtoul])
 
 AC_CONFIG_FILES([Makefile \
+                 addgrain/Makefile \
                  bifrost/Makefile \
                  combmask/Makefile \
                  convo2d/Makefile \
+                 ctmf/Makefile \
                  d2vsource/Makefile \
+                 deblock/Makefile \
+                 delogo/Makefile \
+                 eedi2/Makefile \
                  fieldhint/Makefile \
                  fillborders/Makefile \
                  genericfilters/Makefile \
                  histogram/Makefile \
+                 it/Makefile \
                  msmoosh/Makefile \
                  rawsource/Makefile \
+                 sangnommod/Makefile \
+                 scenechange/Makefile \
                  scrawl/Makefile \
                  scxvid/Makefile \
                  ssiq/Makefile \
+                 templinearapproximate/Makefile \
                  temporalsoften/Makefile \
+                 temporalsoften2/Makefile \
                  vautodeint/Makefile \
                  videoscope/Makefile \
-                 wwxd/Makefile
+                 wwxd/Makefile \
+                 yadifmod/Makefile
                  ])
 AC_CONFIG_SUBDIRS([fluxsmooth
                    mvtools
