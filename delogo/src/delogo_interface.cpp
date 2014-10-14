@@ -87,7 +87,7 @@ logoCreate(const VSMap *in, VSMap *out, void *userData, VSCore *core, const VSAP
 			d = new delogo(vsapi, vi, node, logofile, logoname, pos_x, pos_y, depth, yc_y, yc_u, yc_v, start, end, fadein, fadeout, cutoff, mode);
 		}
 		catch (const char *err) {
-			snprintf(msg_buff, 200, err);
+			snprintf(msg_buff, 200, "%s", err);
 			goto fail;
 		}
 	}
