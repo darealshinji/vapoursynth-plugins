@@ -18,6 +18,3 @@ install-sh
 libtool
 ltmain.sh
 missing
-src/.deps/
-src/.dirstamp
-src/.libs/
