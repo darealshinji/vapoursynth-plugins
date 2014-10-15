@@ -25,6 +25,7 @@ scrawl 1.0+git20131016
 scxvid git20121203
 ssiq 1.0
 tcomb 1.0
+tdeintmod 0+r2
 templinearapproximate 0+r2
 temporalsoften 1.0
 temporalsoften2 0.1.1
@@ -59,6 +60,7 @@ https://github.com/dubhater/vapoursynth-scrawl
 https://github.com/dubhater/vapoursynth-scxvid
 https://github.com/dubhater/vapoursynth-ssiq
 https://github.com/dubhater/vapoursynth-tcomb
+https://github.com/HomeOfVapourSynthEvolution/VapourSynth-TDeintMod
 https://bitbucket.org/mystery_keeper/templinearapproximate-vapoursynth
 https://github.com/dubhater/vapoursynth-temporalsoften
 https://github.com/gnaggnoyil/VAutoDeint

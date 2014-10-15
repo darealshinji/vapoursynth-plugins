@@ -26,6 +26,7 @@ SUBDIRS = \
 	scxvid \
 	ssiq \
 	tcomb \
+	tdeintmod \
 	templinearapproximate \
 	temporalsoften \
 	temporalsoften2 \

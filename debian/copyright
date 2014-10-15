@@ -72,6 +72,11 @@ Files: scrawl/src/ter-116n.h
 Copyright: 2012 Dimitar Toshkov Zhekov
 License: OFL
 
+Files: tdeintmod/*
+Copyright: 2004-2007 Kevin Stone
+           2014 HolyWu
+License: GPL-2+
+
 Files: templinearapproximate/*
 Copyright: 2014 Aleksey Lyashin <mystkeeper@gmail.com>
 License: MIT

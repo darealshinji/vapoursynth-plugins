@@ -107,6 +107,7 @@ AC_CONFIG_FILES([Makefile \
                  scrawl/Makefile \
                  scxvid/Makefile \
                  ssiq/Makefile \
+                 tdeintmod/Makefile \
                  templinearapproximate/Makefile \
                  temporalsoften/Makefile \
                  temporalsoften2/Makefile \
