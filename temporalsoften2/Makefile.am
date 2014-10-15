@@ -1,4 +1,4 @@
-AM_CFLAGS = -Wall -Wextra -Wno-unused-parameter
+AM_CFLAGS = -Wall -Wextra -Wno-unused-parameter -msse2
 
 AM_CPPFLAGS = $(VapourSynth_CFLAGS)
 
