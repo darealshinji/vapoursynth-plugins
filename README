@@ -15,6 +15,7 @@ fillborders 1.0
 finesharp
 fluxsmooth 1.0
 genericfilters 1.0.0
+havsfunc 0+r11
 histogram 1.0
 it 1.0
 msmoosh 1.1
@@ -52,6 +53,7 @@ http://forum.doom9.org/showthread.php?t=166524 (finesharp)
 https://github.com/dubhater/vapoursynth-fluxsmooth
 https://github.com/chikuzen/GenericFilters
 https://github.com/dubhater/vapoursynth-histogram
+http://forum.doom9.org/showthread.php?t=166582 (havsfunc)
 https://github.com/HomeOfVapourSynthEvolution/VapourSynth-IT
 https://github.com/dubhater/vapoursynth-msmoosh
 https://github.com/dubhater/vapoursynth-mvtools
