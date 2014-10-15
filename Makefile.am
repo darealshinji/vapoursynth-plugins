@@ -15,6 +15,7 @@ SUBDIRS = \
 	fluxsmooth \
 	genericfilters \
 	histogram \
+	imagereader \
 	it \
 	msmoosh \
 	mvtools \

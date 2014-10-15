@@ -58,6 +58,9 @@ AC_SUBST([ASFLAGS])
 
 # Checks for libraries.
 AC_CHECK_LIB([m], [main])
+AC_CHECK_LIB([jpeg], [main])
+AC_CHECK_LIB([png], [main])
+AC_CHECK_LIB([z], [main])
 AC_CHECK_LIB([xvidcore], [main])
 PKG_CHECK_MODULES([VapourSynth], [vapoursynth])
 PKG_CHECK_MODULES([libavcodec], [libavcodec])
@@ -99,6 +102,7 @@ AC_CONFIG_FILES([Makefile \
                  fillborders/Makefile \
                  genericfilters/Makefile \
                  histogram/Makefile \
+                 imagereader/Makefile \
                  it/Makefile \
                  msmoosh/Makefile \
                  rawsource/Makefile \
