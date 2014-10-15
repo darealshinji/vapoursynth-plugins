@@ -49,10 +49,12 @@ endef
 
 all:
 	test -f configure || $(AUTORECONF)
-	./configure
+	test -f Makefile || ./configure
 	$(MAKE)
 
 all-am:
+clean-am:
+distclean-am:
 
 install:
 	$(install_DIR) $(DESTDIR)$(plugins)
@@ -68,7 +70,6 @@ install:
 clean:
 	$(MAKE) clean || true
 
-distclean-am:
 distclean:
 	$(MAKE) distclean || true
 	rm -f config.mak
