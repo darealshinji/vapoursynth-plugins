@@ -28,8 +28,8 @@
 #include <string.h>
 #include <stdarg.h>
 
-#include "turbojpeg.h"
-#include "VapourSynth.h"
+#include <turbojpeg.h>
+#include <VapourSynth.h>
 #include "imagereader.h"
 
 
@@ -105,7 +105,7 @@ close_handler(void *instance_data, VSCore *core, const VSAPI *vsapi)
         return;
     }
     if (ih->tjhandle && tjDestroy((tjhandle)ih->tjhandle)) {
-        fprintf(stderr, tjGetErrorStr());
+        fprintf(stderr, "%s", tjGetErrorStr());
     }
     ih->tjhandle = NULL;
     if (ih->src) {

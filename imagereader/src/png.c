@@ -25,10 +25,10 @@
 #include <stdio.h>
 #include <stdint.h>
 #ifdef ENABLE_NEW_PNG
-#include "pnglibconf.h"
-#include "pngconf.h"
+#include <pnglibconf.h>
+#include <pngconf.h>
 #endif
-#include "png.h"
+#include <png.h>
 #include "imagereader.h"
 
 #define PNG_SIG_LENGTH 8

@@ -31,7 +31,7 @@
 #include <windows.h>
 #endif
 
-#include "turbojpeg.h"
+#include <turbojpeg.h>
 #include "imagereader.h"
 
 

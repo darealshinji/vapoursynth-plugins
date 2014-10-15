@@ -32,7 +32,7 @@
 #include <windows.h>
 #endif
 
-#include "VapourSynth.h"
+#include <VapourSynth.h>
 
 #define IMG_ORDER_BGR 0x0100
 #define IMG_ORDER_RGB 0x0200
