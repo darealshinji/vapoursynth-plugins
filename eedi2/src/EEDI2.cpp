@@ -782,8 +782,8 @@ static void interpolateLattice(const uint8_t * VS_RESTRICT omskp, uint8_t * VS_R
                     continue;
                 }
             }
-            if (x > 1 && x < width - 2 && (dstp[x] < std::max(dstp[x - 2], dstp[x - 1]) - 3 && dstp[x] < std::max(dstp[x + 2], dstp[x + 1]) - 3 &&
-                                           dstpnn[x] < std::max(dstpnn[x - 2], dstpnn[x - 1]) - 3 && dstpnn[x] < std::max(dstpnn[x + 2], dstpnn[x + 1]) - 3) ||
+            if ((x > 1 && x < width - 2 && (dstp[x] < std::max(dstp[x - 2], dstp[x - 1]) - 3 && dstp[x] < std::max(dstp[x + 2], dstp[x + 1]) - 3 &&
+                                           dstpnn[x] < std::max(dstpnn[x - 2], dstpnn[x - 1]) - 3 && dstpnn[x] < std::max(dstpnn[x + 2], dstpnn[x + 1]) - 3)) ||
                                           (dstp[x] > std::min(dstp[x - 2], dstp[x - 1]) + 3 && dstp[x] > std::min(dstp[x + 2], dstp[x + 1]) + 3 &&
                                            dstpnn[x] > std::min(dstpnn[x - 2], dstpnn[x - 1]) + 3 && dstpnn[x] > std::min(dstpnn[x + 2], dstpnn[x + 1]) + 3)) {
                 dstpn[x] = (dstp[x] + dstpnn[x] + 1) >> 1;

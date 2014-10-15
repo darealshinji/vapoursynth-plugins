@@ -114,7 +114,7 @@ static inline float FastUniformRandF(AddGrainData *d) {
     // work with 32-bit IEEE floating point only!
     FastUniformRandL(d);
     unsigned long long itemp = 0x3f800000 | (0x007fffff & d->idum);
-    return *(float *)&itemp - 1.f;
+    return *(float *)itemp - 1.f;
 }
 
 static float GaussianRand(AddGrainData *d) {
