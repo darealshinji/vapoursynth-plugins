@@ -13,7 +13,9 @@ libd2vsource_la_SOURCES = \
 	src/directrender.cpp \
 	src/vapoursynth.cpp
 
-libd2vsource_la_LDFLAGS = -no-undefined -avoid-version \
+libd2vsource_la_LDFLAGS = -no-undefined -avoid-version
+
+libd2vsource_la_LIBS = \
 	$(shell pkg-config --cflags --libs libavcodec) \
 	$(shell pkg-config --cflags --libs libavformat) \
 	$(shell pkg-config --cflags --libs libavutil) \

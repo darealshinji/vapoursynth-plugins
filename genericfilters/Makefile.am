@@ -23,4 +23,6 @@ libgenericfilters_la_SOURCES = \
        alone/alone.c \
        specific/hysteresis.c           common/common.c
 
-libgenericfilters_la_LDFLAGS = -no-undefined -avoid-version  -lm
+libgenericfilters_la_LDFLAGS = -no-undefined -avoid-version
+
+libgenericfilters_la_LIBS = -lm
