@@ -1,4 +1,5 @@
-Build dependencies: dh-autoreconf execstack libvapoursynth-dev libavutil-dev libavformat-dev libavcodec-dev libxvidcore-dev yasm
+Build dependencies: dh-autoreconf execstack libvapoursynth-dev libavutil-dev libavformat-dev
+libavcodec-dev libjpeg-turbo8-dev libpng12-dev libxvidcore-dev yasm zlib1g-dev
 
 Plugin versions:
 addgrain 0+r2
@@ -17,6 +18,7 @@ fluxsmooth 1.0
 genericfilters 1.0.0
 havsfunc 0+r11
 histogram 1.0
+imagereader 0.2.1
 it 1.0
 msmoosh 1.1
 mvtools 2.0
@@ -54,6 +56,7 @@ https://github.com/dubhater/vapoursynth-fluxsmooth
 https://github.com/chikuzen/GenericFilters
 https://github.com/dubhater/vapoursynth-histogram
 http://forum.doom9.org/showthread.php?t=166582 (havsfunc)
+https://github.com/chikuzen/vsimagereader
 https://github.com/HomeOfVapourSynthEvolution/VapourSynth-IT
 https://github.com/dubhater/vapoursynth-msmoosh
 https://github.com/dubhater/vapoursynth-mvtools

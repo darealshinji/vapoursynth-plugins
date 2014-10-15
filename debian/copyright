@@ -13,7 +13,8 @@ Copyright: 2006 Simon Perreault
            2014 HolyWu
 License: GPL-2+
 
-Files: combmask/* convo2d/* genericfilters/* rawsource/* scenechange/* temporalsoften2/*
+Files: combmask/* convo2d/* genericfilters/* imagereader/*
+       rawsource/* scenechange/* temporalsoften2/*
 Copyright: 2012-2013 Oka Motofumi
 License: LGPL-2.1
 
