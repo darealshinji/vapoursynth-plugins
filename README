@@ -12,6 +12,7 @@ delogo 0.11+git20141008
 eedi2 0+r3
 fieldhint 1.0
 fillborders 1.0
+finesharp
 fluxsmooth 1.0
 genericfilters 1.0.0
 histogram 1.0
@@ -47,6 +48,7 @@ https://github.com/HomeOfVapourSynthEvolution/VapourSynth-DeLogo
 https://github.com/HomeOfVapourSynthEvolution/VapourSynth-EEDI2
 https://github.com/dubhater/vapoursynth-fieldhint
 https://github.com/dubhater/vapoursynth-fillborders
+http://forum.doom9.org/showthread.php?t=166524 (finesharp)
 https://github.com/dubhater/vapoursynth-fluxsmooth
 https://github.com/chikuzen/GenericFilters
 https://github.com/dubhater/vapoursynth-histogram

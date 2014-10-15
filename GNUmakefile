@@ -37,9 +37,10 @@ CLEANFILES = \
 execstack_LIBS = fluxsmooth nnedi3 tcomb
 
 python_SCRIPTS = \
-	vautodeint/VAutoDeint.py \
+	finesharp/finesharp.py \
+	templinearapproximate/MCDenoise.py \
 	temporalsoften2/TemporalSoften2.py \
-	templinearapproximate/MCDenoise.py
+	vautodeint/VAutoDeint.py
 
 define NL
 
