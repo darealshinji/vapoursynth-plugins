@@ -3,7 +3,7 @@ Description
 
 TDeintMod is a combination of TDeint and TMM, which are both ported from tritical's AviSynth plugin http://bengal.missouri.edu/~kes25c/.
 
-Only a few functionality of TDeint is kept in TDeintMod, either because some use inline asm and there is no equivalent C code in the source, or some are very rarely used by people nowadays. For example, the biggest change is that TDeint's internal building of motion mask is entirely dropped, and be replaced with TMM's motion mask. The second is that only cubic interpolation is kept as the only one internal interpolation method, all the others (ELA interpolation, kernel interpolation or blend interpolation) are dropped. Cubic interpolation is kept only for testing purpose, and people should really specify an externally interpolated clip via `edeint` argument for practical usage.
+Only a few functionality of TDeint is kept in TDeintMod, either because some use inline asm and there is no equivalent C code in the source, or some are very rarely used by people nowadays. For example, the biggest change is that TDeint's internal building of motion mask is entirely dropped, and be replaced with TMM's motion mask. The second is that only cubic interpolation is kept as the only one internal interpolation method, all the others (ELA interpolation, kernel interpolation and blend interpolation) are dropped. Cubic interpolation is kept only for testing purpose, and people should really specify an externally interpolated clip via `edeint` argument for practical use.
 
 
 Usage
@@ -12,14 +12,17 @@ Usage
     tdm.TDeintMod(clip clip, int order[, int field=order, int mode=0, int length=10, int mtype=1, int ttype=1, int mtql=-1, int mthl=-1, int mtqc=-1, int mthc=-1, int nt=2, int minthresh=4, int maxthresh=75, int cstr=4, clip clip2, bint full=True, int cthresh=6, int blockx=16, int blocky=16, bint chroma=False, int mi=64, clip edeint, int metric=0])
 
 - order: Sets the field order of the video.<br />
+<br />
 0 = bottom field first (bff)<br />
 1 = top field first (tff)
 
 - field: When in mode 0, this sets the field to be interpolated. When in mode 1, this setting does nothing.<br />
+<br />
 0 = interpolate top field (keep bottom field)<br />
 1 = interpolate bottom field (keep top field)
 
 - mode: Sets the mode of operation.<br />
+<br />
 0 = same rate output<br />
 1 = double rate output (bobbing)
 
@@ -61,6 +64,7 @@ compensated means adjusted for distance differences due to field vs frames and c
 - blocky: Sets the y-axis size of the window used during combed frame detection. This has to do with the size of the area in which `mi` number of pixels are required to be detected as combed for a frame to be declared combed. See the `mi` parameter description for more info. Possible values are any number that is a power of 2 starting at 4 and going to 2048 (e.g. 4, 8, 16, 32, ... 2048).
 
 - chroma: Includes chroma combing in the decision about whether a frame is combed. Only use this if you have one of those weird sources where the chroma can be temporally separated from the luma (i.e. the chroma moves but the luma doesn't in a field). Otherwise, it will just help to screw up the decision most of the time.<br />
+<br />
 True = include chroma combing<br />
 False = don't
 
