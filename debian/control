@@ -13,7 +13,7 @@ Build-Depends:
  libjpeg-turbo8-dev,
  libpng12-dev,
  libxvidcore-dev,
- pkg-config (>= 0.9.0),
+ pkg-config,
  yasm,
  zlib1g-dev
 Standards-Version: 3.9.5
