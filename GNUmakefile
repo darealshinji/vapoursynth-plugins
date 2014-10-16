@@ -17,6 +17,7 @@ install_DIR = install -m755 -d
 CLEANFILES = \
 	aclocal.m4 \
 	compile \
+	config.h.in* \
 	config.log \
 	config.guess \
 	config.sub \
@@ -89,8 +90,9 @@ distclean:
 clobber:
 	$(MAKE) distclean || true
 	rm -f config.mak $(CLEANFILES)
-	rm -rf autom4te.cache */autom4te.cache $(turbodir)
-	$(foreach FILE,$(CLEANFILES),rm -f */$(FILE) ;)
+	rm -rf autom4te.cache */autom4te.cache $(turbodir) imagereader/libjpeg-turbo/autom4te.cache
+	$(foreach FILE,$(CLEANFILES),rm -f */$(FILE) imagereader/libjpeg-turbo/$(FILE) \
+	imagereader/libjpeg-turbo/*/$(FILE) ;)
 
 config.mak:
 	./build.sh
