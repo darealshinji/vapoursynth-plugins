@@ -1,6 +1,7 @@
 include config.mak
 
 plugins = $(libdir)/vapoursynth/
+turbodir = imagereader/libjpeg-turbo/build
 
 ifeq ($(V), 1)
 MAKE = make -f Makefile V=1
@@ -51,13 +52,15 @@ endef
 
 all: libturbojpeg.a
 	test -f configure || $(AUTORECONF)
-	test -f Makefile || ./configure
+	test -f Makefile  || ./configure
 	$(MAKE)
 
 libturbojpeg.a:
-	mkdir -p imagereader/libjpeg-turbo/build
-	(cd imagereader/libjpeg-turbo/build && $(MAKE)) || (cd imagereader/libjpeg-turbo/build && \
-	../configure --enable-static=yes --enable-shared=no --with-pic && $(MAKE))
+	mkdir -p $(turbodir)
+	test -f $(turbodir)/configure || (cd $(turbodir) && $(AUTORECONF))
+	test -f $(turbodir)/Makefile  || (cd $(turbodir) && \
+	../configure --enable-static=yes --enable-shared=no --with-pic)
+	cd $(turbodir) && $(MAKE)
 
 all-am:
 clean-am:
@@ -76,17 +79,17 @@ install:
 
 clean:
 	$(MAKE) clean || true
-	cd imagereader/libjpeg-turbo/build && $(MAKE) clean
+	cd $(turbodir) && $(MAKE) clean
 
 distclean:
 	$(MAKE) distclean || true
 	rm -f config.mak
-	rm -rf imagereader/libjpeg-turbo/build
+	rm -rf $(turbodir)
 
 clobber:
 	$(MAKE) distclean || true
 	rm -f config.mak $(CLEANFILES)
-	rm -rf autom4te.cache */autom4te.cache imagereader/libjpeg-turbo/build
+	rm -rf autom4te.cache */autom4te.cache $(turbodir)
 	$(foreach FILE,$(CLEANFILES),rm -f */$(FILE) ;)
 
 config.mak:
