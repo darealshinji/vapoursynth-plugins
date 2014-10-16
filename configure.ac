@@ -58,7 +58,6 @@ AC_SUBST([ASFLAGS])
 
 # Checks for libraries.
 AC_CHECK_LIB([m], [main])
-AC_CHECK_LIB([jpeg], [main])
 AC_CHECK_LIB([png], [main])
 AC_CHECK_LIB([z], [main])
 AC_CHECK_LIB([xvidcore], [main])
@@ -68,7 +67,7 @@ PKG_CHECK_MODULES([libavformat], [libavformat])
 PKG_CHECK_MODULES([libavutil], [libavutil])
 
 # Checks for header files.
-AC_CHECK_HEADERS([float.h inttypes.h malloc.h stdint.h stdlib.h string.h turbojpeg.h png.h])
+AC_CHECK_HEADERS([float.h inttypes.h malloc.h stdint.h stdlib.h string.h png.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_CHECK_HEADER_STDBOOL

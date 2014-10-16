@@ -5,6 +5,7 @@ Maintainer: Marshall Banana <djcj@gmx.de>
 Build-Depends:
  debhelper (>= 9),
  dh-autoreconf,
+ pkg-config,
  execstack,
  libvapoursynth-dev,
  libavformat-dev,
@@ -13,7 +14,7 @@ Build-Depends:
  libjpeg-turbo8-dev,
  libpng12-dev,
  libxvidcore-dev,
- pkg-config,
+ nasm,
  yasm,
  zlib1g-dev
 Standards-Version: 3.9.5

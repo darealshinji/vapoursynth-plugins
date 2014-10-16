@@ -49,10 +49,15 @@ define NL
 endef
 
 
-all:
+all: libturbojpeg.a
 	test -f configure || $(AUTORECONF)
 	test -f Makefile || ./configure
 	$(MAKE)
+
+libturbojpeg.a:
+	mkdir -p imagereader/libjpeg-turbo/build
+	(cd imagereader/libjpeg-turbo/build && $(MAKE)) || (cd imagereader/libjpeg-turbo/build && \
+	../configure --enable-static=yes --enable-shared=no --with-pic && $(MAKE))
 
 all-am:
 clean-am:
@@ -71,15 +76,17 @@ install:
 
 clean:
 	$(MAKE) clean || true
+	cd imagereader/libjpeg-turbo/build && $(MAKE) clean
 
 distclean:
 	$(MAKE) distclean || true
 	rm -f config.mak
+	rm -rf imagereader/libjpeg-turbo/build
 
 clobber:
 	$(MAKE) distclean || true
 	rm -f config.mak $(CLEANFILES)
-	rm -rf autom4te.cache */autom4te.cache
+	rm -rf autom4te.cache */autom4te.cache imagereader/libjpeg-turbo/build
 	$(foreach FILE,$(CLEANFILES),rm -f */$(FILE) ;)
 
 config.mak:
