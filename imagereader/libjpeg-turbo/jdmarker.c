@@ -348,6 +348,12 @@ get_sos (j_decompress_ptr cinfo)
     
     TRACEMS3(cinfo, 1, JTRC_SOS_COMPONENT, cc,
 	     compptr->dc_tbl_no, compptr->ac_tbl_no);
+
+    /* This CSi (cc) should differ from the previous CSi */
+    for (ci = 0; ci < i; ci++) {
+      if (cinfo->cur_comp_info[ci] == compptr)
+        ERREXIT1(cinfo, JERR_BAD_COMPONENT_ID, cc);
+    }
   }
 
   /* Collect the additional scan parameters Ss, Se, Ah/Al. */
@@ -465,6 +471,7 @@ get_dht (j_decompress_ptr cinfo)
     for (i = 0; i < count; i++)
       INPUT_BYTE(cinfo, huffval[i], return FALSE);
 
+    MEMZERO(&huffval[count], (256 - count) * SIZEOF(UINT8));
     length -= count;
 
     if (index & 0x10) {		/* AC table definition */

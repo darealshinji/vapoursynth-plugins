@@ -89,9 +89,7 @@ noinst_PROGRAMS = jcstest
 
 if WITH_TURBOJPEG
 
-bin_PROGRAMS += tjbench
-
-noinst_PROGRAMS += tjunittest
+bin_PROGRAMS += tjbench tjunittest
 
 tjbench_SOURCES = tjbench.c bmp.h bmp.c tjutil.h tjutil.c rdbmp.c rdppm.c \
 	wrbmp.c wrppm.c
