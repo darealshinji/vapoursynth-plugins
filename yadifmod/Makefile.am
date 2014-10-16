@@ -1,9 +1,7 @@
-AM_CXXFLAGS = -Wall -Wextra -Wno-unused-parameter
-
-AM_CPPFLAGS = $(VapourSynth_CFLAGS)
+include ../global.inc
 
 lib_LTLIBRARIES = libyadifmod.la
 
 libyadifmod_la_SOURCES = src/Yadifmod.cpp
 
-libyadifmod_la_LDFLAGS = -no-undefined -avoid-version
+libyadifmod_la_LDFLAGS = $(XGLOBAL_LDFLAGS)

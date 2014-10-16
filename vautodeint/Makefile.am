@@ -1,6 +1,6 @@
-AM_CFLAGS = -Wall -Wextra -Wno-unused-parameter -std=gnu99
+include ../global.inc
 
-AM_CPPFLAGS = $(VapourSynth_CFLAGS)
+AM_CFLAGS += -std=gnu99
 
 lib_LTLIBRARIES = libvautodeint.la
 
@@ -9,4 +9,4 @@ libvautodeint_la_SOURCES = \
 	src/PlaneDifferenceFromPrevious.c \
 	src/PluginInit.c
 
-libvautodeint_la_LDFLAGS = -no-undefined -avoid-version
+libvautodeint_la_LDFLAGS = $(XGLOBAL_LDFLAGS)

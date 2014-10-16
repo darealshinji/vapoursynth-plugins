@@ -1,9 +1,9 @@
-AM_CFLAGS = -Wall -Wextra -Wno-unused-parameter -std=gnu99
+include ../global.inc
 
-AM_CPPFLAGS = $(VapourSynth_CFLAGS)
+AM_CFLAGS += -std=gnu99
 
 lib_LTLIBRARIES = librawsource.la
 
 librawsource_la_SOURCES = src/rawsource.c
 
-librawsource_la_LDFLAGS = -no-undefined -avoid-version
+librawsource_la_LDFLAGS = $(XGLOBAL_LDFLAGS)

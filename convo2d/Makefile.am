@@ -1,9 +1,9 @@
-AM_CFLAGS = -Wall -Wextra -Wno-unused-parameter -std=gnu99
+include ../global.inc
 
-AM_CPPFLAGS = $(VapourSynth_CFLAGS)
+AM_CFLAGS += -std=gnu99
 
 lib_LTLIBRARIES = libconvo2d.la
 
 libconvo2d_la_SOURCES = src/convo2d.c
 
-libconvo2d_la_LDFLAGS = -no-undefined -avoid-version
+libconvo2d_la_LDFLAGS = $(XGLOBAL_LDFLAGS)

@@ -1,9 +1,7 @@
-AM_CFLAGS = -Wall -Wextra -Wno-unused-parameter
-
-AM_CPPFLAGS = $(VapourSynth_CFLAGS)
+include ../global.inc
 
 lib_LTLIBRARIES = libtemplinearapproximate.la
 
 libtemplinearapproximate_la_SOURCES = src/templinearapproximate.c
 
-libtemplinearapproximate_la_LDFLAGS = -no-undefined -avoid-version
+libtemplinearapproximate_la_LDFLAGS = $(XGLOBAL_LDFLAGS)

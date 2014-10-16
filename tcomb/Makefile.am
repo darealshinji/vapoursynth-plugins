@@ -1,8 +1,6 @@
+include ../global.inc
+
 ACLOCAL_AMFLAGS = -I m4
-
-AM_CFLAGS = -Wall -Wextra -Wno-unused-parameter
-
-AM_CPPFLAGS = $(VapourSynth_CFLAGS)
 
 lib_LTLIBRARIES = libtcomb.la
 
@@ -21,7 +19,7 @@ am__v_YASM_1 =
 
 libtcomb_la_SOURCES = src/tcomb.c
 
-libtcomb_la_LDFLAGS = -no-undefined -avoid-version
+libtcomb_la_LDFLAGS = $(XGLOBAL_LDFLAGS)
 
 if x86_64
 libtcomb_la_SOURCES += src/asm/tcomb.asm

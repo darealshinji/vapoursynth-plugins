@@ -1,6 +1,4 @@
-AM_CXXFLAGS = -Wall -Wextra -Wno-unused-parameter
-
-AM_CPPFLAGS = $(VapourSynth_CFLAGS)
+include ../global.inc
 
 lib_LTLIBRARIES = libd2vsource.la
 
@@ -13,10 +11,6 @@ libd2vsource_la_SOURCES = \
 	src/directrender.cpp \
 	src/vapoursynth.cpp
 
-libd2vsource_la_LDFLAGS = -no-undefined -avoid-version
-
-libd2vsource_la_LIBS = \
-	$(shell pkg-config --cflags --libs libavcodec) \
-	$(shell pkg-config --cflags --libs libavformat) \
-	$(shell pkg-config --cflags --libs libavutil) \
-	$(shell pkg-config --cflags --libs vapoursynth)
+libd2vsource_la_LDFLAGS = $(XGLOBAL_LDFLAGS) \
+	-lavcodec -lavformat -lavutil \
+	-I/usr/include/vapoursynth -lvapoursynth

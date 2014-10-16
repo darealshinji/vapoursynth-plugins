@@ -1,9 +1,9 @@
-AM_CFLAGS = -Wall -Wextra -Wno-unused-parameter -msse2
+include ../global.inc
 
-AM_CPPFLAGS = $(VapourSynth_CFLAGS)
+AM_CFLAGS += -msse2
 
 lib_LTLIBRARIES = libtemporalsoften2.la
 
 libtemporalsoften2_la_SOURCES = src/temporalsoften.c
 
-libtemporalsoften2_la_LDFLAGS = -no-undefined -avoid-version
+libtemporalsoften2_la_LDFLAGS = $(XGLOBAL_LDFLAGS)

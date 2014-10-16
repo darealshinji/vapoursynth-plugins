@@ -1,9 +1,9 @@
-AM_CXXFLAGS = -Wall -Wextra -Wno-unused-parameter -msse2
+include ../global.inc
 
-AM_CPPFLAGS = $(VapourSynth_CFLAGS)
+AM_CXXFLAGS += -msse2
 
 lib_LTLIBRARIES = libsangnommod.la
 
 libsangnommod_la_SOURCES = src/sangnom.cpp
 
-libsangnommod_la_LDFLAGS = -no-undefined -avoid-version
+libsangnommod_la_LDFLAGS = $(XGLOBAL_LDFLAGS)

@@ -1,7 +1,6 @@
-AM_CFLAGS = -Wall -Wextra -Wno-unused-parameter \
-	-I./alone -I./common -I./convolution -I./neighbors -I./specific
+include ../global.inc
 
-AM_CPPFLAGS = $(VapourSynth_CFLAGS)
+AM_CFLAGS += -I./alone -I./common -I./convolution -I./neighbors -I./specific
 
 lib_LTLIBRARIES = libgenericfilters.la
 
@@ -23,6 +22,4 @@ libgenericfilters_la_SOURCES = \
        alone/alone.c \
        specific/hysteresis.c           common/common.c
 
-libgenericfilters_la_LDFLAGS = -no-undefined -avoid-version
-
-libgenericfilters_la_LIBS = -lm
+libgenericfilters_la_LDFLAGS = $(XGLOBAL_LDFLAGS)  -lm

@@ -1,9 +1,7 @@
-AM_CFLAGS = -Wall -Wextra -Wno-unused-parameter
-
-AM_CPPFLAGS = $(VapourSynth_CFLAGS)
+include ../global.inc
 
 lib_LTLIBRARIES = libvideoscope.la
 
 libvideoscope_la_SOURCES = src/videoscope.c
 
-libvideoscope_la_LDFLAGS = -no-undefined -avoid-version
+libvideoscope_la_LDFLAGS = $(XGLOBAL_LDFLAGS)

@@ -1,6 +1,6 @@
-AM_CXXFLAGS = -Wall -Wextra -Wno-unused-parameter -D__SSE -mssse3
+include ../global.inc
 
-AM_CPPFLAGS = $(VapourSynth_CFLAGS)
+AM_CXXFLAGS += -D__SSE -mssse3
 
 lib_LTLIBRARIES = libit.la
 
@@ -12,4 +12,4 @@ libit_la_SOURCES = \
 	src/vs_it_process.cpp \
 	src/vs_it_sse.cpp
 
-libit_la_LDFLAGS = -no-undefined -avoid-version
+libit_la_LDFLAGS = $(XGLOBAL_LDFLAGS)

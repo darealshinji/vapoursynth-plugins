@@ -1,11 +1,7 @@
-AM_CFLAGS = -Wall -Wextra -Wno-unused-parameter
-
-AM_CPPFLAGS = $(VapourSynth_CFLAGS)
+include ../global.inc
 
 lib_LTLIBRARIES = libscxvid.la
 
 libscxvid_la_SOURCES = src/scxvid.c
 
-libscxvid_la_LDFLAGS = -no-undefined -avoid-version
-
-libscxvid_la_LIBS = -lxvidcore
+libscxvid_la_LDFLAGS = $(XGLOBAL_LDFLAGS)  -lxvidcore

@@ -1,8 +1,8 @@
+include ../global.inc
+
 ACLOCAL_AMFLAGS = -I m4
 
-AM_CXXFLAGS = -Wall -Wextra -Wno-unused-parameter -std=c++11 -msse2
-
-AM_CPPFLAGS = $(VapourSynth_CFLAGS)
+AM_CXXFLAGS += -std=c++11 -msse2
 
 lib_LTLIBRARIES = libmvtools.la
 
@@ -55,7 +55,7 @@ libmvtools_la_SOURCES = src/asm-placeholder.cpp \
 						src/PlaneOfBlocks.cpp \
 						src/SimpleResize.cpp
 
-libmvtools_la_LDFLAGS = -no-undefined -avoid-version
+libmvtools_la_LDFLAGS = $(XGLOBAL_LDFLAGS)
 
 if x86_64
 libmvtools_la_LDFLAGS += -Xlinker src/asm/const-a.o \
