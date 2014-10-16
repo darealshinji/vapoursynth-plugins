@@ -14,7 +14,6 @@ Build-Depends:
  libjpeg-turbo8-dev,
  libpng12-dev,
  libxvidcore-dev,
- nasm,
  yasm,
  zlib1g-dev
 Standards-Version: 3.9.5
