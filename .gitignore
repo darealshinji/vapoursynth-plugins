@@ -5,16 +5,3 @@
 *.dll
 .libs
 .pc
-Makefile
-aclocal.m4
-autom4te.cache
-compile
-config.log
-config.guess
-config.sub
-config.status
-depcomp
-install-sh
-libtool
-ltmain.sh
-missing
