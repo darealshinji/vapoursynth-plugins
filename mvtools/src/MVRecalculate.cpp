@@ -337,9 +337,6 @@ static void VS_CC mvrecalculateCreate(const VSMap *in, VSMap *out, void *userDat
         return;
     }
 
-    d.analysisData.yRatioUV = 2; //(vi.IsYV12()) ? 2 : 1;
-    d.analysisData.xRatioUV = 2; // for YV12 and YUY2, really do not used and assumed to 2
-
 
     d.analysisData.nBlkSizeX = d.blksize;
     d.analysisData.nBlkSizeY = d.blksizev;
@@ -355,12 +352,6 @@ static void VS_CC mvrecalculateCreate(const VSMap *in, VSMap *out, void *userDat
         vsapi->setError(out, "Recalculate: the block size must be 4x4, 8x4, 8x8, 16x2, 16x8, 16x16, 32x16, or 32x32.");
         return;
     }
-
-
-   if (d.chroma) // normalize threshold to block size
-      d.thSAD = d.thSAD * (d.analysisData.nBlkSizeX * d.analysisData.nBlkSizeY) / (8 * 8) * (1 + d.analysisData.yRatioUV) / d.analysisData.yRatioUV;
-   else
-      d.thSAD = d.thSAD * (d.analysisData.nBlkSizeX * d.analysisData.nBlkSizeY) / (8 * 8);
 
 
     if (d.overlap < 0 || d.overlap >= d.blksize ||
@@ -395,17 +386,6 @@ static void VS_CC mvrecalculateCreate(const VSMap *in, VSMap *out, void *userDat
     else
         d.nSearchParam = ( d.searchparam < 1 ) ? 1 : d.searchparam;
 
-
-    d.analysisData.nFlags = 0;
-    d.analysisData.nFlags |= d.isse ? MOTION_USE_ISSE : 0;
-    d.analysisData.nFlags |= d.analysisData.isBackward ? MOTION_IS_BACKWARD : 0;
-    d.analysisData.nFlags |= d.chroma ? MOTION_USE_CHROMA_MOTION : 0;
-
-
-    if (d.isse)
-    {
-        d.analysisData.nFlags |= cpu_detect();
-    }
 
     d.nModeYUV = d.chroma ? YUVPLANES : YPLANE;
 
@@ -467,6 +447,9 @@ static void VS_CC mvrecalculateCreate(const VSMap *in, VSMap *out, void *userDat
     // XXX This really should be passed as a frame property.
     const MVAnalysisData *pAnalyseFilter = reinterpret_cast<const MVAnalysisData *>(vsapi->getReadPtr(evil, 0) + sizeof(int));
 
+    d.analysisData.yRatioUV = pAnalyseFilter->GetYRatioUV();
+    d.analysisData.xRatioUV = pAnalyseFilter->GetXRatioUV(); // for YV12 and YUY2, really do not used and assumed to 2
+
 	d.analysisData.nWidth = pAnalyseFilter->GetWidth();
 	d.analysisData.nHeight = pAnalyseFilter->GetHeight();
 
@@ -474,6 +457,23 @@ static void VS_CC mvrecalculateCreate(const VSMap *in, VSMap *out, void *userDat
     d.analysisData.isBackward = pAnalyseFilter->IsBackward();
     vsapi->freeFrame(evil);
 
+
+   if (d.chroma) // normalize threshold to block size
+      d.thSAD = d.thSAD * (d.analysisData.nBlkSizeX * d.analysisData.nBlkSizeY) / (8 * 8) * (1 + d.analysisData.yRatioUV) / d.analysisData.yRatioUV;
+   else
+      d.thSAD = d.thSAD * (d.analysisData.nBlkSizeX * d.analysisData.nBlkSizeY) / (8 * 8);
+
+
+    d.analysisData.nFlags = 0;
+    d.analysisData.nFlags |= d.isse ? MOTION_USE_ISSE : 0;
+    d.analysisData.nFlags |= d.analysisData.isBackward ? MOTION_IS_BACKWARD : 0;
+    d.analysisData.nFlags |= d.chroma ? MOTION_USE_CHROMA_MOTION : 0;
+
+
+    if (d.isse)
+    {
+        d.analysisData.nFlags |= cpu_detect();
+    }
 
     d.analysisData.nPel = d.nSuperPel;//x
 

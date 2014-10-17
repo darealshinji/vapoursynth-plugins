@@ -31,9 +31,9 @@ histogram 1.0
 imagereader 0.2.1
 it 1.0
 msmoosh 1.1
-mvtools 2.0
+mvtools 4+git20141014
 nnedi3 2.1
-sangnommod 0.1+20141011
+sangnommod 0.1+git20141011
 scenechange 0.2.0
 scrawl 1.0+git20131016
 scxvid git20121203

@@ -18,6 +18,7 @@
 // http://www.gnu.org/copyleft/gpl.html .
 
 
+#include <algorithm>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -39,7 +40,7 @@ typedef struct {
     VSNodeRef *mvbw;
     VSNodeRef *mvfw;
 
-    int blur;
+    float blur;
     int prec;
     int thscd1;
     int thscd2;
@@ -639,8 +640,9 @@ static void VS_CC mvflowblurCreate(const VSMap *in, VSMap *out, void *userData, 
         return;
     }
 
-    if (!isConstantFormat(d.vi) || d.vi->format->id != pfYUV420P8) {
-        vsapi->setError(out, "FlowBlur: input clip must be YUV420P8 with constant dimensions.");
+    int id = d.vi->format->id;
+    if (!isConstantFormat(d.vi) || (id != pfYUV420P8 && id != pfYUV422P8)) {
+        vsapi->setError(out, "FlowBlur: input clip must be YUV420P8 or YUV422P8, with constant dimensions.");
         vsapi->freeNode(d.super);
         vsapi->freeNode(d.finest);
         vsapi->freeNode(d.mvfw);
