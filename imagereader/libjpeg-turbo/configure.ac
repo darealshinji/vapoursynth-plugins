@@ -9,7 +9,6 @@ AM_SILENT_RULES([yes])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([build-aux])
 AM_INIT_AUTOMAKE([-Wall foreign dist-bzip2])
-AC_PREFIX_DEFAULT(/opt/libjpeg-turbo)
 
 # Always build with prototypes
 AC_DEFINE([HAVE_PROTOTYPES], 1, [Define if your compiler supports prototypes])
@@ -24,78 +23,6 @@ AC_PROG_INSTALL
 AM_PROG_AR
 AC_PROG_LIBTOOL
 AC_PROG_LN_S
-
-# When the prefix is /opt/libjpeg-turbo, we assume that an "official" binary is
-# being created, and thus we install things into specific locations.
-
-old_prefix=${prefix}
-if test "x$prefix" = "xNONE" -a "x$ac_default_prefix" != "x"; then
-  prefix=$ac_default_prefix
-fi
-DATADIR=`eval echo ${datadir}`
-DATADIR=`eval echo $DATADIR`
-if test "$DATADIR" = "/opt/libjpeg-turbo/share"; then
-  datadir='${prefix}'
-fi
-DATADIR=`eval echo ${datarootdir}`
-DATADIR=`eval echo $DATADIR`
-if test "$DATADIR" = "/opt/libjpeg-turbo/share"; then
-  datarootdir='${prefix}'
-fi
-
-old_exec_prefix=${exec_prefix}
-if test "x$exec_prefix" = "xNONE"; then
-  exec_prefix=${prefix}
-fi
-
-if test "x${libdir}" = 'x${exec_prefix}/lib' -o "x${libdir}" = 'x${prefix}/lib'; then
-  LIBDIR=`eval echo ${libdir}`
-  LIBDIR=`eval echo $LIBDIR`
-  if test "$LIBDIR" = "/opt/libjpeg-turbo/lib"; then
-    case $host_os in
-      darwin*)
-        ;;
-      *)
-        case "$host_cpu" in
-          x86_64 | amd64)
-            libdir='${exec_prefix}/lib64'
-            ;;
-          i*86 | x86 | ia32)
-            libdir='${exec_prefix}/lib32'
-            ;;
-        esac
-        ;;
-    esac
-  fi
-fi
-exec_prefix=${old_exec_prefix}
-prefix=${old_prefix}
-
-# Check whether compiler supports pointers to undefined structures
-AC_MSG_CHECKING(whether compiler supports pointers to undefined structures)
-AC_TRY_COMPILE([ typedef struct undefined_structure * undef_struct_ptr; ], ,
-  AC_MSG_RESULT(yes),
-  [AC_MSG_RESULT(no)
-   AC_DEFINE([INCOMPLETE_TYPES_BROKEN], [1],
-     [Compiler does not support pointers to undefined structures.])])
-
-if test "x${GCC}" = "xyes"; then
-  if test "x${SAVED_CFLAGS}" = "x"; then
-    CFLAGS=-O3
-  fi
-  if test "x${SAVED_CPPFLAGS}" = "x"; then
-    CPPFLAGS=-Wall
-  fi
-fi
-
-AC_CHECK_DECL([__SUNPRO_C], [SUNCC="yes"], [SUNCC="no"])
-if test "x${SUNCC}" = "xyes"; then
-  if test "x${SAVED_CFLAGS}" = "x"; then
-    CFLAGS=-xO5
-  fi
-fi
-
-# Checks for libraries.
 
 # Checks for header files.
 AC_HEADER_STDC
@@ -194,8 +121,6 @@ if test "x$SO_MINOR_VERSION" = "x"; then
   esac
 fi
 
-RPM_CONFIG_ARGS=
-
 # Memory source/destination managers
 SO_AGE=0
 MEM_SRCDST_FUNCTIONS=
@@ -212,7 +137,6 @@ if test "x${with_jpeg8}" != "xyes"; then
     MEM_SRCDST_FUNCTIONS="global:  jpeg_mem_dest;  jpeg_mem_src;";
   else
     AC_MSG_RESULT(no)
-    RPM_CONFIG_ARGS="$RPM_CONFIG_ARGS --without-mem-srcdst"
   fi
 fi
 
@@ -285,7 +209,6 @@ AC_ARG_WITH([arith-enc],
     [Do not include arithmetic encoding support]))
 if test "x$with_arith_enc" = "xno"; then
   AC_MSG_RESULT(no)
-  RPM_CONFIG_ARGS="$RPM_CONFIG_ARGS --without-arith-enc"
 else
   AC_DEFINE([C_ARITH_CODING_SUPPORTED], [1], [Support arithmetic encoding])
   AC_MSG_RESULT(yes)
@@ -298,7 +221,6 @@ AC_ARG_WITH([arith-dec],
     [Do not include arithmetic decoding support]))
 if test "x$with_arith_dec" = "xno"; then
   AC_MSG_RESULT(no)
-  RPM_CONFIG_ARGS="$RPM_CONFIG_ARGS --without-arith-dec"
 else
   AC_DEFINE([D_ARITH_CODING_SUPPORTED], [1], [Support arithmetic decoding])
   AC_MSG_RESULT(yes)
@@ -315,90 +237,16 @@ AC_ARG_WITH([turbojpeg],
     [Do not include the TurboJPEG wrapper library and associated test programs]))
 if test "x$with_turbojpeg" = "xno"; then
   AC_MSG_RESULT(no)
-  RPM_CONFIG_ARGS="$RPM_CONFIG_ARGS --without-turbojpeg"
 else
   AC_MSG_RESULT(yes)
 fi
-
-# Java support
-AC_ARG_VAR(JAVAC, [Java compiler command (default: javac)])
-if test "x$JAVAC" = "x"; then
-  JAVAC=javac
-fi
-AC_SUBST(JAVAC)
-AC_ARG_VAR(JAVACFLAGS, [Java compiler flags])
-AC_SUBST(JAVACFLAGS)
-AC_ARG_VAR(JAR, [Java archive command (default: jar)])
-if test "x$JAR" = "x"; then
-  JAR=jar
-fi
-AC_SUBST(JAR)
-AC_ARG_VAR(JAVA, [Java runtime command (default: java)])
-if test "x$JAVA" = "x"; then
-  JAVA=java
-fi
-AC_SUBST(JAVA)
-AC_ARG_VAR(JNI_CFLAGS,
-  [C compiler flags needed to include jni.h (default: -I/System/Library/Frameworks/JavaVM.framework/Headers on OS X, '-I/usr/java/include -I/usr/java/include/solaris' on Solaris, and '-I/usr/java/default/include -I/usr/java/default/include/linux' on Linux)])
-
-AC_MSG_CHECKING([whether to build TurboJPEG Java wrapper])
-AC_ARG_WITH([java],
-  AC_HELP_STRING([--with-java], [Build Java wrapper for the TurboJPEG library]))
-if test "x$with_turbojpeg" = "xno"; then
-  with_java=no
-fi
-
-WITH_JAVA=0
-if test "x$with_java" = "xyes"; then
-  AC_MSG_RESULT(yes)
-
-  case $host_os in
-    darwin*)
-      DEFAULT_JNI_CFLAGS=-I/System/Library/Frameworks/JavaVM.framework/Headers
-      ;;
-    solaris*)
-      DEFAULT_JNI_CFLAGS='-I/usr/java/include -I/usr/java/include/solaris'
-      ;;
-    linux*)
-      DEFAULT_JNI_CFLAGS='-I/usr/java/default/include -I/usr/java/default/include/linux'
-      ;;
-  esac
-  if test "x$JNI_CFLAGS" = "x"; then
-    JNI_CFLAGS=$DEFAULT_JNI_CFLAGS
-  fi
-
-  SAVE_CPPFLAGS=${CPPFLAGS}
-  CPPFLAGS="${CPPFLAGS} ${JNI_CFLAGS}"
-  AC_CHECK_HEADERS([jni.h], [DUMMY=1],
-    [AC_MSG_ERROR([Could not find JNI header file])])
-  CPPFLAGS=${SAVE_CPPFLAGS}
-  AC_SUBST(JNI_CFLAGS)
-
-  RPM_CONFIG_ARGS="$RPM_CONFIG_ARGS --with-java"
-  JAVA_RPM_CONTENTS_1='%dir %{_datadir}/classes'
-  JAVA_RPM_CONTENTS_2=%{_datadir}/classes/turbojpeg.jar
-  WITH_JAVA=1
-else
-  AC_MSG_RESULT(no)
-fi
-AM_CONDITIONAL([WITH_JAVA], [test "x$with_java" = "xyes"])
-AC_SUBST(WITH_JAVA)
-AC_SUBST(JAVA_RPM_CONTENTS_1)
-AC_SUBST(JAVA_RPM_CONTENTS_2)
 
 # optionally force using gas-preprocessor.pl for compatibility testing
 AC_ARG_WITH([gas-preprocessor],
   AC_HELP_STRING([--with-gas-preprocessor],
     [Force using gas-preprocessor.pl on ARM.]))
 if test "x${with_gas_preprocessor}" = "xyes"; then
-  case $host_os in
-    darwin*)
-      CCAS="gas-preprocessor.pl -fix-unreq $CC"
-      ;;
-    *)
-      CCAS="gas-preprocessor.pl -no-fix-unreq $CC"
-      ;;
-  esac
+  CCAS="gas-preprocessor.pl -no-fix-unreq $CC"
   AC_SUBST([CCAS])
 fi
 
@@ -439,8 +287,6 @@ if test "x${with_simd}" != "xno"; then
   if test "x${with_simd}" != "xno"; then
     AC_DEFINE([WITH_SIMD], [1], [Use accelerated SIMD routines.])
   fi
-else
-  RPM_CONFIG_ARGS="$RPM_CONFIG_ARGS --without-simd"
 fi
 
 AM_CONDITIONAL([WITH_SIMD], [test "x$with_simd" != "xno"])
@@ -451,26 +297,7 @@ AM_CONDITIONAL([SIMD_ARM], [test "x$simd_arch" = "xarm"])
 AM_CONDITIONAL([X86_64], [test "x$host_cpu" = "xx86_64" -o "x$host_cpu" = "xamd64"])
 AM_CONDITIONAL([WITH_TURBOJPEG], [test "x$with_turbojpeg" != "xno"])
 
-AC_ARG_VAR(PKGNAME, [distribution package name (default: libjpeg-turbo)])
-if test "x$PKGNAME" = "x"; then
-  PKGNAME=$PACKAGE_NAME
-fi
-AC_SUBST(PKGNAME)
 
-case "$host_cpu" in
-  x86_64)
-    RPMARCH=x86_64
-    DEBARCH=amd64
-    ;;
-  i*86 | x86 | ia32)
-    RPMARCH=i386
-    DEBARCH=i386
-    ;;
-esac
-
-AC_SUBST(RPMARCH)
-AC_SUBST(RPM_CONFIG_ARGS)
-AC_SUBST(DEBARCH)
 AC_SUBST(BUILD)
 AC_DEFINE_UNQUOTED([BUILD], "$BUILD", [Build number])
 
@@ -480,22 +307,11 @@ AC_DEFINE_UNQUOTED([BUILD], "$BUILD", [Build number])
 # jconfig.h is a minimal version that allows this package to be built
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_HEADERS([jconfig.h])
-AC_CONFIG_FILES([pkgscripts/libjpeg-turbo.spec.tmpl:release/libjpeg-turbo.spec.in])
-AC_CONFIG_FILES([pkgscripts/makecygwinpkg.tmpl:release/makecygwinpkg.in])
-AC_CONFIG_FILES([pkgscripts/makedpkg.tmpl:release/makedpkg.in])
-AC_CONFIG_FILES([pkgscripts/makemacpkg.tmpl:release/makemacpkg.in])
-AC_CONFIG_FILES([pkgscripts/Description.plist:release/Description.plist.in])
-AC_CONFIG_FILES([pkgscripts/Info.plist:release/Info.plist.in])
-AC_CONFIG_FILES([pkgscripts/uninstall.tmpl:release/uninstall.in])
+
 if test "x$with_turbojpeg" != "xno"; then
   AC_CONFIG_FILES([tjbenchtest])
 fi
-if test "x$with_java" = "xyes"; then
-  AC_CONFIG_FILES([tjbenchtest.java])
-  AC_CONFIG_FILES([tjexampletest])
-fi
 AC_CONFIG_FILES([libjpeg.map])
 AC_CONFIG_FILES([Makefile simd/Makefile])
-AC_CONFIG_FILES([java/Makefile])
 AC_CONFIG_FILES([md5/Makefile])
 AC_OUTPUT
