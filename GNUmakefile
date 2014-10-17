@@ -35,9 +35,9 @@ all: dirs
 	test -f configure || $(AUTORECONF)
 	test -f $(turbodir)/configure || (cd $(turbodir) && $(AUTORECONF))
 	test -f $(turbodir)/Makefile  || (cd $(turbodir) && \
-	./configure --enable-static=yes --enable-shared=no --with-pic --without-simd)
+	./configure --enable-static=yes --enable-shared=no --with-pic)
 	test -f Makefile  || ./configure
-	cd $(turbodir) && $(MAKE) libturbojpeg.la
+	cd $(turbodir) && $(MAKE)
 	$(MAKE)
 
 all-am:
@@ -70,7 +70,7 @@ distclean:
 clobber:
 	$(MAKE) distclean || true
 	(cd $(turbodir) && $(MAKE) distclean) || true
-	rm -f config.mak libtool
+	rm -f config.mak libtool $(turbodir)/simd/jsimdcfg.inc
 	$(foreach DIR,$(CLEANDIRS),\
 	rm -rf configure $(DIR)/autom4te.cache $(DIR)/m4 $(DIR)/build-aux ; \
 	rm -f $(DIR)/aclocal.m4 $(DIR)/config.h.in $(DIR)/configure $(DIR)/Makefile.in $(DIR)/*/Makefile.in ;)
