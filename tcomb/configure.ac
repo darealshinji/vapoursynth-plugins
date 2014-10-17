@@ -2,9 +2,11 @@ AC_INIT([tcomb], [1], [https://github.com/dubhater/vapoursynth-tcomb/issues], [t
 
 : ${CFLAGS="-O2"}
 
+AC_CONFIG_MACRO_DIR([m4])
+AC_CONFIG_AUX_DIR([build-aux])
+
 AM_INIT_AUTOMAKE([foreign no-dist-gzip dist-xz subdir-objects no-define])
 AM_SILENT_RULES([yes])
-AC_CONFIG_MACRO_DIR([m4])
 
 LT_INIT([disable-static win32-dll])
 

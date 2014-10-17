@@ -18,6 +18,7 @@ AC_DEFUN([AC_CXX_FLAG], [{
 
 AC_INIT([vapoursynth-plugins], [1])
 AC_CONFIG_MACRO_DIR([m4])
+AC_CONFIG_AUX_DIR([build-aux])
 
 AM_INIT_AUTOMAKE([foreign no-dist-gzip dist-xz subdir-objects no-define])
 AM_SILENT_RULES([yes])

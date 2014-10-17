@@ -14,5 +14,5 @@ libimagereader_la_SOURCES = \
 
 libimagereader_la_LDFLAGS = \
 	$(XGLOBAL_LDFLAGS) \
-	-I./libjpeg-turbo ./libjpeg-turbo/build/libturbojpeg.a \
+	./libjpeg-turbo/.libs/libturbojpeg.a \
 	-lpng -lz

@@ -1,7 +1,7 @@
 include config.mak
 
 plugins = $(libdir)/vapoursynth/
-turbodir = imagereader/libjpeg-turbo/build
+turbodir = imagereader/libjpeg-turbo
 
 ifeq ($(V), 1)
 MAKE = make -f Makefile V=1
@@ -14,27 +14,7 @@ endif
 install = install -m644 -D
 install_DIR = install -m755 -d
 
-CLEANFILES = \
-	aclocal.m4 \
-	compile \
-	config.h.in* \
-	config.log \
-	config.guess \
-	config.sub \
-	config.status \
-	configure \
-	depcomp \
-	install-sh \
-	libtool \
-	ltmain.sh \
-	m4/libtool.m4 \
-	m4/lt~obsolete.m4 \
-	m4/ltoptions.m4 \
-	m4/ltsugar.m4 \
-	m4/ltversion.m4 \
-	Makefile \
-	Makefile.in \
-	missing
+CLEANDIRS = . fluxsmooth mvtools nnedi3 tcomb $(turbodir)
 
 execstack_LIBS = fluxsmooth nnedi3 tcomb
 
@@ -51,21 +31,21 @@ define NL
 endef
 
 
-all: libturbojpeg.a
+all: dirs
 	test -f configure || $(AUTORECONF)
-	test -f Makefile  || ./configure
-	$(MAKE)
-
-libturbojpeg.a:
-	mkdir -p $(turbodir)
 	test -f $(turbodir)/configure || (cd $(turbodir) && $(AUTORECONF))
 	test -f $(turbodir)/Makefile  || (cd $(turbodir) && \
-	../configure --enable-static=yes --enable-shared=no --with-pic)
-	cd $(turbodir) && $(MAKE)
+	./configure --enable-static=yes --enable-shared=no --with-pic --without-simd)
+	test -f Makefile  || ./configure
+	cd $(turbodir) && $(MAKE) libturbojpeg.la
+	$(MAKE)
 
 all-am:
 clean-am:
 distclean-am:
+
+dirs:
+	$(foreach DIR,$(CLEANDIRS),mkdir -p $(DIR)/m4 $(DIR)/build-aux ;)
 
 install:
 	$(install_DIR) $(DESTDIR)$(plugins)
@@ -80,20 +60,21 @@ install:
 
 clean:
 	$(MAKE) clean || true
-	cd $(turbodir) && $(MAKE) clean
+	(cd $(turbodir) && $(MAKE) clean) || true
 
 distclean:
 	$(MAKE) distclean || true
+	(cd $(turbodir) && $(MAKE) distclean) || true
 	rm -f config.mak
-	rm -rf $(turbodir)
 
 clobber:
 	$(MAKE) distclean || true
-	rm -f config.mak $(CLEANFILES)
-	rm -rf autom4te.cache */autom4te.cache $(turbodir) imagereader/libjpeg-turbo/autom4te.cache
-	$(foreach FILE,$(CLEANFILES),rm -f */$(FILE) imagereader/libjpeg-turbo/$(FILE) \
-	imagereader/libjpeg-turbo/*/$(FILE) ;)
+	(cd $(turbodir) && $(MAKE) distclean) || true
+	rm -f config.mak libtool
+	$(foreach DIR,$(CLEANDIRS),\
+	rm -rf configure $(DIR)/autom4te.cache $(DIR)/m4 $(DIR)/build-aux ; \
+	rm -f $(DIR)/aclocal.m4 $(DIR)/config.h.in $(DIR)/configure $(DIR)/Makefile.in $(DIR)/*/Makefile.in ;)
 
 config.mak:
-	./build.sh
+	./configure.sh
 

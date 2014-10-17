@@ -4,7 +4,10 @@
 AC_PREREQ([2.56])
 AC_INIT([libjpeg-turbo], [1.3.0])
 BUILD=`date +%Y%m%d`
+AM_SILENT_RULES([yes])
 
+AC_CONFIG_MACRO_DIR([m4])
+AC_CONFIG_AUX_DIR([build-aux])
 AM_INIT_AUTOMAKE([-Wall foreign dist-bzip2])
 AC_PREFIX_DEFAULT(/opt/libjpeg-turbo)
 
@@ -18,6 +21,7 @@ AC_PROG_CPP
 AC_PROG_CC
 AM_PROG_AS
 AC_PROG_INSTALL
+AM_PROG_AR
 AC_PROG_LIBTOOL
 AC_PROG_LN_S
 
