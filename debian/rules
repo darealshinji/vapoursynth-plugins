@@ -9,7 +9,7 @@ DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
 	dh ${@} --parallel
 
 override_dh_auto_configure:
-	./build.sh --prefix=/usr --libdir=/usr/lib/$(DEB_HOST_MULTIARCH)
+	./configure.sh --prefix=/usr --libdir=/usr/lib/$(DEB_HOST_MULTIARCH)
 
 override_dh_auto_clean:
 	$(MAKE) clobber || true
