@@ -1,0 +1,37 @@
+http://forum.doom9.org/showthread.php?t=166524
+
+Small and relatively fast realtime-sharpening function, for 1080p,
+or after scaling 720p -> 1080p during playback
+(to make 720p look more like being 1080p)
+It's a generic sharpener. Only for good quality sources!
+(If the source is crap, FineSharp will happily sharpen the crap.) ;)
+Noise/grain will be enhanced, too. The method is GENERIC.
+
+Modus operandi: A basic nonlinear sharpening method is performed,
+then the *blurred* sharp-difference gets subtracted again.
+
+sharpen(clip, mode=1, sstr=2.0, cstr=None, xstr=0.19, lstr=1.49,
+        pstr=1.272, ldmp=None)
+    mode: 1 to 3, weakest to strongest. When negative -1 to -3,
+          a broader kernel for equalisation is used.
+    sstr: strength of sharpening, 0.0 up to ??
+    cstr: strength of equalisation, 0.0 to ? 2.0 ?
+          (recomm. 0.5 to 1.25, default AUTO)
+    xstr: strength of XSharpen-style final sharpening, 0.0 to 1.0
+          (but, better don't go beyond 0.249 ...)
+    lstr: modifier for non-linear sharpening
+    pstr: exponent for non-linear sharpening
+    ldmp: "low damp", to not overenhance very small differences
+          (noise coming out of flat areas, default sstr+1)
+
+
+Usage:
+
+import vapoursynth as vs
+import finesharp
+core = vs.get_core()
+core.avs.LoadPlugin('/path/to/RemoveGrain.dll')
+core.avs.LoadPlugin('/path/to/Repair.dll')
+clip = something
+fs = finesharp.FineSharp()
+clip = fs.sharpen(clip, other options...)

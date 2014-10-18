@@ -1,0 +1,46 @@
+http://forum.doom9.org/showthread.php?t=166582
+
+HolyWu:
+
+Here is my ported AviSynth scripts for VapourSynth.
+
+Now includes:
+    ediaa
+    daa
+    maa - Added 'noring' parameter to indicate that a non-ringing algorithm must be used in case of supersampling.
+    SharpAAMCmod - Added 'noring' parameter to indicate that a non-ringing algorithm must be used in case of supersampling.
+    Deblock_QED
+    DeHalo_alpha - Added 'noring' parameter to indicate that a non-ringing algorithm must be used in case of supersampling.
+    YAHR
+    HQDering mod
+    QTGMC - Add FFT3dGPU as another Denoiser to NoiseProcess. Since FFT3dGPU doesn't support bt=5, the maximum of NoiseTR is restricted to 1. Renamed 'DftThreads' parameter to 'DenoiseThreads'. The threads of FFT3DFilter is not set in the original version. Now 'DenoiseThreads' sets the threads of both dfttest and FFT3DFilter.
+    ivtc_txt60mc
+    Vinverse
+    LUTDeCrawl
+    LUTDeRainbow
+    GrainStabilizeMC
+    SMDegrain - Added 'MVglobal' and 'dct' parameters to be able to set the 'global' and 'dct' of MAnalyse.
+    InterFrame
+    FastLineDarken 1.4x MT MOD
+    GammaToLinear, LinearToGamma
+    LSFmod - Added 'noring' parameter to indicate that a non-ringing algorithm must be used in case of supersampling.
+    GrainFactory3
+
+
+Right now there is a pel=1 bug in MVTools of AVS version (http://forum.doom9.org/showthread.php?p=1600699#post1600699). Therefore remember to add pel=2 in SMDegrain if the script would set pel=1 in some circumstances/presets. There is a pel=1 bug fixed version here (http://www.svp-team.com/forum/viewtopic.php?id=1069). But it doesnt support outputting stack16 format, so can't be used with SMDegrain if you want to enable lsb mode.
+
+Since VapourSynth has no notion of field order internally, I have to add a mandatory argument 'TFF' to QTGMC for the script to work correctly. Setting TFF to true means top field first and false means bottom field first. You will get error if TFF is not set. The same thing applies to SMDegrain and ivtc_txt60mc.
+
+BTW, Yadif seems can't be loaded in VapourSynth successfully, so I changed the default EdiMode of "Ultra Fast" preset to TDeint in QTGMC.
+
+Usage Example:
+Firstly, put havsfunc.py to Python\Lib\site-packages.
+
+Code:
+import vapoursynth as vs
+import havsfunc
+core = vs.get_core()
+haf = havsfunc.HAvsFunc()
+# Load the needed plugins #
+clip = yourclip
+clip = haf.QTGMC(clip, Preset='Medium', TFF=True)
