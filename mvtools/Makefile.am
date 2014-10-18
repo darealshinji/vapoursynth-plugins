@@ -15,6 +15,7 @@ BUILT_SOURCES = src/asm/const-a.o \
 				src/asm/Interpolation.o \
 				src/asm/MVDegrains.o \
 				src/asm/Overlap.o \
+				src/asm/SAD.o \
 				src/asm/Variance.o
 CLEANFILES = $(BUILT_SOURCES)
 endif
@@ -46,6 +47,7 @@ libmvtools_la_SOURCES = src/asm-placeholder.cpp \
 						src/MVFilter.cpp \
 						src/MVFinest.cpp \
 						src/MVFlowBlur.cpp \
+						src/MVFlowInter.cpp \
 						src/MVFrame.cpp \
 						src/MVMask.cpp \
 						src/MVRecalculate.cpp \
@@ -66,6 +68,7 @@ libmvtools_la_LDFLAGS += -Xlinker src/asm/const-a.o \
 						-Xlinker src/asm/Interpolation.o \
 						-Xlinker src/asm/MVDegrains.o \
 						-Xlinker src/asm/Overlap.o \
+						-Xlinker src/asm/SAD.o \
 						-Xlinker src/asm/Variance.o
 
 libmvtools_la_SOURCES += src/asm/const-a.asm \
@@ -76,6 +79,7 @@ libmvtools_la_SOURCES += src/asm/const-a.asm \
 						src/asm/Interpolation.asm \
 						src/asm/MVDegrains.asm \
 						src/asm/Overlap.asm \
+						src/asm/SAD.asm \
 						src/asm/Variance.asm
 
 libmvtools_la_DEPENDENCIES = $(BUILT_SOURCES)
