@@ -6,7 +6,6 @@ AM_CXXFLAGS += -std=c++11 -msse2
 
 lib_LTLIBRARIES = libmvtools.la
 
-if x86_64
 BUILT_SOURCES = src/asm/const-a.o \
 				src/asm/cpu-a.o \
 				src/asm/pixel-a.o \
@@ -18,7 +17,6 @@ BUILT_SOURCES = src/asm/const-a.o \
 				src/asm/SAD.o \
 				src/asm/Variance.o
 CLEANFILES = $(BUILT_SOURCES)
-endif
 
 AM_V_YASM = $(am__v_YASM_$(V))
 am__v_YASM_ = $(am__v_YASM_$(AM_DEFAULT_VERBOSITY))
