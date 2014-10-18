@@ -4,9 +4,9 @@ Source: https://github.com/darealshinji/vapoursynth-plugins
 Files: addgrain/*
 Copyright: 2002 Tom Barry
            2006-2010 Foxyshadis <foxyshadis@hotmail.com>
-		   2010-2012 Firesledge
-		   2011 LaTo INV.
-		   2014 HolyWu
+           2010-2012 Firesledge
+           2011 LaTo INV.
+           2014 HolyWu
 License: GPL-2+
 
 Files: ctmf/*
@@ -105,14 +105,14 @@ License: GPL-3+
 
 Files: imagereader/libjpeg-turbo/*
 Copyright: 1999-2006 MIYASAKA Masaru
-    2004 Landmark Graphics Corporation
-    2005-2007 Sun Microsystems, Inc.
-    2009 Pierre Ossman for Cendio AB
-    2009-2010 D. R. Commander
-    2010 Thomas G. Lane, Guido Vollbeding
-    2009, Thomas G. Lane, Guido Vollbeding
-    1998, Thomas G. Lane
-    2010 Nokia Corporation
+           2004 Landmark Graphics Corporation
+           2005-2007 Sun Microsystems, Inc.
+           2009 Pierre Ossman for Cendio AB
+           2009-2010 D. R. Commander
+           2010 Thomas G. Lane, Guido Vollbeding
+           2009, Thomas G. Lane, Guido Vollbeding
+           1998, Thomas G. Lane
+           2010 Nokia Corporation
 License: JPEG
 
 Files: imagereader/libjpeg-turbo/md5/md5.*
