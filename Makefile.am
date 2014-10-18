@@ -35,6 +35,3 @@ SUBDIRS = \
 	videoscope \
 	wwxd \
 	yadifmod
-
-doc_DATA = README
-

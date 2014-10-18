@@ -15,7 +15,10 @@ am__v_YASM_1 =
 .asm.o:
 	$(AM_V_YASM)$(AS) $(ASFLAGS) -o $@ $<
 
-libnnedi3_la_SOURCES = src/nnedi3.c src/asm/nnedi3.asm src/asm/binary1.asm
+libnnedi3_la_SOURCES = \
+	src/nnedi3.c \
+	src/asm/nnedi3.asm \
+	src/asm/binary1.asm
 
 libnnedi3_la_LDFLAGS = \
 	$(XGLOBAL_LDFLAGS) \
