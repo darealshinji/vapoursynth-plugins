@@ -60,8 +60,13 @@ endif
 
 AM_CPPFLAGS = -I$(top_srcdir) 
 
+AM_V_NASM = $(am__v_NASM_$(V))
+am__v_NASM_ = $(am__v_NASM_$(AM_DEFAULT_VERBOSITY))
+am__v_NASM_0 = @echo "  NASM    " $@;
+am__v_NASM_1 = 
+
 .asm.lo:
-	$(LIBTOOL) --mode=compile --tag NASM $(srcdir)/nasm_lt.sh $(NASM) $(NAFLAGS) -I$(srcdir) -I. $< -o $@
+	$(AM_V_NASM)$(LIBTOOL) --mode=compile $(srcdir)/nasm_lt.sh $(NASM) $(NAFLAGS) -I$(srcdir) -I. $< -o $@ >/dev/null
 
 jsimdcfg.inc: $(srcdir)/jsimdcfg.inc.h ../jpeglib.h ../jconfig.h ../jmorecfg.h
 	$(CPP) -I$(top_builddir) -I$(top_builddir)/simd $(srcdir)/jsimdcfg.inc.h | $(EGREP) "^[\;%]|^\ %" | sed 's%_cpp_protection_%%' | sed 's@% define@%define@g' > $@

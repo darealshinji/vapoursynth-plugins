@@ -65,12 +65,12 @@ clean:
 distclean:
 	$(MAKE) distclean || true
 	(cd $(turbodir) && $(MAKE) distclean) || true
-	rm -f config.mak
+	rm -f config.mak $(turbodir)/config.h.in~
 
 clobber:
 	$(MAKE) distclean || true
 	(cd $(turbodir) && $(MAKE) distclean) || true
-	rm -f config.mak libtool $(turbodir)/simd/jsimdcfg.inc
+	rm -f config.mak libtool $(turbodir)/simd/jsimdcfg.inc $(turbodir)/config.h.in~
 	$(foreach DIR,$(CLEANDIRS),\
 	rm -rf configure $(DIR)/autom4te.cache $(DIR)/m4 $(DIR)/build-aux ; \
 	rm -f $(DIR)/aclocal.m4 $(DIR)/config.h.in $(DIR)/configure $(DIR)/Makefile.in $(DIR)/*/Makefile.in ;)
