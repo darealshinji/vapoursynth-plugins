@@ -1,6 +1,6 @@
 include ../global.inc
 
-AM_CXXFLAGS += -msse2
+AM_CXXFLAGS += -msse2 -I../vectorclass
 
 lib_LTLIBRARIES = libtdeintmod.la
 
