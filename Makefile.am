@@ -3,6 +3,7 @@ ACLOCAL_AMFLAGS = -I m4
 SUBDIRS = \
 	addgrain \
 	bifrost \
+	bilateral \
 	combmask \
 	convo2d \
 	ctmf \

@@ -20,7 +20,7 @@ execstack_LIBS = fluxsmooth nnedi3 tcomb
 
 python_SCRIPTS = \
 	finesharp/finesharp.py \
-    havsfunc/havsfunc.py \
+	havsfunc/havsfunc.py \
 	templinearapproximate/MCDenoise.py \
 	temporalsoften2/TemporalSoften2.py \
 	vautodeint/VAutoDeint.py

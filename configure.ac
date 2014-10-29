@@ -91,6 +91,7 @@ AC_CHECK_FUNCS([floor memset pow sqrt strcasecmp strchr strspn strtoul])
 AC_CONFIG_FILES([Makefile \
                  addgrain/Makefile \
                  bifrost/Makefile \
+                 bilateral/Makefile \
                  combmask/Makefile \
                  convo2d/Makefile \
                  ctmf/Makefile \
