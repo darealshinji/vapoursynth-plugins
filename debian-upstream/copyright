@@ -9,6 +9,10 @@ Copyright: 2002 Tom Barry
            2014 HolyWu
 License: GPL-2+
 
+Files: bilateral/* retinex/*
+Copyright: 2014 mawen1250
+License: GPL-3+
+
 Files: ctmf/*
 Copyright: 2006 Simon Perreault
            2014 HolyWu
