@@ -26,7 +26,8 @@ Package: vapoursynth-extra-plugins
 Architecture: any
 Depends:
  ${misc:Depends},
- ${shlibs:Depends}
+ ${shlibs:Depends},
+ ${perl:Depends}
 Pre-Depends:
  ${misc:Pre-Depends}
 Recommends:

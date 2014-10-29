@@ -53,7 +53,7 @@ install:
 	$(foreach LIB,$(shell echo */.libs/*.so),$(install) $(LIB) $(DESTDIR)$(plugins) $(NL))
 	$(foreach LIB,$(execstack_LIBS),execstack --clear-execstack $(DESTDIR)$(plugins)/lib$(LIB).so $(NL))
 	$(foreach SCRIPT,$(python_SCRIPTS),$(install) $(SCRIPT) $(DESTDIR)$(plugins) $(NL))
-	$(install) README $(DESTDIR)$(docdir)
+	$(install) README.md $(DESTDIR)$(docdir)
 	$(install) rawsource/format_list.txt $(DESTDIR)$(docdir)/rawsource_format_list
 	install -m755 -D d2vsource/d2vscan.pl $(DESTDIR)$(plugins)
 	$(install) d2vsource/d2vscan.txt $(DESTDIR)$(docdir)/d2vscan
