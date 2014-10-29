@@ -34,6 +34,8 @@ it 1.0
 msmoosh 1.1
 mvtools 4+git20141014
 nnedi3 2.1
+rawsource git20130731
+retinex r2+git20141028
 sangnommod 0.1+git20141011
 scenechange 0.2.0
 scrawl 1.0+git20131016
@@ -46,7 +48,6 @@ temporalsoften 1.0
 temporalsoften2 0.1.1
 videoscope 1.0
 vautodeint git20130608
-vsrawsource git20130731
 wwxd 1.0
 yadifmod r5
 
@@ -73,6 +74,7 @@ https://github.com/HomeOfVapourSynthEvolution/VapourSynth-IT
 https://github.com/dubhater/vapoursynth-msmoosh
 https://github.com/dubhater/vapoursynth-mvtools
 https://github.com/dubhater/vapoursynth-nnedi3
+https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Retinex
 https://github.com/chikuzen/vsrawsource
 https://github.com/HomeOfVapourSynthEvolution/VapourSynth-SangNomMod
 https://github.com/dubhater/vapoursynth-scrawl

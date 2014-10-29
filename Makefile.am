@@ -22,6 +22,7 @@ SUBDIRS = \
 	mvtools \
 	nnedi3 \
 	rawsource \
+	retinex \
 	sangnommod \
 	scenechange \
 	scrawl \

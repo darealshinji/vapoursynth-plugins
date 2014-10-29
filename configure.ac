@@ -106,6 +106,7 @@ AC_CONFIG_FILES([Makefile \
                  imagereader/Makefile \
                  it/Makefile \
                  msmoosh/Makefile \
+                 retinex/Makefile \
                  rawsource/Makefile \
                  sangnommod/Makefile \
                  scenechange/Makefile \
