@@ -120,7 +120,7 @@ void MSRCPProcess::process_core()
     T dFloor = d.fulld ? 0 : 16 << (bps - 8);
     //T dFloorC = d.fulld ? 0 : 16 << (bps - 8);
     int dNeutral = 128 << (bps - 8);
-    T dCeil = d.fulld ? (1 << bps) - 1 : 235 << (bps - 8);
+    //T dCeil = d.fulld ? (1 << bps) - 1 : 235 << (bps - 8);
     //T dCeilC = d.fulld ? (1 << bps) - 1 : 240 << (bps - 8);
     T dRange = d.fulld ? (1 << bps) - 1 : 219 << (bps - 8);
     T dRangeC = d.fulld ? (1 << bps) - 1 : 224 << (bps - 8);

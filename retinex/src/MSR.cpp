@@ -29,8 +29,8 @@ int MSRProcess::MSRKernel(FLType *odata, const FLType *idata) const
 {
     int i, j, upper;
 
-    FLType FloorFL = 0;
-    FLType CeilFL = 1;
+    //FLType FloorFL = 0;
+    //FLType CeilFL = 1;
 
     FLType *gauss = vs_aligned_malloc<FLType>(sizeof(FLType)*pcount, Alignment);
 
