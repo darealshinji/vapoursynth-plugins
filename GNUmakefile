@@ -55,6 +55,8 @@ install:
 	$(foreach SCRIPT,$(python_SCRIPTS),$(install) $(SCRIPT) $(DESTDIR)$(plugins) $(NL))
 	$(install) README $(DESTDIR)$(docdir)
 	$(install) rawsource/format_list.txt $(DESTDIR)$(docdir)/rawsource_format_list
+	install -m755 -D d2vsource/d2vscan.pl $(DESTDIR)$(plugins)
+	$(install) d2vsource/d2vscan.txt $(DESTDIR)$(docdir)/d2vscan
 	$(foreach FILE,$(shell echo */readme* */README*), \
 		$(install) $(FILE) $(DESTDIR)$(docdir)/$(shell echo $$(dirname $(FILE))) $(NL))
 
