@@ -70,8 +70,8 @@ Files: sangnommod/*
 Copyright: 2014 msg7086
 License: GPL-2+
 
-Files: scrawl/* videoscope/*
-Copyright: 2013 dubhater
+Files: scrawl/* videoscope/* zimg/*
+Copyright: 2013-2014 dubhater
 License: WTFPL
 
 Files: scrawl/src/ter-116n.h

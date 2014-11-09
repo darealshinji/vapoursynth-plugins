@@ -38,14 +38,6 @@ AC_PROG_CC_C99
 AC_CXX_FLAG([-std=c++11])
 
 AC_CANONICAL_HOST
-
-AC_CHECK_PROGS([EXECSTACK], [execstack])
-AS_IF(
-   [test "x$EXECSTACK" = "x"],
-   [AC_MSG_ERROR([execstack required but not found])],
-   [AS="$EXECSTACK"]
-)
-
 AM_CONDITIONAL([x86_64], [test "x$host_cpu" = "xx86_64"])
 
 AC_CHECK_PROGS([YASM], [yasm])
@@ -58,10 +50,10 @@ AS_IF(
 AC_SUBST([ASFLAGS])
 
 # Checks for libraries.
-AC_CHECK_LIB([m], [main])
-AC_CHECK_LIB([png], [main])
-AC_CHECK_LIB([z], [main])
-AC_CHECK_LIB([xvidcore], [main])
+AC_CHECK_LIB([m], [main], [], [exit 1])
+AC_CHECK_LIB([png], [main], [], [exit 1])
+AC_CHECK_LIB([z], [main], [], [exit 1])
+AC_CHECK_LIB([xvidcore], [main], [], [exit 1])
 PKG_CHECK_MODULES([VapourSynth], [vapoursynth])
 PKG_CHECK_MODULES([libavcodec], [libavcodec])
 PKG_CHECK_MODULES([libavformat], [libavformat])
@@ -104,6 +96,7 @@ AC_CONFIG_FILES([Makefile \
                  genericfilters/Makefile \
                  histogram/Makefile \
                  imagereader/Makefile \
+                 imagereader/src/Makefile \
                  it/Makefile \
                  msmoosh/Makefile \
                  retinex/Makefile \
@@ -120,7 +113,8 @@ AC_CONFIG_FILES([Makefile \
                  vautodeint/Makefile \
                  videoscope/Makefile \
                  wwxd/Makefile \
-                 yadifmod/Makefile
+                 yadifmod/Makefile \
+                 zimg/Makefile
                  ])
 AC_CONFIG_SUBDIRS([fluxsmooth
                    mvtools

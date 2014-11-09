@@ -1,18 +1,22 @@
-include ../global.inc
+AUTORECONF   = $(AUTORECONF_$(V))
+AUTORECONF_  = $(AUTORECONF_$(AM_DEFAULT_VERBOSITY))
+AUTORECONF_0 = autoreconf -i
+AUTORECONF_1 = autoreconf -iv
 
-AM_CFLAGS += -I./libjpeg-turbo
+turbodir = libjpeg-turbo
 
-lib_LTLIBRARIES = libimagereader.la
+all-local: clean-local
+	$(AUTORECONF) $(turbodir)
+	cd $(turbodir) && \
+	./configure --enable-static --enable-shared --with-pic --with-jpeg8
+	$(MAKE) -C $(turbodir)
+	$(MAKE) -C src
+	cp -r src/.libs .
 
-libimagereader_la_SOURCES = \
-	src/bmp.c \
-	src/imagereader.c \
-	src/jpeg.c \
-	src/png.c \
-	src/tga.c \
-	src/writeframe.c
+clean-local:
+	rm -rf .libs
 
-libimagereader_la_LDFLAGS = \
-	$(XGLOBAL_LDFLAGS) \
-	./libjpeg-turbo/.libs/libturbojpeg.a \
-	-lpng -lz
+distclean-local: clean-local
+	cd $(turbodir) && rm -f config.h.in~ config.h jconfig.h libjpeg.map \
+	md5/md5cmp stamp-h1 stamp-h2 tjbench tjbenchtest tjunittest
+

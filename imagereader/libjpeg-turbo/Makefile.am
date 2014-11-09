@@ -40,7 +40,7 @@ endif
 
 if WITH_TURBOJPEG
 
-libturbojpeg_la_SOURCES = $(libjpeg_la_SOURCES) turbojpeg.c turbojpeg.h \
+libturbojpeg_la_SOURCES = turbojpeg.c turbojpeg.h \
 	transupp.c transupp.h jdatadst-tj.c jdatasrc-tj.c
 
 TJMAPFILE = turbojpeg-mapfile
@@ -50,6 +50,8 @@ libturbojpeg_la_SOURCES += $(TJMAPFILE)
 if VERSION_SCRIPT
 libturbojpeg_la_LDFLAGS += $(VERSION_SCRIPT_FLAG)$(srcdir)/$(TJMAPFILE)
 endif
+
+libturbojpeg_la_LIBADD = -L./.libs -ljpeg
 
 endif
 

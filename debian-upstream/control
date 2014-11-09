@@ -6,7 +6,6 @@ Build-Depends:
  debhelper (>= 9),
  dh-autoreconf,
  pkg-config,
- execstack,
  libvapoursynth-dev,
  libavformat-dev,
  libavcodec-dev,

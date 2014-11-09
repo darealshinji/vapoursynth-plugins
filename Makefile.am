@@ -17,6 +17,7 @@ SUBDIRS = \
 	genericfilters \
 	histogram \
 	imagereader \
+	imagereader/src \
 	it \
 	msmoosh \
 	mvtools \
@@ -36,4 +37,5 @@ SUBDIRS = \
 	vautodeint \
 	videoscope \
 	wwxd \
-	yadifmod
+	yadifmod \
+	zimg

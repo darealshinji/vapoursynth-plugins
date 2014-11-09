@@ -1,7 +1,6 @@
 include config.mak
 
 plugins = $(libdir)/vapoursynth/
-turbodir = imagereader/libjpeg-turbo
 
 ifeq ($(V), 1)
 MAKE = make -f Makefile V=1
@@ -14,9 +13,7 @@ endif
 install = install -m644 -D
 install_DIR = install -m755 -d
 
-CLEANDIRS = . fluxsmooth mvtools nnedi3 tcomb $(turbodir)
-
-execstack_LIBS = fluxsmooth nnedi3 tcomb
+cleandirs = . fluxsmooth mvtools nnedi3 tcomb imagereader/libjpeg-turbo
 
 python_SCRIPTS = \
 	finesharp/finesharp.py \
@@ -33,11 +30,7 @@ endef
 
 all: dirs
 	test -f configure || $(AUTORECONF)
-	test -f $(turbodir)/configure || (cd $(turbodir) && $(AUTORECONF))
-	test -f $(turbodir)/Makefile  || (cd $(turbodir) && \
-	./configure --enable-static=yes --enable-shared=no --with-pic)
 	test -f Makefile  || ./configure
-	cd $(turbodir) && $(MAKE)
 	$(MAKE)
 
 all-am:
@@ -45,13 +38,12 @@ clean-am:
 distclean-am:
 
 dirs:
-	$(foreach DIR,$(CLEANDIRS),mkdir -p $(DIR)/m4 $(DIR)/build-aux ;)
+	$(foreach DIR,$(cleandirs),mkdir -p $(DIR)/m4 $(DIR)/build-aux ;)
 
 install:
 	$(install_DIR) $(DESTDIR)$(plugins)
 	$(install_DIR) $(DESTDIR)$(docdir)
 	$(foreach LIB,$(shell echo */.libs/*.so),$(install) $(LIB) $(DESTDIR)$(plugins) $(NL))
-	$(foreach LIB,$(execstack_LIBS),execstack --clear-execstack $(DESTDIR)$(plugins)/lib$(LIB).so $(NL))
 	$(foreach SCRIPT,$(python_SCRIPTS),$(install) $(SCRIPT) $(DESTDIR)$(plugins) $(NL))
 	$(install) README.md $(DESTDIR)$(docdir)
 	$(install) rawsource/format_list.txt $(DESTDIR)$(docdir)/rawsource_format_list
@@ -62,20 +54,19 @@ install:
 
 clean:
 	$(MAKE) clean || true
-	(cd $(turbodir) && $(MAKE) clean) || true
 
 distclean:
 	$(MAKE) distclean || true
-	(cd $(turbodir) && $(MAKE) distclean) || true
-	rm -f config.mak $(turbodir)/config.h.in~
+	rm -f config.mak
+
+cleanfiles = .dirstamp aclocal.m4 configure config.h.in config.h.in~ config.log \
+	config.mak config.status jsimdcfg.inc libtool Makefile Makefile.in
 
 clobber:
 	$(MAKE) distclean || true
-	(cd $(turbodir) && $(MAKE) distclean) || true
-	rm -f config.mak libtool $(turbodir)/simd/jsimdcfg.inc $(turbodir)/config.h.in~
-	$(foreach DIR,$(CLEANDIRS),\
-	rm -rf configure $(DIR)/autom4te.cache $(DIR)/m4 $(DIR)/build-aux ; \
-	rm -f $(DIR)/aclocal.m4 $(DIR)/config.h.in $(DIR)/configure $(DIR)/Makefile.in $(DIR)/*/Makefile.in ;)
+	$(foreach DIR,$(cleandirs),rm -rf $(DIR)/autom4te.cache $(DIR)/m4 $(DIR)/build-aux ;)
+	$(foreach FILE,$(cleanfiles),find . -name $(FILE) -delete ;)
+	rm -rf .deps $(shell find . -name .deps)
 
 config.mak:
 	./configure.sh

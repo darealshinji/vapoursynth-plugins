@@ -65,7 +65,7 @@ AS_CASE(
 AC_SUBST([ASFLAGS])
 
 # Checks for libraries.
-AC_CHECK_LIB([m], [main])
+AC_CHECK_LIB([m], [main], [], [exit 1])
 PKG_CHECK_MODULES([VapourSynth], [vapoursynth])
 
 # Checks for header files.
