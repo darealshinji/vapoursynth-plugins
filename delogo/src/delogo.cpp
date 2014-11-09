@@ -65,7 +65,7 @@ LOGO_PIXEL* delogo::ReadLogoData() {
 	if (!lfp) throw "unable to open logo file, wrong file name?";
 	fseek(lfp, 0, SEEK_END);
 	int flen = ftell(lfp);
-	if (flen < sizeof(LOGO_HEADER)+LOGO_FILE_HEADER_STR_SIZE)
+	if (flen < int(sizeof(LOGO_HEADER)+LOGO_FILE_HEADER_STR_SIZE))
 		throw "too small for a logo file, wrong file?";
 
 	// Read header
@@ -95,7 +95,7 @@ LOGO_PIXEL* delogo::ReadLogoData() {
 	// Now we can read it and return
 	LOGO_PIXEL* lgd = new LOGO_PIXEL[m_lgh.h * m_lgh.w];
 	if (lgd == NULL) throw "Unable to allocate memory";
-	fread(lgd, LOGO_PIXELSIZE(&m_lgh), 1, lfp);
+	//fread(lgd, LOGO_PIXELSIZE(&m_lgh), 1, lfp);
 	fclose(lfp);
 	return lgd;
 }

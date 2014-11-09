@@ -102,6 +102,7 @@ proc_16bit(scenechange_t *sc, int stride, const uint8_t **srcp8,
 }
 
 
+const VSFrameRef *src[3];
 static const VSFrameRef * VS_CC
 get_frame(int n, int activation_reason, void **instance_data,
           void **frame_data, VSFrameContext *frame_ctx, VSCore *core,
@@ -122,7 +123,6 @@ get_frame(int n, int activation_reason, void **instance_data,
         return NULL;
     }
 
-    const VSFrameRef *src[3];
     for (int i = 0; i <= next - prev; i++) {
         src[i] = vsapi->getFrameFilter(i + prev, sc->node, frame_ctx);
     }
@@ -357,7 +357,7 @@ parse_log(apply_log_t *al, FILE *log)
     int num = 0;
     int prev = 0;
     int next = 0;
-    fgets(read_buff, buff_size, log);
+    //fgets(read_buff, buff_size, log);
     sscanf(read_buff, "frames: %d\n", &num);
     if (num != al->vi->numFrames) {
         return "number of frames does not match";

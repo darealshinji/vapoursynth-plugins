@@ -67,7 +67,7 @@ int VS_CC read_bmp(img_hnd_t *ih, int n)
     ih->misc = IMG_ORDER_BGR;
     ih->row_adjust = 4;
     if (h.bits_per_pix < 24) {
-        fread(ih->palettes, sizeof(color_palette_t), 1 << h.bits_per_pix, fp);
+        //fread(ih->palettes, sizeof(color_palette_t), 1 << h.bits_per_pix, fp);
         ih->misc |= h.bits_per_pix;
         ih->write_frame = func_write_palette;
     } else if (h.bits_per_pix == 24) {
@@ -108,7 +108,7 @@ check_bmp(img_hnd_t *ih, int n, FILE *fp, vs_args_t *va)
 
     uint32_t row_size = (((ih->src[n].width * h.bits_per_pix + 7) / 8) + 3) & ~3;
     ih->src[n].image_size = row_size * ih->src[n].height;
-    if (row_size > va->max_row_size) {
+    if (sizeof(row_size) > sizeof(va->max_row_size)) {
         va->max_row_size = row_size;
     }
 
