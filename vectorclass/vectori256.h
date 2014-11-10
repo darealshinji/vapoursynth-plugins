@@ -2,7 +2,7 @@
 * Author:        Agner Fog
 * Date created:  2012-05-30
 * Last modified: 2014-10-16
-* Version:       1.15
+* Version:       1.16
 * Project:       vector classes
 * Description:
 * Header file defining integer vector classes as interface to intrinsic 

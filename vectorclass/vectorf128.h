@@ -1,8 +1,8 @@
 /****************************  vectorf128.h   *******************************
 * Author:        Agner Fog
 * Date created:  2012-05-30
-* Last modified: 2014-10-16
-* Version:       1.15
+* Last modified: 2014-10-24
+* Version:       1.16
 * Project:       vector classes
 * Description:
 * Header file defining floating point vector classes as interface to 
@@ -131,8 +131,14 @@ public:
     operator __m128() const {
         return xmm;
     }
-#if defined (__clang__) && CLANG_VERSION < 30500
-#define FIX_CLANG_VECTOR_ALIAS_AMBIGUITY  // clang 3.3 and 3.4 has silent conversion between intrinsic vector types. Will probably be fixed in v. 3.4
+#if defined (__clang__) && CLANG_VERSION < 30900 || defined(__apple_build_version__)
+#define FIX_CLANG_VECTOR_ALIAS_AMBIGUITY  // clang 3.3 - 3.5 has silent conversion between intrinsic vector types. 
+                                          // I expected this to be fixed in version 3.4 but it still exists!
+                                          // http://llvm.org/bugs/show_bug.cgi?id=17164
+                                          // Problem: The version number is not consistent across platforms
+                                          // The Apple build has different version numbers. Too bad!
+                                          // http://llvm.org/bugs/show_bug.cgi?id=12643
+
 #else
     // Type cast operator to convert to type Vec4ib used as Boolean for integer vectors
     operator Vec4ib() const {
@@ -824,11 +830,11 @@ static inline Vec4f square(Vec4f const & a) {
     return a * a;
 }
 
-// pow(Vec4f, int):
-// Raise floating point numbers to integer power n
-static inline Vec4f pow(Vec4f const & a, int n) {
-    Vec4f x = a;                       // a^(2^i)
-    Vec4f y(1.0f);                     // accumulator
+// pow(vector,int) function template
+template <typename VTYPE>
+static inline VTYPE pow_template_i(VTYPE const & x0, int n) {
+    VTYPE x = x0;                      // a^(2^i)
+    VTYPE y(1.0f);                     // accumulator
     if (n >= 0) {                      // make sure n is not negative
         while (true) {                 // loop for each bit in n
             if (n & 1) y *= x;         // multiply if bit = 1
@@ -838,11 +844,28 @@ static inline Vec4f pow(Vec4f const & a, int n) {
         }
     }
     else {                             // n < 0
-        return Vec4f(1.0f)/pow(x,-n);  // reciprocal
+        return VTYPE(1.0f)/pow_template_i<VTYPE>(x0,-n);  // reciprocal
     }
 }
-// prevent implicit conversion of float exponent to int
-static Vec4f pow(Vec4f const & x, float y);
+
+// pow(Vec4f, int):
+// The purpose of this template is to prevent implicit conversion of a float
+// exponent to int when calling pow(vector, float) and vectormath_exp.h is
+// not included
+
+template <typename TT> static Vec4f pow(Vec4f const & a, TT n);
+
+// Raise floating point numbers to integer power n
+template <>
+inline Vec4f pow<int>(Vec4f const & x0, int n) {
+    return pow_template_i<Vec4f>(x0, n);
+}
+
+// allow conversion from unsigned int
+template <>
+inline Vec4f pow<uint32_t>(Vec4f const & x0, uint32_t n) {
+    return pow_template_i<Vec4f>(x0, (int)n);
+}
 
 // Raise floating point numbers to integer power n, where n is a compile-time constant
 template <int n>
@@ -905,7 +928,11 @@ static inline Vec4f pow(Vec4f const & a, Const_int_t<n>) {
 // avoid unsafe optimization in function round
 #if defined(__GNUC__) && !defined(__INTEL_COMPILER) && !defined(__clang__) && INSTRSET < 5
 static inline Vec4f round(Vec4f const & a) __attribute__ ((optimize("-fno-unsafe-math-optimizations")));
-#elif (defined (_MSC_VER) || defined(__INTEL_COMPILER) || defined(__clang__)) && INSTRSET < 5
+#elif defined(__clang__) && INSTRSET < 5
+// static inline Vec4f round(Vec4f const & a) __attribute__ ((optnone));
+// This doesn't work, but current versions of Clang (3.5) don't optimize away signedmagic, even with -funsafe-math-optimizations
+// Add volatile to b if future versions fail
+#elif defined (_MSC_VER) || defined(__INTEL_COMPILER) && INSTRSET < 5
 #pragma float_control(push) 
 #pragma float_control(precise,on)
 #define FLOAT_CONTROL_PRECISE_FOR_ROUND
@@ -921,7 +948,9 @@ static inline Vec4f round(Vec4f const & a) {
     Vec4f magic       = _mm_castsi128_ps(constant4i<0x4B000000,0x4B000000,0x4B000000,0x4B000000>());  // magic number = 2^23
     Vec4f sign        = _mm_and_ps(a, signmask);                                    // signbit of a
     Vec4f signedmagic = _mm_or_ps(magic, sign);                                     // magic number with sign of a
-    return a + signedmagic - signedmagic;                                           // round by adding magic number
+    // volatile
+    Vec4f b = a + signedmagic;                                                      // round by adding magic number
+    return b - signedmagic;                                                         // .. and subtracting it again
 #endif
 }
 #ifdef FLOAT_CONTROL_PRECISE_FOR_ROUND
@@ -1089,7 +1118,7 @@ static inline Vec4f exp2(Vec4i const & n) {
     Vec4i t4 = t3 << 23;               // put exponent into position 23
     return _mm_castsi128_ps(t4);       // reinterpret as float
 }
-static Vec4f exp2(Vec4f const & x); // defined in vectormath_exp.h
+//static Vec4f exp2(Vec4f const & x); // defined in vectormath_exp.h
 
 
 // Control word manipulaton
@@ -1789,24 +1818,23 @@ static inline Vec2d square(Vec2d const & a) {
 }
 
 // pow(Vec2d, int):
+// The purpose of this template is to prevent implicit conversion of a float
+// exponent to int when calling pow(vector, float) and vectormath_exp.h is
+// not included
+
+template <typename TT> static Vec2d pow(Vec2d const & a, TT n);
+
 // Raise floating point numbers to integer power n
-static inline Vec2d pow(Vec2d const & a, int n) {
-    Vec2d x = a;                       // a^(2^i)
-    Vec2d y(1.0);                      // accumulator
-    if (n >= 0) {                      // make sure n is not negative
-        while (true) {                 // loop for each bit in n
-            if (n & 1) y *= x;         // multiply if bit = 1
-            n >>= 1;                   // get next bit of n
-            if (n == 0) return y;      // finished
-            x *= x;                    // x = a^2, a^4, a^8, etc.
-        }
-    }
-    else {                             // n < 0
-        return Vec2d(1.0)/pow(x,-n);   // reciprocal
-    }
+template <>
+inline Vec2d pow<int>(Vec2d const & x0, int n) {
+    return pow_template_i<Vec2d>(x0, n);
 }
-// prevent implicit conversion of exponent to int
-static Vec2d pow(Vec2d const & x, double y);
+
+// allow conversion from unsigned int
+template <>
+inline Vec2d pow<uint32_t>(Vec2d const & x0, uint32_t n) {
+    return pow_template_i<Vec2d>(x0, (int)n);
+}
 
 
 // Raise floating point numbers to integer power n, where n is a compile-time constant
@@ -2116,7 +2144,7 @@ static inline Vec2d exp2(Vec2q const & n) {
     Vec2q t4 = t3 << 52;               // put exponent into position 52
     return _mm_castsi128_pd(t4);       // reinterpret as double
 }
-static Vec2d exp2(Vec2d const & x); // defined in vectormath_exp.h
+//static Vec2d exp2(Vec2d const & x); // defined in vectormath_exp.h
 
 
 // Categorization functions

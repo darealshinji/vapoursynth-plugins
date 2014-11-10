@@ -1,8 +1,8 @@
 /****************************  vectorf256.h   *******************************
 * Author:        Agner Fog
 * Date created:  2012-05-30
-* Last modified: 2014-10-16
-* Version:       1.15
+* Last modified: 2014-10-22
+* Version:       1.16
 * Project:       vector classes
 * Description:
 * Header file defining 256-bit floating point vector classes as interface
@@ -930,24 +930,19 @@ static inline Vec8f square(Vec8f const & a) {
 }
 
 // pow(Vec8f, int):
+template <typename TT> static Vec8f pow(Vec8f const & a, TT n);
+
 // Raise floating point numbers to integer power n
-static inline Vec8f pow(Vec8f const & a, int n) {
-    Vec8f x = a;                       // a^(2^i)
-    Vec8f y(1.0f);                     // accumulator
-    if (n >= 0) {                      // make sure n is not negative
-        while (true) {                 // loop for each bit in n
-            if (n & 1) y *= x;         // multiply if bit = 1
-            n >>= 1;                   // get next bit of n
-            if (n == 0) return y;      // finished
-            x *= x;                    // x = a^2, a^4, a^8, etc.
-        }
-    }
-    else {                             // n < 0
-        return Vec8f(1.0f)/pow(x,-n);  // reciprocal
-    }
+template <>
+inline Vec8f pow<int>(Vec8f const & x0, int n) {
+    return pow_template_i<Vec8f>(x0, n);
 }
-// prevent implicit conversion of exponent to int
-static inline Vec8f pow(Vec8f const & x, float y);
+
+// allow conversion from unsigned int
+template <>
+inline Vec8f pow<uint32_t>(Vec8f const & x0, uint32_t n) {
+    return pow_template_i<Vec8f>(x0, (int)n);
+}
 
 
 // Raise floating point numbers to integer power n, where n is a compile-time constant
@@ -1184,7 +1179,7 @@ static inline Vec8f exp2(Vec8i const & n) {
     return Vec8f(exp2(n.get_low()), exp2(n.get_high()));
 #endif
 }
-static inline Vec8f exp2(Vec8f const & x); // defined in vectormath_exp.h
+//static inline Vec8f exp2(Vec8f const & x); // defined in vectormath_exp.h
 
 #endif // VECTORI256_H
 
@@ -1689,24 +1684,19 @@ static inline Vec4d square(Vec4d const & a) {
 }
 
 // pow(Vec4d, int):
+template <typename TT> static Vec4d pow(Vec4d const & a, TT n);
+
 // Raise floating point numbers to integer power n
-static inline Vec4d pow(Vec4d const & a, int n) {
-    Vec4d x = a;                       // a^(2^i)
-    Vec4d y(1.0);                      // accumulator
-    if (n >= 0) {                      // make sure n is not negative
-        while (true) {                 // loop for each bit in n
-            if (n & 1) y *= x;         // multiply if bit = 1
-            n >>= 1;                   // get next bit of n
-            if (n == 0) return y;      // finished
-            x *= x;                    // x = a^2, a^4, a^8, etc.
-        }
-    }
-    else {                             // n < 0
-        return Vec4d(1.0)/pow(x,-n);   // reciprocal
-    }
+template <>
+inline Vec4d pow<int>(Vec4d const & x0, int n) {
+    return pow_template_i<Vec4d>(x0, n);
 }
-// prevent implicit conversion of exponent to int
-static inline Vec4d pow(Vec4d const & x, double y);
+
+// allow conversion from unsigned int
+template <>
+inline Vec4d pow<uint32_t>(Vec4d const & x0, uint32_t n) {
+    return pow_template_i<Vec4d>(x0, (int)n);
+}
 
 
 // Raise floating point numbers to integer power n, where n is a compile-time constant
@@ -1922,7 +1912,7 @@ static inline Vec4d mul_sub_x(Vec4d const & a, Vec4d const & b, Vec4d const & c)
 #else
     // calculate a * b - c with extra precision
     // mask to remove lower 27 bits
-    Vec4d upper_mask = _mm256_castps_pd(constant8f<0xF8000000,-1,0xF8000000,-1,0xF8000000,-1,0xF8000000,-1>());
+    Vec4d upper_mask = _mm256_castps_pd(constant8f<(int)0xF8000000,-1,(int)0xF8000000,-1,(int)0xF8000000,-1,(int)0xF8000000,-1>());
     Vec4d a_high = a & upper_mask;               // split into high and low parts
     Vec4d b_high = b & upper_mask;
     Vec4d a_low  = a - a_high;
@@ -1982,7 +1972,7 @@ static inline Vec4d exp2(Vec4q const & n) {
     return Vec4d(exp2(n.get_low()), exp2(n.get_high()));
 #endif
 }
-static inline Vec4d exp2(Vec4d const & x); // defined in vectormath_exp.h
+//static inline Vec4d exp2(Vec4d const & x); // defined in vectormath_exp.h
 #endif
 
 

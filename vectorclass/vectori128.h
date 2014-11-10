@@ -1,8 +1,8 @@
 /****************************  vectori128.h   *******************************
 * Author:        Agner Fog
 * Date created:  2012-05-30
-* Last modified: 2014-10-16
-* Version:       1.15
+* Last modified: 2014-10-24
+* Version:       1.16
 * Project:       vector classes
 * Description:
 * Header file defining integer vector classes as interface to intrinsic 
@@ -4411,7 +4411,7 @@ static inline Vec4i blend4i(Vec4i const & a, Vec4i const & b) {
 
     // partially finished result
     __m128i temp;
-#ifdef _MSC_VER
+#if defined (_MSC_VER) || defined (__clang__)
     temp = a;  // avoid spurious warning message for temp unused
 #endif
 
@@ -5241,7 +5241,9 @@ static inline uint32_t bit_scan_reverse (uint32_t a) {
 #endif
 
 // Same function, for compile-time constants.
-// We need template metaprogramming for calculating this function at compile time
+// We need template metaprogramming for calculating this function at compile time.
+// This may take a long time to compile because of the template recursion.
+// Todo: replace this with a constexpr function when C++14 becomes available
 template <uint32_t n> 
 struct BitScanR {
     enum {val = (

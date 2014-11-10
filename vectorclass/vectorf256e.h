@@ -1,8 +1,8 @@
 /****************************  vectorf256e.h   *******************************
 * Author:        Agner Fog
 * Date created:  2012-05-30
-* Last modified: 2014-10-16
-* Version:       1.15
+* Last modified: 2014-10-22
+* Version:       1.16
 * Project:       vector classes
 * Description:
 * Header file defining 256-bit floating point vector classes as interface
@@ -865,12 +865,19 @@ static inline Vec8f square(Vec8f const & a) {
 }
 
 // pow(Vec8f, int):
+template <typename TT> static Vec8f pow(Vec8f const & a, TT n);
+
 // Raise floating point numbers to integer power n
-static inline Vec8f pow(Vec8f const & a, int n) {
-    return Vec8f(pow(a.get_low(),n), pow(a.get_high(),n));
+template <>
+inline Vec8f pow<int>(Vec8f const & x0, int n) {
+    return pow_template_i<Vec8f>(x0, n);
 }
-// prevent implicit conversion of exponent to int
-static Vec8f pow(Vec8f const & x, float y);
+
+// allow conversion from unsigned int
+template <>
+inline Vec8f pow<uint32_t>(Vec8f const & x0, uint32_t n) {
+    return pow_template_i<Vec8f>(x0, (int)n);
+}
 
 
 // Raise floating point numbers to integer power n, where n is a compile-time constant
@@ -988,7 +995,7 @@ static inline Vec8f fraction(Vec8f const & a) {
 static inline Vec8f exp2(Vec8i const & a) {
     return Vec8f(exp2(a.get_low()), exp2(a.get_high()));
 }
-static Vec8f exp2(Vec8f const & x); // defined in vectormath_exp.h
+//static Vec8f exp2(Vec8f const & x); // defined in vectormath_exp.h
 #endif // VECTORI256_H
 
 
@@ -1450,11 +1457,19 @@ static inline Vec4d square(Vec4d const & a) {
 
 // pow(Vec4d, int):
 // Raise floating point numbers to integer power n
-static inline Vec4d pow(Vec4d const & a, int n) {
-    return Vec4d(pow(a.get_low(),n), pow(a.get_high(),n));
+template <typename TT> static Vec4d pow(Vec4d const & a, TT n);
+
+// Raise floating point numbers to integer power n
+template <>
+inline Vec4d pow<int>(Vec4d const & x0, int n) {
+    return pow_template_i<Vec4d>(x0, n);
 }
-// prevent implicit conversion of exponent to int
-static Vec4d pow(Vec4d const & x, double y);
+
+// allow conversion from unsigned int
+template <>
+inline Vec4d pow<uint32_t>(Vec4d const & x0, uint32_t n) {
+    return pow_template_i<Vec4d>(x0, (int)n);
+}
 
 
 // Raise floating point numbers to integer power n, where n is a compile-time constant
@@ -1611,7 +1626,7 @@ static inline Vec4d fraction(Vec4d const & a) {
 static inline Vec4d exp2(Vec4q const & a) {
     return Vec4d(exp2(a.get_low()), exp2(a.get_high()));
 }
-static Vec4d exp2(Vec4d const & x); // defined in vectormath_exp.h
+//static Vec4d exp2(Vec4d const & x); // defined in vectormath_exp.h
 #endif
 
 
