@@ -1,4 +1,4 @@
-A collection of VapourSynth plugins
+A collection of [VapourSynth](https://github.com/vapoursynth/vapoursynth) plugins
 ===================================
 
 **Build dependencies**:`
