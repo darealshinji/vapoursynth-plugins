@@ -10,4 +10,7 @@ libhistogram_la_SOURCES = \
 	src/levels.c \
 	src/luma.c
 
-libhistogram_la_LDFLAGS = $(XGLOBAL_LDFLAGS)  -lm
+libhistogram_la_LDFLAGS = $(XGLOBAL_LDFLAGS)
+
+libhistogram_la_LIBADD = -lm
+

@@ -36,4 +36,7 @@ libgenericfilters_la_SOURCES = \
 	specific/hysteresis.c \
 	common/common.c
 
-libgenericfilters_la_LDFLAGS = $(XGLOBAL_LDFLAGS)  -lm
+libgenericfilters_la_LDFLAGS = $(XGLOBAL_LDFLAGS)
+
+libgenericfilters_la_LIBADD = -lm
+

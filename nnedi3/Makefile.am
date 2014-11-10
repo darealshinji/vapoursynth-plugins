@@ -23,7 +23,8 @@ libnnedi3_la_SOURCES = \
 libnnedi3_la_LDFLAGS = \
 	$(XGLOBAL_LDFLAGS) \
 	-Xlinker src/asm/nnedi3.o \
-	-Xlinker src/asm/binary1.o \
-	-lm
+	-Xlinker src/asm/binary1.o
+
+libnnedi3_la_LIBADD = -lm
 
 libnnedi3_la_DEPENDENCIES = src/asm/nnedi3.o src/asm/binary1.o
