@@ -21,8 +21,8 @@
 
 #include <algorithm>
 #include <string>
-#include "VapourSynth.h"
-#include "VSHelper.h"
+#include <vapoursynth/VapourSynth.h>
+#include <vapoursynth/VSHelper.h>
 
 // generalized by Fizick (was max=51)
 static const int MAX_QUANT = 60;
@@ -77,7 +77,7 @@ struct DeblockData {
 };
 
 template<typename T>
-static void DeblockHorEdge(T *dstp, int stride, const DeblockData *d) {
+static void DeblockHorEdge(T * VS_RESTRICT dstp, const int stride, const DeblockData * d) {
     const int shift = d->vi->format->bitsPerSample - 8;
     const int peak = (1 << d->vi->format->bitsPerSample) - 1;
     T * sq0 = dstp;
@@ -111,7 +111,7 @@ static void DeblockHorEdge(T *dstp, int stride, const DeblockData *d) {
 }
 
 template<typename T>
-static void DeblockVerEdge(T *dstp, int stride, const DeblockData *d) {
+static void DeblockVerEdge(T * VS_RESTRICT dstp, const int stride, const DeblockData * d) {
     const int shift = d->vi->format->bitsPerSample - 8;
     const int peak = (1 << d->vi->format->bitsPerSample) - 1;
 
@@ -140,12 +140,12 @@ static void DeblockVerEdge(T *dstp, int stride, const DeblockData *d) {
 }
 
 static void VS_CC deblockInit(VSMap *in, VSMap *out, void **instanceData, VSNode *node, VSCore *core, const VSAPI *vsapi) {
-    DeblockData * d = (DeblockData *)*instanceData;
+    DeblockData * d = static_cast<DeblockData *>(*instanceData);
     vsapi->setVideoInfo(d->vi, 1, node);
 }
 
 static const VSFrameRef *VS_CC deblockGetFrame(int n, int activationReason, void **instanceData, void **frameData, VSFrameContext *frameCtx, VSCore *core, const VSAPI *vsapi) {
-    DeblockData * d = (DeblockData *)*instanceData;
+    const DeblockData * d = static_cast<const DeblockData *>(*instanceData);
 
     if (activationReason == arInitial) {
         vsapi->requestFrameFilter(n, d->node, frameCtx);
@@ -172,16 +172,16 @@ static const VSFrameRef *VS_CC deblockGetFrame(int n, int activationReason, void
                         }
                         dstp += stride * 4;
                     }
-                } else if (d->vi->format->bytesPerSample == 2) {
+                } else {
                     const int stride = vsapi->getStride(dst, plane) / 2;
                     for (int x = 4; x < width; x += 4)
-                        DeblockVerEdge<uint16_t>((uint16_t *)dstp + x, stride, d);
+                        DeblockVerEdge<uint16_t>(reinterpret_cast<uint16_t *>(dstp) + x, stride, d);
                     dstp += stride * 8;
                     for (int y = 4; y < height; y += 4) {
-                        DeblockHorEdge<uint16_t>((uint16_t *)dstp, stride, d);
+                        DeblockHorEdge<uint16_t>(reinterpret_cast<uint16_t *>(dstp), stride, d);
                         for (int x = 4; x < width; x += 4) {
-                            DeblockHorEdge<uint16_t>((uint16_t *)dstp + x, stride, d);
-                            DeblockVerEdge<uint16_t>((uint16_t *)dstp + x, stride, d);
+                            DeblockHorEdge<uint16_t>(reinterpret_cast<uint16_t *>(dstp) + x, stride, d);
+                            DeblockVerEdge<uint16_t>(reinterpret_cast<uint16_t *>(dstp) + x, stride, d);
                         }
                         dstp += stride * 8;
                     }
@@ -197,14 +197,13 @@ static const VSFrameRef *VS_CC deblockGetFrame(int n, int activationReason, void
 }
 
 static void VS_CC deblockFree(void *instanceData, VSCore *core, const VSAPI *vsapi) {
-    DeblockData * d = (DeblockData *)instanceData;
+    DeblockData * d = static_cast<DeblockData *>(instanceData);
     vsapi->freeNode(d->node);
     delete d;
 }
 
 static void VS_CC deblockCreate(const VSMap *in, VSMap *out, void *userData, VSCore *core, const VSAPI *vsapi) {
     DeblockData d;
-    DeblockData * data;
     int err;
 
     d.quant = int64ToIntS(vsapi->propGetInt(in, "quant", 0, &err));
@@ -214,7 +213,7 @@ static void VS_CC deblockCreate(const VSMap *in, VSMap *out, void *userData, VSC
     d.bOffset = int64ToIntS(vsapi->propGetInt(in, "boffset", 0, &err));
 
     if (d.quant < 0 || d.quant > MAX_QUANT) {
-        vsapi->setError(out, ("Deblock: quant must be between 0 and " + std::to_string(MAX_QUANT)).c_str());
+        vsapi->setError(out, ("Deblock: quant must be between 0 and " + std::to_string(MAX_QUANT) + " inclusive").c_str());
         return;
     }
 
@@ -271,8 +270,7 @@ static void VS_CC deblockCreate(const VSMap *in, VSMap *out, void *userData, VSC
         d.process[n] = true;
     }
 
-    data = new DeblockData;
-    *data = d;
+    DeblockData * data = new DeblockData(d);
 
     vsapi->createFilter(in, out, "Deblock", deblockInit, deblockGetFrame, deblockFree, fmParallel, 0, data, core);
 }
