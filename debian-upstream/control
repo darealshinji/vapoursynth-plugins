@@ -12,6 +12,7 @@ Build-Depends:
  libavutil-dev,
  libjpeg-turbo8-dev,
  libpng12-dev,
+ libswresample-dev,
  libxvidcore-dev,
  nasm,
  yasm,
