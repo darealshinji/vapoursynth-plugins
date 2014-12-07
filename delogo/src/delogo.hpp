@@ -25,10 +25,9 @@ typedef struct {
 	short dp, c;
 } LOCAL_LOGO_PIXEL;
 
-class delogo
-{
-	const char* m_logofile;
-	const char* m_logoname;
+class delogo {
+	const char * m_logofile;
+	const char * m_logoname;
 	int m_pos_x;
 	int m_pos_y;
 	int m_depth;
@@ -42,70 +41,80 @@ class delogo
 	int m_cutoff;
 	int m_mode;
 	LOGO_HEADER m_lgh;
-	LOCAL_LOGO_PIXEL* m_lgd;
+	LOCAL_LOGO_PIXEL * m_lgd;
 
 public:
-	VSVideoInfo* vi;
-	VSNodeRef* node;
+	VSVideoInfo * vi;
+	VSNodeRef * node;
 
-	delogo(const VSAPI *vsapi,
-		VSVideoInfo* vi,
-		VSNodeRef* node,
-		const char* logofile,
-		const char* logoname,
-		int pos_x,
-		int pos_y,
-		int depth,
-		int yc_y,
-		int yc_u,
-		int yc_v,
-		int start,
-		int end,
-		int fadein,
-		int fadeout,
-		int cutoff,
-		int mode);
-	~delogo();
-	void GetFramePre(IScriptEnvironment*env, int n) { env->PrefetchFrame(n); }
+	delogo(const VSAPI * vsapi,
+	       VSVideoInfo * vi,
+	       VSNodeRef * node,
+	       const char * logofile,
+	       const char * logoname,
+	       int pos_x,
+	       int pos_y,
+	       int depth,
+	       int yc_y,
+	       int yc_u,
+	       int yc_v,
+	       int start,
+	       int end,
+	       int fadein,
+	       int fadeout,
+	       int cutoff,
+	       int mode);
 
-	const VSFrameRef* GetFrame(IScriptEnvironment*env, int n){
-		if (m_mode == -1)
-			return GetFrameErase(n, env);
-		else
-			return GetFrameAdd(n, env);
+	~delogo() {
 	}
-	const VSFrameRef* GetFrameAdd(int n, IScriptEnvironment *env);
-	const VSFrameRef* GetFrameErase(int n, IScriptEnvironment *env);
-	LOGO_PIXEL* ReadLogoData();
-	LOGO_PIXEL* AdjustLogo(LOGO_PIXEL* lgd);
-	LOGO_PIXEL* ColorTuning(LOGO_PIXEL* lgd);
-	LOGO_PIXEL* AlphaCutoff(LOGO_PIXEL* lgd);
-	LOCAL_LOGO_PIXEL * Convert(LOGO_PIXEL *src, LOGO_HEADER &m_lgh);
 
-	/// フェードによる深度計算
-	int CalcFade(int n)
-	{
-		if (n < m_start || (m_end < n && m_end >= m_start)){	// 範囲外
+	inline void GetFramePre(IScriptEnvironment * env, int n) {
+		env->PrefetchFrame(n);
+	}
+
+	inline const VSFrameRef* GetFrame(IScriptEnvironment * env, int n) {
+		return m_mode == -1 ? GetFrameErase(n, env) : GetFrameAdd(n, env);
+	}
+
+	const VSFrameRef* GetFrameAdd(int n, IScriptEnvironment * env);
+	const VSFrameRef* GetFrameErase(int n, IScriptEnvironment * env);
+	LOGO_PIXEL* ReadLogoData();
+	LOGO_PIXEL* AdjustLogo(LOGO_PIXEL * lgd);
+	LOGO_PIXEL* ColorTuning(LOGO_PIXEL * lgd);
+	LOGO_PIXEL* AlphaCutoff(LOGO_PIXEL * lgd);
+	LOCAL_LOGO_PIXEL* Convert(LOGO_PIXEL * src, LOGO_HEADER & m_lgh);
+
+	/// Compute depth by fade
+	int CalcFade(int n) {
+		if (n < m_start || (m_end < n && m_end >= m_start)) { // Out of frame range
 			return 0;
 		}
-		if (n < m_start + m_fadein){			// フェードイン
-			return ((n - m_start) * 2 + 1)*LOGO_FADE_MAX / (m_fadein * 2);
-		}
-		else if (n > m_end - m_fadeout && m_end >= 0){		// フェードアウト
-			return ((m_end - n) * 2 + 1)*LOGO_FADE_MAX / (m_fadeout * 2);
-		}
-		// 通常
+		if (n < m_start + m_fadein) // Fade in
+			return ((n - m_start) * 2 + 1) * LOGO_FADE_MAX / (m_fadein * 2);
+		if (n > m_end - m_fadeout && m_end >= 0) // Fade out
+			return ((m_end - n) * 2 + 1) * LOGO_FADE_MAX / (m_fadeout * 2);
+		// Regular frames
 		return LOGO_FADE_MAX;
 	}
 
-	int Abs(int x){ return abs(x); }
-	int Clamp(int n, int l, int h){ return VSMIN(VSMAX(n, l), h); }
+	inline int Clamp(int n, int l, int h) {
+		return VSMIN(VSMAX(n, l), h);
+	}
 
-	int YtoAUY(int y){ return ((y * 1197) >> 6) - 299; }
-	int CtoAUC(int c){ return (c * 4681 - 128 * 4681 + 164) >> 8; }
-	int AUYtoY(int y){ return Clamp((y * 219 + 383 + (16 << 12)) >> 12, 0, 255); }
-	int AUCtoC(int c){ return Clamp((c * 7 + 2048 * 7 + 66 + (16 << 7)) >> 7, 0, 255); }
-	int min(int a, int b) { return VSMIN(a, b); }
-	int max(int a, int b) { return VSMAX(a, b); }
+	inline int YtoAUY(int y) {
+		return ((y * 1197) >> 6) - 299;
+	}
+
+	inline int CtoAUC(int c) {
+		return (c * 4681 - 128 * 4681 + 164) >> 8;
+	}
+
+	inline int AUYtoY(int y) {
+		return Clamp((y * 219 + 383 + (16 << 12)) >> 12, 0, 255);
+	}
+
+	inline int AUCtoC(int c) {
+		return Clamp((c * 7 + 2048 * 7 + 66 + (16 << 7)) >> 7, 0, 255);
+	}
 };
 

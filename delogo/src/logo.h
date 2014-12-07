@@ -1,16 +1,16 @@
 /*====================================================================
-*	ロゴパターン			logo.h
+*	Logo Pattern			logo.h
 * 
-* [ロゴデータファイル構造]
+* [Stucture of Logo Data File]
 * 
-* 	"<logo file x.xx>"	// ファイルヘッダ文字列：バージョン情報(28byte)
+* 	"<logo file x.xx>"	// File header: Magic and Version (28 bytes)
 * 	+----
-* 	|	ファイルに含まれるロゴデータの数(4byte, BigEndian)
+* 	|	Number of logos contained in this file (4 bytes, BigEndian)
 * 	+----
-* 	|	LOGO_HEADER		// データヘッダ
+* 	|	LOGO_HEADER		// Data header
 * 	+----
 * 	|
-* 	:	LOGO_PIXEL[h*w]	// ピクセル情報：サイズはLOGO_HEADERのw,hから算出
+* 	:	LOGO_PIXEL[h*w]	// Pixel data. Size can be computed by LOGO_HEADER->w,h
 * 	:
 * 	+----
 * 	|	LOGO_HEADER
@@ -23,14 +23,13 @@
 #ifndef ___LOGO_H
 #define ___LOGO_H
 
-/* ロゴヘッダ文字列 */
+/* Logo Data Magic Text */
 #define LOGO_FILE_HEADER_STR "<logo data file ver0.1>\0\0\0\0\0"
 #define LOGO_FILE_HEADER_STR_SIZE  28
 
 /*--------------------------------------------------------------------
-*	LOGO_FILE_HEADER 構造体
-*		ファイルヘッダ．
-*		バージョン情報と含まれるデータ数
+*	LOGO_FILE_HEADER Struct
+*		File header and version
 *-------------------------------------------------------------------*/
 typedef struct {
 	char str[LOGO_FILE_HEADER_STR_SIZE];
@@ -42,45 +41,45 @@ typedef struct {
 
 #define SWAP_ENDIAN(x) (((x&0xff)<<24)|((x&0xff00)<<8)|((x&0xff0000)>>8)|((x&0xff000000)>>24))
 
-/* 不透明度最大値 */
+/* Maximum depth (for solid pixel) */
 #define LOGO_MAX_DP   1000
 
-/* ロゴ名最大文字数（終端\0含む） */
+/* Maximum length of a logo name (including trailing \0) */
 #define LOGO_MAX_NAME 32
 
 /*--------------------------------------------------------------------
-*	LOGO_HEADER 構造体
-*		ロゴの基本的な情報を記録
+*	LOGO_HEADER Struct
+*		Storing basic information of logo
 *-------------------------------------------------------------------*/
 typedef struct {
-	char     name[LOGO_MAX_NAME]; 	/* 名称                   */
-	short    x, y;      			/* 基本位置               */
-	short    h, w;      			/* ロゴ高さ・幅           */
-	short    fi, fo;    			/* デフォルトのFadeIn/Out */
-	short    st, ed;    			/* デフォルトの開始･終了  */
+	char     name[LOGO_MAX_NAME]; 	/* Name                   */
+	short    x, y;      			/* Position               */
+	short    h, w;      			/* Logo width height      */
+	short    fi, fo;    			/* Default FadeIn/Out     */
+	short    st, ed;    			/* Default Start/End      */
 } LOGO_HEADER;
 
 /*--------------------------------------------------------------------
-*	LOGO_PIXEL 構造体
-*		ロゴの各ピクセルごとの情報を記録
+*	LOGO_PIXEL Struct
+*		Storing color information of all pixels
 *-------------------------------------------------------------------*/
 typedef struct {
-	short dp_y;		/* 不透明度（輝度）            */
-	short y;		/* 輝度              0〜4096   */
-	short dp_cb;	/* 不透明度（青）              */
-	short cb;		/* 色差（青）    -2048〜2048   */
-	short dp_cr;	/* 不透明度（赤）              */
-	short cr;		/* 色差（赤）    -2048〜2048   */
+	short dp_y;		/* Depth of Y         */
+	short y;		/* Y         0 ~ 4096 */
+	short dp_cb;	/* Depth of Cb        */
+	short cb;		/* Cb    -2048 ~ 2048 */
+	short dp_cr;	/* Depth of Cr        */
+	short cr;		/* Cr    -2048 ~ 2048 */
 } LOGO_PIXEL;
 
 /*--------------------------------------------------------------------
-*	ロゴデータのサイズ（ヘッダ無し）
+*	Size of Logo Data (without header)
 *-------------------------------------------------------------------*/
 #define LOGO_PIXELSIZE(ptr)  \
 	(((LOGO_HEADER *)ptr)->h*((LOGO_HEADER *)ptr)->w*sizeof(LOGO_PIXEL))
 
 /*--------------------------------------------------------------------
-*	ロゴデータ全体のサイズ
+*	Size of Logo Data (including header)
 *-------------------------------------------------------------------*/
 #define LOGO_DATASIZE(ptr) (sizeof(LOGO_HEADER)+LOGO_PIXELSIZE(ptr))
 

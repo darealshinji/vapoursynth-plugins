@@ -20,8 +20,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110 - 1301, USA
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <VapourSynth.h>
-#include <VSHelper.h>
+#include <vapoursynth/VapourSynth.h>
+#include <vapoursynth/VSHelper.h>
 #define BYTE unsigned char
 
 #ifdef _MSC_VER
@@ -38,7 +38,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110 - 1301, USA
 #define PARAM_INT(name, def) int name = int64ToIntS(vsapi->propGetInt(in, #name, 0, &err)); if (err) { name = def; }
 #define PARAM_STR(name, def) const char* name = vsapi->propGetData(in, #name, 0, &err); if (err) { name = def; }
 
-#define PLUGIN_VERSION "005a." "0.11"
+#define PLUGIN_VERSION "005a." "0.2"
 
 #define LOGO_FADE_MAX 256
 #define LOGO_DEFAULT_DEPTH 128
@@ -46,7 +46,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110 - 1301, USA
 #define FAIL_IF_ERROR(cond, ...) {\
     if (cond) {\
         snprintf(msg, 200, __VA_ARGS__);\
-        goto fail;\
+		vsapi->setError(out, msg); \
+        return nullptr;\
     }\
 }
 

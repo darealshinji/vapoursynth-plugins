@@ -21,14 +21,14 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110 - 1301, USA
 void VS_CC
 logoInit(VSMap *in, VSMap *out, void **instanceData, VSNode *node, VSCore *core, const VSAPI *vsapi)
 {
-	delogo *d = *(delogo**)instanceData;
+	delogo *d = *reinterpret_cast<delogo**>(instanceData);
 	vsapi->setVideoInfo(d->vi, 1, node);
 }
 
 void VS_CC
 logoFree(void *instanceData, VSCore *core, const VSAPI *vsapi)
 {
-	delogo *d = (delogo*)instanceData;
+	delogo *d = static_cast<delogo*>(instanceData);
 	// This can cause deadlock under Linux. FIXME
 	// vsapi->freeNode(d->node);
 	delete d;
@@ -37,15 +37,14 @@ logoFree(void *instanceData, VSCore *core, const VSAPI *vsapi)
 const VSFrameRef *VS_CC
 logoGetFrame(int n, int activationReason, void **instanceData, void **frameData, VSFrameContext *frameCtx, VSCore *core, const VSAPI *vsapi)
 {
-	delogo *d = *(delogo**)instanceData;
+	delogo *d = *reinterpret_cast<delogo**>(instanceData);
 	IScriptEnvironment env(frameCtx, core, vsapi, d->node);
 	if (activationReason == arInitial) {
 		d->GetFramePre(&env, n);
-		return NULL;
+		return nullptr;
 	}
-	if (activationReason != arAllFramesReady) {
-		return NULL;
-	}
+	if (activationReason != arAllFramesReady)
+		return nullptr;
 
 	return d->GetFrame(&env, n);
 }
@@ -56,7 +55,6 @@ logoCreate(const VSMap *in, VSMap *out, void *userData, VSCore *core, const VSAP
 	char msg_buff[256] = "DELOGO(" PLUGIN_VERSION "): ";
 	char *msg = msg_buff + strlen(msg_buff);
 
-	delogo*d = NULL;
 	VSNodeRef * node = vsapi->propGetNode(in, "clip", 0, 0);
 	VSVideoInfo * vi = new VSVideoInfo;
 	*vi = *vsapi->getVideoInfo(node);
@@ -68,48 +66,35 @@ logoCreate(const VSMap *in, VSMap *out, void *userData, VSCore *core, const VSAP
 		vi->format->bitsPerSample != 8 ||
 		vi->format->colorFamily != cmYUV,
 		"only YUV420P8 input supported. You can you up.");
-	{
-		PARAM_INT(pos_x, 0);
-		PARAM_INT(pos_y, 0);
-		PARAM_INT(depth, LOGO_DEFAULT_DEPTH);
-		PARAM_INT(yc_y, 0);
-		PARAM_INT(yc_u, 0);
-		PARAM_INT(yc_v, 0);
-		PARAM_INT(start, 0);
-		PARAM_INT(end, -1);
-		PARAM_INT(fadein, 0);
-		PARAM_INT(fadeout, 0);
-		PARAM_INT(cutoff, 0);
-		PARAM_STR(logofile, NULL);
-		PARAM_STR(logoname, NULL);
 
-		try {
-			d = new delogo(vsapi, vi, node, logofile, logoname, pos_x, pos_y, depth, yc_y, yc_u, yc_v, start, end, fadein, fadeout, cutoff, mode);
-		}
-		catch (const char *err) {
-			snprintf(msg_buff, 200, "%s", err);
-			goto fail;
-		}
-	}
-	return d;
+	PARAM_INT(pos_x, 0);
+	PARAM_INT(pos_y, 0);
+	PARAM_INT(depth, LOGO_DEFAULT_DEPTH);
+	PARAM_INT(yc_y, 0);
+	PARAM_INT(yc_u, 0);
+	PARAM_INT(yc_v, 0);
+	PARAM_INT(start, 0);
+	PARAM_INT(end, -1);
+	PARAM_INT(fadein, 0);
+	PARAM_INT(fadeout, 0);
+	PARAM_INT(cutoff, 0);
+	PARAM_STR(logofile, NULL);
+	PARAM_STR(logoname, NULL);
 
-fail:
-	vsapi->freeNode(node);
-	vsapi->setError(out, msg_buff);
-	return NULL;
+	return new delogo(vsapi, vi, node, logofile, logoname, pos_x, pos_y, depth, yc_y, yc_u, yc_v, start, end, fadein, fadeout, cutoff, mode);
 }
 static void VS_CC
 eraselogoCreate(const VSMap *in, VSMap *out, void *userData, VSCore *core, const VSAPI *vsapi) {
 	delogo *d = logoCreate(in, out, userData, core, vsapi, -1);
 	if (d != NULL)
-		vsapi->createFilter(in, out, "eraselogo", logoInit, logoGetFrame, logoFree, fmParallel, 0, d, core);
+		vsapi->createFilter(in, out, "EraseLogo", logoInit, logoGetFrame, logoFree, fmParallel, 0, d, core);
 }
 
 static void VS_CC
 addlogoCreate(const VSMap *in, VSMap *out, void *userData, VSCore *core, const VSAPI *vsapi) {
 	delogo *d = logoCreate(in, out, userData, core, vsapi, 1);
 	if (d != NULL)
-		vsapi->createFilter(in, out, "addlogo", logoInit, logoGetFrame, logoFree, fmParallel, 0, d, core);
+		vsapi->createFilter(in, out, "AddLogo", logoInit, logoGetFrame, logoFree, fmParallel, 0, d, core);
 }
 
 VS_EXTERNAL_API(void)
@@ -119,6 +104,6 @@ VapourSynthPluginInit(VSConfigPlugin configFunc, VSRegisterFunction registerFunc
 		"VapourSynth Delogo Filter v" PLUGIN_VERSION,
 		VAPOURSYNTH_API_VERSION, 1, plugin);
 	const char * options = "clip:clip;logofile:data;logoname:data:opt;pos_x:int:opt;pos_y:int:opt;depth:int:opt;yc_y:int:opt;yc_u:int:opt;yc_v:int:opt;start:int:opt;end:int:opt;fadein:int:opt;fadeout:int:opt;cutoff:int:opt;";
-	registerFunc("eraselogo", options, eraselogoCreate, 0, plugin);
-	registerFunc("addlogo", options, addlogoCreate, 0, plugin);
+	registerFunc("EraseLogo", options, eraselogoCreate, nullptr, plugin);
+	registerFunc("AddLogo", options, addlogoCreate, nullptr, plugin);
 }

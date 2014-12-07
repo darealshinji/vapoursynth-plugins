@@ -34,28 +34,27 @@ public:
 		vi = vsapi->getVideoInfo(node);
 	}
 	~IScriptEnvironment() { }
-	VSFrameRef *NewVideoFrame(const VSVideoInfo * vi) {
+	inline VSFrameRef *NewVideoFrame(const VSVideoInfo * vi) {
 		return vsapi->newVideoFrame(vi->format, vi->width, vi->height, nullptr, core);
 	}
-	const VSFrameRef *GetFrame(int n) {
+	inline const VSFrameRef *GetFrame(int n) {
 		return vsapi->getFrame(n, node, nullptr, 0);
 	}
-	void FreeFrame(const VSFrameRef* source) {
+	inline void FreeFrame(const VSFrameRef* source) {
 		vsapi->freeFrame(source);
 	}
-
-	VSFrameRef * MakeWritable(const VSFrameRef* source) {
+	inline VSFrameRef * MakeWritable(const VSFrameRef* source) {
 		return vsapi->copyFrame(source, core);
 	}
-	void BitBlt(void* dstp, int dst_pitch, const void* srcp, int src_pitch, int row_size, int height) {
+	inline void BitBlt(void* dstp, int dst_pitch, const void* srcp, int src_pitch, int row_size, int height) {
 		return vs_bitblt(dstp, dst_pitch, srcp, src_pitch, row_size, height);
 	}
-	void PrefetchFrame(int n) {
+	inline void PrefetchFrame(int n) {
 		vsapi->requestFrameFilter(n, node, frameCtx);
 	}
-	int GetRowSize(const VSFrameRef* frame) { return vi->width; } // FIXME: row-size = width * sizeof(size_t)
-	int GetHeight(const VSFrameRef* frame) { return vi->height; }
-	int GetPitch(const VSFrameRef* frame, int plane = PLANAR_Y) { return vsapi->getStride(frame, plane); }
-	BYTE* GetWritePtr(VSFrameRef* frame, int plane = PLANAR_Y) { return vsapi->getWritePtr(frame, plane); }
+	inline int GetRowSize(const VSFrameRef* frame) { return vi->width; } // FIXME: row-size = width * sizeof(size_t)
+	inline int GetHeight(const VSFrameRef* frame) { return vi->height; }
+	inline int GetPitch(const VSFrameRef* frame, int plane = PLANAR_Y) { return vsapi->getStride(frame, plane); }
+	inline BYTE* GetWritePtr(VSFrameRef* frame, int plane = PLANAR_Y) { return vsapi->getWritePtr(frame, plane); }
 };
 

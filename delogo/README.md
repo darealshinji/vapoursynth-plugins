@@ -1,8 +1,8 @@
-# VapourSynth-deLOGO
+# VapourSynth-DeLogo
 
-VS_DELOGO 005a.0.11 Copyright(C) 2003 MakKi, 2014 msg7086
+VS_DELOGO 005a.0.2 Copyright(C) 2003 MakKi, 2014 msg7086
 
-VapourSynth Plugin - deLOGO (YV12 Only, delogo-005a base)
+VapourSynth Plugin - DeLogo (YV12 Only, delogo-005a base)
 
 - Original plugin: delogo_avisynth 0.05a by MakKi
 - All credits go to him.
@@ -25,8 +25,8 @@ VapourSynth Plugin - deLOGO (YV12 Only, delogo-005a base)
 
 ## Usage
 
-    core.delogo.addlogo(clip clip, string logofile, ...)
-    core.delogo.eraselogo(clip clip, string logofile, ...)
+    core.delogo.AddLogo(clip clip, string logofile, ...)
+    core.delogo.EraseLogo(clip clip, string logofile, ...)
 
     clip                      - clip to be processed.
     logofile                  - lgd file, scanned by logoscan tool.
@@ -56,5 +56,6 @@ This is a partial porting.
 
 ## ChangeLog
 
-v0.11 14/10/03 Replace some code with VSHelper's
-v0.1  14/10/03 Initial porting
+- v0.2  14/10/14 Code clean ups. Rename functions to PascalCase.
+- v0.11 14/10/03 Replace some code with VSHelper's
+- v0.1  14/10/03 Initial porting
