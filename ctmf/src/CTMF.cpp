@@ -33,9 +33,9 @@
 *  perreaul@gel.ulaval.ca
 */
 
-#include <cmath>
-#include "VapourSynth.h"
-#include "VSHelper.h"
+#include <algorithm>
+#include <vapoursynth/VapourSynth.h>
+#include <vapoursynth/VSHelper.h>
 
 #ifdef _MSC_VER
 #define ALIGN __declspec(align(32))
@@ -52,32 +52,32 @@ struct CTMFData {
 };
 
 template<int num>
-struct ALIGN Histogram{
+struct ALIGN Histogram {
     uint16_t coarse[num];
     uint16_t fine[num][num];
 };
 
 template<int num>
-static inline void addHist(const uint16_t * const VS_RESTRICT x, uint16_t * const VS_RESTRICT y) {
+static inline void addHist(const uint16_t * VS_RESTRICT x, uint16_t * VS_RESTRICT y) {
     for (int i = 0; i < num; i++)
         y[i] += x[i];
 }
 
 template<int num>
-static inline void subHist(const uint16_t * const VS_RESTRICT x, uint16_t * const VS_RESTRICT y) {
+static inline void subHist(const uint16_t * VS_RESTRICT x, uint16_t * VS_RESTRICT y) {
     for (int i = 0; i < num; i++)
         y[i] -= x[i];
 }
 
 template<int num>
-static inline void muladdHist(const uint16_t a, const uint16_t * const VS_RESTRICT x, uint16_t * const VS_RESTRICT y) {
+static inline void muladdHist(const uint16_t a, const uint16_t * VS_RESTRICT x, uint16_t * VS_RESTRICT y) {
     for (int i = 0; i < num; i++)
         y[i] += a * x[i];
 }
 
 template<typename T, int num>
-static void CTMF(const T * const VS_RESTRICT srcp, T * const VS_RESTRICT dstp, const int width, const int height, const int stride, const CTMFData * const d,
-                 const bool padLeft, const bool padRight, uint16_t * const VS_RESTRICT hCoarse, uint16_t * const VS_RESTRICT hFine) {
+static void CTMF(const T * VS_RESTRICT srcp, T * VS_RESTRICT dstp, const int width, const int height, const int stride, const CTMFData * d,
+                 const bool padLeft, const bool padRight, uint16_t * VS_RESTRICT hCoarse, uint16_t * VS_RESTRICT hFine) {
     const int shift = d->vi->format->bitsPerSample == 9 ? 1 : 0;
     const int modulo = d->vi->format->bitsPerSample == 9 ? 31 : (1 << (d->vi->format->bitsPerSample / 2)) - 1;
     const T * p, * q;
@@ -101,7 +101,7 @@ static void CTMF(const T * const VS_RESTRICT srcp, T * const VS_RESTRICT dstp, c
 
     for (int i = 0; i < height; i++) {
         // Update column histograms for entire row
-        p = srcp + stride * VSMAX(0, i - d->radius - 1);
+        p = srcp + stride * std::max(0, i - d->radius - 1);
         q = p + width;
         for (int j = 0; p != q; j++) {
             hCoarse[num * j + ((*p << shift) / num)]--;
@@ -109,7 +109,7 @@ static void CTMF(const T * const VS_RESTRICT srcp, T * const VS_RESTRICT dstp, c
             p++;
         }
 
-        p = srcp + stride * VSMIN(height - 1, i + d->radius);
+        p = srcp + stride * std::min(height - 1, i + d->radius);
         q = p + width;
         for (int j = 0; p != q; ++j) {
             hCoarse[num * j + ((*p << shift) / num)]++;
@@ -132,7 +132,7 @@ static void CTMF(const T * const VS_RESTRICT srcp, T * const VS_RESTRICT dstp, c
             uint16_t sum = 0, * segment;
             int k;
 
-            addHist<num>(&hCoarse[num * VSMIN(j + d->radius, width - 1)], H.coarse);
+            addHist<num>(&hCoarse[num * std::min(j + d->radius, width - 1)], H.coarse);
 
             // Find median at coarse level
             for (k = 0; k < num; k++) {
@@ -146,7 +146,7 @@ static void CTMF(const T * const VS_RESTRICT srcp, T * const VS_RESTRICT dstp, c
             // Update corresponding histogram segment
             if (luc[k] <= j - d->radius) {
                 memset(&H.fine[k], 0, num * sizeof(uint16_t));
-                for (luc[k] = j - d->radius; luc[k] < VSMIN(j + d->radius + 1, width); ++luc[k])
+                for (luc[k] = j - d->radius; luc[k] < std::min(j + d->radius + 1, width); ++luc[k])
                     addHist<num>(&hFine[num * (width * k + luc[k])], H.fine[k]);
                 if (luc[k] < j + d->radius + 1) {
                     muladdHist<num>(j + d->radius + 1 - width, &hFine[num * (width * k + (width - 1))], &H.fine[k][0]);
@@ -154,12 +154,12 @@ static void CTMF(const T * const VS_RESTRICT srcp, T * const VS_RESTRICT dstp, c
                 }
             } else {
                 for (; luc[k] < j + d->radius + 1; ++luc[k]) {
-                    subHist<num>(&hFine[num * (width * k + VSMAX(luc[k] - 2 * d->radius - 1, 0))], H.fine[k]);
-                    addHist<num>(&hFine[num * (width * k + VSMIN(luc[k], width - 1))], H.fine[k]);
+                    subHist<num>(&hFine[num * (width * k + std::max(luc[k] - 2 * d->radius - 1, 0))], H.fine[k]);
+                    addHist<num>(&hFine[num * (width * k + std::min(static_cast<int>(luc[k]), width - 1))], H.fine[k]);
                 }
             }
 
-            subHist<num>(&hCoarse[num * VSMAX(j - d->radius, 0)], H.coarse);
+            subHist<num>(&hCoarse[num * std::max(j - d->radius, 0)], H.coarse);
 
             // Find median in segment
             segment = H.fine[k];
@@ -175,39 +175,41 @@ static void CTMF(const T * const VS_RESTRICT srcp, T * const VS_RESTRICT dstp, c
 }
 
 static void VS_CC ctmfInit(VSMap *in, VSMap *out, void **instanceData, VSNode *node, VSCore *core, const VSAPI *vsapi) {
-    CTMFData * d = (CTMFData *)*instanceData;
+    CTMFData * d = static_cast<CTMFData *>(*instanceData);
     vsapi->setVideoInfo(d->vi, 1, node);
 }
 
 static const VSFrameRef *VS_CC ctmfGetFrame(int n, int activationReason, void **instanceData, void **frameData, VSFrameContext *frameCtx, VSCore *core, const VSAPI *vsapi) {
-    const CTMFData * const d = (const CTMFData *)*instanceData;
+    const CTMFData * d = static_cast<const CTMFData *>(*instanceData);
 
     if (activationReason == arInitial) {
         vsapi->requestFrameFilter(n, d->node, frameCtx);
     } else if (activationReason == arAllFramesReady) {
-        const VSFrameRef * const src = vsapi->getFrameFilter(n, d->node, frameCtx);
+        const VSFrameRef * src = vsapi->getFrameFilter(n, d->node, frameCtx);
         const VSFrameRef * fr[] = { d->process[0] ? nullptr : src, d->process[1] ? nullptr : src, d->process[2] ? nullptr : src };
         const int pl[] = { 0, 1, 2 };
-        VSFrameRef * const dst = vsapi->newVideoFrame2(d->vi->format, d->vi->width, d->vi->height, fr, pl, src, core);
+        VSFrameRef * dst = vsapi->newVideoFrame2(d->vi->format, d->vi->width, d->vi->height, fr, pl, src, core);
 
         for (int plane = 0; plane < d->vi->format->numPlanes; plane++) {
             if (d->process[plane]) {
                 const int width = vsapi->getFrameWidth(src, plane);
                 const int height = vsapi->getFrameHeight(src, plane);
                 const int stride = vsapi->getStride(src, plane);
-                const uint8_t * const srcp = vsapi->getReadPtr(src, plane);
-                uint8_t * const dstp = vsapi->getWritePtr(dst, plane);
+                const uint8_t * srcp = vsapi->getReadPtr(src, plane);
+                uint8_t * dstp = vsapi->getWritePtr(dst, plane);
 
-                uint16_t * const hCoarse = vs_aligned_malloc<uint16_t>(d->num * width * sizeof(uint16_t), 32);
-                uint16_t * const hFine = vs_aligned_malloc<uint16_t>(d->num * d->num * width * sizeof(uint16_t), 32);
+                uint16_t * hCoarse = vs_aligned_malloc<uint16_t>(d->num * width * sizeof(uint16_t), 32);
+                uint16_t * hFine = vs_aligned_malloc<uint16_t>(d->num * d->num * width * sizeof(uint16_t), 32);
                 if (!hCoarse || !hFine) {
                     vsapi->setFilterError("CTMF: malloc failure (Histogram)", frameCtx);
+                    vs_aligned_free(hCoarse);
+                    vs_aligned_free(hFine);
                     return nullptr;
                 }
 
                 if (d->vi->format->bitsPerSample == 8) {
-                    const int stripes = (int)std::ceil(double(width - 2 * d->radius) / (d->memsize / sizeof(Histogram<16>) - 2 * d->radius));
-                    const int stripeSize = (int)std::ceil(double(width + stripes * 2 * d->radius - 2 * d->radius) / stripes);
+                    const int stripes = static_cast<int>(std::ceil(static_cast<double>(width - 2 * d->radius) / (d->memsize / sizeof(Histogram<16>) - 2 * d->radius)));
+                    const int stripeSize = static_cast<int>(std::ceil(static_cast<double>(width + stripes * 2 * d->radius - 2 * d->radius) / stripes));
                     for (int i = 0; i < width; i += stripeSize - 2 * d->radius) {
                         int stripe = stripeSize;
                         // Make sure that the filter kernel fits into one stripe
@@ -218,38 +220,38 @@ static const VSFrameRef *VS_CC ctmfGetFrame(int n, int activationReason, void **
                             break;
                     }
                 } else if (d->vi->format->bitsPerSample == 9 || d->vi->format->bitsPerSample == 10) {
-                    const int stripes = (int)std::ceil(double(width - 2 * d->radius) / (d->memsize / sizeof(Histogram<32>) - 2 * d->radius));
-                    const int stripeSize = (int)std::ceil(double(width + stripes * 2 * d->radius - 2 * d->radius) / stripes);
+                    const int stripes = static_cast<int>(std::ceil(static_cast<double>(width - 2 * d->radius) / (d->memsize / sizeof(Histogram<32>) - 2 * d->radius)));
+                    const int stripeSize = static_cast<int>(std::ceil(static_cast<double>(width + stripes * 2 * d->radius - 2 * d->radius) / stripes));
                     for (int i = 0; i < width; i += stripeSize - 2 * d->radius) {
                         int stripe = stripeSize;
                         // Make sure that the filter kernel fits into one stripe
                         if (i + stripeSize - 2 * d->radius >= width || width - (i + stripeSize - 2 * d->radius) < 2 * d->radius + 1)
                             stripe = width - i;
-                        CTMF<uint16_t, 32>((const uint16_t *)srcp + i, (uint16_t *)dstp + i, stripe, height, stride / 2, d, i == 0, stripe == width - i, hCoarse, hFine);
+                        CTMF<uint16_t, 32>(reinterpret_cast<const uint16_t *>(srcp) + i, reinterpret_cast<uint16_t *>(dstp) + i, stripe, height, stride / 2, d, i == 0, stripe == width - i, hCoarse, hFine);
                         if (stripe == width - i)
                             break;
                     }
                 } else if (d->vi->format->bitsPerSample == 12) {
-                    const int stripes = (int)std::ceil(double(width - 2 * d->radius) / (d->memsize / sizeof(Histogram<64>) - 2 * d->radius));
-                    const int stripeSize = (int)std::ceil(double(width + stripes * 2 * d->radius - 2 * d->radius) / stripes);
+                    const int stripes = static_cast<int>(std::ceil(static_cast<double>(width - 2 * d->radius) / (d->memsize / sizeof(Histogram<64>) - 2 * d->radius)));
+                    const int stripeSize = static_cast<int>(std::ceil(static_cast<double>(width + stripes * 2 * d->radius - 2 * d->radius) / stripes));
                     for (int i = 0; i < width; i += stripeSize - 2 * d->radius) {
                         int stripe = stripeSize;
                         // Make sure that the filter kernel fits into one stripe
                         if (i + stripeSize - 2 * d->radius >= width || width - (i + stripeSize - 2 * d->radius) < 2 * d->radius + 1)
                             stripe = width - i;
-                        CTMF<uint16_t, 64>((const uint16_t *)srcp + i, (uint16_t *)dstp + i, stripe, height, stride / 2, d, i == 0, stripe == width - i, hCoarse, hFine);
+                        CTMF<uint16_t, 64>(reinterpret_cast<const uint16_t *>(srcp) + i, reinterpret_cast<uint16_t *>(dstp) + i, stripe, height, stride / 2, d, i == 0, stripe == width - i, hCoarse, hFine);
                         if (stripe == width - i)
                             break;
                     }
                 } else {
-                    const int stripes = (int)std::ceil(double(width - 2 * d->radius) / (d->memsize / sizeof(Histogram<256>) - 2 * d->radius));
-                    const int stripeSize = (int)std::ceil(double(width + stripes * 2 * d->radius - 2 * d->radius) / stripes);
+                    const int stripes = static_cast<int>(std::ceil(static_cast<double>(width - 2 * d->radius) / (d->memsize / sizeof(Histogram<256>) - 2 * d->radius)));
+                    const int stripeSize = static_cast<int>(std::ceil(static_cast<double>(width + stripes * 2 * d->radius - 2 * d->radius) / stripes));
                     for (int i = 0; i < width; i += stripeSize - 2 * d->radius) {
                         int stripe = stripeSize;
                         // Make sure that the filter kernel fits into one stripe
                         if (i + stripeSize - 2 * d->radius >= width || width - (i + stripeSize - 2 * d->radius) < 2 * d->radius + 1)
                             stripe = width - i;
-                        CTMF<uint16_t, 256>((const uint16_t *)srcp + i, (uint16_t *)dstp + i, stripe, height, stride / 2, d, i == 0, stripe == width - i, hCoarse, hFine);
+                        CTMF<uint16_t, 256>(reinterpret_cast<const uint16_t *>(srcp) + i, reinterpret_cast<uint16_t *>(dstp) + i, stripe, height, stride / 2, d, i == 0, stripe == width - i, hCoarse, hFine);
                         if (stripe == width - i)
                             break;
                     }
@@ -268,14 +270,13 @@ static const VSFrameRef *VS_CC ctmfGetFrame(int n, int activationReason, void **
 }
 
 static void VS_CC ctmfFree(void *instanceData, VSCore *core, const VSAPI *vsapi) {
-    CTMFData * d = (CTMFData *)instanceData;
+    CTMFData * d = static_cast<CTMFData *>(instanceData);
     vsapi->freeNode(d->node);
     delete d;
 }
 
 static void VS_CC ctmfCreate(const VSMap *in, VSMap *out, void *userData, VSCore *core, const VSAPI *vsapi) {
     CTMFData d;
-    CTMFData * data;
     int err;
 
     d.radius = int64ToIntS(vsapi->propGetInt(in, "radius", 0, &err));
@@ -286,7 +287,7 @@ static void VS_CC ctmfCreate(const VSMap *in, VSMap *out, void *userData, VSCore
         d.memsize = 1048576;
 
     if (d.radius < 1 || d.radius > 127) {
-        vsapi->setError(out, "CTMF: radius must be 1 <= x <= 127");
+        vsapi->setError(out, "CTMF: radius must be between 1 and 127 inclusive");
         return;
     }
 
@@ -330,21 +331,20 @@ static void VS_CC ctmfCreate(const VSMap *in, VSMap *out, void *userData, VSCore
             const int height = d.vi->height >> (plane ? d.vi->format->subSamplingH : 0);
 
             if (width < 2 * d.radius + 1) {
-                vsapi->setError(out, "CTMF: width must be >= 2*radius+1");
+                vsapi->setError(out, "CTMF: the plane's width must be greater than or equal to 2*radius+1");
                 vsapi->freeNode(d.node);
                 return;
             }
 
             if (height < 2 * d.radius + 1) {
-                vsapi->setError(out, "CTMF: height must be >= 2*radius+1");
+                vsapi->setError(out, "CTMF: the plane's height must be greater than or equal to 2*radius+1");
                 vsapi->freeNode(d.node);
                 return;
             }
         }
     }
 
-    data = new CTMFData;
-    *data = d;
+    CTMFData * data = new CTMFData(d);
 
     vsapi->createFilter(in, out, "CTMF", ctmfInit, ctmfGetFrame, ctmfFree, fmParallel, 0, data, core);
 }
