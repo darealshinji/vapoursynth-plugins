@@ -27,8 +27,8 @@
 
 #include <algorithm>
 #include <vector>
-#include "VapourSynth.h"
-#include "VSHelper.h"
+#include <vapoursynth/VapourSynth.h>
+#include <vapoursynth/VSHelper.h>
 
 struct EEDI2Data {
     VSNodeRef * node;
@@ -276,12 +276,10 @@ static void calcDirections(const uint8_t * VS_RESTRICT mskp, const uint8_t * VS_
                         sum += order[i];
                     }
                 }
-                if (count > 1)
-                    dstp[x] = 128 + int(float(sum) / float(count)) * 4;
-                else
-                    dstp[x] = 128;
-            } else
+                dstp[x] = count > 1 ? 128 + static_cast<int>(static_cast<float>(sum) / count) * 4 : 128;
+            } else {
                 dstp[x] = 128;
+            }
         }
         mskpp += stride;
         mskp += stride;
@@ -414,7 +412,7 @@ static void filterDirMap(const uint8_t * VS_RESTRICT mskp, const uint8_t * VS_RE
                 dstp[x] = 255;
                 continue;
             }
-            dstp[x] = int(float(sum + mid) / float(count + 1) + .5f);
+            dstp[x] = static_cast<int>(static_cast<float>(sum + mid) / static_cast<float>(count + 1) + 0.5f);
         }
         mskp += stride;
         dmskpp += stride;
@@ -478,7 +476,7 @@ static void filterDirMap2X(const uint8_t * VS_RESTRICT mskp, const uint8_t * VS_
                 dstp[x] = 255;
                 continue;
             }
-            dstp[x] = int(float(sum + mid) / float(count + 1) + .5f);
+            dstp[x] = static_cast<int>(static_cast<float>(sum + mid) / static_cast<float>(count + 1) + 0.5f);
         }
         mskp += stride * 2;
         mskpn += stride * 2;
@@ -532,7 +530,7 @@ static void expandDirMap(const uint8_t * VS_RESTRICT mskp, const uint8_t * VS_RE
             }
             if (count < 5)
                 continue;
-            dstp[x] = int(float(sum + mid) / float(count + 1) + .5f);
+            dstp[x] = static_cast<int>(static_cast<float>(sum + mid) / static_cast<float>(count + 1) + 0.5f);
         }
         mskp += stride;
         dmskpp += stride;
@@ -590,7 +588,7 @@ static void expandDirMap2X(const uint8_t * VS_RESTRICT mskp, const uint8_t * VS_
             }
             if (count < 5)
                 continue;
-            dstp[x] = int(float(sum + mid) / float(count + 1) + .5f);
+            dstp[x] = static_cast<int>(static_cast<float>(sum + mid) / static_cast<float>(count + 1) + 0.5f);
         }
         mskp += stride * 2;
         mskpn += stride * 2;
@@ -670,9 +668,9 @@ static void fillGaps2X(const uint8_t * VS_RESTRICT mskp, const uint8_t * VS_REST
             const int thresh = std::max(std::max(std::max(std::abs(forward - 128), std::abs(back - 128)) >> 2, 8), std::max(std::abs(mint - maxt), std::abs(minb - maxb)));
             const int flim = std::min(std::max(std::abs(forward - 128), std::abs(back - 128)) >> 2, 6);
             if (std::abs(forward - back) <= thresh && (v - u - 1 <= flim || tc || bc)) {
-                const double step = double(forward - back) / double(v - u);
+                const double step = static_cast<double>(forward - back) / static_cast<double>(v - u);
                 for (int j = 0; j < v - u - 1; j++)
-                    dstp[u + j + 1] = back + int(j * step + .5);
+                    dstp[u + j + 1] = back + static_cast<int>(j * step + 0.5);
             }
         }
         mskpp += stride * 2;
@@ -715,9 +713,9 @@ static void markDirections2X(const uint8_t * VS_RESTRICT mskp, const uint8_t * V
                 order[v++] = dmskpn[x];
             if (dmskpn[x + 1] != 255)
                 order[v++] = dmskpn[x + 1];
-            if (v < 3)
+            if (v < 3) {
                 continue;
-            else {
+            } else {
                 std::sort(order, order + v);
                 const int mid = v & 1 ? order[v >> 1] : (order[(v - 1) >> 1] + order[v >> 1] + 1) >> 1;
                 const int lim = d->limlut[std::abs(mid - 128) >> 2];
@@ -739,7 +737,7 @@ static void markDirections2X(const uint8_t * VS_RESTRICT mskp, const uint8_t * V
                 }
                 if (count < v - 2 || count < 2)
                     continue;
-                dstp[x] = int(float(sum + mid) / float(count + 1) + .5f);
+                dstp[x] = static_cast<int>(static_cast<float>(sum + mid) / static_cast<float>(count + 1) + 0.5f);
             }
         }
         mskp += stride * 2;
@@ -782,8 +780,8 @@ static void interpolateLattice(const uint8_t * VS_RESTRICT omskp, uint8_t * VS_R
                     continue;
                 }
             }
-            if ((x > 1 && x < width - 2 && (dstp[x] < std::max(dstp[x - 2], dstp[x - 1]) - 3 && dstp[x] < std::max(dstp[x + 2], dstp[x + 1]) - 3 &&
-                                           dstpnn[x] < std::max(dstpnn[x - 2], dstpnn[x - 1]) - 3 && dstpnn[x] < std::max(dstpnn[x + 2], dstpnn[x + 1]) - 3)) ||
+            if (x > 1 && x < width - 2 && (dstp[x] < std::max(dstp[x - 2], dstp[x - 1]) - 3 && dstp[x] < std::max(dstp[x + 2], dstp[x + 1]) - 3 &&
+                                           dstpnn[x] < std::max(dstpnn[x - 2], dstpnn[x - 1]) - 3 && dstpnn[x] < std::max(dstpnn[x + 2], dstpnn[x + 1]) - 3) ||
                                           (dstp[x] > std::min(dstp[x - 2], dstp[x - 1]) + 3 && dstp[x] > std::min(dstp[x + 2], dstp[x + 1]) + 3 &&
                                            dstpnn[x] > std::min(dstpnn[x - 2], dstpnn[x - 1]) + 3 && dstpnn[x] > std::min(dstpnn[x + 2], dstpnn[x + 1]) + 3)) {
                 dstpn[x] = (dstp[x] + dstpnn[x] + 1) >> 1;
@@ -848,10 +846,7 @@ static void interpolateLattice(const uint8_t * VS_RESTRICT omskp, uint8_t * VS_R
                     }
                 }
                 dstpn[x] = val;
-                if (min == 7 * d->nt)
-                    dmskp[x] = 128;
-                else
-                    dmskp[x] = 128 + dir * 4;
+                dmskp[x] = min == 7 * d->nt ? 128 : 128 + dir * 4;
             }
         }
         dmskp += stride * 2;
@@ -900,8 +895,8 @@ static void postProcessCorner(const uint8_t * VS_RESTRICT mskp, uint8_t * VS_RES
         for (int x = 4; x < width - 4; x++) {
             if (mskp[x] == 255 || mskp[x] == 128)
                 continue;
-            const int c1 = int(x2[x] * y2[x] - xy[x] * xy[x] - .09 * (x2[x] + y2[x]) * (x2[x] + y2[x]));
-            const int c2 = int(x2n[x] * y2n[x] - xyn[x] * xyn[x] - .09 * (x2n[x] + y2n[x]) * (x2n[x] + y2n[x]));
+            const int c1 = static_cast<int>(x2[x] * y2[x] - xy[x] * xy[x] - 0.09 * (x2[x] + y2[x]) * (x2[x] + y2[x]));
+            const int c2 = static_cast<int>(x2n[x] * y2n[x] - xyn[x] * xyn[x] - 0.09 * (x2n[x] + y2n[x]) * (x2n[x] + y2n[x]));
             if (c1 > 775 || c2 > 775)
                 dstp[x] = (dstpp[x] + dstpn[x] + 1) >> 1;
         }
@@ -1229,25 +1224,16 @@ static void calcDerivatives(const uint8_t * VS_RESTRICT srcp, int * VS_RESTRICT 
 }
 
 static void VS_CC eedi2Init(VSMap *in, VSMap *out, void **instanceData, VSNode *node, VSCore *core, const VSAPI *vsapi) {
-    EEDI2Data * d = (EEDI2Data *)*instanceData;
+    EEDI2Data * d = static_cast<EEDI2Data *>(*instanceData);
     vsapi->setVideoInfo(&d->vi2, 1, node);
 }
 
 static const VSFrameRef *VS_CC eedi2GetFrame(int n, int activationReason, void **instanceData, void **frameData, VSFrameContext *frameCtx, VSCore *core, const VSAPI *vsapi) {
-    const EEDI2Data * d = (const EEDI2Data *)*instanceData;
+    const EEDI2Data * d = static_cast<const EEDI2Data *>(*instanceData);
 
     if (activationReason == arInitial) {
         vsapi->requestFrameFilter(n, d->node, frameCtx);
     } else if (activationReason == arAllFramesReady) {
-        const VSFrameRef * src = vsapi->getFrameFilter(n, d->node, frameCtx);
-        VSFrameRef * dst = vsapi->newVideoFrame(d->vi->format, d->vi->width, d->vi->height, src, core);
-        VSFrameRef * msk = vsapi->newVideoFrame(d->vi->format, d->vi->width, d->vi->height, src, core);
-        VSFrameRef * tmp = vsapi->newVideoFrame(d->vi->format, d->vi->width, d->vi->height, src, core);
-        VSFrameRef * dst2 = vsapi->newVideoFrame(d->vi2.format, d->vi2.width, d->vi2.height, src, core);
-        VSFrameRef * dst2M = vsapi->newVideoFrame(d->vi2.format, d->vi2.width, d->vi2.height, src, core);
-        VSFrameRef * tmp2 = vsapi->newVideoFrame(d->vi2.format, d->vi2.width, d->vi2.height, src, core);
-        VSFrameRef * tmp2_2 = vsapi->newVideoFrame(d->vi2.format, d->vi2.width, d->vi2.height, src, core);
-        VSFrameRef * msk2 = vsapi->newVideoFrame(d->vi2.format, d->vi2.width, d->vi2.height, src, core);
         int * cx2 = nullptr, * cy2 = nullptr, * cxy = nullptr, * tmpc = nullptr;
         if (d->pp > 1 && d->map == 0) {
             const int alignment = 32;
@@ -1258,12 +1244,27 @@ static const VSFrameRef *VS_CC eedi2GetFrame(int n, int activationReason, void *
             tmpc = vs_aligned_malloc<int>(stride * d->vi->height * sizeof(int), 32);
             if (!cx2 || !cy2 || !cxy || !tmpc) {
                 vsapi->setFilterError("EEDI2: malloc failure (pp>1)", frameCtx);
+                vs_aligned_free(cx2);
+                vs_aligned_free(cy2);
+                vs_aligned_free(cxy);
+                vs_aligned_free(tmpc);
                 return nullptr;
             }
         }
+
         int field = d->field;
         if (d->fieldS > 1)
             field = n & 1 ? (d->fieldS == 2 ? 1 : 0) : (d->fieldS == 2 ? 0 : 1);
+
+        const VSFrameRef * src = vsapi->getFrameFilter(n, d->node, frameCtx);
+        VSFrameRef * dst = vsapi->newVideoFrame(d->vi->format, d->vi->width, d->vi->height, src, core);
+        VSFrameRef * msk = vsapi->newVideoFrame(d->vi->format, d->vi->width, d->vi->height, src, core);
+        VSFrameRef * tmp = vsapi->newVideoFrame(d->vi->format, d->vi->width, d->vi->height, src, core);
+        VSFrameRef * dst2 = vsapi->newVideoFrame(d->vi2.format, d->vi2.width, d->vi2.height, src, core);
+        VSFrameRef * dst2M = vsapi->newVideoFrame(d->vi2.format, d->vi2.width, d->vi2.height, src, core);
+        VSFrameRef * tmp2 = vsapi->newVideoFrame(d->vi2.format, d->vi2.width, d->vi2.height, src, core);
+        VSFrameRef * tmp2_2 = vsapi->newVideoFrame(d->vi2.format, d->vi2.width, d->vi2.height, src, core);
+        VSFrameRef * msk2 = vsapi->newVideoFrame(d->vi2.format, d->vi2.width, d->vi2.height, src, core);
 
         for (int plane = 0; plane < d->vi->format->numPlanes; plane++) {
             const int width = vsapi->getFrameWidth(src, plane);
@@ -1352,7 +1353,7 @@ static const VSFrameRef *VS_CC eedi2GetFrame(int n, int activationReason, void *
 }
 
 static void VS_CC eedi2Free(void *instanceData, VSCore *core, const VSAPI *vsapi) {
-    EEDI2Data * d = (EEDI2Data *)instanceData;
+    EEDI2Data * d = static_cast<EEDI2Data *>(instanceData);
     vsapi->freeNode(d->node);
     delete d;
 }
@@ -1393,7 +1394,7 @@ static void VS_CC eedi2Create(const VSMap *in, VSMap *out, void *userData, VSCor
         return;
     }
     if (d.maxd > 29) {
-        vsapi->setError(out, "EEDI2: maxd must be <= 29");
+        vsapi->setError(out, "EEDI2: maxd must be less than or equal to 29");
         return;
     }
     if (d.map < 0 || d.map > 3) {
