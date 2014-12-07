@@ -9,7 +9,7 @@ Ported from AviSynth plugin http://web.missouri.edu/~kes25c/
 Usage
 =====
 
-    yadifmod.Yadifmod(clip clip, clip edeint, int order[, int field=order, int mode=0, int[] planes])
+    yadifmod.Yadifmod(clip clip, clip edeint, int order[, int field=order, int mode=0])
 
 - edeint: Clip from which to take spatial predictions. This clip must be the same width, height, and colorspace as the input clip. If using same rate output, this clip should have the same number of frames as the input. If using double rate output, this clip should have twice as many frames as the input.
 
@@ -26,5 +26,3 @@ Usage
 1 = double rate, do spatial check<br />
 2 = same rate, no spatial check<br />
 3 = double rate, no spatial check
-
-- planes: A list of the planes to process. By default all planes are processed.
