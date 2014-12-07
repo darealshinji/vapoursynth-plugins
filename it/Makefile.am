@@ -1,7 +1,5 @@
 include ../global.inc
 
-AM_CXXFLAGS += -D__SSE -mssse3
-
 lib_LTLIBRARIES = libit.la
 
 libit_la_SOURCES = \
@@ -11,5 +9,7 @@ libit_la_SOURCES = \
 	src/vs_it_mmx.cpp \
 	src/vs_it_process.cpp \
 	src/vs_it_sse.cpp
+
+libit_la_CXXFLAGS = -D__SSE -mssse3
 
 libit_la_LDFLAGS = $(XGLOBAL_LDFLAGS)

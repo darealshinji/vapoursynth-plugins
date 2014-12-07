@@ -1,7 +1,5 @@
 include ../../global.inc
 
-AM_CFLAGS += -I../libjpeg-turbo
-
 lib_LTLIBRARIES = libimagereader.la
 
 libimagereader_la_SOURCES = \
@@ -11,6 +9,8 @@ libimagereader_la_SOURCES = \
 			png.c \
 			tga.c \
 			writeframe.c
+
+libimagereader_la_CFLAGS = -I../libjpeg-turbo
 
 libimagereader_la_LDFLAGS = $(XGLOBAL_LDFLAGS)
 

@@ -1,7 +1,5 @@
 include ../global.inc
 
-AM_CFLAGS += -I./alone -I./common -I./convolution -I./neighbors -I./specific
-
 lib_LTLIBRARIES = libgenericfilters.la
 
 libgenericfilters_la_SOURCES = \
@@ -35,6 +33,8 @@ libgenericfilters_la_SOURCES = \
 	alone/alone.c \
 	specific/hysteresis.c \
 	common/common.c
+
+libgenericfilters_la_CFLAGS = -I./alone -I./common -I./convolution -I./neighbors -I./specific
 
 libgenericfilters_la_LDFLAGS = $(XGLOBAL_LDFLAGS)
 

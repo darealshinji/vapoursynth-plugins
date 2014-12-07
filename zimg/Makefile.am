@@ -1,8 +1,5 @@
 include ../global.inc
 
-AM_CXXFLAGS += -std=c++11
-AM_CPPFLAGS += -I./API
-
 lib_LTLIBRARIES    = libzimg.la
 noinst_LTLIBRARIES = libsse2.la libavx2.la libf16c.la libvszimg.la
 
@@ -27,17 +24,17 @@ libzimg_la_SOURCES = \
 
 libsse2_la_SOURCES  = Colorspace/operation_impl_sse2.cpp \
 			Resize/resize_impl_sse2.cpp
-libsse2_la_CXXFLAGS = $(AM_CXXFLAGS) -msse2
+libsse2_la_CXXFLAGS = -I./API -std=c++11 -msse2
 
 libavx2_la_SOURCES  = Colorspace/operation_impl_avx2.cpp \
 			Resize/resize_impl_avx2.cpp
-libavx2_la_CXXFLAGS = $(AM_CXXFLAGS) -mavx2 -mfma -mf16c
+libavx2_la_CXXFLAGS = -I./API -std=c++11 -mavx2 -mfma -mf16c
 
 libf16c_la_SOURCES  = Colorspace/operation_impl_f16c.cpp
-libf16c_la_CXXFLAGS = $(AM_CXXFLAGS) -mf16c
+libf16c_la_CXXFLAGS = -I./API -std=c++11 -mf16c
 
 libvszimg_la_SOURCES = vszimg/vszimg.c
-libvszimg_la_CFLAGS  = $(AM_CFLAGS)
+libvszimg_la_CFLAGS  = -I./API
 
 libzimg_la_LIBADD  = libsse2.la libavx2.la libf16c.la libvszimg.la
 libzimg_la_LDFLAGS = $(XGLOBAL_LDFLAGS)

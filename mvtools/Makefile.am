@@ -2,8 +2,6 @@ include ../global.inc
 
 ACLOCAL_AMFLAGS = -I m4
 
-AM_CXXFLAGS += -std=c++11 -msse2
-
 lib_LTLIBRARIES = libmvtools.la
 
 BUILT_SOURCES = \
@@ -66,6 +64,8 @@ libmvtools_la_SOURCES = \
 	src/asm/Overlap.asm \
 	src/asm/SAD.asm \
 	src/asm/Variance.asm
+
+libmvtools_la_CXXFLAGS = -std=c++11 -msse2
 
 libmvtools_la_LDFLAGS = \
 	$(XGLOBAL_LDFLAGS) \
