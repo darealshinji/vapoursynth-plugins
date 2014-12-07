@@ -3,13 +3,15 @@ Description
 
 TDeintMod is a combination of TDeint and TMM, which are both ported from tritical's AviSynth plugin http://bengal.missouri.edu/~kes25c/.
 
+IsCombed is a utility function to check whether or not a frame is combed and stores the result (0 or 1) as a frame property named _Combed. It's intended to be used within `std.FrameEval` to process only combed frames and leave non-combed frames untouched.
+
 Only a few functionality of TDeint is kept in TDeintMod, either because some use inline asm and there is no equivalent C code in the source, or some are very rarely used by people nowadays. For example, the biggest change is that TDeint's internal building of motion mask is entirely dropped, and be replaced with TMM's motion mask. The second is that only cubic interpolation is kept as the only one internal interpolation method, all the others (ELA interpolation, kernel interpolation and blend interpolation) are dropped. Cubic interpolation is kept only for testing purpose, and people should really specify an externally interpolated clip via `edeint` argument for practical use.
 
 
 Usage
 =====
 
-    tdm.TDeintMod(clip clip, int order[, int field=order, int mode=0, int length=10, int mtype=1, int ttype=1, int mtql=-1, int mthl=-1, int mtqc=-1, int mthc=-1, int nt=2, int minthresh=4, int maxthresh=75, int cstr=4, clip clip2, bint full=True, int cthresh=6, int blockx=16, int blocky=16, bint chroma=False, int mi=64, clip edeint, int metric=0])
+    tdm.TDeintMod(clip clip, int order[, int field=order, int mode=0, int length=10, int mtype=1, int ttype=1, int mtql=-1, int mthl=-1, int mtqc=-1, int mthc=-1, int nt=2, int minthresh=4, int maxthresh=75, int cstr=4, bint show=False, clip edeint])
 
 - order: Sets the field order of the video.<br />
 <br />
@@ -53,9 +55,13 @@ compensated means adjusted for distance differences due to field vs frames and c
 
 - cstr: Sets the number of required neighbor pixels (3x3 neighborhood) in the quarter pel mask, of a pixel marked as moving in the quarter pel mask, but stationary in the half pel mask, marked as stationary for the pixel to be marked as stationary in the combined mask.
 
-- clip2: If using TDeintMod as a post-processor after `vivtc.VFM`, incorrect deinterlacing can occur due to the fact that `vivtc.VFM` changes the order of the fields in the original stream (it is a field matcher after all). This can cause problems in some cases since TDeintMod really needs to have the original stream. To work around this, you can specify a second clip "clip2" for TDeintMod to do the actual deinterlacing from.
+- show: Displays the motion mask instead of the deinterlaced frame.
 
-- full: If full is set to true, then all frames are processed as usual. If full=false, all frames are first checked to see if they are combed. If a frame isn't combed, then it is returned as is. If a frame is combed, then it is processed as usual. The parameters that effect combed frame detection are `cthresh`, `chroma`, `blockx`, `blocky`, and `mi`.
+- edeint: Allows the specification of an external clip from which to take interpolated pixels instead of having TDeintMod use its internal interpolation method. If a clip is specified, then TDeintMod will process everything as usual except that instead of computing interpolated pixels itself it will take the needed pixels from the corresponding spatial positions in the same frame of the edeint clip. To disable the use of an edeint clip simply don't specify a value for edeint.
+
+---
+
+    tdm.IsCombed(clip clip[, int cthresh=6, int blockx=16, int blocky=16, bint chroma=False, int mi=64, int metric=0])
 
 - cthresh: Area combing threshold used for combed frame detection. It is like dthresh or dthreshold in telecide() and fielddeinterlace(). This essentially controls how "strong" or "visible" combing must be to be detected. Good values are from 6 to 12. If you know your source has a lot of combed frames set this towards the low end (6-7). If you know your source has very few combed frames set this higher (10-12). Going much lower than 5 to 6 or much higher than 12 is not recommended.
 
@@ -69,8 +75,6 @@ True = include chroma combing<br />
 False = don't
 
 - mi: The number of required combed pixels inside any of the blockx by blocky sized blocks on the frame for the frame to be considered combed. While cthresh controls how "visible" or "strong" the combing must be, this setting controls how much combing there must be in any localized area (a blockx by blocky sized window) on the frame. Min setting = 0, max setting = blockx x blocky (at which point no frames will ever be detected as combed).
-
-- edeint: Allows the specification of an external clip from which to take interpolated pixels instead of having TDeintMod use its internal interpolation method. If a clip is specified, then TDeintMod will process everything as usual except that instead of computing interpolated pixels itself it will take the needed pixels from the corresponding spatial positions in the same frame of the edeint clip. To disable the use of an edeint clip simply don't specify a value for edeint.
 
 - metric: Sets which spatial combing metric is used to detect combed pixels.
 ```
@@ -92,3 +96,28 @@ Assume 5 neighboring pixels (a,b,c,d,e) positioned vertically.
     if (val > cthresh*cthresh) it's combed;
 ```
 Metric 0 is what TDeint always used previous to v1.0 RC7. Metric 1 is the combing metric used in Donald Graft's FieldDeinterlace()/IsCombed() funtions in decomb.dll.
+
+
+Example usage of IsCombed
+=========================
+
+```
+import vapoursynth as vs
+import functools
+
+core = vs.get_core()
+clip = Whatever
+
+def conditionalDeint(n, f, orig, deint):
+    if f.props._Combed:
+        return deint
+    else:
+        return orig
+
+deint = core.tdm.TDeintMod(clip, order=1, edeint=core.nnedi3.nnedi3(clip, field=1))
+combProps = core.tdm.IsCombed(clip)
+clip = core.std.FrameEval(clip, functools.partial(conditionalDeint, orig=clip, deint=deint), combProps)
+clip.set_output()
+```
+
+Note that it only makes sense to do so in same rate mode, because the output's number of frames from TDeintMod won't match those of the input in double rate mode.
