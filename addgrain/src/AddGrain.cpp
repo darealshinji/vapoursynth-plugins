@@ -52,12 +52,12 @@
 //
 /////////////////////////////////////////////////////////////////////////////
 
+#include <algorithm>
 #include <cassert>
-#include <cmath>
 #include <ctime>
 #include <vector>
-#include <VapourSynth.h>
-#include <VSHelper.h>
+#include <vapoursynth/VapourSynth.h>
+#include <vapoursynth/VSHelper.h>
 
 // max # of noise planes
 #define MAXP 2
@@ -82,42 +82,19 @@ struct AddGrainData {
     bool process[3];
 };
 
-template<typename T1, typename T2>
-static void UpdateFrame(T1 *dstp, int width, int height, int stride, int plane, int noiseOffs, const AddGrainData *d) {
-    const int16_t * pNW2 = &(d->pN[plane][noiseOffs]);
-    const int noisePitch2 = d->nPitch[plane];
-    assert(noiseOffs + noisePitch2 * (height - 1) + width <= d->nSize[plane]);
-    const unsigned shift1 = sizeof(T1) == 1 ? 0 : 16 - d->vi->format->bitsPerSample;
-    const int shift2 = sizeof(T1) == 1 ? 8 : 0;
-    const int lower = sizeof(T1) == 1 ? SCHAR_MIN : SHRT_MIN;
-    const int upper = sizeof(T1) == 1 ? SCHAR_MAX : SHRT_MAX;
-
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
-            T2 val = (dstp[x] << shift1) ^ lower;
-            T2 tmp = pNW2[x] >> shift2;
-            val = val + tmp < lower ? lower : (val + tmp > upper ? upper : val + tmp);
-            dstp[x] = val ^ lower;
-            dstp[x] >>= shift1;
-        }
-        dstp += stride;
-        pNW2 += noisePitch2;
-    }
-}
-
-static inline long long FastUniformRandL(AddGrainData *d) {
+static inline long long FastUniformRandL(AddGrainData * d) {
     return d->idum = 1664525LL * d->idum + 1013904223LL;
 }
 
 // very fast & reasonably random
-static inline float FastUniformRandF(AddGrainData *d) {
+static float FastUniformRandF(AddGrainData * d) {
     // work with 32-bit IEEE floating point only!
     FastUniformRandL(d);
     unsigned long long itemp = 0x3f800000 | (0x007fffff & d->idum);
-    return *(float *)itemp - 1.f;
+    return *reinterpret_cast<float *>(&itemp) - 1.f;
 }
 
-static float GaussianRand(AddGrainData *d) {
+static inline float GaussianRand(AddGrainData * d) {
     float fac, rsq, v1, v2;
 
     // return saved second
@@ -141,14 +118,12 @@ static float GaussianRand(AddGrainData *d) {
     return v2 * fac;
 }
 
-static float GaussianRand(float mean, float variance, AddGrainData *d) {
-    if (variance == 0.f)
-        return mean;
-    return GaussianRand(d) * std::sqrt(variance) + mean;
+static float GaussianRand(float mean, float variance, AddGrainData * d) {
+    return variance == 0.f ? mean : GaussianRand(d) * std::sqrt(variance) + mean;
 }
 
 // on input, plane is the frame plane index (if applicable, 0 otherwise), and on output, it contains the selected noise plane
-static void SetRand(int &plane, int &noiseOffs, int frameNumber, AddGrainData *d) {
+static inline void SetRand(int & plane, int & noiseOffs, int frameNumber, AddGrainData * d) {
     if (d->constant) {
         // force noise to be identical every frame
         if (plane >= MAXP) {
@@ -159,9 +134,9 @@ static void SetRand(int &plane, int &noiseOffs, int frameNumber, AddGrainData *d
         // pull seed back out, to keep cache happy
         const int seedIndex = frameNumber % d->storedFrames;
         const int p0 = d->pNoiseSeeds[seedIndex];
-        if (plane == 0)
+        if (plane == 0) {
             d->idum = p0;
-        else {
+        } else {
             d->idum = d->pNoiseSeeds[seedIndex + d->storedFrames];
             if (plane == 2) {
                 // the trick to needing only 2 planes ^.~
@@ -170,7 +145,7 @@ static void SetRand(int &plane, int &noiseOffs, int frameNumber, AddGrainData *d
             }
         }
         // start noise at random qword in top half of noise area
-        noiseOffs = int(FastUniformRandF(d) * d->nSize[plane] / MAXP) & 0xfffffff8;
+        noiseOffs = static_cast<int>(FastUniformRandF(d) * d->nSize[plane] / MAXP) & 0xfffffff8;
     }
     assert(plane >= 0);
     assert(plane < MAXP);
@@ -178,20 +153,40 @@ static void SetRand(int &plane, int &noiseOffs, int frameNumber, AddGrainData *d
     assert(noiseOffs < d->nSize[plane]);    // minimal check
 }
 
+template<typename T1, typename T2>
+static void UpdateFrame(T1 * dstp, const int width, const int height, const int stride, const int plane, const int noiseOffs, const AddGrainData * d) {
+    const int16_t * pNW2 = &(d->pN[plane][noiseOffs]);
+    assert(noiseOffs + d->nPitch[plane] * (height - 1) + stride <= d->nSize[plane]);
+    const int shift1 = sizeof(T1) == 1 ? 0 : 16 - d->vi->format->bitsPerSample;
+    const int shift2 = sizeof(T1) == 1 ? 8 : 0;
+    const int lower = sizeof(T1) == 1 ? SCHAR_MIN : SHRT_MIN;
+    const int upper = sizeof(T1) == 1 ? SCHAR_MAX : SHRT_MAX;
+
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            T2 val = (dstp[x] << shift1) ^ lower;
+            const T2 nz = pNW2[x] >> shift2;
+            val = std::min(std::max(val + nz, lower), upper);
+            dstp[x] = (val ^ lower) >> shift1;
+        }
+        dstp += stride;
+        pNW2 += d->nPitch[plane];
+    }
+}
+
 static void VS_CC addgrainInit(VSMap *in, VSMap *out, void **instanceData, VSNode *node, VSCore *core, const VSAPI *vsapi) {
-    AddGrainData * d = (AddGrainData *)*instanceData;
+    AddGrainData * d = static_cast<AddGrainData *>(*instanceData);
     vsapi->setVideoInfo(d->vi, 1, node);
 }
 
 static const VSFrameRef *VS_CC addgrainGetFrame(int n, int activationReason, void **instanceData, void **frameData, VSFrameContext *frameCtx, VSCore *core, const VSAPI *vsapi) {
-    AddGrainData * d = (AddGrainData *)*instanceData;
+    AddGrainData * d = static_cast<AddGrainData *>(*instanceData);
 
     if (activationReason == arInitial) {
         vsapi->requestFrameFilter(n, d->node, frameCtx);
     } else if (activationReason == arAllFramesReady) {
         const VSFrameRef * src = vsapi->getFrameFilter(n, d->node, frameCtx);
         VSFrameRef * dst = vsapi->copyFrame(src, core);
-        vsapi->freeFrame(src);
 
         for (int plane = 0; plane < d->vi->format->numPlanes; plane++) {
             if (d->process[plane]) {
@@ -203,14 +198,14 @@ static const VSFrameRef *VS_CC addgrainGetFrame(int n, int activationReason, voi
                 int noiseOffs = 0;
                 SetRand(noisePlane, noiseOffs, n, d);   // seeds randomness w/ plane & frame
 
-                if (d->vi->format->bytesPerSample == 1) {
+                if (d->vi->format->bytesPerSample == 1)
                     UpdateFrame<uint8_t, int8_t>(dstp, width, height, stride, noisePlane, noiseOffs, d);
-                } else if (d->vi->format->bytesPerSample == 2) {
-                    UpdateFrame<uint16_t, int16_t>((uint16_t *)dstp, width, height, stride / 2, noisePlane, noiseOffs, d);
-                }
+                else
+                    UpdateFrame<uint16_t, int16_t>(reinterpret_cast<uint16_t *>(dstp), width, height, stride / 2, noisePlane, noiseOffs, d);
             }
         }
 
+        vsapi->freeFrame(src);
         return dst;
     }
 
@@ -218,29 +213,28 @@ static const VSFrameRef *VS_CC addgrainGetFrame(int n, int activationReason, voi
 }
 
 static void VS_CC addgrainFree(void *instanceData, VSCore *core, const VSAPI *vsapi) {
-    AddGrainData * d = (AddGrainData *)instanceData;
+    AddGrainData * d = static_cast<AddGrainData *>(instanceData);
     vsapi->freeNode(d->node);
     delete d;
 }
 
 static void VS_CC addgrainCreate(const VSMap *in, VSMap *out, void *userData, VSCore *core, const VSAPI *vsapi) {
     AddGrainData d;
-    AddGrainData * data;
     int err;
 
-    d.var = (float)vsapi->propGetFloat(in, "var", 0, &err);
+    d.var = static_cast<float>(vsapi->propGetFloat(in, "var", 0, &err));
     if (err)
         d.var = 1.f;
-    d.uvar = (float)vsapi->propGetFloat(in, "uvar", 0, &err);
-    d.hcorr = (float)vsapi->propGetFloat(in, "hcorr", 0, &err);
-    d.vcorr = (float)vsapi->propGetFloat(in, "vcorr", 0, &err);
+    d.uvar = static_cast<float>(vsapi->propGetFloat(in, "uvar", 0, &err));
+    d.hcorr = static_cast<float>(vsapi->propGetFloat(in, "hcorr", 0, &err));
+    d.vcorr = static_cast<float>(vsapi->propGetFloat(in, "vcorr", 0, &err));
     d.seed = vsapi->propGetInt(in, "seed", 0, &err);
     if (err)
         d.seed = -1;
     d.constant = !!vsapi->propGetInt(in, "constant", 0, &err);
 
     if (d.hcorr < 0.f || d.hcorr > 1.f || d.vcorr < 0.f || d.vcorr > 1.f) {
-        vsapi->setError(out, "AddGrain: hcorr & vcorr must be 0.0 <= x <= 1.0");
+        vsapi->setError(out, "AddGrain: hcorr & vcorr must be between 0.0 and 1.0 inclusive");
         return;
     }
 
@@ -259,29 +253,28 @@ static void VS_CC addgrainCreate(const VSMap *in, VSMap *out, void *userData, VS
     d.idum = d.seed;
 
     int planesNoise = 1;
-    d.nPitch[0] = d.vi->width;  // first plane
+    const int alignment = 32;
+    d.nPitch[0] = (d.vi->width * d.vi->format->bytesPerSample + (alignment - 1)) & ~(alignment - 1);    // first plane
     d.nHeight[0] = d.vi->height;
-    if (d.vi->format->numPlanes == 1)
+    if (d.vi->format->numPlanes == 1) {
         d.uvar = 0.f;
-    else {
+    } else {
         planesNoise = 2;
-        d.nPitch[1] = d.vi->width >> d.vi->format->subSamplingW;    // second and third plane
+        d.nPitch[1] = ((d.vi->width >> d.vi->format->subSamplingW) * d.vi->format->bytesPerSample + (alignment - 1)) & ~(alignment - 1);    // second and third plane
         d.nHeight[1] = d.vi->height >> d.vi->format->subSamplingH;
     }
-    d.storedFrames = VSMIN(d.vi->numFrames, 256);
+    d.storedFrames = std::min(d.vi->numFrames, 256);
     d.pNoiseSeeds.resize(d.storedFrames * planesNoise);
     std::vector<uint8_t>::iterator pns = d.pNoiseSeeds.begin();
     float nRep[] = { 2.f, 2.f };
-    if (d.constant) {
-        nRep[0] = 1.f;
-        nRep[1] = 1.f;
-    }
+    if (d.constant)
+        nRep[0] = nRep[1] = 1.f;
 
     const float pvar[] = { d.var, d.uvar };
     std::vector<float> lastLine(d.nPitch[0]);   // assume plane 0 is the widest one
     const float mean = 0.f;
     for (int plane = 0; plane < planesNoise; plane++) {
-        int h = (int)ceil(d.nHeight[plane] * nRep[plane]);
+        int h = static_cast<int>(std::ceil(d.nHeight[plane] * nRep[plane]));
         if (planesNoise == 2 && plane == 1) {
             // fake plane needs at least one more row, and more if the rows are too small. round to the upper number
             h += (OFFSET_FAKEPLANE + d.nPitch[plane] - 1) / d.nPitch[plane];
@@ -301,21 +294,19 @@ static void VS_CC addgrainCreate(const VSMap *in, VSMap *out, void *userData, VS
                 r = lastLine[x] * d.vcorr + r * (1.f - d.vcorr);    // vert corr
                 lastLine[x] = r;
                 // set noise block
-                *pNW++ = (int16_t)std::round(r * 256.f);
+                *pNW++ = static_cast<int16_t>(std::floor(r * 256.f + 0.5f));    // round to nearest
             }
         }
         for (int x = d.storedFrames; x > 0; x--)
-            *pns++ = FastUniformRandL(&d) & 0xff;   // insert seed, to keep cache happy
+            *pns++ = static_cast<uint8_t>(FastUniformRandL(&d) & 0xff);     // insert seed, to keep cache happy
     }
 
     d.process[0] = d.var > 0.f;
-    d.process[1] = d.uvar > 0.f;
-    d.process[2] = d.process[1];
+    d.process[1] = d.process[2] = d.uvar > 0.f;
 
-    data = new AddGrainData;
-    *data = d;
+    AddGrainData * data = new AddGrainData(d);
 
-    vsapi->createFilter(in, out, "AddGrain", addgrainInit, addgrainGetFrame, addgrainFree, fmParallel, 0, data, core);
+    vsapi->createFilter(in, out, "AddGrain", addgrainInit, addgrainGetFrame, addgrainFree, fmParallelRequests, 0, data, core);
 }
 
 //////////////////////////////////////////
