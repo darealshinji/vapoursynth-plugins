@@ -5,6 +5,8 @@ MVTools is a set of filters for motion estimation and compensation.
 
 This is a port of version 2.5.11.3 of the Avisynth plugin (the latest from http://avisynth.org.ru/mvtools/mvtools2.html).
 
+Some changes from version 2.5.11.9 of the SVP fork have been incorporated as well (http://www.svp-team.com/wiki/Download).
+
 
 Differences
 ===========
@@ -14,7 +16,7 @@ Differences
 
     * Parameters are all lowercase now.
 
-    * YUY2 is not supported, only YV12.
+    * YUY2 is not supported, only YV12 and YV16 (named YUV420P8 and YUV422P8 in VapourSynth).
 
     * The audio is definitely not killed.
 
@@ -51,7 +53,7 @@ Usage
 
     mv.Super(clip clip[, int hpad=8, int vpad=8, int pel=2, int levels=0, bint chroma=True, int sharp=2, int rfilter=2, clip pelclip=None, bint isse=True])
 
-    mv.Analyse(clip super[, int blksize=8, int blksizev=blksize, int levels=0, int search=4, int searchparam=2, int pelsearch=0, bint isb=False, int lambda, bint chroma=True, int delta=1, bint truemotion=True, int lsad, int plevel, int global, int pnew, int pzero=pnew, int pglobal=0, int overlap=0, int overlapv=overlap, bint divide=False, int badsad=10000, int badrange=24, bint isse=True, bint meander=True, bint trymany=False, bint fields=False, bint tff])
+    mv.Analyse(clip super[, int blksize=8, int blksizev=blksize, int levels=0, int search=4, int searchparam=2, int pelsearch=0, bint isb=False, int lambda, bint chroma=True, int delta=1, bint truemotion=True, int lsad, int plevel, int global, int pnew, int pzero=pnew, int pglobal=0, int overlap=0, int overlapv=overlap, bint divide=False, int badsad=10000, int badrange=24, bint isse=True, bint meander=True, bint trymany=False, bint fields=False, bint tff, int search_coarse=3])
 
     mv.Recalculate(clip super, clip vectors[, int blksize=8, int blksizev=blksize, int search=4, int searchparam=2, int lambda, bint chroma=True, bint truemotion=True, int pnew, int overlap=0, int overlapv=overlap, bint divide=False, bint isse=True, bint meander=True, bint fields=False, bint tff])
 
@@ -68,6 +70,10 @@ Usage
     mv.Finest(clip super[, bint isse=True])
 
     mv.FlowBlur(clip clip, clip super, clip mvbw, clip mvfw[, float blur=50.0, int prec=1, int thscd1=400, int thscd2=130, bint isse=True])
+
+    mv.FlowInter(clip clip, clip super, clip mvbw, clip mvfw[, float time=50.0, float ml=100.0, bint blend=True, int thscd1=400, int thscd2=130, bint isse=True])
+
+    mv.FlowFPS(clip clip, clip super, clip mvbw, clip mvfw[, int num=25, int den=1, int mask=2, float ml=100.0, bint blend=True, int thscd1=400, int thscd2=130, bint isse=True])
 
 
 If *fields* is True, it is assumed that the clip named *clip* first went through std.SeparateFields.
