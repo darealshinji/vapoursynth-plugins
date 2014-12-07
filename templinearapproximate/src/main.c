@@ -26,9 +26,19 @@
 #include <vapoursynth/VapourSynth.h>
 #include <vapoursynth/VSHelper.h> //isConstantFormat()
 
+#include "processplane.h"
+
 #define UNUSED(x) (void)(x)
 
-#define CLAMP(x, xmin, xmax) (x < xmin ? xmin : (x > xmax ? xmax : x))
+//==============================================================================
+
+typedef enum
+{
+	stzInteger1B = 0,
+	stzInteger2B,
+	stzSingle
+}
+SampleTypeSize;
 
 //==============================================================================
 // Filter internal data structure
@@ -38,11 +48,17 @@ typedef struct tagTLAData
 	VSNodeRef * inputNode;
 	const VSVideoInfo * videoInfo;
 	// Frames neighbourhood size
-	int radius;
+	int64_t radius;
 	// Bit sum of planes to process
-	int plane;
+	uint32_t plane;
 	// Bitdepth specific clamping value
-	int32_t maxInValue;
+	uint32_t maxInValue;
+	// Type and size of video sample
+	SampleTypeSize sampleTypeSize;
+	// Gamma corrected to linear value conversion LUT
+	double * lutGCToLinear;
+	// Gamma correction flag
+	int64_t gamma;
 }
 TLAData;
 
@@ -76,20 +92,35 @@ static void VS_CC TLACreate(const VSMap * in, VSMap * out, void * userData,
 
 	const VSFormat * pFormat = internalData.videoInfo->format;
 
-	int acceptableFormat = (pFormat->sampleType == stInteger) &&
-		isConstantFormat(internalData.videoInfo) &&
+	int acceptableFormat = isConstantFormat(internalData.videoInfo) &&
 		(internalData.videoInfo->numFrames != 0);
 	if(!acceptableFormat)
 	{
 		vsapi->setError(out, "TempLinearApproximate: "
-			"only constant format integer input with fixed frame number "
+			"only constant format input with fixed frame number "
 			"is supported.");
 		vsapi->freeNode(internalData.inputNode);
 		return;
 	}
 
-	internalData.maxInValue =
-		(((uint32_t)1) << internalData.videoInfo->format->bitsPerSample) - 1;
+	if((pFormat->sampleType == stInteger) && (pFormat->bytesPerSample == 1))
+		internalData.sampleTypeSize = stzInteger1B;
+	else if((pFormat->sampleType == stInteger) &&
+		(pFormat->bytesPerSample == 2))
+		internalData.sampleTypeSize = stzInteger2B;
+	else if((pFormat->sampleType == stFloat) &&
+		(pFormat->bytesPerSample == 4))
+		internalData.sampleTypeSize = stzSingle;
+	else
+	{
+		vsapi->setError(out, "TempLinearApproximate: "
+			"only integer and single precision input is supported.");
+		vsapi->freeNode(internalData.inputNode);
+		return;
+	}
+
+	uint32_t levels = 1u << pFormat->bitsPerSample;
+	internalData.maxInValue = levels - 1;
 
 	//--------------------------------------------------------------------------
 	// Radius parameter
@@ -111,22 +142,44 @@ static void VS_CC TLACreate(const VSMap * in, VSMap * out, void * userData,
 	//--------------------------------------------------------------------------
 	// Planes parameter
 
-	int planesNumber = vsapi->propNumElements(in, "planes");
+	int64_t planesNumber = vsapi->propNumElements(in, "planes");
 	if(planesNumber == -1)
 	{
 		// Planes array wasn't specified. Process all planes.
-		internalData.plane = ~0;
+		internalData.plane = ~0u;
 	}
 	else
 	{
-		internalData.plane = 0;
-		int processPlane;
+		internalData.plane = 0u;
+		int64_t processPlane;
 		int i;
 		for(i = 0; i < planesNumber; i++)
 		{
 			processPlane = vsapi->propGetInt(in, "planes", i, &error);
 			if(error == 0)
-				internalData.plane |= (1 << processPlane);
+				internalData.plane |= (1u << processPlane);
+		}
+	}
+
+	//--------------------------------------------------------------------------
+	// Gamma parameter
+
+	internalData.gamma = vsapi->propGetInt(in, "gamma", 0, &error);
+	if(error != 0)
+		internalData.gamma = 1;
+
+	//--------------------------------------------------------------------------
+	// Fill LUT for integer formats
+
+	internalData.lutGCToLinear = 0;
+	if(internalData.gamma && (pFormat->sampleType == stInteger))
+	{
+		internalData.lutGCToLinear = (double *)malloc(levels * sizeof(double));
+		uint32_t i;
+		for(i = 0; i < levels; i++)
+		{
+			internalData.lutGCToLinear[i] = gcToLinear((double)i /
+				(double)internalData.maxInValue);
 		}
 	}
 
@@ -161,6 +214,8 @@ static void VS_CC TLAFree(void * instanceData, VSCore * core,
 
 	TLAData * pInternalData = (TLAData *)instanceData;
 	vsapi->freeNode(pInternalData->inputNode);
+	if(pInternalData->lutGCToLinear)
+		free(pInternalData->lutGCToLinear);
 	free(pInternalData);
 }
 
@@ -173,7 +228,7 @@ static const VSFrameRef * VS_CC TLAGetFrame(int n, int activationReason,
 	UNUSED(frameData);
 
 	TLAData * pInternalData = (TLAData *) *instanceData;
-	int radius = pInternalData->radius;
+	int64_t radius = pInternalData->radius;
 	int framesNumber = pInternalData->videoInfo->numFrames;
 
 	// Guard against illegal frame number request.
@@ -187,33 +242,31 @@ static const VSFrameRef * VS_CC TLAGetFrame(int n, int activationReason,
 	// array.
 	// Since that frame might be near the beginning or the end, a range
 	// in arrays is specified with "begin" and "end" variables.
-	int begin = (n > radius) ? 0 : (radius - n);
-	int end = ((framesNumber - 1) < (n + radius)) ?
-		(radius + framesNumber - 1 - n) : (radius * 2);
-	// The number of frames used in computations is also used.
-	double xn = (double)(end - begin + 1);
+	size_t begin = (size_t)((n > radius) ? 0 : (radius - n));
+	size_t end = (size_t)(((framesNumber - 1) < (n + radius)) ?
+		(radius + framesNumber - 1 - n) : (radius * 2));
 
 	if(activationReason == arInitial)
 	{
-		int i;
+		size_t i;
 		for(i = begin; i <= end; i++)
 		{
-			vsapi->requestFrameFilter(n - radius + i,
+			vsapi->requestFrameFilter(n - (int)radius + (int)i,
 				pInternalData->inputNode, frameCtx);
 		}
 	}
 	else if(activationReason == arAllFramesReady)
 	{
 		size_t sourcesNumber = (radius * 2 + 1);
-		const VSFrameRef ** sources = (const VSFrameRef **)
+		const VSFrameRef **  sources = (const VSFrameRef **)
 			malloc(sizeof(VSFrameRef *) * sourcesNumber);
 		const uint8_t ** readPointers = (const uint8_t **)
 			malloc(sizeof(uint8_t *) * sourcesNumber);
 
-		int i;
+		size_t i;
 		for(i = begin; i <= end; i++)
 		{
-			sources[i] = vsapi->getFrameFilter(n - radius + i,
+			sources[i] = vsapi->getFrameFilter(n - (int)radius + (int)i,
 				pInternalData->inputNode, frameCtx);
 		}
 
@@ -228,222 +281,139 @@ static const VSFrameRef * VS_CC TLAGetFrame(int n, int activationReason,
 		int * planes = (int *)malloc(sizeof(int) * pFormat->numPlanes);
 
 		int copyPlane;
-		for(i = 0; i < pFormat->numPlanes; i++)
+		int j;
+		for(j = 0; j < pFormat->numPlanes; j++)
 		{
-			copyPlane = ((pInternalData->plane & (1 << i)) == 0);
-			frames[i] = copyPlane ? referenceFrame : NULL;
-			planes[i] = i;
+			copyPlane = ((pInternalData->plane & (1 << j)) == 0);
+			frames[j] = copyPlane ? referenceFrame : NULL;
+			planes[j] = j;
 		}
 
 		VSFrameRef * outFrame = vsapi->newVideoFrame2(pFormat,
 			pInternalData->videoInfo->width, pInternalData->videoInfo->height,
 			frames, planes, referenceFrame, core);
 
-		free(frames);
+		free((void *)frames);
 		free(planes);
 
 		//----------------------------------------------------------------------
 
-		double a, b, x, y, xsum, ysum, xysum, x2sum;
-		int bytesPS = pInternalData->videoInfo->format->bytesPerSample;
-
-		int averageFallback = (n >= radius) &&
+		const int colorFamily = pInternalData->videoInfo->format->colorFamily;
+		const int averageFallback = (n >= radius) &&
 			(n < pInternalData->videoInfo->numFrames - radius);
 
-		if(bytesPS == 2)
+		const int isInteger1B = (pInternalData->sampleTypeSize == stzInteger1B);
+		const int isInteger2B = (pInternalData->sampleTypeSize == stzInteger2B);
+		const int isSingle = (pInternalData->sampleTypeSize == stzSingle);
+		double * lut = pInternalData->lutGCToLinear;
+		int gamma;
+
+		int plane;
+		for(plane = 0; plane < pFormat->numPlanes; plane++)
 		{
-			const uint16_t ** shortReadPointers = (const uint16_t **)
-				malloc(sizeof(uint16_t *) * sourcesNumber);
+			if((pInternalData->plane & (1u << plane)) == 0)
+				continue;
 
-			int plane;
-			for(plane = 0; plane < pFormat->numPlanes; plane++)
+			for(i = begin; i <= end; i++)
+				readPointers[i] = vsapi->getReadPtr(sources[i], plane);
+			uint8_t * writePointer = vsapi->getWritePtr(outFrame, plane);
+			int width = vsapi->getFrameWidth(sources[radius], plane);
+			int height = vsapi->getFrameHeight(sources[radius], plane);
+			int stride = vsapi->getStride(sources[radius], plane);
+
+			int chroma = ((colorFamily == cmYUV) || (colorFamily == cmYCoCg)) &&
+				(plane != 0);
+
+			gamma = (pInternalData->gamma != 0) && !chroma;
+
+			if(averageFallback)
 			{
-				if((pInternalData->plane & (1 << plane)) == 0)
-					continue;
-
-				uint8_t * writePointer = vsapi->getWritePtr(outFrame, plane);
-				uint16_t * shortWritePointer;
-				int planeHeight = vsapi->getFrameHeight(sources[radius], plane);
-				int planeWidth = vsapi->getFrameWidth(sources[radius], plane);
-				int stride = vsapi->getStride(sources[radius], plane);
-
-				for(i = begin; i <= end; i++)
-					readPointers[i] = vsapi->getReadPtr(sources[i], plane);
-
-				if(averageFallback)
+				if(gamma)
 				{
-					int h;
-					for(h = 0; h < planeHeight; h++)
+					if(isInteger1B)
 					{
-						for(i = begin; i <= end; i++)
-						{
-							shortReadPointers[i] =
-								(const uint16_t *)readPointers[i];
-						}
-						shortWritePointer = (uint16_t *)writePointer;
-
-						int w;
-						for(w = 0; w < planeWidth; w++)
-						{
-							// Averaging point value between frames
-							xsum = 0.0;
-							for(i = begin; i <= end; i++)
-								xsum += (double)shortReadPointers[i][w];
-							y = xsum / xn;
-
-							int32_t outValue = (int32_t)(y + 0.5);
-							outValue =
-								CLAMP(outValue, 0, pInternalData->maxInValue);
-
-							shortWritePointer[w] = (uint16_t)outValue;
-						}
-
-						for(i = begin; i <= end; i++)
-							readPointers[i] += stride;
-						writePointer += stride;
+						tlaAverage1BGamma(readPointers, sourcesNumber,
+							writePointer, width, height, stride, lut);
+					}
+					else if(isInteger2B)
+					{
+						tlaAverage2BGamma(readPointers, sourcesNumber,
+							writePointer, width, height, stride,
+							(uint16_t)pInternalData->maxInValue, lut);
+					}
+					else if(isSingle)
+					{
+						tlaAverageSGamma(readPointers, sourcesNumber,
+							writePointer, width, height, stride);
 					}
 				}
-				else
+				else // !gamma
 				{
-					int h;
-					for(h = 0; h < planeHeight; h++)
+					if(isInteger1B)
 					{
-						for(i = begin; i <= end; i++)
-						{
-							shortReadPointers[i] =
-								(const uint16_t *)readPointers[i];
-						}
-						shortWritePointer = (uint16_t *)writePointer;
-
-						int w;
-						for(w = 0; w < planeWidth; w++)
-						{
-							// Gathering data to compute linear approximation
-							// using the least squares method
-							xsum = 0.0;
-							ysum = 0.0;
-							xysum = 0.0;
-							x2sum = 0.0;
-
-							for(i = begin; i <= end; i++)
-							{
-								x = (double)i;
-								y = (double)shortReadPointers[i][w];
-								xsum += x;
-								ysum += y;
-								xysum += x * y;
-								x2sum += x * x;
-							}
-
-							// Computing linear approximation coefficients
-							a = (xn * xysum - xsum * ysum) /
-								(xn * x2sum - xsum * xsum);
-							b = (ysum - a * xsum) / xn;
-
-							// Taking the value of linear function
-							// in the desired point
-							y = a * (double)radius + b;
-
-							int32_t outValue = (int32_t)(y + 0.5);
-							outValue =
-								CLAMP(outValue, 0, pInternalData->maxInValue);
-
-							shortWritePointer[w] = (uint16_t)outValue;
-						}
-
-						for(i = begin; i <= end; i++)
-							readPointers[i] += stride;
-						writePointer += stride;
+						tlaAverage1B(readPointers, sourcesNumber, writePointer,
+							width, height, stride);
+					}
+					else if(isInteger2B)
+					{
+						tlaAverage2B(readPointers, sourcesNumber, writePointer,
+							width, height, stride);
+					}
+					else if(isSingle)
+					{
+						tlaAverageS(readPointers, sourcesNumber, writePointer,
+							width, height, stride);
 					}
 				}
 			}
-
-			free(shortReadPointers);
-		}
-		else // 1 byte per sample
-		{
-			int plane;
-			for(plane = 0; plane < pFormat->numPlanes; plane++)
+			else // !averageFallback
 			{
-				if((pInternalData->plane & (1 << plane)) == 0)
-					continue;
-
-				uint8_t * writePointer = vsapi->getWritePtr(outFrame, plane);
-				int planeHeight = vsapi->getFrameHeight(sources[radius], plane);
-				int planeWidth = vsapi->getFrameWidth(sources[radius], plane);
-				int stride = vsapi->getStride(sources[radius], plane);
-
-				for(i = begin; i <= end; i++)
-					readPointers[i] = vsapi->getReadPtr(sources[i], plane);
-
-				if(averageFallback)
+				if(gamma)
 				{
-					int h;
-					for(h = 0; h < planeHeight; h++)
+					if(isInteger1B)
 					{
-						int w;
-						for(w = 0; w < planeWidth; w++)
-						{
-							// Averaging point value between frames
-							xsum = 0.0;
-							for(i = begin; i <= end; i++)
-								xsum += (double)readPointers[i][w];
-							y = xsum / xn;
-
-							int32_t outValue = (int32_t)(y + 0.5);
-							outValue =
-								CLAMP(outValue, 0, pInternalData->maxInValue);
-							writePointer[w] = (uint8_t)outValue;
-						}
-
-						for(i = begin; i <= end; i++)
-							readPointers[i] += stride;
-						writePointer += stride;
+						tlaApproximate1BGamma(readPointers, begin, end, radius,
+							writePointer, width, height, stride, lut);
+					}
+					else if(isInteger2B)
+					{
+						tlaApproximate2BGamma(readPointers, begin, end, radius,
+							writePointer, width, height, stride,
+							(uint16_t)pInternalData->maxInValue, lut);
+					}
+					else if(isSingle)
+					{
+						tlaApproximateSGamma(readPointers, begin, end, radius,
+							writePointer, width, height, stride);
 					}
 				}
-				else
+				else // !gamma
 				{
-					int h;
-					for(h = 0; h < planeHeight; h++)
+					if(isInteger1B)
 					{
-						int w;
-						for(w = 0; w < planeWidth; w++)
+						tlaApproximate1B(readPointers, begin, end, radius,
+							writePointer, width, height, stride);
+					}
+					else if(isInteger2B)
+					{
+						tlaApproximate2B(readPointers, begin, end, radius,
+							writePointer, width, height, stride,
+							(uint16_t)pInternalData->maxInValue);
+					}
+					else if(isSingle)
+					{
+						float minValue = 0.0f;
+						float maxValue = 1.0f;
+
+						if(chroma)
 						{
-							// Gathering data to compute linear approximation
-							// using the least squares method
-							xsum = 0.0;
-							ysum = 0.0;
-							xysum = 0.0;
-							x2sum = 0.0;
-
-							for(i = begin; i <= end; i++)
-							{
-								x = (double)i;
-								y = (double)readPointers[i][w];
-								xsum += x;
-								ysum += y;
-								xysum += x * y;
-								x2sum += x * x;
-							}
-
-							// Computing linear approximation coefficients
-							a = (xn * xysum - xsum * ysum) /
-								(xn * x2sum - xsum * xsum);
-							b = (ysum - a * xsum) / xn;
-
-							// Taking the value of linear function
-							// in the desired point
-							y = a * (double)radius + b;
-
-							int32_t outValue = (int32_t)(y + 0.5);
-							outValue =
-								CLAMP(outValue, 0, pInternalData->maxInValue);
-							writePointer[w] = (uint8_t)outValue;
+							minValue = -0.5f;
+							maxValue = 0.5f;
 						}
 
-						for(i = begin; i <= end; i++)
-							readPointers[i] += stride;
-						writePointer += stride;
+						tlaApproximateS(readPointers, begin, end, radius,
+							writePointer, width, height, stride, minValue,
+							maxValue);
 					}
 				}
 			}
@@ -452,8 +422,8 @@ static const VSFrameRef * VS_CC TLAGetFrame(int n, int activationReason,
 		for(i = begin; i <= end; i++)
 			vsapi->freeFrame(sources[i]);
 
-		free(sources);
-		free(readPointers);
+		free((void *)sources);
+		free((void *)readPointers);
 
 		return outFrame;
 	}
@@ -474,6 +444,7 @@ VS_EXTERNAL_API(void) VapourSynthPluginInit(VSConfigPlugin configFunc,
 		"clip:clip;"
 		"radius:int:opt;"
 		"planes:int[]:opt:empty;"
+		"gamma:int:opt;"
 		, TLACreate, 0, plugin);
 }
 
