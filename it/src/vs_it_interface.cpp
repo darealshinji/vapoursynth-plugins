@@ -90,7 +90,7 @@ static void VS_CC itCreate(const VSMap * in, VSMap * out, void * userData, VSCor
 
 	INSTANCE * d = new INSTANCE(new VSVideoInfo(*vi), node, fps, threshold, pthreshold, vsapi);
 
-	vsapi->createFilter(in, out, "it", itInit, itGetFrame, itFree, fmParallel, 0, d, core);
+	vsapi->createFilter(in, out, "IT", itInit, itGetFrame, itFree, fmParallel, 0, d, core);
 	return;
 }
 
@@ -98,7 +98,7 @@ VS_EXTERNAL_API(void) VapourSynthPluginInit(VSConfigPlugin configFunc, VSRegiste
 	configFunc("in.7086.it", "it",
 	           "VapourSynth IVTC Filter v" IT_VERSION,
 	           VAPOURSYNTH_API_VERSION, 1, plugin);
-	registerFunc("it",
+	registerFunc("IT",
 	             "clip:clip;fps:int:opt;threshold:int:opt;pthreshold:int:opt;",
 	             itCreate, nullptr, plugin);
 }

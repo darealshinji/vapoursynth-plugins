@@ -345,12 +345,12 @@ bool IT::CompCP(IScriptEnvironment * env) {
 	//1773
 	int thcomb = AdjPara(20);
 	if (n != 0) {
-		if ((env->m_iSumC < thcomb && env->m_iSumP < thcomb) || abs(env->m_iSumC - env->m_iSumP) * 10 < env->m_iSumC + env->m_iSumP) {
-			if (abs(env->m_iSumC - env->m_iSumP) > AdjPara(8)) {
+		if ((env->m_iSumC < thcomb && env->m_iSumP < thcomb) || labs(env->m_iSumC - env->m_iSumP) * 10 < env->m_iSumC + env->m_iSumP) {
+			if (labs(env->m_iSumC - env->m_iSumP) > AdjPara(8)) {
 				env->m_iUseFrame = env->m_iSumP >= env->m_iSumC ? 'c' : 'p';
 				return true;
 			}
-			if (abs(env->m_iSumPC - env->m_iSumPP) > AdjPara(10)) {
+			if (labs(env->m_iSumPC - env->m_iSumPP) > AdjPara(10)) {
 				env->m_iUseFrame = env->m_iSumPP >= env->m_iSumPC ? 'c' : 'p';
 				return true;
 			}
