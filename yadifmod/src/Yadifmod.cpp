@@ -112,7 +112,7 @@ static void Yadifmod_C(const T * prev2pp, const T * prev2pn, const T * prevp2p, 
                 const int mins = std::min(std::min(p2 - p3, p2 - p1), std::max(p0 - p1, p4 - p3));
                 diff = std::max(std::max(diff, mins), -maxs);
             }
-            dstp[x] = std::min(std::max(edeintp[x], p2 - diff), p2 + diff);
+            dstp[x] = std::min(std::max(static_cast<int>(edeintp[x]), p2 - diff), p2 + diff);
         }
         prev2pp += stride;
         prev2pn += stride;
