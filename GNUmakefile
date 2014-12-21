@@ -18,6 +18,7 @@ cleandirs = . fluxsmooth mvtools nnedi3 tcomb imagereader/libjpeg-turbo
 python_SCRIPTS = \
 	finesharp/finesharp.py \
 	havsfunc/havsfunc.py \
+	maskdetail/MaskDetail.py \
 	templinearapproximate/MCDenoise.py \
 	temporalsoften2/TemporalSoften2.py \
 	vautodeint/VAutoDeint.py

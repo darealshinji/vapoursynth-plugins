@@ -36,6 +36,7 @@ zlib1g-dev
 [histogram 1.0](https://github.com/dubhater/vapoursynth-histogram)<br>
 [imagereader 0.2.1](https://github.com/chikuzen/vsimagereader)<br>
 [it 1.2](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-IT)<br>
+[maskdetail git20141221](https://github.com/MonoS/VS-MaskDetail)<br>
 [msmoosh 1.1](https://github.com/dubhater/vapoursynth-msmoosh)<br>
 [mvtools 4+git20141204](https://github.com/dubhater/vapoursynth-mvtools)<br>
 [nnedi3 2.1](https://github.com/dubhater/vapoursynth-nnedi3)<br>
