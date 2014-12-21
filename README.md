@@ -11,6 +11,8 @@ libjpeg-turbo8-dev
 libpng12-dev
 libsndfile1-dev
 libxvidcore-dev
+python
+python2
 yasm
 zlib1g-dev
 `
