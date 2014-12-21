@@ -62,13 +62,13 @@ install:
 
 clean:
 	test -f Makefile && $(MAKE) clean || true
-	cd flash3kyuu_deband && ./waf clean || true
+	cd flash3kyuu_deband && python waf clean || true
 	find . -type f -name *.pyc -delete
 
 distclean:
 	test -f Makefile && $(MAKE) distclean || true
 	rm -f config.mak
-	cd flash3kyuu_deband && ./waf distclean || true
+	cd flash3kyuu_deband && python waf distclean || true
 	find . -type f -name *.pyc -delete
 	rm -rf flash3kyuu_deband/.libs
 
