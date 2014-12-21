@@ -9,6 +9,7 @@ libavformat-dev
 libavcodec-dev
 libjpeg-turbo8-dev
 libpng12-dev
+libsndfile1-dev
 libxvidcore-dev
 yasm
 zlib1g-dev
@@ -22,6 +23,7 @@ zlib1g-dev
 [convo2d 0.2.0](https://github.com/chikuzen/convo2d)<br>
 [ctmf r2](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-CTMF)<br>
 [d2vsource beta7](https://github.com/dwbuiten/d2vsource)<br>
+[damb 1.0](https://github.com/dubhater/vapoursynth-damb)<br>
 [deblock r3](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Deblock)<br>
 [delogo 0.2+git20141014](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-DeLogo)<br>
 [eedi2 r4](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-EEDI2)<br>

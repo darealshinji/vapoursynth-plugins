@@ -8,6 +8,7 @@ SUBDIRS = \
 	convo2d \
 	ctmf \
 	d2vsource \
+	damb \
 	deblock \
 	delogo \
 	eedi2 \

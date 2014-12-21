@@ -58,6 +58,7 @@ PKG_CHECK_MODULES([VapourSynth], [vapoursynth])
 PKG_CHECK_MODULES([libavcodec], [libavcodec])
 PKG_CHECK_MODULES([libavformat], [libavformat])
 PKG_CHECK_MODULES([libavutil], [libavutil])
+PKG_CHECK_MODULES([SNDFILE], [sndfile])
 
 # Checks for header files.
 AC_CHECK_HEADERS([float.h inttypes.h malloc.h stdint.h stdlib.h string.h png.h])
@@ -88,6 +89,7 @@ AC_CONFIG_FILES([Makefile \
                  convo2d/Makefile \
                  ctmf/Makefile \
                  d2vsource/Makefile \
+                 damb/Makefile \
                  deblock/Makefile \
                  delogo/Makefile \
                  eedi2/Makefile \
