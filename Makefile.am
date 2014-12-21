@@ -9,6 +9,7 @@ SUBDIRS = \
 	ctmf \
 	d2vsource \
 	damb \
+	dctfilter \
 	deblock \
 	delogo \
 	eedi2 \

@@ -1,0 +1,22 @@
+DCT Filter for VapourSynth r2
+
+By Aleksey [Mystery Keeper] Lyashin
+mystkeeper@gmail.com
+http://mysterykeeper.ru
+
+This software is free and distributed under MIT license.
+
+For additional information see LICENSE file.
+
+Usage:
+
+dct.Filter(clip clip, float factors[8])
+
+Performs DCT on 8x8 blocks of source clip, applies modification to it, then performs IDCT.
+Modification is done as following: dct(x, y) = dct(x, y) * factor[x] * factor[y]
+
+This filter does essentially the same as original Tom Barry's DctFilter for AviSynth, but does it differently.
+All calculations are done on floating point values, and factors are applied as they are, not rounded.
+Thus, the accuracy is higher.
+
+Padding to mod8 is automatic for every plane, but cropping to non-mod16 values before applying this filter is impractical and shouldn't be done.

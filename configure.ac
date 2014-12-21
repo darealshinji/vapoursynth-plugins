@@ -90,6 +90,7 @@ AC_CONFIG_FILES([Makefile \
                  ctmf/Makefile \
                  d2vsource/Makefile \
                  damb/Makefile \
+                 dctfilter/Makefile \
                  deblock/Makefile \
                  delogo/Makefile \
                  eedi2/Makefile \
@@ -101,8 +102,8 @@ AC_CONFIG_FILES([Makefile \
                  imagereader/src/Makefile \
                  it/Makefile \
                  msmoosh/Makefile \
-                 retinex/Makefile \
                  rawsource/Makefile \
+                 retinex/Makefile \
                  sangnommod/Makefile \
                  scenechange/Makefile \
                  scrawl/Makefile \
