@@ -1,0 +1,274 @@
+f3kdb(clip c, int "range", int "Y", int "Cb", int "Cr", 
+		int "grainY", int "grainC", int "sample_mode", int "seed", 
+		bool "blur_first", bool "dynamic_grain", int "opt", bool "mt", 
+		int "precision_mode", bool "keep_tv_range", int "input_mode",
+		int "input_depth", int "output_mode", int "output_depth", 
+		int "random_algo_ref", int "random_algo_grain",
+		float "random_param_ref", float "random_param_grain")
+		
+由 http://www.geocities.jp/flash3kyuu/auf/banding17.zip 移植。
+滤镜支持逐行YUY2、YV12、YV16、YV24及YV411。
+		
+range
+	banding检测范围.
+	
+	默认；15
+
+Y Cb Cr
+	banding检测阈值。
+	
+	默认：1 (precision_mode = 0) /
+	      64 (precision_mode > 0)
+	
+grainY grainC
+	当sample_mode为1~2时有效，模糊后进行dither的强度。
+		
+	默认：1 (precision_mode = 0) /
+	      64 (precision_mode > 0)
+	      
+sample_mode
+	0：使用1个采样像素，忽略grainY及grainC
+	   （已过时，未来的版本将会移除）
+	1：使用2个采样像素
+	2：使用4个采样像素
+	
+	默认：2
+	
+seed
+	随机数种子，一般不需要设置
+	
+blur_first
+	仅当sample_mode为1~2时有效。
+	
+	true： 当前像素会与所有取样像素的平均值比较，若差值低于阈值则视为banded
+	false：当前像素会与各个采样像素各自比较，若所有差值皆低于阈值则视为banded
+	
+dynamic_grain
+	动态噪声模式。
+	
+	默认：false
+	
+opt
+	优化模式
+	-1：使用当前CPU最高支持的优化
+	0：纯C代码
+	1：SSE2
+	2：SSSE3
+	3：SSE4.1
+	
+	默认为-1，一般不需要更改，i5-520m测试SSE模式比C快60%~100%（视模式而定）。
+	
+mt
+	多线程模式。如果设为true，U及V平面会在新线程与Y平面同时处理。
+	
+	如用户机器有多个CPU/核心则默认启用，否则默认为禁用
+	
+dither_algo
+	0：低精度模式（已过时，未来的版本将会删除）
+	1：无dither处理，截断LSB数据
+	2：Ordered dithering
+	3：Floyd-Steinberg dithering
+	
+	* 模式3的视觉质量是最好的，但是x264编码后很容易会变成玻璃渣，要达到最佳效果需要仔细调节x264参数。
+	* 模式1及2的效果略差，但比较容易用较低的码率编码，某些情况下可能会比模式3更好。
+	
+	说明：
+	#1 该参数仅在sample_mode > 0时有效，sample_mode = 0时设置该参数会出错。
+	#2 不推荐模式0（除非sample_mode为0）。
+	#3 要达到同等强度，高精度模式的阈值及dither设置值为低精度模式下的64倍。
+	#4 当output_depth = 16时，此参数会被忽略
+	#5 10bit x264命令行范例：
+	   avs2yuv -raw "script.avs" -o - | x264-10bit --demuxer raw --input-depth 16 --input-res 1280x720 --fps 24 --output "out.mp4" -
+	   
+	   或使用添加过hack（ https://gist.github.com/1117711 ）的x264编译版：
+	   x264-10bit --input-depth 16 --output "out.mp4" script.avs
+	
+	默认值：0 (sample_mode = 0) / 3 (sample_mode > 0)
+	
+keep_tv_range
+	如设置为true，所有处理后的像素会被裁剪到TV range 
+	(luma：16 ~ 235, chroma：16 ~ 240)。
+	
+	如果视频源是TV range，推荐设置为true，因为dither后的像素有可能会超出范围。
+	
+	如果视频源是full-range，*不要*设置此参数为true，否则所有超出TV range的像素会被裁剪。
+	
+	默认值：false
+	
+input_mode
+	指定输入视频模式。
+	
+	0：标准8bit视频
+	1：9 ~ 16 bit 高位深视频, 层叠格式
+	2：9 ~ 16 bit 高位深视频, 交织格式
+	
+	默认值：0 (input_depth = 8或未指定) / 1 (input_depth > 8)
+	
+input_depth
+	指定源视频位深。
+	
+	范围：8 ~ 16
+	默认值：8 (input_mode = 0或未指定) / 16 (input_mode = 1 / 2)
+	
+output_mode
+	指定输出视频模式。参数值意义同input_mode。
+	
+	仅当 dither_algo = 1 / 2 / 3 时可用。
+	
+	当 dither_algo = 0，output_mode会自动设定为0且不能被更改。
+	
+	* 当output_mode = 2时，脚本预览时会显示为花屏且宽度会变为原来的两倍，此为正常现象，使用高位深x264正确压制后即会恢复正常。
+	
+	默认值：0 (output_depth = 8或未指定) / 1 (output_depth > 8)
+	
+output_depth
+	指定输出视频位深。
+	
+	仅当 precision_mode = 1 / 2 / 3 时可用。 
+	
+	如为16，则不会应用precision_mode指定的dither算法。
+	
+	范围：8 ~ 16
+	默认值：8 (output_mode = 0或未指定) / 16 (output_mode = 1 / 2)
+	
+random_algo_ref / random_algo_grain
+	选择参考像素位置/dither噪声的随机数生成算法。
+	
+	0：旧版滤镜算法
+	1：均匀分布
+	2：高斯分布 （标准差可通过random_param_ref / random_param_grain设置，只使用[-1.0, 1.0]范围内的原始值进行后续计算，超出范围的值会被忽略）
+	
+	默认值：1 / 1
+
+random_param_ref / random_param_grain
+	随机数生成算法的参数。目前只对高斯分布有效。
+	
+	默认值：1.0
+	
+--------------------------------------------------------------------------------
+
+f3kdb_dither(clip c, int "mode", bool "stacked", int "input_depth", 
+             bool "keep_tv_range")
+
+使用flash3kyuu_deband的dither算法把高位深视频转换为正常的8bit视频。
+
+支持的颜色空间与flash3kyuu_deband相同。
+
+需求支持SSE2的CPU (Pentium 4 / AMD K8 或更新)
+
+mode
+	0：Ordered dithering
+	1：Floyd-Steinberg dithering
+	
+	默认值：1
+	
+stacked
+	true：源数据为层叠格式 
+		  (即 flash3kyuu_deband output_mode = 1 的输出格式)
+	false：源数据为交织格式 
+		  (即 flash3kyuu_deband output_mode = 2 的输出格式)
+		  
+	默认值：true
+	
+input_depth
+	指定输入数据位深
+	
+	默认值：16
+	有效范围：9 ~ 16
+	
+keep_tv_range
+	请参考flash3kyuu_deband的同名参数
+	
+	默认值：false
+	
+--------------------------------------------------------------------------------
+
+更新日志
+1.5.1 (2012-04-07)
+	 可设置高斯随机数生成器的标准差
+
+1.5.0 (2012-03-12)
+	（此版本无新功能，只修改了部分参数以减少混淆）
+	ditherY/ditherC改名为grainY/grainC
+	dynamic_dither_noise改名为dynamic_grain
+	precision_mode改名为dither_algo，并移除模式4及5
+	random_algo_dither改名为random_algo_grain
+	移除enable_fast_skip_plane，此优化会在符合条件时自动启用（滤镜处理结果不会受此影响）
+	
+1.4.2 (2011-11-10)
+	修复某些非mod16视频的崩溃问题
+
+1.4.1 (2011-11-05)
+	修复YUY2支持
+	改进位深相关参数的默认值处理
+	precision_mode 4 / 5已过时，并可能会在新的版本中移除，请改用output_mode 1 / 2以得到同样效果
+	
+1.4.0 (2011-10-30)
+	9 ~ 16位深输入/输出
+		相关参数：input_mode/input_depth/output_mode/output_depth
+	新的随机数生成器，参考像素位置及噪声可以为均匀分布或高斯分布
+		相关参数：random_algo_ref / random_algo_dither
+	diff_seed已被dynamic_dither_noise取代，启用时每帧的噪声模式会变化
+	另一个新参数：enable_fast_skip_plane
+	新增滤镜短名：f3kdb
+	新的ICC编译版理论上可在SSE2前的CPU上运行（未测试）
+	少量Bug修复
+
+1.3.0 (2011-09-07)
+	新增x64版本
+	新增降色深滤镜：f3kdb_dither
+	内部处理精度提升至16bit
+	新增参数：keep_tv_range，具体说明请参考readme.zh.txt
+	修改sample_mode的默认值到2
+	Bug修复：Floyd-Steinberg dither用于full-range视频时，结果可能会有错误
+	Bug修复：错误的YUY2 debanding
+	少量优化
+  
+1.2.0 (2011-08-01)
+	新增支持YUY2（未优化）
+	新增支持AviSynth 2.6中新的平面YUV格式
+	滤镜现在同时支持AviSynth 2.5及2.6
+	16bit输出（precision_mode = 4/5）
+
+	（目前内部处理精度仍然为14bit，未来的版本会改进）
+
+1.1.0 (2011-06-18)
+	修复在高精度模式下高阈值造成的错误
+	更改阈值效果以增加可调节性，同一个阈值在新版中的效果会变弱
+	SSE优化高精度模式
+	对某些无效参数组合直接提示错误
+
+1.0.2 (2011-06-06)
+	高精度处理模式（目前未进行优化，将会下一个版本添加）
+	正确处理帧边缘
+	修正某些情况下的崩溃
+	其它bug修复
+
+1.0.1 (2011-05-27)
+	多线程处理
+	不处理阈值为0的平面
+	
+1.0.0 (2011-05-21)
+	修复大量Bug
+	新增SSE优化，速度大幅提升，i5-520m默认参数可以达到24fps以上
+
+0.9.1 (2011-05-05)
+	修正：当blur_first=false时，处理结果会出错
+
+0.9 (2011-05-04)
+	原始发布版
+
+--------------------------------------------------------------------------------
+
+Web:
+http://forum.doom9.org/showthread.php?t=161411
+http://www.nmm-hd.org/newbbs/viewtopic.php?f=7&t=239
+
+Acknowledgment:
+flash3kyuu (http://www.geocities.jp/flash3kyuu/)
+06_taro (https://astrataro.wordpress.com/)
+
+Source code:
+https://github.com/SAPikachu/flash3kyuu_deband
+
+Copyleft 2011-2013 SAPikachu (sapikachu@gmail.com, http://www.sapikachu.net)

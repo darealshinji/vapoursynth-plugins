@@ -15,6 +15,7 @@ SUBDIRS = \
 	eedi2 \
 	fieldhint \
 	fillborders \
+	flash3kyuu_deband \
 	fluxsmooth \
 	genericfilters \
 	histogram \

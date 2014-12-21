@@ -1,0 +1,329 @@
+f3kdb(clip c, int "range", int "Y", int "Cb", int "Cr", 
+		int "grainY", int "grainC", int "sample_mode", int "seed", 
+		bool "blur_first", bool "dynamic_grain", int "opt", bool "mt", 
+		int "dither_algo", bool "keep_tv_range", int "input_mode",
+		int "input_depth", int "output_mode", int "output_depth", 
+		int "random_algo_ref", int "random_algo_grain",
+		float "random_param_ref", float "random_param_grain")
+		
+Ported from http://www.geocities.jp/flash3kyuu/auf/banding17.zip . 
+(I'm not the author of the original aviutl plugin, just ported the algorithm to
+avisynth.)
+
+This avisynth plugin debands the video by replacing banded pixels with average 
+value of referenced pixels, and optionally add grain (random dithering) to them.
+
+Supported colorspaces: YUY2, YV12, YV16, YV24, YV411 (Progressive only)
+
+Parameters:		
+
+range
+	Banding detection range. 
+	
+	Default: 15
+
+Y Cb Cr
+	Banding detection threshold. If difference between current pixel and 
+	reference pixel is less than threshold, it will be considered as banded.
+	
+	Default: 1 (dither_algo = 0) /
+	         64 (dither_algo > 0)
+	
+grainY grainC
+	Valid only when sample_mode is 1 or 2. Specifies amount of grains added in 
+	the last debanding stage.
+	
+	Default: 1 (dither_algo = 0) /
+	         64 (dither_algo > 0)
+	
+sample_mode
+	Valid modes are:
+	
+	0: Take 1 pixel as refernce pixel. grainY and grainC are ignored.
+	   (Deprecated, will be removed in future)
+	1: Take 2 pixels as reference pixel. Reference pixels are in the same 
+	   column of current pixel. Add grain after processing.
+	2: Take 4 pixels as reference pixel. Reference pixels are in the square 
+	   around current pixel. Add grain after processing.
+
+	Default: 2
+	
+seed
+	Seed for random number generation. 
+	
+blur_first
+	Valid only when sample_mode is 1 or 2. 
+	
+	true: Current pixel is compared with average value of all pixels. 
+	false: Current pixel is compared with all pixels. The pixel is considered as
+	       banded pixel only if all differences are less than threshold.
+	       	
+	Default: true
+	
+dynamic_grain
+	Use different grain pattern for each frame.
+	
+	Default: false
+	
+opt
+	Specifies optimization mode. 
+	
+	-1: Use highest optimization mode that is supported by host CPU
+	0: No optimization (should be supported by almost all CPUs)
+	1: SSE2 (Pentium 4, AMD K8)
+	2: SSSE3 (Core 2)
+	3: SSE4.1 (Core 2 45nm)
+	
+	Default: -1
+	
+mt
+	Multi-threaded processing. If set to true, U and V plane will be proccessed 
+	in parallel with Y plane to speed up processing.
+		
+	Default: true if host has more than 1 CPU/cores, false otherwise.
+	
+dither_algo
+	0: 8-bit processing (Deprecated, will be removed in future)
+	1: No dithering, LSB is truncated
+	2: Ordered dithering
+	3: Floyd-Steinberg dithering
+
+	* Visual quality of mode 3 is the best, but the debanded pixels may 
+	  easily be destroyed by x264, you need to carefully tweak the settings
+	  to get better result.
+	* Mode 1 and mode 2 don't look the best, but if you are encoding at low 
+	  bitrate, they may be better choice since the debanded pixels is easier
+	  to survive encoding, mode 3 may look worse than 1/2 after encoding in
+	  this situation.
+	  (Thanks sneaker_ger @ doom9 for pointing this out!)
+	 
+	Note: 
+	1. In sample mode 0, only mode 0 is available (it doesn't make sense to use
+	   high precision mode). Setting this to other values will cause an error.
+	
+	2. It is not recommended to use mode 0 anymore (except that you want to use
+	   sample mode 0). 
+	   
+	3. In high precision mode, threshold and dither parameters are 64 times
+	   bigger than equivalent in low precision mode.
+	   
+	4. This parameter is ignored if output_depth = 16.
+	   	      
+	5. 10bit x264 command-line example:
+	   avs2yuv -raw "script.avs" -o - | x264-10bit --demuxer raw --input-depth 16 --input-res 1280x720 --fps 24 --output "out.mp4" -
+	   
+	   Or compile x264 with the patch on https://gist.github.com/1117711, and 
+	   specify the script directly:
+	   x264-10bit --input-depth 16 --output "out.mp4" script.avs
+	
+	Default: 0 (sample_mode = 0) /
+	         3 (sample_mode > 0)
+	   
+keep_tv_range
+	If set to true, all processed pixels will be clamped to TV range 
+	(luma: 16 ~ 235, chroma: 16 ~ 240). 
+	
+	It is recommended to set this to true for TV-range videos, since pixel 
+	values may overflow/underflow after dithering. 
+	
+	DON'T set this to true for full-range videos, as all out-of-range pixels
+	will be clamped to TV range.
+	
+	Default: false
+	
+input_mode
+	Specify source video type.
+	0: Regular 8 bit video
+	1: 9 ~ 16 bit high bit-depth video, stacked format
+	2: 9 ~ 16 bit high bit-depth video, interleaved format
+	
+	Default: 0 (input_depth = 8 or not specified) / 1 (input_depth > 8)
+	
+input_depth
+	Specify bit-depth of source video.
+	
+	Range: 8 ~ 16
+	Default: 8 (input_mode = 0 or not specified) / 16 (input_mode = 1 or 2)
+	
+output_mode
+	Specify output video type. Meaning of values are the same as input_mode.
+	
+	Only valid when dither_algo = 1 / 2 / 3 . 
+	
+	If dither_algo = 0, output_mode is set to 0 and can't be changed.
+	
+	When output_mode = 2, frames will be 2x wider and look garbled on preview, 
+	it will return to normal after correctly encoded by high bit-depth x264)
+	
+	Default: 0 (output_depth = 8 or not specified) / 1 (output_depth > 8)
+	
+output_depth
+	Specify output bit-depth.
+	
+	Only valid when dither_algo = 1 / 2 / 3 . 
+	
+	If output_depth = 16, dither algorithm specified by dither_algo won't be
+	applied.
+	
+	Range: 8 ~ 16
+	Default: 8 (output_mode = 0 or not specified) / 16 (output_mode = 1 or 2)
+
+random_algo_ref / random_algo_grain
+	Choose random number algorithm for reference positions / grains.
+	
+	0: Algorithm in old versions
+	1: Uniform distribution
+	2: Gaussian distribution
+	   (StdDev (sigma) is settable through random_param_ref / random_param_grain, 
+	    Only values in [-1.0, 1.0] is used for multiplication, numbers outside 
+	    this range are simply ignored)
+	
+	Default: 1 / 1
+		
+random_param_ref / random_param_grain
+	Parameter for the respective random number generator. Currently only have 
+	effect for the Gaussian generator.
+	
+	Default: 1.0
+	
+--------------------------------------------------------------------------------
+
+f3kdb_dither(clip c, int "mode", bool "stacked", int "input_depth", 
+             bool "keep_tv_range")
+
+Downsamples high bit-depth video to regular 8-bit video using dither routines 
+of flash3kyuu_deband.
+
+Supported colorspaces: The same as flash3kyuu_deband.
+
+Requires SSE2-capable CPUs (Pentium 4 / AMD K8 or later)
+
+Parameters:
+
+mode
+	0: Ordered dithering
+	1: Floyd-Steinberg dithering
+	
+	Default: 1
+	
+stacked
+	true: Input data is stacked 
+		  (like output of flash3kyuu_deband output_mode = 1)
+	false: Input data is interleaved 
+		  (like output of flash3kyuu_deband output_mode = 2)
+		  
+	Default: true
+	
+input_depth
+	Specifies input bit depth
+	
+	Default: 16
+	Valid range: 9 ~ 16
+	
+keep_tv_range
+	See description of keep_tv_range in flash3kyuu_deband
+	
+	Default: false
+	
+--------------------------------------------------------------------------------
+
+Change log
+1.5.1 (2012-04-07)
+ * Supports setting StdDev (sigma) for the Gaussian random number generator
+
+1.5.0 (2012-03-12)
+ * (There isn't any new feature in this version, only some parameters are 
+   modified to reduce user confusion)
+ * ditherY/ditherC are renamed to grainY/grainC
+ * dynamic_dither_noise is renamed to dynamic_grain
+ * precision_mode is renamed to dither_algo, mode 4 and 5 are removed
+ * random_algo_dither is renamed to random_algo_grain
+ * enable_fast_skip_plane is removed, this optimization will be enabled 
+   implicitly whenever possible (Filter result won't be changed by this 
+   optimization)
+
+1.4.2 (2011-11-10)
+ * Fixed crash on some non-mod16 videos
+
+1.4.1 (2011-11-05)
+ * Fixed broken YUY2 support (still slow)
+ * Improved default value handling of bitdepth-related parameters
+ * precision_mode 4 / 5 are now deprecated and may be removed in future versions, 
+   you can use output_mode 1 / 2 to achieve the same result
+ 
+1.4.0 (2011-10-30)
+ * 9 ~ 16 bit-depth input/output
+    * Related parameters: input_mode/input_depth/output_mode/output_depth
+ * New random number generator, reference position and dither noise can be 
+   generated in uniform or gaussian distribution
+    * Related parameters: random_algo_ref / random_algo_dither
+ * diff_seed is replaced with dynamic_dither_noise, when enabled, noise pattern
+   will be different for each frame
+ * Another new parameter: enable_fast_skip_plane
+ * Short filter alias: f3kdb
+ * Now the ICC-compiled DLL should be runnable on pre-SSE2 systems (untested)
+ * Several bug fixes
+
+1.3.0 (2011-09-07)
+ * Added x64 version
+ * Added a downsample filter: f3kdb_dither
+ * Internal precision is increased to 16bit
+ * New parameter: keep_tv_range, please see readme.txt for details
+ * Default sample_mode is changed to 2 as it is better in most cases
+ * Fixed: Floyd-Steinberg dithering may produce incorrect result for full-range 
+          videos
+ * Fixed: Broken YUY2 debanding
+ * Minor optimizations
+  
+1.2.0 (2011-08-01)
+ * Added support for YUY2 (not optimized yet)
+ * Added support for all planar YUV format in AviSynth 2.6
+ * The filter is now compatible with both AviSynth 2.5 and 2.6
+ * 16bit output (precision_mode = 4/5)
+   * Note: The internal processing precision is still 14bit, this will be
+     improved in future versions
+ 
+1.1.0 (2011-06-18)
+ * Fixed a bug that high threshold values would produce incorrect result in
+   high precision modes.
+ * Threshold values was scaled based on other parameter in previous versions, 
+   it is unscaled now to increase flexibility. Using same value has weaker 
+   effect in new version. Effect of default parameter set is also changed. 
+ * SSE optimization for high precision mode.
+ * Rejects some invalid parameter combination instead of silently skips them
+
+1.0.2 (2011-06-06)
+ * High precision mode 
+ *  * (currently non-optimized, SSE routine will be added later)
+ * Frame edges are properly processed now
+ * Fix crash in some cases (unaligned frames are handled correctly)
+ * Other bug fixes
+
+1.0.1 (2011-05-27)
+ * Multi-threaded processing
+ * Skip planes which threshold is 0
+
+1.0.0 (2011-05-21)
+ * Lots of bug fix
+ * SSE optimization, massive speed up
+
+0.9.1 (2011-05-05)
+ * Fix: Incorrect results when blur_first=true
+
+0.9 (2011-05-04)
+ * Initial release
+
+--------------------------------------------------------------------------------
+
+Web:
+http://forum.doom9.org/showthread.php?t=161411
+http://www.nmm-hd.org/newbbs/viewtopic.php?f=7&t=239
+
+Acknowledgment:
+flash3kyuu (http://www.geocities.jp/flash3kyuu/)
+06_taro (https://astrataro.wordpress.com/)
+
+Source code:
+https://github.com/SAPikachu/flash3kyuu_deband
+
+Copyleft 2011-2013 SAPikachu (sapikachu@gmail.com, http://www.sapikachu.net)

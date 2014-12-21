@@ -1,0 +1,89 @@
+import os
+
+from waflib import Utils, Build
+
+
+def options(opt):
+    opt.load("compiler_c")
+    opt.add_option("--enable-test", action="store_true", default=False,
+                   dest="test", help="build tests")
+    opt.add_option("--disable-test", action="store_false",
+                   dest="test", help="do not build tests (default)")
+
+
+def configure(conf):
+    conf.msg_feature("Tests", conf.options.test)
+    if not conf.options.test:
+        return
+
+    conf.env.BUILD_TEST = True
+    conf.load("compiler_c")
+    conf.find_program("cmake", var="CMAKE")
+    conf.find_program("make", var="MAKE")
+
+    if not any(conf.check_cxx(lib=x, uselib_store="PTHREAD", mandatory=False)
+               for x in ["pthreads", "pthread"]):
+        conf.fatal("Can't find pthread.")
+
+    googletest_dir = Utils.subst_vars("${VENDORLIBS}/googletest", conf.env)
+    if not os.path.isfile(os.path.join(googletest_dir, "CMakeLists.txt")):
+        conf.fatal("Can't find Google Test, please run 'git submodule update --init --recursive' to update git submodules")
+
+    conf.env.GTEST_ROOT = googletest_dir
+
+
+def build(bld):
+    if not bld.env.BUILD_TEST:
+        return
+
+    bld.post_mode = Build.POST_BOTH
+
+    bld.add_group()
+    gtest_build = bld.path.get_bld().make_node("gtest")
+    gtest_build.mkdir()
+
+    makefile = gtest_build.make_node("Makefile")
+    cmakelists = bld.root.find_node(bld.env.GTEST_ROOT + "/CMakeLists.txt")
+    bld(
+        rule="CXX=${CXX} CC=${CC} ${CMAKE} ${GTEST_ROOT}",
+        source=cmakelists,
+        target=makefile,
+        cwd=gtest_build.abspath(),
+    )
+    gtest_output = [gtest_build.make_node(x)
+                    for x in ("libgtest.a", "libgtest_main.a")]
+    bld(
+        name="gtest",
+        rule="${MAKE}",
+        source=makefile,
+        target=gtest_output,
+        cwd=gtest_build.abspath(),
+    )
+    bld(
+        rule="${PYTHON3} ${SRC[0].abspath()} > ${TGT[0].abspath()}",
+        source="build_core_param_set.py",
+        target=bld.path.find_node("test_core_param_set.h"),
+        cwd=bld.path.abspath(),
+    )
+    bld.add_group()
+    test_output = bld.path.get_bld().make_node("f3kdb-test")
+    bld(
+        features="cxx cxxprogram",
+        source=bld.path.ant_glob(
+            ["*.cpp"],
+            excl=[
+                "stdafx.cpp",
+            ],
+        ),
+        includes=[Utils.subst_vars("${GTEST_ROOT}/include", bld.env)],
+        use=["f3kdb", "gtest"],
+        uselib=["PTHREAD"],
+        lib=["gtest", "gtest_main"],
+        libpath=[gtest_build.abspath()],
+        linkflags="-Wl,-rpath={}:.:..".format(
+            bld.path.get_bld().parent.abspath()
+        ),
+        target=test_output,
+    )
+    [bld.add_manual_dependency(test_output, x) for x in gtest_output]
+

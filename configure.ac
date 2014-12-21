@@ -96,6 +96,7 @@ AC_CONFIG_FILES([Makefile \
                  eedi2/Makefile \
                  fieldhint/Makefile \
                  fillborders/Makefile \
+                 flash3kyuu_deband/Makefile \
                  genericfilters/Makefile \
                  histogram/Makefile \
                  imagereader/Makefile \

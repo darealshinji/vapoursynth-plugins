@@ -1,0 +1,54 @@
+import re
+
+import waflib
+
+
+def build(bld):
+    gen_filter_def = bld.path.find_node("gen_filter_def.py")
+    gen_output = bld.cmd_and_log(
+        [bld.env["PYTHON3"], gen_filter_def.abspath(), "--list-outputs"],
+        quiet=waflib.Context.BOTH,
+    )
+    gen_output_list = re.split(r"\s+", gen_output.strip(), flags=re.S)
+
+    bld(
+        rule="${PYTHON3} ${SRC[0].abspath()}",
+        source=gen_filter_def,
+        target=[bld.path.find_node(x) for x in gen_output_list],
+        cwd=bld.path.abspath(),
+    )
+    bld(
+        features="cxx",
+        source=bld.path.ant_glob(
+            ["*.cpp"] +
+            (["vapoursynth/*.cpp"] if bld.env.ENABLE_VAPOURSYNTH else []),
+            excl=[
+                "dllmain.cpp",
+                "icc_override.cpp",
+                "stdafx.cpp",
+                "debug_dump.cpp",
+                "flash3kyuu_deband_impl_ssse3.cpp",
+                "flash3kyuu_deband_impl_sse2.cpp",
+                "flash3kyuu_deband_impl_sse4.cpp",
+            ],
+        ),
+        target="f3kdb-objs",
+    )
+    bld(
+        features="cxx",
+        source="flash3kyuu_deband_impl_sse2.cpp",
+        target="f3kdb-impl-sse2",
+        cxxflags=["-msse2"],
+    )
+    bld(
+        features="cxx",
+        source="flash3kyuu_deband_impl_ssse3.cpp",
+        target="f3kdb-impl-ssse3",
+        cxxflags=["-mssse3"],
+    )
+    bld(
+        features="cxx",
+        source="flash3kyuu_deband_impl_sse4.cpp",
+        target="f3kdb-impl-sse4",
+        cxxflags=["-msse4.1"],
+    )

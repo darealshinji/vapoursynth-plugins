@@ -49,8 +49,12 @@ install:
 	$(install_DIR) $(DESTDIR)$(docdir)
 	$(foreach LIB,$(shell echo */.libs/*.so),$(install) $(LIB) $(DESTDIR)$(plugins) $(NL))
 	$(foreach SCRIPT,$(python_SCRIPTS),$(install) $(SCRIPT) $(DESTDIR)$(plugins) $(NL))
+
 	$(install) README.md $(DESTDIR)$(docdir)
 	$(install) rawsource/format_list.txt $(DESTDIR)$(docdir)/rawsource_format_list
+	$(install) flash3kyuu_deband/flash3kyuu_deband.txt $(DESTDIR)$(docdir)
+	$(install) flash3kyuu_deband/flash3kyuu_deband.zh.txt $(DESTDIR)$(docdir)
+
 	install -m755 -D d2vsource/d2vscan.pl $(DESTDIR)$(plugins)
 	$(install) d2vsource/d2vscan.txt $(DESTDIR)$(docdir)/d2vscan
 	$(foreach FILE,$(shell echo */readme* */README*), \
@@ -58,12 +62,17 @@ install:
 
 clean:
 	test -f Makefile && $(MAKE) clean || true
+	cd flash3kyuu_deband && ./waf clean || true
+	find . -type f -name *.pyc -delete
 
 distclean:
 	test -f Makefile && $(MAKE) distclean || true
 	rm -f config.mak
+	cd flash3kyuu_deband && ./waf distclean || true
+	find . -type f -name *.pyc -delete
+	rm -rf flash3kyuu_deband/.libs
 
-cleanfiles = .dirstamp aclocal.m4 configure config.h.in config.h.in~ config.log \
+cleanfiles = \*.pyc .dirstamp aclocal.m4 configure config.h.in config.h.in~ config.log \
 	config.mak config.status jsimdcfg.inc libtool Makefile Makefile.in
 
 clobber:
