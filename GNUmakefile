@@ -21,6 +21,9 @@ python_SCRIPTS = \
 	maskdetail/MaskDetail.py \
 	templinearapproximate/MCDenoise.py \
 	temporalsoften2/TemporalSoften2.py \
+	vapoursynth-modules/edgecleaner.py \
+	vapoursynth-modules/rangeutils.py \
+	vapoursynth-modules/scoll.py \
 	vautodeint/VAutoDeint.py
 
 define NL
