@@ -53,17 +53,17 @@ install:
 		$(install) $(FILE) $(DESTDIR)$(docdir)/$(shell echo $$(dirname $(FILE))) $(NL))
 
 clean:
-	$(MAKE) clean || true
+	test -f Makefile && $(MAKE) clean || true
 
 distclean:
-	$(MAKE) distclean || true
+	test -f Makefile && $(MAKE) distclean || true
 	rm -f config.mak
 
 cleanfiles = .dirstamp aclocal.m4 configure config.h.in config.h.in~ config.log \
 	config.mak config.status jsimdcfg.inc libtool Makefile Makefile.in
 
 clobber:
-	$(MAKE) distclean || true
+	test -f Makefile && $(MAKE) distclean || true
 	$(foreach DIR,$(cleandirs),rm -rf $(DIR)/autom4te.cache $(DIR)/m4 $(DIR)/build-aux ;)
 	$(foreach FILE,$(cleanfiles),find . -name $(FILE) -delete ;)
 	rm -rf .deps $(shell find . -name .deps)

@@ -4,6 +4,9 @@ export V=1
 
 DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
 
+export CFLAGS = -g -O3 $(filter-out -g -O2,$(shell dpkg-buildflags --get CFLAGS))
+export CXXFLAGS = -g -O3 $(filter-out -g -O2,$(shell dpkg-buildflags --get CXXFLAGS))
+
 
 %:
 	dh ${@} --parallel
@@ -12,11 +15,14 @@ override_dh_auto_configure:
 	./configure.sh --prefix=/usr --libdir=/usr/lib/$(DEB_HOST_MULTIARCH)
 
 override_dh_auto_clean:
-	$(MAKE) clobber || true
+	test -f Makefile && $(MAKE) clobber || true
 
 override_dh_install:
 	dh_install -pvapoursynth-extra-plugins -Xnnedi3
 	dh_install -pvapoursynth-nnedi3-plugin
+
+override_dh_strip:
+	dh_strip --dbg-package=vapoursynth-extra-plugins-dbg
 
 override_dh_builddeb:
 	dh_builddeb -- -Zxz -z9
