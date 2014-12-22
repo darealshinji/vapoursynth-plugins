@@ -74,8 +74,13 @@ Files: sangnommod/*
 Copyright: 2014 msg7086
 License: GPL-2+
 
-Files: damb/* scrawl/* videoscope/* zimg/*
+Files: damb/* scrawl/* videoscope/*
 Copyright: 2013-2014 dubhater
+License: WTFPL
+
+Files: zimg/*
+Copyright: 2013-2014 dubhater
+           2013-2014 Stephen R. Savage
 License: WTFPL
 
 Files: scrawl/src/ter-116n.h
