@@ -65,6 +65,7 @@ clean:
 
 distclean:
 	test -f Makefile && $(MAKE) distclean || true
+	rm -f config.mak
 
 cleanfiles = .dirstamp aclocal.m4 configure config.h.in config.h.in~ config.log \
 	config.mak config.status jsimdcfg.inc libtool Makefile Makefile.in
