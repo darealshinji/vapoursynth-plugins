@@ -62,17 +62,11 @@ install:
 
 clean:
 	test -f Makefile && $(MAKE) clean || true
-	cd flash3kyuu_deband && python waf clean || true
-	find . -type f -name *.pyc -delete
 
 distclean:
 	test -f Makefile && $(MAKE) distclean || true
-	rm -f config.mak
-	cd flash3kyuu_deband && python waf distclean || true
-	find . -type f -name *.pyc -delete
-	rm -rf flash3kyuu_deband/.libs
 
-cleanfiles = \*.pyc .dirstamp aclocal.m4 configure config.h.in config.h.in~ config.log \
+cleanfiles = .dirstamp aclocal.m4 configure config.h.in config.h.in~ config.log \
 	config.mak config.status jsimdcfg.inc libtool Makefile Makefile.in
 
 clobber:

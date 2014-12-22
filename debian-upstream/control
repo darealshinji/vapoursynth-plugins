@@ -14,8 +14,6 @@ Build-Depends:
  libsndfile1-dev,
  libpng12-dev,
  libxvidcore-dev,
- python,
- python3,
  nasm,
  yasm,
  zlib1g-dev

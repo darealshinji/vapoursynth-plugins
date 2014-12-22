@@ -1,19 +1,27 @@
-waf_verbose   = $(waf_verbose_$(V))
-waf_verbose_  = $(waf_verbose_$(AM_DEFAULT_VERBOSITY))
-waf_verbose_1 = --verbose
+include ../global.inc
 
-all-local: clean-local
-	python waf configure --mode=debug --shared --no-static --enable-vs --disable-avs $(waf_verbose)
-	python waf build $(waf_verbose)
-	mkdir -p .libs
-	cp -f build/libf3kdb.so .libs
+ACLOCAL_AMFLAGS = -I m4
 
-clean-local:
-	python waf clean || true
-	find . -type f -name *.pyc -delete
-	rm -rf .libs
+if x86_64
+lib_LTLIBRARIES = libf3kdb.la
 
-distclean-local: clean-local
-	python waf distclean || true
-	find . -type f -name *.pyc -delete
+libf3kdb_la_SOURCES = \
+	src/auto_utils.cpp \
+	src/core.cpp \
+	src/flash3kyuu_deband_impl_c.cpp \
+	src/flash3kyuu_deband_impl_sse2.cpp \
+	src/flash3kyuu_deband_impl_ssse3.cpp \
+	src/flash3kyuu_deband_impl_sse4.cpp \
+	src/impl_dispatch.cpp \
+	src/process_plane_context.cpp \
+	src/public_interface.cpp \
+	src/random.cpp \
+	src/vapoursynth/plugin.cpp
+
+libf3kdb_la_CXXFLAGS = -I./include  -DHAVE_ALIGNAS=1  \
+			-std=c++11 -fvisibility=hidden -fvisibility-inlines-hidden -ggdb -ftrapv  \
+			-msse2 -mssse3 -msse4.1
+
+libf3kdb_la_LDFLAGS = $(XGLOBAL_LDFLAGS)
+endif
 
