@@ -167,7 +167,8 @@ static void UpdateFrame(T1 * dstp, const int width, const int height, const int 
             T2 val = (dstp[x] << shift1) ^ lower;
             const T2 nz = pNW2[x] >> shift2;
             val = std::min(std::max(val + nz, lower), upper);
-            dstp[x] = (val ^ lower) >> shift1;
+            dstp[x] = val ^ lower;
+            dstp[x] >>= shift1;
         }
         dstp += stride;
         pNW2 += d->nPitch[plane];

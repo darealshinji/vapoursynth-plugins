@@ -18,7 +18,7 @@ zlib1g-dev
 `
 
 **Plugins**:<br>
-[addgrain r3](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-AddGrain)<br>
+[addgrain r4](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-AddGrain)<br>
 [bifrost 2.2](https://github.com/dubhater/vapoursynth-bifrost)<br>
 [bilateral r3](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Bilateral)<br>
 [combmask 0.0.1](https://github.com/chikuzen/CombMask)<br>
