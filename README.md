@@ -52,7 +52,7 @@ zlib1g-dev
 [scxvid git20121203](https://github.com/dubhater/vapoursynth-scxvid)<br>
 [ssiq 1.0](https://github.com/dubhater/vapoursynth-ssiq)<br>
 [tcomb 1.0](https://github.com/dubhater/vapoursynth-tcomb)<br>
-[tdeintmod r4](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-TDeintMod)<br>
+[tdeintmod r5](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-TDeintMod)<br>
 [templinearapproximate r3+git20141106](https://bitbucket.org/mystery_keeper/templinearapproximate-vapoursynth)<br>
 [temporalsoften 1.0](https://github.com/dubhater/vapoursynth-temporalsoften)<br>
 [temporalsoften2 0.1.1](http://forum.doom9.org/showthread.php?t=166769)<br>
