@@ -6,7 +6,7 @@ AUTORECONF_1 = autoreconf -iv
 turbodir = libjpeg-turbo
 
 all-local: clean-local
-	$(AUTORECONF) $(turbodir)
+	test -f "$(turbodir)/configure" || $(AUTORECONF) $(turbodir)
 	cd $(turbodir) && \
 	./configure --enable-static --enable-shared --with-pic --with-jpeg8
 	$(MAKE) -C $(turbodir)

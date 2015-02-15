@@ -1,4 +1,4 @@
-AM_CFLAGS = -Wall -Wextra -Wno-unused-parameter
+AM_CFLAGS = -Wall -Wextra -Wno-unused-parameter -Wno-unused-result
 
 AM_CXXFLAGS = $(AM_CFLAGS)
 

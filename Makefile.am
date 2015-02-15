@@ -12,6 +12,7 @@ SUBDIRS = \
 	dctfilter \
 	deblock \
 	delogo \
+	dfttest \
 	eedi2 \
 	fieldhint \
 	fillborders \
@@ -37,6 +38,7 @@ SUBDIRS = \
 	templinearapproximate \
 	temporalsoften \
 	temporalsoften2 \
+	vaguedenoiser \
 	vautodeint \
 	videoscope \
 	wwxd \

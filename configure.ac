@@ -16,7 +16,7 @@ AC_DEFUN([AC_CXX_FLAG], [{
          }])
 
 
-AC_INIT([vapoursynth-plugins], [1])
+AC_INIT([vapoursynth-plugins], [1], [https://github.com/darealshinji/vapoursynth-plugins/issues])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([build-aux])
 
@@ -58,6 +58,7 @@ PKG_CHECK_MODULES([VapourSynth], [vapoursynth])
 PKG_CHECK_MODULES([libavcodec], [libavcodec])
 PKG_CHECK_MODULES([libavformat], [libavformat])
 PKG_CHECK_MODULES([libavutil], [libavutil])
+PKG_CHECK_MODULES([fftw3f], [fftw3])
 PKG_CHECK_MODULES([SNDFILE], [sndfile])
 
 # Checks for header files.
@@ -93,6 +94,7 @@ AC_CONFIG_FILES([Makefile \
                  dctfilter/Makefile \
                  deblock/Makefile \
                  delogo/Makefile \
+                 dfttest/Makefile \
                  eedi2/Makefile \
                  fieldhint/Makefile \
                  fillborders/Makefile \
@@ -114,6 +116,7 @@ AC_CONFIG_FILES([Makefile \
                  templinearapproximate/Makefile \
                  temporalsoften/Makefile \
                  temporalsoften2/Makefile \
+				 vaguedenoiser/Makefile \
                  vautodeint/Makefile \
                  videoscope/Makefile \
                  wwxd/Makefile \

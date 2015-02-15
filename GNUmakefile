@@ -33,7 +33,7 @@ endef
 
 
 all: dirs
-	test -f configure || $(AUTORECONF)
+	test -f configure || ( $(AUTORECONF) && $(AUTORECONF) imagereader/libjpeg-turbo )
 	test -f Makefile  || ./configure
 	$(MAKE)
 
