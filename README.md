@@ -37,7 +37,7 @@ The difference is that autogen.sh will also generate the automake files.
 If you use configure.sh this will be done during the *make* phase.
 
 If the build fails at d2vsource you either need to install a newer version of libav or you can
-use the patch in `debian-upstream/patches`:<br>
+use the patch in *debian-upstream/patches*:<br>
 `QUILT_PATCHES=debian-upstream/patches quilt push -a`
 
 Additionally to `make clean` and `make distclean` you can also use `make clobber` to delete all the
