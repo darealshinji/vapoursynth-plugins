@@ -10,9 +10,10 @@ Build-Depends:
  libavformat-dev,
  libavcodec-dev,
  libavutil-dev,
+ libfftw3-dev,
  libjpeg-turbo8-dev,
- libsndfile1-dev,
  libpng12-dev,
+ libsndfile1-dev,
  libxvidcore-dev,
  nasm,
  yasm,
@@ -23,7 +24,7 @@ Vcs-Git: https://github.com/darealshinji/vapoursynth-plugins.git
 Vcs-Browser: https://github.com/darealshinji/vapoursynth-plugins
 
 Package: vapoursynth-extra-plugins
-Architecture: any
+Architecture: amd64 i386
 Depends:
  ${misc:Depends},
  ${shlibs:Depends},
@@ -53,7 +54,7 @@ Description: Additional plugins for VapourSynth
     one format or frame size VapourSynth can handle any kind of change
 
 Package: vapoursynth-nnedi3-plugin
-Architecture: any
+Architecture: amd64 i386
 Depends:
  ${misc:Depends},
  ${shlibs:Depends}
@@ -84,7 +85,7 @@ Description: nnedi3 plugin for VapourSynth
 Package: vapoursynth-extra-plugins-dbg
 Priority: extra
 Section: debug
-Architecture: any
+Architecture: amd64 i386
 Depends:
  ${misc:Depends},
  vapoursynth-extra-plugins (= ${binary:Version}),

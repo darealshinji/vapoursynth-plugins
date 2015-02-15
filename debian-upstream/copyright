@@ -38,6 +38,10 @@ Copyright: 2003 MakKi
            2014 msg7086
 License: GPL-2+
 
+Files: dfttest/*
+Copyright: 2015 HolyWu
+License: GPL-2+
+
 Files: eedi2/*
 Copyright: 2005-2006 Kevin Stone
            2014 HolyWu
@@ -96,6 +100,10 @@ Files: dctfilter/* templinearapproximate/*
 Copyright: 2014 Aleksey Lyashin <mystkeeper@gmail.com>
 License: MIT
 
+Files: vaguedenoiser/*
+Copyright: 2015 HolyWu
+License: GPL-2+
+
 Files: vautodeint
 Copyright: 2013 Acfun
            2013 Li Yonggang <gnaggnoyil@gmail.com>
@@ -133,7 +141,7 @@ Copyright: 1991-2, RSA Data Security, Inc.
 License: other-1
 
 Files: debian/*
-Copyright: 2014 djcj <djcj@gmx.de>
+Copyright: 2014-2015 djcj <djcj@gmx.de>
 License: MIT
 
 

@@ -9,13 +9,15 @@ export CXXFLAGS = -g -O3 $(filter-out -g -O2,$(shell dpkg-buildflags --get CXXFL
 
 
 %:
-	dh ${@} --parallel
+	dh ${@} --parallel --with autoreconf
+
+override_dh_autoreconf:
+	dh_autoreconf -- ./autogen.sh --prefix=/usr --libdir=/usr/lib/$(DEB_HOST_MULTIARCH)
 
 override_dh_auto_configure:
-	./configure.sh --prefix=/usr --libdir=/usr/lib/$(DEB_HOST_MULTIARCH)
 
 override_dh_auto_clean:
-	test -f Makefile && $(MAKE) clobber || true
+	$(MAKE) clobber
 
 override_dh_install:
 	dh_install -pvapoursynth-extra-plugins -Xnnedi3
@@ -23,7 +25,4 @@ override_dh_install:
 
 override_dh_strip:
 	dh_strip --dbg-package=vapoursynth-extra-plugins-dbg
-
-override_dh_builddeb:
-	dh_builddeb -- -Zxz -z9
 
