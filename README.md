@@ -25,7 +25,7 @@ zlib1g-dev
 [convo2d 0.2.0](https://github.com/chikuzen/convo2d)<br>
 [ctmf r2](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-CTMF)<br>
 [d2vsource beta7](https://github.com/dwbuiten/d2vsource)<br>
-[damb 1.0](https://github.com/dubhater/vapoursynth-damb)<br>
+[damb r3](https://github.com/dubhater/vapoursynth-damb)<br>
 [dctfilter r2](https://bitbucket.org/mystery_keeper/vapoursynth-dctfilter)<br>
 [deblock r3](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Deblock)<br>
 [delogo 0.2+git20141014](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-DeLogo)<br>

@@ -2,7 +2,10 @@ include ../global.inc
 
 lib_LTLIBRARIES = libdamb.la
 
-libdamb_la_SOURCES = src/damb.cpp
+libdamb_la_SOURCES = src/entrypoint.cpp \
+					 src/read.cpp \
+					 src/write.cpp \
+					 src/shared.h
 
 libdamb_la_CXXFLAGS = -std=c++11 -Wshadow
 
