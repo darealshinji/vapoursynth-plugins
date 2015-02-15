@@ -65,7 +65,9 @@ AS_CASE(
 AC_SUBST([ASFLAGS])
 
 # Checks for libraries.
-AC_CHECK_LIB([m], [main], [], [exit 1])
+AC_SEARCH_LIBS([sqrt], [m], [], [
+   AC_MSG_ERROR([unable to find the sqrt() function])
+])
 PKG_CHECK_MODULES([VapourSynth], [vapoursynth])
 
 # Checks for header files.

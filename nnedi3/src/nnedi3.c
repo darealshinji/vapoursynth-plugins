@@ -28,31 +28,44 @@
 #include <VapourSynth.h>
 #include <VSHelper.h>
 
+#include "cpufeatures.h"
+
 
 #define min(a, b)  (((a) < (b)) ? (a) : (b))
 #define max(a, b)  (((a) > (b)) ? (a) : (b))
 
 
 // Functions implemented in nnedi3.asm
-extern void nnedi3_uc2s48_SSE2(const uint8_t *t, const int pitch, float *pf);
-extern void nnedi3_uc2s64_SSE2(const uint8_t *t, const int pitch, float *p);
-extern void nnedi3_computeNetwork0new_SSE2(const float *datai, const float *weights, uint8_t *d);
+extern void nnedi3_byte2float48_SSE2(const uint8_t *t, const int pitch, float *p);
+extern void nnedi3_word2float48_SSE2(const uint8_t *t, const int pitch, float *pf);
+extern void nnedi3_byte2word48_SSE2(const uint8_t *t, const int pitch, float *pf);
+extern void nnedi3_byte2word64_SSE2(const uint8_t *t, const int pitch, float *p);
+
 extern int32_t nnedi3_processLine0_SSE2(const uint8_t *tempu, int width, uint8_t *dstp, const uint8_t *src3p, const int src_pitch);
-extern void nnedi3_weightedAvgElliottMul5_m16_SSE2(const float *w, const int n, float *mstd);
+
+extern void nnedi3_extract_m8_SSE2(const uint8_t *srcp, const int stride, const int xdia, const int ydia, float *mstd, float *input);
 extern void nnedi3_extract_m8_i16_SSE2(const uint8_t *srcp, const int stride, const int xdia, const int ydia, float *mstd, float *inputf);
-extern void nnedi3_dotProd_m32_m16_i16_SSE2(const float *dataf, const float *weightsf, float *vals, const int n, const int len, const float *istd);
-extern void nnedi3_e0_m16_SSE2(float *s, const int n);
-extern void nnedi3_castScale_SSE(const float *val, const float *scale, uint8_t *dstp);
+
 extern void nnedi3_computeNetwork0_SSE2(const float *input, const float *weights, uint8_t *d);
-extern void nnedi3_uc2f48_SSE2(const uint8_t *t, const int pitch, float *p);
 extern void nnedi3_computeNetwork0_i16_SSE2(const float *inputf, const float *weightsf, uint8_t *d);
+extern void nnedi3_computeNetwork0new_SSE2(const float *datai, const float *weights, uint8_t *d);
+
+extern void nnedi3_weightedAvgElliottMul5_m16_SSE2(const float *w, const int n, float *mstd);
+
+extern void nnedi3_e0_m16_SSE2(float *s, const int n);
 extern void nnedi3_e1_m16_SSE2(float *s, const int n);
 extern void nnedi3_e2_m16_SSE2(float *s, const int n);
-extern void nnedi3_extract_m8_SSE2(const uint8_t *srcp, const int stride, const int xdia, const int ydia, float *mstd, float *input);
-extern void nnedi3_dotProd_m32_m16_SSE2(const float *data, const float *weights, float *vals, const int n, const int len, const float *istd);
-extern void nnedi3_dotProd_m48_m16_i16_SSE2(const float *dataf, const float *weightsf, float *vals, const int n, const int len, const float *istd);
-extern void nnedi3_dotProd_m48_m16_SSE2(const float *data, const float *weights, float *vals, const int n, const int len, const float *istd);
 
+extern void nnedi3_dotProd_SSE2(const float *data, const float *weights, float *vals, const int n, const int len, const float *istd);
+extern void nnedi3_dotProd_i16_SSE2(const float *dataf, const float *weightsf, float *vals, const int n, const int len, const float *istd);
+
+extern void nnedi3_computeNetwork0_FMA3(const float *input, const float *weights, uint8_t *d);
+extern void nnedi3_e0_m16_FMA3(float *s, const int n);
+extern void nnedi3_dotProd_FMA3(const float *data, const float *weights, float *vals, const int n, const int len, const float *istd);
+
+extern void nnedi3_computeNetwork0_FMA4(const float *input, const float *weights, uint8_t *d);
+extern void nnedi3_e0_m16_FMA4(float *s, const int n);
+extern void nnedi3_dotProd_FMA4(const float *data, const float *weights, float *vals, const int n, const int len, const float *istd);
 
 
 // Things that mustn't be shared between threads.
@@ -103,7 +116,7 @@ typedef struct {
     void (*evalFunc_1)(void **, FrameData *);
 
     // Functions used in evalFunc_0
-    void (*uc2s)(const uint8_t*, const int, float*);
+    void (*readPixels)(const uint8_t*, const int, float*);
     void (*computeNetwork0)(const float*, const float*, uint8_t *);
     int32_t (*processLine0)(const uint8_t*, int, uint8_t*, const uint8_t*, const int, const int);
 
@@ -311,7 +324,7 @@ void computeNetwork0_i16_C(const float *inputf, const float *weightsf, uint8_t *
 }
 
 
-void uc2f48_C(const uint8_t *t, const int pitch, float *p)
+void byte2float48_C(const uint8_t *t, const int pitch, float *p)
 {
     for (int y=0; y<4; ++y)
         for (int x=0; x<12; ++x)
@@ -319,8 +332,7 @@ void uc2f48_C(const uint8_t *t, const int pitch, float *p)
 }
 
 
-// Name's wrong now. The input is no longer unsigned char.
-void uc2f48_uint16_C(const uint8_t *t8, const int pitch, float *p)
+void word2float48_C(const uint8_t *t8, const int pitch, float *p)
 {
     const uint16_t *t = (const uint16_t *)t8;
 
@@ -330,7 +342,7 @@ void uc2f48_uint16_C(const uint8_t *t8, const int pitch, float *p)
 }
 
 
-void uc2s48_C(const uint8_t *t, const int pitch, float *pf)
+void byte2word48_C(const uint8_t *t, const int pitch, float *pf)
 {
     int16_t *p = (int16_t*)pf;
     for (int y=0; y<4; ++y)
@@ -405,7 +417,7 @@ int32_t processLine0_uint16_C(const uint8_t *tempu, int width, uint8_t *dstp8,
 }
 
 // new prescreener functions
-void uc2s64_C(const uint8_t *t, const int pitch, float *p)
+void byte2word64_C(const uint8_t *t, const int pitch, float *p)
 {
     int16_t *ps = (int16_t*)p;
     for (int y=0; y<4; ++y)
@@ -487,7 +499,7 @@ void evalFunc_0(void **instanceData, FrameData *frameData)
             {
                 for (int x=32; x<width-32; ++x)
                 {
-                    d->uc2s(src3p+x-5,src_stride,input);
+                    d->readPixels(src3p+x-5,src_stride,input);
                     d->computeNetwork0(input,weights0,tempu+x);
                 }
                 lcount[y] += d->processLine0(tempu+32,width-64,dstp+32,src3p+32,src_stride, 42); // 42 is the answer
@@ -501,7 +513,7 @@ void evalFunc_0(void **instanceData, FrameData *frameData)
             {
                 for (int x=32; x<width-32; x+=4)
                 {
-                    d->uc2s(src3p+x-6,src_stride,input);
+                    d->readPixels(src3p+x-6,src_stride,input);
                     d->computeNetwork0(input,weights0,tempu+x);
                 }
                 lcount[y] += d->processLine0(tempu+32,width-64,dstp+32,src3p+32,src_stride, 42);
@@ -566,7 +578,7 @@ void evalFunc_0_uint16(void **instanceData, FrameData *frameData)
             {
                 for (int x=32; x<width-32; ++x)
                 {
-                    d->uc2s((const uint8_t *)(src3p16 + x - 5), src_stride, input);
+                    d->readPixels((const uint8_t *)(src3p16 + x - 5), src_stride, input);
                     d->computeNetwork0(input, weights0, tempu+x);
                 }
                 lcount[y] += d->processLine0(tempu+32, width-64, (uint8_t *)(dstp16 + 32), (const uint8_t *)(src3p16 + 32), src_stride, d->max_value);
@@ -674,27 +686,24 @@ void extract_m8_i16_C(const uint8_t *srcp, const int stride,
 }
 
 
-const float exp_lo[4] = { -80.0f, -80.0f, -80.0f, -80.0f };
-const float exp_hi[4] = { +80.0f, +80.0f, +80.0f, +80.0f };
+const float exp_lo = -80.0f;
+const float exp_hi = +80.0f;
 
 
 // exp from:  A Fast, Compact Approximation of the Exponential Function (1998)
 //            Nicol N. Schraudolph
 
 
-const float e0_mult[4] = { // (1.0/ln(2))*(2^23)
-    12102203.161561486f, 12102203.161561486f, 12102203.161561486f, 12102203.161561486f };
-const float e0_bias[4] = { // (2^23)*127.0-486411.0
-    1064866805.0f, 1064866805.0f, 1064866805.0f, 1064866805.0f };
+const float e0_mult = 12102203.161561486f; // (1.0/ln(2))*(2^23)
+const float e0_bias = 1064866805.0f; // (2^23)*127.0-486411.0
 
 
 void e0_m16_C(float *s, const int n)
 {
     for (int i=0; i<n; ++i)
     {
-        //const int t = (int)(max(min(s[i],exp_hi[0]),exp_lo[0])*e0_mult[0]+e0_bias[0]);
-        //s[i] = (*((float*)&t));
-        s[i] = (float)(max(min(s[i],exp_hi[0]),exp_lo[0])*e0_mult[0]+e0_bias[0]);
+        const int t = (int)(max(min(s[i],exp_hi),exp_lo)*e0_mult+e0_bias);
+        memcpy(&s[i], &t, sizeof(float));
     }
 }
 
@@ -702,27 +711,25 @@ void e0_m16_C(float *s, const int n)
 // exp from Loren Merritt
 
 
-const float e1_scale[4] = { // 1/ln(2)
-    1.4426950409f, 1.4426950409f, 1.4426950409f, 1.4426950409f };
-const float e1_bias[4] = { // 3<<22
-    12582912.0f, 12582912.0f, 12582912.0f, 12582912.0f };
-const float e1_c0[4] = { 1.00035f, 1.00035f, 1.00035f, 1.00035f };
-const float e1_c1[4] = { 0.701277797f, 0.701277797f, 0.701277797f, 0.701277797f };
-const float e1_c2[4] = { 0.237348593f, 0.237348593f, 0.237348593f, 0.237348593f };
+const float e1_scale = 1.4426950409f; // 1/ln(2)
+const float e1_bias = 12582912.0f; // 3<<22
+const float e1_c0 = 1.00035f;
+const float e1_c1 = 0.701277797f;
+const float e1_c2 = 0.237348593f;
 
 
 void e1_m16_C(float *s, const int n)
 {
     for (int q=0; q<n; ++q)
     {
-        float x = max(min(s[q],exp_hi[0]),exp_lo[0])*e1_scale[0];
+        float x = max(min(s[q],exp_hi),exp_lo)*e1_scale;
         int i = (int)(x + 128.5f) - 128;
         x -= i;
-        x = e1_c0[0] + e1_c1[0]*x + e1_c2[0]*x*x;
+        x = e1_c0 + e1_c1*x + e1_c2*x*x;
         i = (i+127)<<23;
-        //s[q] = x * *((float*)&i);
-        float* _i = ((float*)&i);
-        s[q] = x * *_i;
+        float i_f;
+        memcpy(&i_f, &i, sizeof(float));
+        s[q] = x * i_f;
     }
 }
 
@@ -730,13 +737,13 @@ void e1_m16_C(float *s, const int n)
 void e2_m16_C(float *s, const int n)
 {
     for (int i=0; i<n; ++i)
-        s[i] = expf(max(min(s[i],exp_hi[0]),exp_lo[0]));
+        s[i] = expf(max(min(s[i],exp_hi),exp_lo));
 }
 
 // exp from Intel Approximate Math (AM) Library
 
 
-const float min_weight_sum[4] = { 1e-10f, 1e-10f, 1e-10f, 1e-10f };
+const float min_weight_sum = 1e-10f;
 
 
 void weightedAvgElliottMul5_m16_C(const float *w, const int n, float *mstd)
@@ -747,7 +754,7 @@ void weightedAvgElliottMul5_m16_C(const float *w, const int n, float *mstd)
         vsum += w[i]*(w[n+i]/(1.0f+fabsf(w[n+i])));
         wsum += w[i];
     }
-    if (wsum > min_weight_sum[0])
+    if (wsum > min_weight_sum)
         mstd[3] += ((5.0f*vsum)/wsum)*mstd[1]+mstd[0];
     else
         mstd[3] += mstd[0];
@@ -761,7 +768,6 @@ void evalFunc_1(void **instanceData, FrameData *frameData)
     float *input = frameData->input;
     float *temp = frameData->temp;
     float **weights1 = d->weights1;
-    const int opt = d->opt;
     const int qual = d->qual;
     const int asize = d->asize;
     const int nns = d->nns;
@@ -803,10 +809,7 @@ void evalFunc_1(void **instanceData, FrameData *frameData)
                     d->expfunc(temp,nns);
                     d->wae5(temp,nns,mstd);
                 }
-                if (opt > 1)
-                    nnedi3_castScale_SSE(mstd,&scale,dstp+x);
-                else
-                    dstp[x] = min(max((int)(mstd[3]*scale+0.5f),0),255);
+                dstp[x] = min(max((int)(mstd[3]*scale+0.5f),0),255);
             }
             srcpp += src_stride*2;
             dstp += dst_stride*2;
@@ -907,132 +910,109 @@ void shufflePreScrnL2L3(float *wf, float *rf, const int opt)
 
 
 static void selectFunctions(nnedi3Data *d) {
-    d->copyPad = copyPad;
-    d->evalFunc_0 = evalFunc_0;
-    d->evalFunc_1 = evalFunc_1;
+    int opt = d->opt;
+    CPUFeatures cpu;
+    getCPUFeatures(&cpu);
 
-    // evalFunc_0
-    if (d->opt == 1)
-        d->processLine0 = processLine0_C;
-    else
-        d->processLine0 = processLine0_maybeSSE2;
+    if (d->vi.format->bitsPerSample == 8) {
+        d->copyPad = copyPad;
+        d->evalFunc_0 = evalFunc_0;
+        d->evalFunc_1 = evalFunc_1;
 
-    if (d->pscrn < 2) { // original prescreener
-        if (d->fapprox & 1) { // int16 dot products
-            if (d->opt == 1) {
-                d->uc2s = uc2s48_C;
-                d->computeNetwork0 = computeNetwork0_i16_C;
+        // evalFunc_0
+        d->processLine0 = opt ? processLine0_maybeSSE2 : processLine0_C;
+
+        if (d->pscrn < 2) { // original prescreener
+            if (d->fapprox & 1) { // int16 dot products
+                d->readPixels = opt ? nnedi3_byte2word48_SSE2 : byte2word48_C;
+                d->computeNetwork0 = opt ? nnedi3_computeNetwork0_i16_SSE2 : computeNetwork0_i16_C;
             } else {
-                d->uc2s = nnedi3_uc2s48_SSE2;
-                d->computeNetwork0 = nnedi3_computeNetwork0_i16_SSE2;
+                d->readPixels = opt ? nnedi3_byte2float48_SSE2 : byte2float48_C;
+                d->computeNetwork0 = opt ? nnedi3_computeNetwork0_SSE2 : computeNetwork0_C;
+                if (opt) {
+                    if (cpu.fma3)
+                        d->computeNetwork0 = nnedi3_computeNetwork0_FMA3;
+                    if (cpu.fma4)
+                        d->computeNetwork0 = nnedi3_computeNetwork0_FMA4;
+                }
             }
-        } else {
-            if (d->opt == 1) {
-                d->uc2s = uc2f48_C;
-                d->computeNetwork0 = computeNetwork0_C;
-            } else {
-                d->uc2s = nnedi3_uc2f48_SSE2;
-                d->computeNetwork0 = nnedi3_computeNetwork0_SSE2;
+        } else { // new prescreener
+            // only int16 dot products
+            d->readPixels = opt ? nnedi3_byte2word64_SSE2 : byte2word64_C;
+            d->computeNetwork0 = opt ? nnedi3_computeNetwork0new_SSE2 : computeNetwork0new_C;
+        }
+
+        // evalFunc_1
+        d->wae5 = opt ? nnedi3_weightedAvgElliottMul5_m16_SSE2 : weightedAvgElliottMul5_m16_C;
+
+        if (d->fapprox & 2) { // use int16 dot products
+            d->extract = opt ? nnedi3_extract_m8_i16_SSE2 : extract_m8_i16_C;
+            d->dotProd = opt ? nnedi3_dotProd_i16_SSE2 : dotProdS_C;
+        } else { // use float dot products
+            d->extract = opt ? nnedi3_extract_m8_SSE2 : extract_m8_C;
+            d->dotProd = opt ? nnedi3_dotProd_SSE2 : dotProd_C;
+            if (opt) {
+                if (cpu.fma3)
+                    d->dotProd = nnedi3_dotProd_FMA3;
+                if (cpu.fma4)
+                    d->dotProd = nnedi3_dotProd_FMA4;
             }
         }
-    } else { // new prescreener
-        // only int16 dot products
-        if (d->opt == 1) {
-            d->uc2s = uc2s64_C;
-            d->computeNetwork0 = computeNetwork0new_C;
-        } else {
-            d->uc2s = nnedi3_uc2s64_SSE2;
-            d->computeNetwork0 = nnedi3_computeNetwork0new_SSE2;
+
+        if ((d->fapprox & 12) == 0) { // use slow exp
+            d->expfunc = opt ? nnedi3_e2_m16_SSE2 : e2_m16_C;
+        } else if ((d->fapprox & 12) == 4) { // use faster exp
+            d->expfunc = opt ? nnedi3_e1_m16_SSE2 : e1_m16_C;
+        } else { // use fastest exp
+            d->expfunc = opt ? nnedi3_e0_m16_SSE2 : e0_m16_C;
+            if (opt) {
+                if (cpu.fma3)
+                    d->expfunc = nnedi3_e0_m16_FMA3;
+                if (cpu.fma4)
+                    d->expfunc = nnedi3_e0_m16_FMA4;
+            }
         }
-    }
+    } else {
+        d->copyPad = copyPad_uint16;
+        d->evalFunc_0 = evalFunc_0_uint16;
+        d->evalFunc_1 = evalFunc_1_uint16;
 
-    // evalFunc_1
-    if (d->opt == 1)
-        d->wae5 = weightedAvgElliottMul5_m16_C;
-    else
-        d->wae5 = nnedi3_weightedAvgElliottMul5_m16_SSE2;
-
-    if (d->fapprox & 2) { // use int16 dot products
-        if (d->opt == 1) {
-            d->extract = extract_m8_i16_C;
-            d->dotProd = dotProdS_C;
-        } else {
-            d->extract = nnedi3_extract_m8_i16_SSE2;
-            d->dotProd = (d->asize % 48) ? nnedi3_dotProd_m32_m16_i16_SSE2 : nnedi3_dotProd_m48_m16_i16_SSE2;
-        }
-    } else { // use float dot products
-        if (d->opt == 1) {
-            d->extract = extract_m8_C;
-            d->dotProd = dotProd_C;
-        } else {
-            d->extract = nnedi3_extract_m8_SSE2;
-            d->dotProd = (d->asize % 48) ? nnedi3_dotProd_m32_m16_SSE2 : nnedi3_dotProd_m48_m16_SSE2;
-        }
-    }
-
-    if ((d->fapprox & 12) == 0) { // use slow exp
-        if (d->opt == 1)
-            d->expfunc = e2_m16_C;
-        else
-            d->expfunc = nnedi3_e2_m16_SSE2;
-    } else if ((d->fapprox & 12) == 4) { // use faster exp
-        if (d->opt == 1)
-            d->expfunc = e1_m16_C;
-        else
-            d->expfunc = nnedi3_e1_m16_SSE2;
-    } else { // use fastest exp
-        if (d->opt == 1)
-            d->expfunc = e0_m16_C;
-        else
-            d->expfunc = nnedi3_e0_m16_SSE2;
-    }
-}
-
-
-static void selectFunctions_uint16(nnedi3Data *d) {
-    d->copyPad = copyPad_uint16;
-    d->evalFunc_0 = evalFunc_0_uint16;
-    d->evalFunc_1 = evalFunc_1_uint16;
-
-    if (d->opt == 1) {
         // evalFunc_0
         d->processLine0 = processLine0_uint16_C;
 
-        d->uc2s = uc2f48_uint16_C;
-        d->computeNetwork0 = computeNetwork0_C;
+        d->readPixels = opt ? nnedi3_word2float48_SSE2 : word2float48_C;
+        d->computeNetwork0 = opt ? nnedi3_computeNetwork0_SSE2 : computeNetwork0_C;
+        if (opt) {
+            if (cpu.fma3)
+                d->computeNetwork0 = nnedi3_computeNetwork0_FMA3;
+            if (cpu.fma4)
+                d->computeNetwork0 = nnedi3_computeNetwork0_FMA4;
+        }
 
         // evalFunc_1
-        d->wae5 = weightedAvgElliottMul5_m16_C;
+        d->wae5 = opt ? nnedi3_weightedAvgElliottMul5_m16_SSE2 : weightedAvgElliottMul5_m16_C;
 
         d->extract = extract_m8_uint16_C;
-        d->dotProd = dotProd_C;
-
-        if ((d->fapprox & 12) == 0) { // use slow exp
-            d->expfunc = e2_m16_C;
-        } else if ((d->fapprox & 12) == 4) { // use faster exp
-            d->expfunc = e1_m16_C;
-        } else { // use fastest exp
-            d->expfunc = e0_m16_C;
+        d->dotProd = opt ? nnedi3_dotProd_SSE2 : dotProd_C;
+        if (opt) {
+            if (cpu.fma3)
+                d->dotProd = nnedi3_dotProd_FMA3;
+            if (cpu.fma4)
+                d->dotProd = nnedi3_dotProd_FMA4;
         }
-    } else { // opt == 2
-        // evalFunc_0
-        d->processLine0 = processLine0_uint16_C; // C works too
-
-        d->uc2s = uc2f48_uint16_C; // C works too
-        d->computeNetwork0 = nnedi3_computeNetwork0_SSE2;
-
-        // evalFunc_1
-        d->wae5 = nnedi3_weightedAvgElliottMul5_m16_SSE2;
-
-        d->extract = extract_m8_uint16_C; // C works too
-        d->dotProd = (d->asize % 48) ? nnedi3_dotProd_m32_m16_SSE2 : nnedi3_dotProd_m48_m16_SSE2;
 
         if ((d->fapprox & 12) == 0) { // use slow exp
-            d->expfunc = nnedi3_e2_m16_SSE2;
+            d->expfunc = opt ? nnedi3_e2_m16_SSE2 : e2_m16_C;
         } else if ((d->fapprox & 12) == 4) { // use faster exp
-            d->expfunc = nnedi3_e1_m16_SSE2;
+            d->expfunc = opt ? nnedi3_e1_m16_SSE2 : e1_m16_C;
         } else { // use fastest exp
-            d->expfunc = nnedi3_e0_m16_SSE2;
+            d->expfunc = opt ? nnedi3_e0_m16_SSE2 : e0_m16_C;
+            if (opt) {
+                if (cpu.fma3)
+                    d->expfunc = nnedi3_e0_m16_FMA3;
+                if (cpu.fma4)
+                    d->expfunc = nnedi3_e0_m16_FMA4;
+            }
         }
     }
 }
@@ -1040,6 +1020,7 @@ static void selectFunctions_uint16(nnedi3Data *d) {
 
 // From binary1.asm
 extern uint8_t binary1;
+
 
 
 static void VS_CC nnedi3Init(VSMap *in, VSMap *out, void **instanceData, VSNode *node, VSCore *core, const VSAPI *vsapi) {
@@ -1139,7 +1120,7 @@ static void VS_CC nnedi3Init(VSMap *in, VSMap *out, void **instanceData, VSNode 
                 wf[j] = (float)(mval/32767.0);
             }
             memcpy(wf+4,bdata+4*48,(dims0-4*48)*sizeof(float));
-            if (d->opt > 1) // shuffle weight order for asm
+            if (d->opt) // shuffle weight order for asm
             {
                 int16_t *rs = (int16_t*)malloc(dims0*sizeof(float));
                 memcpy(rs,d->weights0,dims0*sizeof(float));
@@ -1156,9 +1137,9 @@ static void VS_CC nnedi3Init(VSMap *in, VSMap *out, void **instanceData, VSNode 
             // into first layer weights.
             for (int j=0; j<4; ++j)
                 for (int k=0; k<48; ++k)
-                    d->weights0[j*48+k] = (bdata[j*48+k]-mean[j])/ (127.5 * (1 << (d->vi.format->bitsPerSample - 8)));
+                    d->weights0[j*48+k] = (float)((bdata[j*48+k]-mean[j])/ (127.5 * (1 << (d->vi.format->bitsPerSample - 8))));
             memcpy(d->weights0+4*48,bdata+4*48,(dims0-4*48)*sizeof(float));
-            if (d->opt > 1) // shuffle weight order for asm
+            if (d->opt) // shuffle weight order for asm
             {
                 float *wf = d->weights0;
                 float *rf = (float*)malloc(dims0*sizeof(float));
@@ -1212,7 +1193,7 @@ static void VS_CC nnedi3Init(VSMap *in, VSMap *out, void **instanceData, VSNode 
                 for (int k=0; k<asize; ++k)
                     ws[j*asize+k] = roundds((bdataT[j*asize+k]-mean[asize+1+j]-mean[k])*scale);
                 wf[(j>>2)*8+(j&3)] = (float)(mval/32767.0);
-                wf[(j>>2)*8+(j&3)+4] = bdataT[boff+j]-mean[asize];
+                wf[(j>>2)*8+(j&3)+4] = (float)(bdataT[boff+j]-mean[asize]);
             }
             for (int j=nnst; j<nnst*2; ++j) // elliott neurons
             {
@@ -1225,7 +1206,7 @@ static void VS_CC nnedi3Init(VSMap *in, VSMap *out, void **instanceData, VSNode 
                 wf[(j>>2)*8+(j&3)] = (float)(mval/32767.0);
                 wf[(j>>2)*8+(j&3)+4] = bdataT[boff+j];
             }
-            if (d->opt > 1) // shuffle weight order for asm
+            if (d->opt) // shuffle weight order for asm
             {
                 int16_t *rs = (int16_t*)malloc(nnst*2*asize*sizeof(int16_t));
                 memcpy(rs,ws,nnst*2*asize*sizeof(int16_t));
@@ -1244,13 +1225,13 @@ static void VS_CC nnedi3Init(VSMap *in, VSMap *out, void **instanceData, VSNode 
                 for (int k=0; k<asize; ++k)
                 {
                     const double q = j < nnst ? mean[k] : 0.0;
-                    if (d->opt > 1) // shuffle weight order for asm
+                    if (d->opt) // shuffle weight order for asm
                         d->weights1[i][(j>>2)*asize*4+(k>>2)*16+(j&3)*4+(k&3)] = 
-                            bdataT[j*asize+k]-mean[asize+1+j]-q;
+                            (float)(bdataT[j*asize+k]-mean[asize+1+j]-q);
                     else
-                        d->weights1[i][j*asize+k] = bdataT[j*asize+k]-mean[asize+1+j]-q;
+                        d->weights1[i][j*asize+k] = (float)(bdataT[j*asize+k]-mean[asize+1+j]-q);
                 }
-                d->weights1[i][boff+j] = bdataT[boff+j]-(j<nnst?mean[asize]:0.0);
+                d->weights1[i][boff+j] = (float)(bdataT[boff+j]-(j<nnst?mean[asize]:0.0));
             }
         }
         free(mean);
@@ -1261,10 +1242,7 @@ static void VS_CC nnedi3Init(VSMap *in, VSMap *out, void **instanceData, VSNode 
     d->ydia = ydiaTable[d->nsize];
     d->asize = xdiaTable[d->nsize] * ydiaTable[d->nsize];
 
-    if (d->vi.format->bitsPerSample == 8)
-        selectFunctions(d);
-    else
-        selectFunctions_uint16(d);
+    selectFunctions(d);
 }
 
 
@@ -1385,42 +1363,42 @@ static void VS_CC nnedi3Create(const VSMap *in, VSMap *out, void *userData, VSCo
     }
 
     // Get the parameters.
-    d.field = vsapi->propGetInt(in, "field", 0, 0);
+    d.field = int64ToIntS(vsapi->propGetInt(in, "field", 0, 0));
 
     // Defaults to 0.
-    d.dh = vsapi->propGetInt(in, "dh", 0, &err);
+    d.dh = int64ToIntS(vsapi->propGetInt(in, "dh", 0, &err));
 
-    d.Y = vsapi->propGetInt(in, "Y", 0, &err);
+    d.Y = int64ToIntS(vsapi->propGetInt(in, "Y", 0, &err));
     if (err) {
         d.Y = 1;
     }
-    d.U = vsapi->propGetInt(in, "U", 0, &err);
+    d.U = int64ToIntS(vsapi->propGetInt(in, "U", 0, &err));
     if (err) {
         d.U = 1;
     }
-    d.V = vsapi->propGetInt(in, "V", 0, &err);
+    d.V = int64ToIntS(vsapi->propGetInt(in, "V", 0, &err));
     if (err) {
         d.V = 1;
     }
 
-    d.nsize = vsapi->propGetInt(in, "nsize", 0, &err);
+    d.nsize = int64ToIntS(vsapi->propGetInt(in, "nsize", 0, &err));
     if (err) {
         d.nsize = 6;
     }
 
-    d.nnsparam = vsapi->propGetInt(in, "nns", 0, &err);
+    d.nnsparam = int64ToIntS(vsapi->propGetInt(in, "nns", 0, &err));
     if (err) {
         d.nnsparam = 1;
     }
 
-    d.qual = vsapi->propGetInt(in, "qual", 0, &err);
+    d.qual = int64ToIntS(vsapi->propGetInt(in, "qual", 0, &err));
     if (err) {
         d.qual = 1;
     }
 
-    d.etype = vsapi->propGetInt(in, "etype", 0, &err);
+    d.etype = int64ToIntS(vsapi->propGetInt(in, "etype", 0, &err));
 
-    d.pscrn = vsapi->propGetInt(in, "pscrn", 0, &err);
+    d.pscrn = int64ToIntS(vsapi->propGetInt(in, "pscrn", 0, &err));
     if (err) {
         if (d.vi.format->bitsPerSample == 8)
             d.pscrn = 2;
@@ -1428,12 +1406,12 @@ static void VS_CC nnedi3Create(const VSMap *in, VSMap *out, void *userData, VSCo
             d.pscrn = 1;
     }
 
-    d.opt = vsapi->propGetInt(in, "opt", 0, &err);
+    d.opt = !!vsapi->propGetInt(in, "opt", 0, &err);
     if (err) {
-        d.opt = 2;
+        d.opt = 1;
     }
 
-    d.fapprox = vsapi->propGetInt(in, "fapprox", 0, &err);
+    d.fapprox = int64ToIntS(vsapi->propGetInt(in, "fapprox", 0, &err));
     if (err) {
         if (d.vi.format->bitsPerSample == 8)
             d.fapprox = 15;
@@ -1498,12 +1476,6 @@ static void VS_CC nnedi3Create(const VSMap *in, VSMap *out, void *userData, VSCo
         }
     }
 
-    if (d.opt < 1 || d.opt > 2) {
-        vsapi->setError(out, "nnedi3: opt must be 1 or 2");
-        vsapi->freeNode(d.node);
-        return;
-    }
-
     if (d.vi.format->bitsPerSample == 8) {
         if (d.fapprox < 0 || d.fapprox > 15) {
             vsapi->setError(out, "nnedi3: fapprox must be between 0 and 15 (inclusive)");
@@ -1552,7 +1524,7 @@ static void VS_CC nnedi3_rpow2Create(const VSMap *in, VSMap *out, void *userData
     const char kernel[] = "spline36";
     const char *keysToCopy[] = { "nsize", "nns", "qual", "etype", "pscrn", "opt", "fapprox", NULL };
 
-    rfactor = vsapi->propGetInt(in, "rfactor", 0, NULL);
+    rfactor = int64ToIntS(vsapi->propGetInt(in, "rfactor", 0, NULL));
     if (rfactor < 2 || rfactor > 1024) {
         vsapi->setError(out, "nnedi3_rpow2: rfactor must be between 2 and 1024");
         return;
@@ -1578,9 +1550,9 @@ static void VS_CC nnedi3_rpow2Create(const VSMap *in, VSMap *out, void *userData
         return;
     }
 
-    width = vsapi->propGetInt(in, "width", 0, &err);
+    width = int64ToIntS(vsapi->propGetInt(in, "width", 0, &err));
 
-    height = vsapi->propGetInt(in, "height", 0, &err);
+    height = int64ToIntS(vsapi->propGetInt(in, "height", 0, &err));
 
     correct_shift = !!vsapi->propGetInt(in, "correct_shift", 0, &err);
     if (err) {
