@@ -5,3 +5,10 @@
 *.dll
 .libs
 .pc
+
+*.debhelper.log
+
+/debian-upstream/autoreconf.after
+/debian-upstream/autoreconf.before
+/debian
+
