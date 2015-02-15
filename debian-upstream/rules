@@ -17,7 +17,7 @@ override_dh_autoreconf:
 override_dh_auto_configure:
 
 override_dh_auto_clean:
-	$(MAKE) clobber
+	$(MAKE) clobber || true
 
 override_dh_install:
 	dh_install -pvapoursynth-extra-plugins -Xnnedi3
