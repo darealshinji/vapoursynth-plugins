@@ -1,5 +1,5 @@
-#include <VSHelper.h>
-#include <VapourSynth.h>
+#include <vapoursynth/VSHelper.h>
+#include <vapoursynth/VapourSynth.h>
 #include <emmintrin.h>
 #include <stdio.h>
 #include "IScriptEnvironment.h"
@@ -547,7 +547,6 @@ SangNom2::SangNom2(VSVideoInfo * vi, VSNodeRef * node, int order, int aa, int aa
 }
 
 void SangNom2::processPlane(IScriptEnvironment * env, BYTE * pBuffers[BUFFERS_COUNT], const BYTE * pSrc, BYTE * pDst, int width, int height, int srcPitch, int dstPitch, int aa) {
-	env->BitBlt(pDst + offset_ * dstPitch, dstPitch * 2, pSrc + offset_ * srcPitch, srcPitch * 2, width, height / 2);
 
 	if (offset_ == 1) {
 		env->BitBlt(pDst, dstPitch, pSrc + srcPitch, srcPitch, width, 1);
@@ -609,13 +608,13 @@ void SangNom2::processPlane(IScriptEnvironment * env, BYTE * pBuffers[BUFFERS_CO
 
 VSFrameRef* VS_CC SangNom2::GetFrame(int n, IScriptEnvironment * env) {
 	auto srcFrame = env->GetFrame(n);
-	auto dstFrame = env->NewVideoFrame(env->vi);
+	auto dstFrame = env->MakeWritable(srcFrame); // env->NewVideoFrame(env->vi);
 	// Make sure we are thread-safe
 	auto buffer = static_cast<BYTE*>(_mm_malloc(bufferSize_ * BUFFERS_COUNT, 16));
 	BYTE * pBuffers[BUFFERS_COUNT];
+	memset(buffer, 0, bufferSize_ * BUFFERS_COUNT);
 	for (int i = 0; i < BUFFERS_COUNT; i++) {
-		pBuffers[i] = buffer + bufferPitch_ * i;
-		memset(pBuffers[i], 0, bufferPitch_);
+		pBuffers[i] = buffer + bufferSize_ * i;
 	}
 
 	offset_ = order_ > 1 ? 1 : 0; // Due to no parity() in VS
