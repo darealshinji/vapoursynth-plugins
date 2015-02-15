@@ -1,7 +1,8 @@
-#include <stdlib.h>
-#include <string.h>
+#include <cstdlib>
+#include <cstring>
+#include <unordered_map>
 #include <xvid.h>
-#include <vapoursynth/VapourSynth.h>
+#include <VapourSynth.h>
 
 #define SCXVID_BUFFER_SIZE (1024*1024*4)
 
@@ -17,8 +18,10 @@ typedef struct {
    void *xvid_handle;
    xvid_enc_frame_t xvid_enc_frame;
    void *output_buffer;
-   int next_frame;
+   int last_frame;
    xvid_enc_create_t xvid_enc_create;
+
+   std::unordered_map<int, int> prop_map;
 } ScxvidData;
 
 
@@ -27,7 +30,7 @@ static void VS_CC scxvidInit(VSMap *in, VSMap *out, void **instanceData, VSNode 
    vsapi->setVideoInfo(d->vi, 1, node);
 
    d->output_buffer = NULL;
-   d->next_frame = 0;
+   d->last_frame = -1;
    int error = 0;
 
    if (!xvid_inited) {
@@ -71,7 +74,7 @@ static void VS_CC scxvidInit(VSMap *in, VSMap *out, void **instanceData, VSNode 
    xvid_plugin_2pass1_t xvid_rc_plugin;
    memset(&xvid_rc_plugin, 0, sizeof(xvid_rc_plugin));
    xvid_rc_plugin.version = XVID_VERSION;
-   xvid_rc_plugin.filename = d->log;
+   xvid_rc_plugin.filename = (char *)d->log;
    plugins[0].func = xvid_plugin_2pass1;
    plugins[0].param = &xvid_rc_plugin;
    d->xvid_enc_create.plugins = plugins;
@@ -133,30 +136,47 @@ static const VSFrameRef *VS_CC scxvidGetFrame(int n, int activationReason, void 
    ScxvidData *d = (ScxvidData *) * instanceData;
 
    if (activationReason == arInitial) {
+      int distance = n - d->last_frame;
+      for (int frame = d->last_frame + 1; frame <= n && distance < 50; frame++)
+         vsapi->requestFrameFilter(frame, d->node, frameCtx);
       vsapi->requestFrameFilter(n, d->node, frameCtx);
    } else if (activationReason == arAllFramesReady) {
-      const VSFrameRef *src = vsapi->getFrameFilter(n, d->node, frameCtx);
+      int distance = n - d->last_frame;
+      for (int frame = d->last_frame + 1; frame <= n && distance < 50; frame++) {
+         const VSFrameRef *src = vsapi->getFrameFilter(frame, d->node, frameCtx);
+         xvid_enc_stats_t stats;
+         stats.version = XVID_VERSION;
 
-      if (d->next_frame == n) {
-         int plane;
-         for (plane = 0; plane < d->vi->format->numPlanes; plane++) {
+         for (int plane = 0; plane < d->vi->format->numPlanes; plane++) {
             d->xvid_enc_frame.input.plane[plane] = (void*)vsapi->getReadPtr(src, plane);
             d->xvid_enc_frame.input.stride[plane] = vsapi->getStride(src, plane);
          }
-         
+
          d->xvid_enc_frame.length = SCXVID_BUFFER_SIZE;
          d->xvid_enc_frame.bitstream = d->output_buffer;
 
-         int error = xvid_encore(d->xvid_handle, XVID_ENC_ENCODE, &d->xvid_enc_frame, NULL);
+         int error = xvid_encore(d->xvid_handle, XVID_ENC_ENCODE, &d->xvid_enc_frame, &stats);
          if (error < 0) {
             vsapi->setFilterError("Scxvid: xvid_encore returned an error code", frameCtx);
             vsapi->freeFrame(src);
             return 0;
          }
-         d->next_frame++;
+
+         vsapi->freeFrame(src);
+         d->last_frame = n;
+
+         d->prop_map.insert(std::pair<int, int>(frame, (stats.type == XVID_TYPE_IVOP)));
       }
 
-      return src;
+      const VSFrameRef *src = vsapi->getFrameFilter(n, d->node, frameCtx);
+      VSFrameRef *dst = vsapi->copyFrame(src, core);
+      vsapi->freeFrame(src);
+
+      VSMap *props = vsapi->getFramePropsRW(dst);
+      vsapi->propSetInt(props, "_SceneChangePrev", d->prop_map.at(n), paReplace);
+      d->prop_map.erase(n);
+
+      return dst;
    }
 
    return 0;
@@ -170,7 +190,7 @@ static void VS_CC scxvidFree(void *instanceData, VSCore *core, const VSAPI *vsap
    free(d->output_buffer);
    xvid_encore(d->xvid_handle, XVID_ENC_DESTROY, NULL, NULL);
 
-   free(d);
+   delete d;
 }
 
 
@@ -188,14 +208,15 @@ static void VS_CC scxvidCreate(const VSMap *in, VSMap *out, void *userData, VSCo
       return;
    }
 
-   d.log = vsapi->propGetData(in, "log", 0, 0);
+   d.log = vsapi->propGetData(in, "log", 0, &err);
+
    d.use_slices = vsapi->propGetInt(in, "use_slices", 0, &err);
    if (err) {
       // Enabled by default.
       d.use_slices = 1;
    }
 
-   data = malloc(sizeof(d));
+   data = new ScxvidData();
    *data = d;
 
    vsapi->createFilter(in, out, "Scxvid", scxvidInit, scxvidGetFrame, scxvidFree, fmSerial, 0, data, core);
@@ -205,5 +226,5 @@ static void VS_CC scxvidCreate(const VSMap *in, VSMap *out, void *userData, VSCo
 
 VS_EXTERNAL_API(void) VapourSynthPluginInit(VSConfigPlugin configFunc, VSRegisterFunction registerFunc, VSPlugin *plugin) {
    configFunc("com.nodame.scxvid", "scxvid", "VapourSynth Scxvid Plugin", VAPOURSYNTH_API_VERSION, 1, plugin);
-   registerFunc("Scxvid", "clip:clip;log:data;use_slices:int:opt", scxvidCreate, 0, plugin);
+   registerFunc("Scxvid", "clip:clip;log:data:opt;use_slices:int:opt", scxvidCreate, 0, plugin);
 }
