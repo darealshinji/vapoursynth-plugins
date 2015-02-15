@@ -34,12 +34,12 @@ def TempLinearApproximateMC(clip, meclip = None, radius = 2, planes = None, subp
 	}
 	
 	if not refine:
-		analyzeArguments['blksize'] = blocksize
-		analyzeArguments['overlap'] = overlap
+		analyze_arguments['blksize'] = blocksize
+		analyze_arguments['overlap'] = overlap
 	
 	if dct is not None:
-		analyzeArguments['dct'] = dct
-		recalculateArguments['dct'] = dct
+		analyze_arguments['dct'] = dct
+		recalculate_arguments['dct'] = dct
 	
 	input_super = core.mv.Super(clip, **super_arguments)
 	me_super = input_super if not meclip else core.mv.Super(meclip, **super_arguments)
