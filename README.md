@@ -36,7 +36,7 @@ zlib1g-dev
 [flash3kyuu_deband 1.5.1+git20140721](https://github.com/SAPikachu/flash3kyuu_deband)<br>
 [fluxsmooth 1.0](https://github.com/dubhater/vapoursynth-fluxsmooth)<br>
 [genericfilters 1.0.0](https://github.com/chikuzen/GenericFilters)<br>
-[havsfunc r11](http://forum.doom9.org/showthread.php?t=166582)<br>
+[havsfunc r13](http://forum.doom9.org/showthread.php?t=166582)<br>
 [histogram 1.0](https://github.com/dubhater/vapoursynth-histogram)<br>
 [imagereader 0.2.1](https://github.com/chikuzen/vsimagereader)<br>
 [it 1.2](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-IT)<br>
