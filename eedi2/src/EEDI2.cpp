@@ -820,10 +820,10 @@ static void interpolateLattice(const VSFrameRef * omsk, VSFrameRef * dmsk, VSFra
                 }
             }
             if (x > 1 && x < width - 2 &&
-                (dstp[x] < std::max(dstp[x - 2], dstp[x - 1]) - three && dstp[x] < std::max(dstp[x + 2], dstp[x + 1]) - three &&
-                 dstpnn[x] < std::max(dstpnn[x - 2], dstpnn[x - 1]) - three && dstpnn[x] < std::max(dstpnn[x + 2], dstpnn[x + 1]) - three) ||
-                (dstp[x] > std::min(dstp[x - 2], dstp[x - 1]) + three && dstp[x] > std::min(dstp[x + 2], dstp[x + 1]) + three &&
-                 dstpnn[x]  > std::min(dstpnn[x - 2], dstpnn[x - 1]) + three && dstpnn[x] > std::min(dstpnn[x + 2], dstpnn[x + 1]) + three)) {
+                ( (dstp[x] < std::max(dstp[x - 2], dstp[x - 1]) - three && dstp[x] < std::max(dstp[x + 2], dstp[x + 1]) - three &&
+                 dstpnn[x] < std::max(dstpnn[x - 2], dstpnn[x - 1]) - three && dstpnn[x] < std::max(dstpnn[x + 2], dstpnn[x + 1]) - three) ) ||
+                ( (dstp[x] > std::min(dstp[x - 2], dstp[x - 1]) + three && dstp[x] > std::min(dstp[x + 2], dstp[x + 1]) + three &&
+                 dstpnn[x]  > std::min(dstpnn[x - 2], dstpnn[x - 1]) + three && dstpnn[x] > std::min(dstpnn[x + 2], dstpnn[x + 1]) + three)) ) {
                 dstpn[x] = (dstp[x] + dstpnn[x] + 1) >> 1;
                 dmskp[x] = median;
                 continue;
