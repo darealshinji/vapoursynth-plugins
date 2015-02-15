@@ -55,12 +55,12 @@ static const VSFrameRef *VS_CC mvsuperGetFrame(int n, int activationReason, void
     } else if (activationReason == arAllFramesReady) {
         const VSFrameRef *src = vsapi->getFrameFilter(n, d->node, frameCtx);
 
-        const uint8_t *pSrcY, *pSrcU, *pSrcV;
-        uint8_t *pDstY, *pDstU, *pDstV;
-        const uint8_t *pSrcPelY, *pSrcPelU, *pSrcPelV;
-        int nSrcPitchY, nSrcPitchUV;
-        int nDstPitchY, nDstPitchUV;
-        int nSrcPelPitchY, nSrcPelPitchUV;
+        const uint8_t *pSrc[3];
+        uint8_t *pDst[3];
+        const uint8_t *pSrcPel[3];
+        int nSrcPitch[3];
+        int nDstPitch[3];
+        int nSrcPelPitch[3];
 
         const VSFrameRef *srcPel = NULL;
         if (d->usePelClip)
@@ -68,52 +68,40 @@ static const VSFrameRef *VS_CC mvsuperGetFrame(int n, int activationReason, void
 
         VSFrameRef *dst = vsapi->newVideoFrame(d->vi.format, d->vi.width, d->vi.height, src, core);
 
-        pSrcY = vsapi->getReadPtr(src, 0);
-        pSrcU = vsapi->getReadPtr(src, 1);
-        pSrcV = vsapi->getReadPtr(src, 2);
-        nSrcPitchY = vsapi->getStride(src, 0);
-        nSrcPitchUV = vsapi->getStride(src, 1);
+        for (int plane = 0; plane < d->vi.format->numPlanes; plane++) {
+            pSrc[plane] = vsapi->getReadPtr(src, plane);
+            nSrcPitch[plane] = vsapi->getStride(src, plane);
 
-        pDstY = vsapi->getWritePtr(dst, 0);
-        pDstU = vsapi->getWritePtr(dst, 1);
-        pDstV = vsapi->getWritePtr(dst, 2);
-        nDstPitchY  = vsapi->getStride(dst, 0);
-        nDstPitchUV  = vsapi->getStride(dst, 1);
+            pDst[plane] = vsapi->getWritePtr(dst, plane);
+            nDstPitch[plane] = vsapi->getStride(dst, plane);
 
-        memset(pDstY, 0, nDstPitchY * d->vi.height);
-        memset(pDstU, 0, nDstPitchUV * (d->vi.height >> d->vi.format->subSamplingH));
-        memset(pDstV, 0, nDstPitchUV * (d->vi.height >> d->vi.format->subSamplingH));
+            memset(pDst[plane], 0, nDstPitch[plane] * vsapi->getFrameHeight(dst, plane));
+        }
 
-        MVGroupOfFrames *pSrcGOF = new MVGroupOfFrames(d->nLevels, d->nWidth, d->nHeight, d->nPel, d->nHPad, d->nVPad, YUVPLANES, d->isse, d->yRatioUV);
+        MVGroupOfFrames *pSrcGOF = new MVGroupOfFrames(d->nLevels, d->nWidth, d->nHeight, d->nPel, d->nHPad, d->nVPad, d->nModeYUV, d->isse, d->xRatioUV, d->yRatioUV, d->vi.format->bitsPerSample);
 
-        pSrcGOF->Update(YUVPLANES, pDstY, nDstPitchY, pDstU, nDstPitchUV, pDstV, nDstPitchUV);
+        pSrcGOF->Update(d->nModeYUV, pDst[0], nDstPitch[0], pDst[1], nDstPitch[1], pDst[2], nDstPitch[2]);
 
-        pSrcGOF->SetPlane(pSrcY, nSrcPitchY, YPLANE);
-        pSrcGOF->SetPlane(pSrcU, nSrcPitchUV, UPLANE);
-        pSrcGOF->SetPlane(pSrcV, nSrcPitchUV, VPLANE);
+        MVPlaneSet planes[3] = { YPLANE, UPLANE, VPLANE };
+
+        for (int plane = 0; plane < d->vi.format->numPlanes; plane++)
+            pSrcGOF->SetPlane(pSrc[plane], nSrcPitch[plane], planes[plane]);
 
         pSrcGOF->Reduce(d->nModeYUV, d->rfilter);
         pSrcGOF->Pad(d->nModeYUV);
 
         if (d->usePelClip)
         {
-            pSrcPelY = vsapi->getReadPtr(srcPel, 0);
-            pSrcPelU = vsapi->getReadPtr(srcPel, 1);
-            pSrcPelV = vsapi->getReadPtr(srcPel, 2);
-            nSrcPelPitchY = vsapi->getStride(srcPel, 0);
-            nSrcPelPitchUV = vsapi->getStride(srcPel, 1);
-
             MVFrame *srcFrames = pSrcGOF->GetFrame(0);
 
-            MVPlane *srcPlaneY = srcFrames->GetPlane(YPLANE);
-            if (d->nModeYUV & YPLANE)
-                srcPlaneY->RefineExt(pSrcPelY, nSrcPelPitchY, d->isPelClipPadded);
-            MVPlane *srcPlaneU = srcFrames->GetPlane(UPLANE);
-            if (d->nModeYUV & UPLANE)
-                srcPlaneU->RefineExt(pSrcPelU, nSrcPelPitchUV, d->isPelClipPadded);
-            MVPlane *srcPlaneV = srcFrames->GetPlane(VPLANE);
-            if (d->nModeYUV & VPLANE)
-                srcPlaneV->RefineExt(pSrcPelV, nSrcPelPitchUV, d->isPelClipPadded);
+            for (int plane = 0; plane < d->vi.format->numPlanes; plane++) {
+                pSrcPel[plane] = vsapi->getReadPtr(srcPel, plane);
+                nSrcPelPitch[plane] = vsapi->getStride(srcPel, plane);
+
+                MVPlane *srcPlane = srcFrames->GetPlane(planes[plane]);
+                if (d->nModeYUV & planes[plane])
+                    srcPlane->RefineExt(pSrcPel[plane], nSrcPelPitch[plane], d->isPelClipPadded);
+            }
         }
         else
             pSrcGOF->Refine(d->nModeYUV, d->sharp);
@@ -203,24 +191,30 @@ static void VS_CC mvsuperCreate(const VSMap *in, VSMap *out, void *userData, VSC
     }
 
 
-    d.nModeYUV = d.chroma ? YUVPLANES : YPLANE;
-
-    
     d.node = vsapi->propGetNode(in, "clip", 0, 0);
     d.vi = *vsapi->getVideoInfo(d.node);
 
     d.nWidth = d.vi.width;
     d.nHeight = d.vi.height;
 
-    int id = d.vi.format->id;
-    if (!isConstantFormat(&d.vi) || (id != pfYUV420P8 && id != pfYUV422P8)) {
-        vsapi->setError(out, "Super: input clip must be YUV420P8 or YUV422P8, with constant dimensions.");
+    if (!isConstantFormat(&d.vi) || d.vi.format->bitsPerSample > 16 || d.vi.format->sampleType != stInteger || d.vi.format->subSamplingW > 1 || d.vi.format->subSamplingH > 1 || (d.vi.format->colorFamily != cmYUV && d.vi.format->colorFamily != cmGray)) {
+        vsapi->setError(out, "Super: input clip must be GRAY, 420, 422, 440, or 444, up to 16 bits, with constant dimensions.");
         vsapi->freeNode(d.node);
         return;
     }
 
+    if (d.vi.format->colorFamily == cmGray)
+        d.chroma = 0;
+
+    d.nModeYUV = d.chroma ? YUVPLANES : YPLANE;
+
+
+    if (d.vi.format->bitsPerSample > 8)
+        d.isse = 0;
+
+
+    d.xRatioUV = 1 << d.vi.format->subSamplingW;
     d.yRatioUV = 1 << d.vi.format->subSamplingH;
-    d.xRatioUV = 2; // for YV12 and YUY2, really do not used and assumed to 2
 
     int nLevelsMax = 0;
     while (PlaneHeightLuma(d.vi.height, nLevelsMax, d.yRatioUV, d.nVPad) >= d.yRatioUV*2 &&
@@ -234,8 +228,8 @@ static void VS_CC mvsuperCreate(const VSMap *in, VSMap *out, void *userData, VSC
     d.pelclip = vsapi->propGetNode(in, "pelclip", 0, &err);
     const VSVideoInfo *pelvi = d.pelclip ? vsapi->getVideoInfo(d.pelclip) : NULL;
 
-    if (d.pelclip && (!isConstantFormat(pelvi) || pelvi->format->id != pfYUV420P8)) {
-        vsapi->setError(out, "Super: pelclip must be YUV420P8 with constant dimensions.");
+    if (d.pelclip && (!isConstantFormat(pelvi) || pelvi->format != d.vi.format)) {
+        vsapi->setError(out, "Super: pelclip must have the same format as the input clip, and it must have constant dimensions.");
         vsapi->freeNode(d.node);
         vsapi->freeNode(d.pelclip);
         return;
@@ -245,11 +239,11 @@ static void VS_CC mvsuperCreate(const VSMap *in, VSMap *out, void *userData, VSC
     if (d.pelclip && (d.nPel >= 2))
     {
         if ((pelvi->width == d.vi.width * d.nPel) &&
-            (pelvi->height == d.vi.height * d.nPel)) {
+                (pelvi->height == d.vi.height * d.nPel)) {
             d.usePelClip = true;
             d.isPelClipPadded = false;
         } else if ((pelvi->width == (d.vi.width + d.nHPad * 2) * d.nPel) &&
-                   (pelvi->height == (d.vi.height + d.nVPad * 2) * d.nPel)) {
+                (pelvi->height == (d.vi.height + d.nVPad * 2) * d.nPel)) {
             d.usePelClip = true;
             d.isPelClipPadded = true;
         } else {
@@ -264,6 +258,8 @@ static void VS_CC mvsuperCreate(const VSMap *in, VSMap *out, void *userData, VSC
     d.nSuperHeight = PlaneSuperOffset(false, d.nHeight, d.nLevels, d.nPel, d.nVPad, d.nSuperWidth, d.yRatioUV) / d.nSuperWidth;
     if (d.yRatioUV == 2 && d.nSuperHeight & 1)
         d.nSuperHeight++; // even
+    if (d.xRatioUV == 2 && d.nSuperWidth & 1)
+        d.nSuperWidth++;
     d.vi.width = d.nSuperWidth;
     d.vi.height = d.nSuperHeight;
 
@@ -277,15 +273,15 @@ static void VS_CC mvsuperCreate(const VSMap *in, VSMap *out, void *userData, VSC
 
 void mvsuperRegister(VSRegisterFunction registerFunc, VSPlugin *plugin) {
     registerFunc("Super",
-                 "clip:clip;"
-                 "hpad:int:opt;"
-                 "vpad:int:opt;"
-                 "pel:int:opt;"
-                 "levels:int:opt;"
-                 "chroma:int:opt;"
-                 "sharp:int:opt;"
-                 "rfilter:int:opt;"
-                 "pelclip:clip:opt;"
-                 "isse:int:opt;"
-                 , mvsuperCreate, 0, plugin);
+            "clip:clip;"
+            "hpad:int:opt;"
+            "vpad:int:opt;"
+            "pel:int:opt;"
+            "levels:int:opt;"
+            "chroma:int:opt;"
+            "sharp:int:opt;"
+            "rfilter:int:opt;"
+            "pelclip:clip:opt;"
+            "isse:int:opt;"
+            , mvsuperCreate, 0, plugin);
 }

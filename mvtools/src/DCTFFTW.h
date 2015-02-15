@@ -25,26 +25,28 @@
 #include "DCT.h"
 
 class DCTFFTW : public DCTClass {
-	float * fSrc;
-	fftwf_plan dctplan;
-	float * fSrcDCT;
+    float * fSrc;
+    fftwf_plan dctplan;
+    float * fSrcDCT;
 
-//	int sizex;
-//	int sizey;
-//	int dctmode;
-	int dctshift;
-	int dctshift0;
+    int dctshift;
+    int dctshift0;
 
-	void Bytes2Float(const unsigned char * srcp0, int _pitch, float * realdata);
-	void Float2Bytes(unsigned char * srcp0, int _pitch, float * realdata);
+    template <typename PixelType>
+    void Bytes2Float(const unsigned char * srcp0, int _pitch, float * realdata);
 
-public:
+    template <typename PixelType>
+    void Float2Bytes(unsigned char * srcp0, int _pitch, float * realdata);
+
+    public:
 
 
 
-	DCTFFTW(int _sizex, int _sizey, int _dctmode);
-	~DCTFFTW();
-	void DCTBytes2D(const unsigned char *srcp0, int _src_pitch, unsigned char *dctp, int _dct_pitch);
+    DCTFFTW(int _sizex, int _sizey, int _dctmode, int _bitsPerSample);
+    ~DCTFFTW();
+
+    virtual void DCTBytes2D(const unsigned char *srcp0, int _src_pitch,
+            unsigned char *dctp, int _dct_pitch) override;
 
 };
 

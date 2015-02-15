@@ -75,6 +75,7 @@ AS_CASE(
 AC_SUBST([ASFLAGS])
 
 PKG_CHECK_MODULES([VapourSynth], [vapoursynth])
+PKG_CHECK_MODULES([FFTW3F], [fftw3f])
 
 # Checks for header files.
 AC_CHECK_HEADERS([stdint.h stdlib.h string.h])

@@ -73,164 +73,181 @@ static void VS_CC mvflowblurInit(VSMap *in, VSMap *out, void **instanceData, VSN
 }
 
 
-static void FlowBlur(uint8_t * pdst, int dst_pitch, const uint8_t *pref, int ref_pitch,
-			   uint8_t *VXFullB, uint8_t *VXFullF, uint8_t *VYFullB, uint8_t *VYFullF,
-			   int VPitch, int width, int height, int blur256, int prec, int nPel)
+template <typename PixelType>
+static void RealFlowBlur(uint8_t * pdst8, int dst_pitch, const uint8_t *pref8, int ref_pitch,
+        uint8_t *VXFullB, uint8_t *VXFullF, uint8_t *VYFullB, uint8_t *VYFullF,
+        int VPitch, int width, int height, int blur256, int prec, int nPel)
 {
-	// very slow, but precise motion blur
-	if (nPel==1)
-	{
-		for (int h=0; h<height; h++)
-		{
-			for (int w=0; w<width; w++)
-			{
-				int bluredsum = pref[w];
-				int vxF0 = ((VXFullF[w]-128)*blur256);
-				int vyF0 = ((VYFullF[w]-128)*blur256);
-				int mF = (std::max(abs(vxF0), abs(vyF0))/prec)>>8;
-				if (mF>0)
-				{
-					vxF0 /= mF;
-					vyF0 /= mF;
-					int vxF = vxF0;
-					int vyF = vyF0;
-					for (int i=0; i<mF; i++)
-					{
-						int dstF = pref[(vyF>>8)*ref_pitch + (vxF>>8) + w];
-						bluredsum += dstF;
-						vxF += vxF0;
-						vyF += vyF0;
-					}
-				}
-				int vxB0 = ((VXFullB[w]-128)*blur256);
-				int vyB0 = ((VYFullB[w]-128)*blur256);
-				int mB = (std::max(abs(vxB0), abs(vyB0))/prec)>>8;
-				if (mB>0)
-				{
-					vxB0 /= mB;
-					vyB0 /= mB;
-					int vxB = vxB0;
-					int vyB = vyB0;
-					for (int i=0; i<mB; i++)
-					{
-						int dstB = pref[(vyB>>8)*ref_pitch + (vxB>>8) + w];
-						bluredsum += dstB;
-						vxB += vxB0;
-						vyB += vyB0;
-					}
-				}
-				pdst[w] = bluredsum/(mF+mB+1);
-			}
-			pdst += dst_pitch;
-			pref += ref_pitch;
-			VXFullB += VPitch;
-			VYFullB += VPitch;
-			VXFullF += VPitch;
-			VYFullF += VPitch;
-		}
-	}
-	else if (nPel==2)
-	{
-		for (int h=0; h<height; h++)
-		{
-			for (int w=0; w<width; w++)
-			{
-				int bluredsum = pref[w<<1];
-				int vxF0 = ((VXFullF[w]-128)*blur256);
-				int vyF0 = ((VYFullF[w]-128)*blur256);
-				int mF = (std::max(abs(vxF0), abs(vyF0))/prec)>>8;
-				if (mF>0)
-				{
-					vxF0 /= mF;
-					vyF0 /= mF;
-					int vxF = vxF0;
-					int vyF = vyF0;
-					for (int i=0; i<mF; i++)
-					{
-						int dstF = pref[(vyF>>8)*ref_pitch + (vxF>>8) + (w<<1)];
-						bluredsum += dstF;
-						vxF += vxF0;
-						vyF += vyF0;
-					}
-				}
-				int vxB0 = ((VXFullB[w]-128)*blur256);
-				int vyB0 = ((VYFullB[w]-128)*blur256);
-				int mB = (std::max(abs(vxB0), abs(vyB0))/prec)>>8;
-				if (mB>0)
-				{
-					vxB0 /= mB;
-					vyB0 /= mB;
-					int vxB = vxB0;
-					int vyB = vyB0;
-					for (int i=0; i<mB; i++)
-					{
-						int dstB = pref[(vyB>>8)*ref_pitch + (vxB>>8) + (w<<1)];
-						bluredsum += dstB;
-						vxB += vxB0;
-						vyB += vyB0;
-					}
-				}
-				pdst[w] = bluredsum/(mF+mB+1);
-			}
-			pdst += dst_pitch;
-			pref += (ref_pitch<<1);
-			VXFullB += VPitch;
-			VYFullB += VPitch;
-			VXFullF += VPitch;
-			VYFullF += VPitch;
-		}
-	}
-	else if (nPel==4)
-	{
-		for (int h=0; h<height; h++)
-		{
-			for (int w=0; w<width; w++)
-			{
-				int bluredsum = pref[w<<2];
-				int vxF0 = ((VXFullF[w]-128)*blur256);
-				int vyF0 = ((VYFullF[w]-128)*blur256);
-				int mF = (std::max(abs(vxF0), abs(vyF0))/prec)>>8;
-				if (mF>0)
-				{
-					vxF0 /= mF;
-					vyF0 /= mF;
-					int vxF = vxF0;
-					int vyF = vyF0;
-					for (int i=0; i<mF; i++)
-					{
-						int dstF = pref[(vyF>>8)*ref_pitch + (vxF>>8) + (w<<2)];
-						bluredsum += dstF;
-						vxF += vxF0;
-						vyF += vyF0;
-					}
-				}
-				int vxB0 = ((VXFullB[w]-128)*blur256);
-				int vyB0 = ((VYFullB[w]-128)*blur256);
-				int mB = (std::max(abs(vxB0), abs(vyB0))/prec)>>8;
-				if (mB>0)
-				{
-					vxB0 /= mB;
-					vyB0 /= mB;
-					int vxB = vxB0;
-					int vyB = vyB0;
-					for (int i=0; i<mB; i++)
-					{
-						int dstB = pref[(vyB>>8)*ref_pitch + (vxB>>8) + (w<<2)];
-						bluredsum += dstB;
-						vxB += vxB0;
-						vyB += vyB0;
-					}
-				}
-				pdst[w] = bluredsum/(mF+mB+1);
-			}
-			pdst += dst_pitch;
-			pref += (ref_pitch<<2);
-			VXFullB += VPitch;
-			VYFullB += VPitch;
-			VXFullF += VPitch;
-			VYFullF += VPitch;
-		}
-	}
+    const PixelType *pref = (const PixelType *)pref8;
+    PixelType *pdst = (PixelType *)pdst8;
+
+    ref_pitch /= sizeof(PixelType);
+    dst_pitch /= sizeof(PixelType);
+
+    // very slow, but precise motion blur
+    if (nPel==1)
+    {
+        for (int h=0; h<height; h++)
+        {
+            for (int w=0; w<width; w++)
+            {
+                int bluredsum = pref[w];
+                int vxF0 = ((VXFullF[w]-128)*blur256);
+                int vyF0 = ((VYFullF[w]-128)*blur256);
+                int mF = (std::max(abs(vxF0), abs(vyF0))/prec)>>8;
+                if (mF>0)
+                {
+                    vxF0 /= mF;
+                    vyF0 /= mF;
+                    int vxF = vxF0;
+                    int vyF = vyF0;
+                    for (int i=0; i<mF; i++)
+                    {
+                        int dstF = pref[(vyF>>8)*ref_pitch + (vxF>>8) + w];
+                        bluredsum += dstF;
+                        vxF += vxF0;
+                        vyF += vyF0;
+                    }
+                }
+                int vxB0 = ((VXFullB[w]-128)*blur256);
+                int vyB0 = ((VYFullB[w]-128)*blur256);
+                int mB = (std::max(abs(vxB0), abs(vyB0))/prec)>>8;
+                if (mB>0)
+                {
+                    vxB0 /= mB;
+                    vyB0 /= mB;
+                    int vxB = vxB0;
+                    int vyB = vyB0;
+                    for (int i=0; i<mB; i++)
+                    {
+                        int dstB = pref[(vyB>>8)*ref_pitch + (vxB>>8) + w];
+                        bluredsum += dstB;
+                        vxB += vxB0;
+                        vyB += vyB0;
+                    }
+                }
+                pdst[w] = bluredsum/(mF+mB+1);
+            }
+            pdst += dst_pitch;
+            pref += ref_pitch;
+            VXFullB += VPitch;
+            VYFullB += VPitch;
+            VXFullF += VPitch;
+            VYFullF += VPitch;
+        }
+    }
+    else if (nPel==2)
+    {
+        for (int h=0; h<height; h++)
+        {
+            for (int w=0; w<width; w++)
+            {
+                int bluredsum = pref[w<<1];
+                int vxF0 = ((VXFullF[w]-128)*blur256);
+                int vyF0 = ((VYFullF[w]-128)*blur256);
+                int mF = (std::max(abs(vxF0), abs(vyF0))/prec)>>8;
+                if (mF>0)
+                {
+                    vxF0 /= mF;
+                    vyF0 /= mF;
+                    int vxF = vxF0;
+                    int vyF = vyF0;
+                    for (int i=0; i<mF; i++)
+                    {
+                        int dstF = pref[(vyF>>8)*ref_pitch + (vxF>>8) + (w<<1)];
+                        bluredsum += dstF;
+                        vxF += vxF0;
+                        vyF += vyF0;
+                    }
+                }
+                int vxB0 = ((VXFullB[w]-128)*blur256);
+                int vyB0 = ((VYFullB[w]-128)*blur256);
+                int mB = (std::max(abs(vxB0), abs(vyB0))/prec)>>8;
+                if (mB>0)
+                {
+                    vxB0 /= mB;
+                    vyB0 /= mB;
+                    int vxB = vxB0;
+                    int vyB = vyB0;
+                    for (int i=0; i<mB; i++)
+                    {
+                        int dstB = pref[(vyB>>8)*ref_pitch + (vxB>>8) + (w<<1)];
+                        bluredsum += dstB;
+                        vxB += vxB0;
+                        vyB += vyB0;
+                    }
+                }
+                pdst[w] = bluredsum/(mF+mB+1);
+            }
+            pdst += dst_pitch;
+            pref += (ref_pitch<<1);
+            VXFullB += VPitch;
+            VYFullB += VPitch;
+            VXFullF += VPitch;
+            VYFullF += VPitch;
+        }
+    }
+    else if (nPel==4)
+    {
+        for (int h=0; h<height; h++)
+        {
+            for (int w=0; w<width; w++)
+            {
+                int bluredsum = pref[w<<2];
+                int vxF0 = ((VXFullF[w]-128)*blur256);
+                int vyF0 = ((VYFullF[w]-128)*blur256);
+                int mF = (std::max(abs(vxF0), abs(vyF0))/prec)>>8;
+                if (mF>0)
+                {
+                    vxF0 /= mF;
+                    vyF0 /= mF;
+                    int vxF = vxF0;
+                    int vyF = vyF0;
+                    for (int i=0; i<mF; i++)
+                    {
+                        int dstF = pref[(vyF>>8)*ref_pitch + (vxF>>8) + (w<<2)];
+                        bluredsum += dstF;
+                        vxF += vxF0;
+                        vyF += vyF0;
+                    }
+                }
+                int vxB0 = ((VXFullB[w]-128)*blur256);
+                int vyB0 = ((VYFullB[w]-128)*blur256);
+                int mB = (std::max(abs(vxB0), abs(vyB0))/prec)>>8;
+                if (mB>0)
+                {
+                    vxB0 /= mB;
+                    vyB0 /= mB;
+                    int vxB = vxB0;
+                    int vyB = vyB0;
+                    for (int i=0; i<mB; i++)
+                    {
+                        int dstB = pref[(vyB>>8)*ref_pitch + (vxB>>8) + (w<<2)];
+                        bluredsum += dstB;
+                        vxB += vxB0;
+                        vyB += vyB0;
+                    }
+                }
+                pdst[w] = bluredsum/(mF+mB+1);
+            }
+            pdst += dst_pitch;
+            pref += (ref_pitch<<2);
+            VXFullB += VPitch;
+            VYFullB += VPitch;
+            VXFullF += VPitch;
+            VYFullF += VPitch;
+        }
+    }
+}
+
+
+static void FlowBlur(uint8_t * pdst, int dst_pitch, const uint8_t *pref, int ref_pitch,
+        uint8_t *VXFullB, uint8_t *VXFullF, uint8_t *VYFullB, uint8_t *VYFullF,
+        int VPitch, int width, int height, int blur256, int prec, int nPel, int bitsPerSample) {
+    if (bitsPerSample == 8)
+        RealFlowBlur<uint8_t>(pdst, dst_pitch, pref, ref_pitch, VXFullB, VXFullF, VYFullB, VYFullF, VPitch, width, height, blur256, prec, nPel);
+    else
+        RealFlowBlur<uint16_t>(pdst, dst_pitch, pref, ref_pitch, VXFullB, VXFullF, VYFullB, VYFullF, VPitch, width, height, blur256, prec, nPel);
 }
 
 
@@ -279,7 +296,7 @@ static const VSFrameRef *VS_CC mvflowblurGetFrame(int n, int activationReason, v
             const VSFrameRef *ref = vsapi->getFrameFilter(n, d->finest, frameCtx); //  ref for  compensation
             VSFrameRef *dst = vsapi->newVideoFrame(d->vi->format, d->vi->width, d->vi->height, ref, core);
 
-            for (int i = 0; i < 3; i++) {
+            for (int i = 0; i < d->vi->format->numPlanes; i++) {
                 pDst[i] = vsapi->getWritePtr(dst, i);
                 pRef[i] = vsapi->getReadPtr(ref, i);
                 nDstPitches[i] = vsapi->getStride(dst, i);
@@ -290,6 +307,7 @@ static const VSFrameRef *VS_CC mvflowblurGetFrame(int n, int activationReason, v
             const int nHeight = d->bleh->nHeight;
             const int nWidthUV = d->nWidthUV;
             const int nHeightUV = d->nHeightUV;
+            const int xRatioUV = d->bleh->xRatioUV;
             const int yRatioUV = d->bleh->yRatioUV;
             const int nBlkX = d->bleh->nBlkX;
             const int nBlkY = d->bleh->nBlkY;
@@ -303,49 +321,28 @@ static const VSFrameRef *VS_CC mvflowblurGetFrame(int n, int activationReason, v
             const int VPitchY = d->VPitchY;
             const int VPitchUV = d->VPitchUV;
 
-            int nOffsetY = nRefPitches[0] * nVPadding * nPel + nHPadding * nPel;
-            int nOffsetUV = nRefPitches[1] * nVPaddingUV * nPel + nHPaddingUV * nPel;
+            int bitsPerSample = d->vi->format->bitsPerSample;
+            int bytesPerSample = d->vi->format->bytesPerSample;
+
+            int nOffsetY = nRefPitches[0] * nVPadding * nPel + nHPadding * bytesPerSample * nPel;
+            int nOffsetUV = nRefPitches[1] * nVPaddingUV * nPel + nHPaddingUV * bytesPerSample * nPel;
 
 
             uint8_t *VXFullYB = new uint8_t [nHeight * VPitchY];
-            uint8_t *VXFullUVB = new uint8_t [nHeightUV * VPitchUV];
             uint8_t *VYFullYB = new uint8_t [nHeight * VPitchY];
-            uint8_t *VYFullUVB = new uint8_t [nHeightUV * VPitchUV];
-
             uint8_t *VXFullYF = new uint8_t [nHeight * VPitchY];
-            uint8_t *VXFullUVF = new uint8_t [nHeightUV * VPitchUV];
             uint8_t *VYFullYF = new uint8_t [nHeight * VPitchY];
-            uint8_t *VYFullUVF = new uint8_t [nHeightUV * VPitchUV];
-
             uint8_t *VXSmallYB = new uint8_t [nBlkX * nBlkY];
             uint8_t *VYSmallYB = new uint8_t [nBlkX * nBlkY];
-            uint8_t *VXSmallUVB = new uint8_t [nBlkX * nBlkY];
-            uint8_t *VYSmallUVB = new uint8_t [nBlkX * nBlkY];
-
             uint8_t *VXSmallYF = new uint8_t [nBlkX * nBlkY];
             uint8_t *VYSmallYF = new uint8_t [nBlkX * nBlkY];
-            uint8_t *VXSmallUVF = new uint8_t [nBlkX * nBlkY];
-            uint8_t *VYSmallUVF = new uint8_t [nBlkX * nBlkY];
-
-            uint8_t *MaskSmallB = new uint8_t [nBlkX * nBlkY];
-            uint8_t *MaskFullYB = new uint8_t [nHeight * VPitchY];
-            uint8_t *MaskFullUVB = new uint8_t [nHeightUV * VPitchUV];
-
-            uint8_t *MaskSmallF = new uint8_t [nBlkX * nBlkY];
-            uint8_t *MaskFullYF = new uint8_t [nHeight * VPitchY];
-            uint8_t *MaskFullUVF = new uint8_t [nHeightUV * VPitchUV];
 
             // make  vector vx and vy small masks
             // 1. ATTENTION: vectors are assumed SHORT (|vx|, |vy| < 127) !
             // 2. they will be zeroed if not
             // 3. added 128 to all values
             MakeVectorSmallMasks(&ballsB, nBlkX, nBlkY, VXSmallYB, nBlkX, VYSmallYB, nBlkX);
-            VectorSmallMaskYToHalfUV(VXSmallYB, nBlkX, nBlkY, VXSmallUVB, 2);
-            VectorSmallMaskYToHalfUV(VYSmallYB, nBlkX, nBlkY, VYSmallUVB, yRatioUV);
-
             MakeVectorSmallMasks(&ballsF, nBlkX, nBlkY, VXSmallYF, nBlkX, VYSmallYF, nBlkX);
-            VectorSmallMaskYToHalfUV(VXSmallYF, nBlkX, nBlkY, VXSmallUVF, 2);
-            VectorSmallMaskYToHalfUV(VYSmallYF, nBlkX, nBlkY, VYSmallUVF, yRatioUV);
 
             // analyse vectors field to detect occlusion
 
@@ -354,48 +351,69 @@ static const VSFrameRef *VS_CC mvflowblurGetFrame(int n, int activationReason, v
 
             d->upsizer->Resize(VXFullYB, VPitchY, VXSmallYB, nBlkX);
             d->upsizer->Resize(VYFullYB, VPitchY, VYSmallYB, nBlkX);
-            d->upsizerUV->Resize(VXFullUVB, VPitchUV, VXSmallUVB, nBlkX);
-            d->upsizerUV->Resize(VYFullUVB, VPitchUV, VYSmallUVB, nBlkX);
-
             d->upsizer->Resize(VXFullYF, VPitchY, VXSmallYF, nBlkX);
             d->upsizer->Resize(VYFullYF, VPitchY, VYSmallYF, nBlkX);
-            d->upsizerUV->Resize(VXFullUVF, VPitchUV, VXSmallUVF, nBlkX);
-            d->upsizerUV->Resize(VYFullUVF, VPitchUV, VYSmallUVF, nBlkX);
-
 
             FlowBlur(pDst[0], nDstPitches[0], pRef[0] + nOffsetY, nRefPitches[0],
                     VXFullYB, VXFullYF, VYFullYB, VYFullYF, VPitchY,
-                    nWidth, nHeight, blur256, prec, nPel);
-            FlowBlur(pDst[1], nDstPitches[1], pRef[1] + nOffsetUV, nRefPitches[1],
-                    VXFullUVB, VXFullUVF, VYFullUVB, VYFullUVF, VPitchUV,
-                    nWidthUV, nHeightUV, blur256, prec, nPel);
-            FlowBlur(pDst[2], nDstPitches[2], pRef[2] + nOffsetUV, nRefPitches[2],
-                    VXFullUVB, VXFullUVF, VYFullUVB, VYFullUVF, VPitchUV,
-                    nWidthUV, nHeightUV, blur256, prec, nPel);
+                    nWidth, nHeight, blur256, prec, nPel, bitsPerSample);
+
+            if (d->vi->format->colorFamily != cmGray) {
+                uint8_t *VXFullUVB = new uint8_t [nHeightUV * VPitchUV];
+                uint8_t *VYFullUVB = new uint8_t [nHeightUV * VPitchUV];
+
+                uint8_t *VXFullUVF = new uint8_t [nHeightUV * VPitchUV];
+                uint8_t *VYFullUVF = new uint8_t [nHeightUV * VPitchUV];
+
+                uint8_t *VXSmallUVB = new uint8_t [nBlkX * nBlkY];
+                uint8_t *VYSmallUVB = new uint8_t [nBlkX * nBlkY];
+
+                uint8_t *VXSmallUVF = new uint8_t [nBlkX * nBlkY];
+                uint8_t *VYSmallUVF = new uint8_t [nBlkX * nBlkY];
+
+                uint8_t *MaskFullUVB = new uint8_t [nHeightUV * VPitchUV];
+                uint8_t *MaskFullUVF = new uint8_t [nHeightUV * VPitchUV];
+
+                VectorSmallMaskYToHalfUV(VXSmallYB, nBlkX, nBlkY, VXSmallUVB, xRatioUV);
+                VectorSmallMaskYToHalfUV(VYSmallYB, nBlkX, nBlkY, VYSmallUVB, yRatioUV);
+
+                VectorSmallMaskYToHalfUV(VXSmallYF, nBlkX, nBlkY, VXSmallUVF, xRatioUV);
+                VectorSmallMaskYToHalfUV(VYSmallYF, nBlkX, nBlkY, VYSmallUVF, yRatioUV);
+
+                d->upsizerUV->Resize(VXFullUVB, VPitchUV, VXSmallUVB, nBlkX);
+                d->upsizerUV->Resize(VYFullUVB, VPitchUV, VYSmallUVB, nBlkX);
+
+                d->upsizerUV->Resize(VXFullUVF, VPitchUV, VXSmallUVF, nBlkX);
+                d->upsizerUV->Resize(VYFullUVF, VPitchUV, VYSmallUVF, nBlkX);
+
+
+                FlowBlur(pDst[1], nDstPitches[1], pRef[1] + nOffsetUV, nRefPitches[1],
+                        VXFullUVB, VXFullUVF, VYFullUVB, VYFullUVF, VPitchUV,
+                        nWidthUV, nHeightUV, blur256, prec, nPel, bitsPerSample);
+                FlowBlur(pDst[2], nDstPitches[2], pRef[2] + nOffsetUV, nRefPitches[2],
+                        VXFullUVB, VXFullUVF, VYFullUVB, VYFullUVF, VPitchUV,
+                        nWidthUV, nHeightUV, blur256, prec, nPel, bitsPerSample);
+
+                delete [] VXFullUVB;
+                delete [] VYFullUVB;
+                delete [] VXSmallUVB;
+                delete [] VYSmallUVB;
+                delete [] VXFullUVF;
+                delete [] VYFullUVF;
+                delete [] VXSmallUVF;
+                delete [] VYSmallUVF;
+                delete [] MaskFullUVB;
+                delete [] MaskFullUVF;
+            }
 
             delete [] VXFullYB;
-            delete [] VXFullUVB;
             delete [] VYFullYB;
-            delete [] VYFullUVB;
             delete [] VXSmallYB;
             delete [] VYSmallYB;
-            delete [] VXSmallUVB;
-            delete [] VYSmallUVB;
             delete [] VXFullYF;
-            delete [] VXFullUVF;
             delete [] VYFullYF;
-            delete [] VYFullUVF;
             delete [] VXSmallYF;
             delete [] VYSmallYF;
-            delete [] VXSmallUVF;
-            delete [] VYSmallUVF;
-
-            delete [] MaskSmallB;
-            delete [] MaskFullYB;
-            delete [] MaskFullUVB;
-            delete [] MaskSmallF;
-            delete [] MaskFullYF;
-            delete [] MaskFullUVF;
 
             vsapi->freeFrame(ref);
 
@@ -420,7 +438,8 @@ static void VS_CC mvflowblurFree(void *instanceData, VSCore *core, const VSAPI *
     delete d->bleh;
 
     delete d->upsizer;
-    delete d->upsizerUV;
+    if (d->vi->format->colorFamily != cmGray)
+        delete d->upsizerUV;
 
     vsapi->freeNode(d->finest);
     vsapi->freeNode(d->super);
@@ -501,7 +520,7 @@ static void VS_CC mvflowblurCreate(const VSMap *in, VSMap *out, void *userData, 
     try {
         d.mvClipB = new MVClipDicks(d.mvbw, d.thscd1, d.thscd2, vsapi);
     } catch (MVException &e) {
-        vsapi->setError(out, e.what());
+        vsapi->setError(out, std::string("FlowBlur: ").append(e.what()).c_str());
         vsapi->freeNode(d.super);
         vsapi->freeNode(d.mvbw);
         vsapi->freeNode(d.mvfw);
@@ -511,7 +530,7 @@ static void VS_CC mvflowblurCreate(const VSMap *in, VSMap *out, void *userData, 
     try {
         d.mvClipF = new MVClipDicks(d.mvfw, d.thscd1, d.thscd2, vsapi);
     } catch (MVException &e) {
-        vsapi->setError(out, e.what());
+        vsapi->setError(out, std::string("FlowBlur: ").append(e.what()).c_str());
         vsapi->freeNode(d.super);
         vsapi->freeNode(d.mvfw);
         vsapi->freeNode(d.mvbw);
@@ -547,7 +566,7 @@ static void VS_CC mvflowblurCreate(const VSMap *in, VSMap *out, void *userData, 
     try {
         d.bleh = new MVFilter(d.mvfw, "FlowBlur", vsapi);
     } catch (MVException &e) {
-        vsapi->setError(out, e.what());
+        vsapi->setError(out, std::string("FlowBlur: ").append(e.what()).c_str());
         vsapi->freeNode(d.super);
         vsapi->freeNode(d.mvfw);
         vsapi->freeNode(d.mvbw);
@@ -562,7 +581,7 @@ static void VS_CC mvflowblurCreate(const VSMap *in, VSMap *out, void *userData, 
         d.bleh->CheckSimilarity(d.mvClipF, "mvfw");
         d.bleh->CheckSimilarity(d.mvClipB, "mvbw");
     } catch (MVException &e) {
-        vsapi->setError(out, e.what());
+        vsapi->setError(out, std::string("FlowBlur: ").append(e.what()).c_str());
         delete d.bleh;
         delete d.mvClipB;
         delete d.mvClipF;
@@ -640,9 +659,8 @@ static void VS_CC mvflowblurCreate(const VSMap *in, VSMap *out, void *userData, 
         return;
     }
 
-    int id = d.vi->format->id;
-    if (!isConstantFormat(d.vi) || (id != pfYUV420P8 && id != pfYUV422P8)) {
-        vsapi->setError(out, "FlowBlur: input clip must be YUV420P8 or YUV422P8, with constant dimensions.");
+    if (!isConstantFormat(d.vi) || d.vi->format->bitsPerSample > 16 || d.vi->format->sampleType != stInteger || d.vi->format->subSamplingW > 1 || d.vi->format->subSamplingH > 1 || (d.vi->format->colorFamily != cmYUV && d.vi->format->colorFamily != cmGray)) {
+        vsapi->setError(out, "FlowBlur: input clip must be GRAY, 420, 422, V440, or 444, up to 16 bits, with constant dimensions.");
         vsapi->freeNode(d.super);
         vsapi->freeNode(d.finest);
         vsapi->freeNode(d.mvfw);
@@ -654,10 +672,13 @@ static void VS_CC mvflowblurCreate(const VSMap *in, VSMap *out, void *userData, 
         return;
     }
 
+    if (d.vi->format->bitsPerSample > 8)
+        d.isse = 0;
+
 
     d.nHeightUV = d.bleh->nHeight / d.bleh->yRatioUV;
-    d.nWidthUV = d.bleh->nWidth / 2; // for YV12
-    d.nHPaddingUV = d.bleh->nHPadding / 2;
+    d.nWidthUV = d.bleh->nWidth / d.bleh->xRatioUV;
+    d.nHPaddingUV = d.bleh->nHPadding / d.bleh->xRatioUV;
     //d.nVPaddingUV = d.bleh->nHPadding / d.bleh->yRatioUV; // original looks wrong
     d.nVPaddingUV = d.bleh->nVPadding / d.bleh->yRatioUV;
 
@@ -665,7 +686,8 @@ static void VS_CC mvflowblurCreate(const VSMap *in, VSMap *out, void *userData, 
     d.VPitchUV= d.nWidthUV;
 
     d.upsizer = new SimpleResize(d.bleh->nWidth, d.bleh->nHeight, d.bleh->nBlkX, d.bleh->nBlkY);
-    d.upsizerUV = new SimpleResize(d.nWidthUV, d.nHeightUV, d.bleh->nBlkX, d.bleh->nBlkY);
+    if (d.vi->format->colorFamily != cmGray)
+        d.upsizerUV = new SimpleResize(d.nWidthUV, d.nHeightUV, d.bleh->nBlkX, d.bleh->nBlkY);
 
 
     data = (MVFlowBlurData *)malloc(sizeof(d));
@@ -677,14 +699,14 @@ static void VS_CC mvflowblurCreate(const VSMap *in, VSMap *out, void *userData, 
 
 void mvflowblurRegister(VSRegisterFunction registerFunc, VSPlugin *plugin) {
     registerFunc("FlowBlur",
-                 "clip:clip;"
-                 "super:clip;"
-                 "mvbw:clip;"
-                 "mvfw:clip;"
-                 "blur:float:opt;"
-                 "prec:int:opt;"
-                 "thscd1:int:opt;"
-                 "thscd2:int:opt;"
-                 "isse:int:opt;"
-                 , mvflowblurCreate, 0, plugin);
+            "clip:clip;"
+            "super:clip;"
+            "mvbw:clip;"
+            "mvfw:clip;"
+            "blur:float:opt;"
+            "prec:int:opt;"
+            "thscd1:int:opt;"
+            "thscd2:int:opt;"
+            "isse:int:opt;"
+            , mvflowblurCreate, 0, plugin);
 }

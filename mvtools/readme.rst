@@ -16,7 +16,11 @@ Differences
 
     * Parameters are all lowercase now.
 
-    * YUY2 is not supported, only YV12 and YV16 (named YUV420P8 and YUV422P8 in VapourSynth).
+    * YUY2 is not supported.
+
+    * Grayscale, 4:2:0, 4:2:2, 4:4:0, and 4:4:4 are supported.
+
+    * Up to 16 bits per sample are supported.
 
     * The audio is definitely not killed.
 
@@ -26,8 +30,6 @@ Differences
     * No "temporal" parameter, as it's sort of incompatible with multithreading.
 
     * No "outfile" parameter.
-
-    * No "dct" parameter, because fftw3 likes to crash, and the special code for 8x8 blocks is a pile of inline and standalone asm that may take a while to decipher.
 
     * No "sadx264" parameter. If isse is True, the best functions imported from x264 will be selected automatically. Otherwise, only C functions will be used.
 
@@ -46,6 +48,11 @@ Differences
 * Mask:
     * No "isse" parameter, because there is no asm in Mask anymore.
 
+* SCDetection:
+    * No "ysc" parameter. The input frames are returned unchanged, with the ``_SceneChangePrev`` or ``_SceneChangeNext`` property attached.
+
+    * No "isse" parameter. It wasn't used.
+
 
 Usage
 =====
@@ -53,9 +60,9 @@ Usage
 
     mv.Super(clip clip[, int hpad=8, int vpad=8, int pel=2, int levels=0, bint chroma=True, int sharp=2, int rfilter=2, clip pelclip=None, bint isse=True])
 
-    mv.Analyse(clip super[, int blksize=8, int blksizev=blksize, int levels=0, int search=4, int searchparam=2, int pelsearch=0, bint isb=False, int lambda, bint chroma=True, int delta=1, bint truemotion=True, int lsad, int plevel, int global, int pnew, int pzero=pnew, int pglobal=0, int overlap=0, int overlapv=overlap, bint divide=False, int badsad=10000, int badrange=24, bint isse=True, bint meander=True, bint trymany=False, bint fields=False, bint tff, int search_coarse=3])
+    mv.Analyse(clip super[, int blksize=8, int blksizev=blksize, int levels=0, int search=4, int searchparam=2, int pelsearch=0, bint isb=False, int lambda, bint chroma=True, int delta=1, bint truemotion=True, int lsad, int plevel, int global, int pnew, int pzero=pnew, int pglobal=0, int overlap=0, int overlapv=overlap, bint divide=False, int badsad=10000, int badrange=24, bint isse=True, bint meander=True, bint trymany=False, bint fields=False, bint tff, int search_coarse=3, int dct=0])
 
-    mv.Recalculate(clip super, clip vectors[, int blksize=8, int blksizev=blksize, int search=4, int searchparam=2, int lambda, bint chroma=True, bint truemotion=True, int pnew, int overlap=0, int overlapv=overlap, bint divide=False, bint isse=True, bint meander=True, bint fields=False, bint tff])
+    mv.Recalculate(clip super, clip vectors[, int blksize=8, int blksizev=blksize, int search=4, int searchparam=2, int lambda, bint chroma=True, bint truemotion=True, int pnew, int overlap=0, int overlapv=overlap, bint divide=False, bint isse=True, bint meander=True, bint fields=False, bint tff, int dct=0])
 
     mv.Compensate(clip clip, clip super, clip vectors[, int scbehavior=1, int thsad=10000, bint fields=False, int thscd1=400, int thscd2=130, bint isse=True, bint tff])
 
@@ -75,6 +82,10 @@ Usage
 
     mv.FlowFPS(clip clip, clip super, clip mvbw, clip mvfw[, int num=25, int den=1, int mask=2, float ml=100.0, bint blend=True, int thscd1=400, int thscd2=130, bint isse=True])
 
+    mv.BlockFPS(clip clip, clip super, clip mvbw, clip mvfw[, int num=25, int den=1, int mode=0, int thres, bint blend=True, int thscd1=400, int thscd2=130, bint isse=True])
+
+    mv.SCDetection(clip clip, clip vectors[, int thscd1=400, int thscd2=130])
+
 
 If *fields* is True, it is assumed that the clip named *clip* first went through std.SeparateFields.
 
@@ -84,15 +95,13 @@ For information about the other parameters, consult the Avisynth plugin's docume
 Things that may happen soon™
 ============================
 
-  * Support for any subsampling
-
-  * Support for up to 16 bits per sample
-
   * Possibly lower memory usage
 
 
 Compilation
 ===========
+
+FFTW3 configured for 32 bit floats is required ("fftw3f").
 
 ::
 
