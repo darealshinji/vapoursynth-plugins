@@ -81,7 +81,15 @@ logoCreate(const VSMap *in, VSMap *out, void *userData, VSCore *core, const VSAP
 	PARAM_STR(logofile, NULL);
 	PARAM_STR(logoname, NULL);
 
-	return new delogo(vsapi, vi, node, logofile, logoname, pos_x, pos_y, depth, yc_y, yc_u, yc_v, start, end, fadein, fadeout, cutoff, mode);
+	delogo *data;
+
+	try {
+		data = new delogo(vsapi, vi, node, logofile, logoname, pos_x, pos_y, depth, yc_y, yc_u, yc_v, start, end, fadein, fadeout, cutoff, mode);
+	} catch (const char *MSG) {
+		FAIL_IF_ERROR(1, MSG);
+	}
+
+	return data;
 }
 static void VS_CC
 eraselogoCreate(const VSMap *in, VSMap *out, void *userData, VSCore *core, const VSAPI *vsapi) {

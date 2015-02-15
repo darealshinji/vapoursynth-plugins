@@ -23,6 +23,8 @@
 #ifndef ___LOGO_H
 #define ___LOGO_H
 
+#include <stdint.h> // for uint32_t etc.
+
 /* Logo Data Magic Text */
 #define LOGO_FILE_HEADER_STR "<logo data file ver0.1>\0\0\0\0\0"
 #define LOGO_FILE_HEADER_STR_SIZE  28
@@ -34,7 +36,7 @@
 typedef struct {
 	char str[LOGO_FILE_HEADER_STR_SIZE];
 	union{
-		unsigned long l;
+		uint32_t      l;
 		unsigned char c[4];
 	} logonum;
 } LOGO_FILE_HEADER;
@@ -53,10 +55,10 @@ typedef struct {
 *-------------------------------------------------------------------*/
 typedef struct {
 	char     name[LOGO_MAX_NAME]; 	/* Name                   */
-	short    x, y;      			/* Position               */
-	short    h, w;      			/* Logo width height      */
-	short    fi, fo;    			/* Default FadeIn/Out     */
-	short    st, ed;    			/* Default Start/End      */
+	int16_t  x, y;      			/* Position               */
+	int16_t  h, w;      			/* Logo width height      */
+	int16_t  fi, fo;    			/* Default FadeIn/Out     */
+	int16_t  st, ed;    			/* Default Start/End      */
 } LOGO_HEADER;
 
 /*--------------------------------------------------------------------
@@ -64,12 +66,12 @@ typedef struct {
 *		Storing color information of all pixels
 *-------------------------------------------------------------------*/
 typedef struct {
-	short dp_y;		/* Depth of Y         */
-	short y;		/* Y         0 ~ 4096 */
-	short dp_cb;	/* Depth of Cb        */
-	short cb;		/* Cb    -2048 ~ 2048 */
-	short dp_cr;	/* Depth of Cr        */
-	short cr;		/* Cr    -2048 ~ 2048 */
+	int16_t dp_y;		/* Depth of Y         */
+	int16_t y;		/* Y         0 ~ 4096 */
+	int16_t dp_cb;	/* Depth of Cb        */
+	int16_t cb;		/* Cb    -2048 ~ 2048 */
+	int16_t dp_cr;	/* Depth of Cr        */
+	int16_t cr;		/* Cr    -2048 ~ 2048 */
 } LOGO_PIXEL;
 
 /*--------------------------------------------------------------------

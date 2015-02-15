@@ -28,7 +28,7 @@ zlib1g-dev
 [damb r3](https://github.com/dubhater/vapoursynth-damb)<br>
 [dctfilter r2](https://bitbucket.org/mystery_keeper/vapoursynth-dctfilter)<br>
 [deblock r3](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Deblock)<br>
-[delogo 0.2+git20141014](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-DeLogo)<br>
+[delogo 0.2+git20150210](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-DeLogo)<br>
 [eedi2 r4](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-EEDI2)<br>
 [fieldhint 1.0](https://github.com/dubhater/vapoursynth-fieldhint)<br>
 [fillborders 1.0](https://github.com/dubhater/vapoursynth-fillborders)<br>
