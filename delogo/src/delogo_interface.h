@@ -45,7 +45,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110 - 1301, USA
 
 #define FAIL_IF_ERROR(cond, ...) {\
     if (cond) {\
-        snprintf(msg, 200, __VA_ARGS__);\
+        snprintf(msg, 200, "%s", __VA_ARGS__);\
 		vsapi->setError(out, msg_buff); \
         return nullptr;\
     }\
