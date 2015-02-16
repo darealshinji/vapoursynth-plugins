@@ -33,6 +33,7 @@ SUBDIRS = \
 	scrawl \
 	scxvid \
 	ssiq \
+	tc2cfr \
 	tcomb \
 	tdeintmod \
 	templinearapproximate \
