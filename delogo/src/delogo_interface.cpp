@@ -1,5 +1,5 @@
 /*
-VS_DELOGO Copyright(C) 2003 MakKi, 2014 msg7086
+VS_DELOGO Copyright(C) 2003 MakKi, 2014-2015 msg7086
 
 This program is free software; you can redistribute it and / or
 modify it under the terms of the GNU General Public License
@@ -85,8 +85,8 @@ logoCreate(const VSMap *in, VSMap *out, void *userData, VSCore *core, const VSAP
 
 	try {
 		data = new delogo(vsapi, vi, node, logofile, logoname, pos_x, pos_y, depth, yc_y, yc_u, yc_v, start, end, fadein, fadeout, cutoff, mode);
-	} catch (const char *MSG) {
-		FAIL_IF_ERROR(1, MSG);
+	} catch (const char * message) {
+		FAIL_IF_ERROR(1, message);
 	}
 
 	return data;

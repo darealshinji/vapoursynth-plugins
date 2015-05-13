@@ -1,5 +1,5 @@
 /*
-VS_DELOGO Copyright(C) 2003 MakKi, 2014 msg7086
+VS_DELOGO Copyright(C) 2003 MakKi, 2014-2015 msg7086
 
 This program is free software; you can redistribute it and / or
 modify it under the terms of the GNU General Public License
@@ -24,63 +24,106 @@ static void ConvertUV(LOCAL_LOGO_PIXEL * dst, LOGO_PIXEL * src, const LOGO_HEADE
                       int(* DP)(LOGO_PIXEL *), int(* Cx)(LOGO_PIXEL *)) {
 	const int srcw = m_lgh.w - (oddx ? 1 : 0) - (oddw ? 1 : 0);
 	const int srch = m_lgh.h - (oddy ? 1 : 0) - (oddh ? 1 : 0);
-	const int srcw_r = (srcw - (oddx ? 1 : 0) - (oddw ? 1 : 0)) / 2 + (oddw ? 1 : 0); // one more if oddw=t
-	const int srch_r = (srch - (oddy ? 1 : 0) - (oddh ? 1 : 0)) / 2;
-	LOGO_PIXEL * s1 = src;
+	const int srcw_r = (srcw - (oddx ? 1 : 0) - (oddw ? 1 : 0)) >> 1;
+	const int srch_r = (srch - (oddy ? 1 : 0) - (oddh ? 1 : 0)) >> 1;
+	int i, j, dp;
+	LOGO_PIXEL * s00 = src;
+	LOGO_PIXEL * s01 = s00 + 1;
 
 	if (oddy) {
 		if (oddx) {
-			dst->dp = 0;
+			dst->dp = (DP(s00) + 2) >> 2;
+			dst->c = Cx(s00);
 			++dst;
-			++s1;
+			++s00;
+			++s01;
 		}
-		for (int j = srcw_r; j; --j) {
-			dst->dp = (DP(s1) + 1) / 2;
-			dst->c = Cx(s1);
-			++dst;
-			s1 += 2;
-		}
-		if (oddw) { // Move back if move too much
-			--s1;
-		}
-	}
-	LOGO_PIXEL * s2 = s1 + srcw;
-	for (int i = srch_r; i; --i) {
-		if (oddx) {
-			dst->dp = 0;
-			++dst;
-			++s1;
-			++s2;
-		}
-		for (int j = srcw_r; j; --j) {
-			int dp = DP(s1) + DP(s2);
-			dst->dp = (dp + 1) / 2;
+		for (j = srcw_r; j; --j) {
+			dp = DP(s00) + DP(s01);
+			dst->dp = (dp + 2) >> 2;
 			if (dp) {
-				dst->c = (Cx(s1) * DP(s1)
-					+ Cx(s2) * DP(s2) + (dp + 1) / 2) / dp;
+				dst->c = (Cx(s00) * DP(s00) + Cx(s01) * DP(s01) + ((dp + 1) >> 1)) / dp;
 			}
 			++dst;
-			s1 += 2;
-			s2 += 2;
+			s00 += 2;
+			s01 += 2;
 		}
 		if (oddw) {
-			--s1;
-			--s2;
+			dst->dp = (DP(s00) + 2) >> 2;
+			dst->c = Cx(s00);
+			++dst;
+			++s00;
+			++s01;
 		}
-		s1 += srcw;
-		s2 += srcw;
+	}
+	LOGO_PIXEL * s10 = s00 + srcw;
+	LOGO_PIXEL * s11 = s01 + srcw;
+	for (i = srch_r; i; --i) {
+		if (oddx) {
+			dp = DP(s00) + DP(s10);
+			dst->dp = (dp + 2) >> 2;
+			if (dp) {
+				dst->c = (Cx(s00) * DP(s00) + Cx(s10) * DP(s10) + ((dp + 1) >> 1)) / dp;
+			}
+			++dst;
+			++s00;
+			++s01;
+			++s10;
+			++s11;
+		}
+		for (j = srcw_r; j; --j) {
+			dp = DP(s00) + DP(s01) + DP(s10) + DP(s11);
+			dst->dp = (dp + 2) >> 2;
+			if (dp) {
+				dst->c = (Cx(s00) * DP(s00) + Cx(s01) * DP(s01) + Cx(s10) * DP(s10) + Cx(s11) * DP(s11) + ((dp + 1) >> 1)) / dp;
+			}
+			++dst;
+			s00 += 2;
+			s01 += 2;
+			s10 += 2;
+			s11 += 2;
+		}
+		if (oddw) {
+			dp = DP(s00) + DP(s10);
+			dst->dp = (dp + 2) >> 2;
+			if (dp) {
+				dst->c = (Cx(s00) * DP(s00) + Cx(s10) * DP(s10) + ((dp + 1) >> 1)) / dp;
+			}
+			++dst;
+			++s00;
+			++s01;
+			++s10;
+			++s11;
+		}
+		s00 += srcw;
+		s01 += srcw;
+		s10 += srcw;
+		s11 += srcw;
 	}
 	if (oddh) {
 		if (oddx) {
-			dst->dp = 0;
+			dst->dp = (DP(s00) + 2) >> 2;
+			dst->c = Cx(s00);
 			++dst;
-			++s1;
+			++s00;
+			++s01;
 		}
-		for (int j = srcw_r; j; --j) {
-			dst->dp = (DP(s1) + 1) / 2;
-			dst->c = Cx(s1);
+		for (j = srcw_r; j; --j) {
+			dp = DP(s00) + DP(s01);
+			dst->dp = (dp + 2) >> 2;
+			if (dp) {
+				dst->c = (Cx(s00) * DP(s00) + Cx(s01) * DP(s01) + ((dp + 1) >> 1)) / dp;
+			}
 			++dst;
-			s1 += 2;
+			s00 += 2;
+			s01 += 2;
+		}
+		if (oddw) {
+			dst->dp = (DP(s00) + 2) >> 2;
+			dst->c = Cx(s00);
+			++dst;
+			++s00;
+			++s01;
 		}
 	}
 }

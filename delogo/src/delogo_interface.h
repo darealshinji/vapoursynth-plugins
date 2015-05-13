@@ -1,5 +1,5 @@
 /*
-VS_DELOGO Copyright(C) 2003 MakKi, 2014 msg7086
+VS_DELOGO Copyright(C) 2003 MakKi, 2014-2015 msg7086
 
 This program is free software; you can redistribute it and / or
 modify it under the terms of the GNU General Public License
@@ -25,7 +25,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110 - 1301, USA
 #define BYTE unsigned char
 
 #ifdef _MSC_VER
-#define snprintf(a,b,c) _snprintf_s(a,b,b,c)
+#define snprintf(a,b,c,...) _snprintf_s(a,b,b,c,__VA_ARGS__)
 #define stricmp _stricmp
 #define TS_ALIGN __declspec(align(16))
 #define TS_FUNC_ALIGN
@@ -38,7 +38,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110 - 1301, USA
 #define PARAM_INT(name, def) int name = int64ToIntS(vsapi->propGetInt(in, #name, 0, &err)); if (err) { name = def; }
 #define PARAM_STR(name, def) const char* name = vsapi->propGetData(in, #name, 0, &err); if (err) { name = def; }
 
-#define PLUGIN_VERSION "005a." "0.2"
+#define PLUGIN_VERSION "005a." "0.3"
 
 #define LOGO_FADE_MAX 256
 #define LOGO_DEFAULT_DEPTH 128
