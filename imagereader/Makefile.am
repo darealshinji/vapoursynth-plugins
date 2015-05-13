@@ -5,13 +5,29 @@ AUTORECONF_1 = autoreconf -iv
 
 turbodir = libjpeg-turbo
 
-all-local: clean-local
-	test -f "$(turbodir)/configure" || $(AUTORECONF) $(turbodir)
-	cd $(turbodir) && \
-	./configure --enable-static --disable-shared --with-pic --with-jpeg8
-	$(MAKE) -C $(turbodir)
-	$(MAKE) -C src
+all-local: clean-local src/.libs
 	cp -r src/.libs .
+
+src/.libs: $(turbodir)/libturbojpeg.la
+	$(MAKE) -C src
+
+$(turbodir)/libturbojpeg.la: $(turbodir)/libjpeg.la
+	$(MAKE) -C $(turbodir) libturbojpeg.la
+
+$(turbodir)/libjpeg.la: $(turbodir)/simd/libsimd.la
+	$(MAKE) -C $(turbodir) libjpeg.la
+
+$(turbodir)/simd/libsimd.la: $(turbodir)/Makefile
+	$(MAKE) -C $(turbodir)/simd
+
+$(turbodir)/Makefile: $(turbodir)/configure
+	cd $(turbodir) && \
+	CFLAGS="$(AM_CFLAGS) $(CFLAGS) -Wno-attributes -Wno-unused-but-set-variable" \
+	CPPFLAGS="$(AM_CPPFLAGS) $(CPPFLAGS)" \
+	./configure --enable-static --disable-shared --with-pic --with-jpeg8
+
+$(turbodir)/configure:
+	$(AUTORECONF) $(turbodir)
 
 clean-local:
 	[ ! -f "$(turbodir)/Makefile" ] || $(MAKE) -C $(turbodir) clean
