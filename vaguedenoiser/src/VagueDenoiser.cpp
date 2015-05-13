@@ -28,13 +28,10 @@
 */
 
 #include <algorithm>
-#include <vector>
 #include <vapoursynth/VapourSynth.h>
 #include <vapoursynth/VSHelper.h>
 
-#define WIDTHPAD 4 // pad of the width (fixed) for better cache
 #define NPAD 10
-#define OFFSET 6 //better alignment? 10+6=16 -> cacheline
 
 struct VagueDenoiserData {
     VSNodeRef * node;
@@ -42,23 +39,124 @@ struct VagueDenoiserData {
     float threshold, percent;
     int method, nsteps;
     bool process[3];
-    std::vector<float> analysisLow, analysisHigh, synthesisLow, synthesisHigh;
+    float * analysisLow, * analysisHigh, * synthesisLow, * synthesisHigh;
+    void (*byteToFloat)(const uint8_t * srcp, float * block, const int width, const int height, const int stride, const int bitsPerSample);
+    void (*floatToByte)(const float * block, uint8_t * dstp, const int width, const int height, const int stride, const int bitsPerSample);
+    void (*thresholding)(float * block, const int width, const int height, const int stride, const VagueDenoiserData * d);
 };
 
-static inline void copy(const float * VS_RESTRICT p1, float * VS_RESTRICT p2, const int length) {
+static void byteToFloat_8(const uint8_t * srcp, float * VS_RESTRICT block, const int width, const int height, const int stride, const int bitsPerSample) {
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++)
+            block[x] = srcp[x];
+        srcp += stride;
+        block += stride;
+    }
+}
+
+static void byteToFloat_16(const uint8_t * _srcp, float * VS_RESTRICT block, const int width, const int height, const int stride, const int bitsPerSample) {
+    const uint16_t * srcp = reinterpret_cast<const uint16_t *>(_srcp);
+    const float divisor = 1.f / (1 << (bitsPerSample - 8));
+
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++)
+            block[x] = srcp[x] * divisor;
+        srcp += stride;
+        block += stride;
+    }
+}
+
+static void floatToByte_8(const float * block, uint8_t * VS_RESTRICT dstp, const int width, const int height, const int stride, const int bitsPerSample) {
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++)
+            dstp[x] = std::min(std::max(static_cast<int>(block[x] + 0.5f), 0), 255);
+        block += stride;
+        dstp += stride;
+    }
+}
+
+static void floatToByte_16(const float * block, uint8_t * VS_RESTRICT _dstp, const int width, const int height, const int stride, const int bitsPerSample) {
+    uint16_t * VS_RESTRICT dstp = reinterpret_cast<uint16_t *>(_dstp);
+    const float multiplier = static_cast<float>(1 << (bitsPerSample - 8));
+    const int peak = (1 << bitsPerSample) - 1;
+
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++)
+            dstp[x] = std::min(std::max(static_cast<int>(block[x] * multiplier + 0.5f), 0), peak);
+        block += stride;
+        dstp += stride;
+    }
+}
+
+static void hardThresholding(float * VS_RESTRICT block, const int width, const int height, const int stride, const VagueDenoiserData * d) {
+    const float frac = 1.f - d->percent * 0.01f;
+
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            if (std::fabs(block[x]) <= d->threshold)
+                block[x] *= frac;
+        }
+        block += stride;
+    }
+}
+
+static void softThresholding(float * VS_RESTRICT block, const int width, const int height, const int stride, const VagueDenoiserData * d) {
+    const float frac = 1.f - d->percent * 0.01f;
+    const float shift = d->threshold * 0.01f * d->percent;
+
+    int w = width;
+    int h = height;
+    for (int l = 0; l < d->nsteps; l++) {
+        w = (w + 1) >> 1;
+        h = (h + 1) >> 1;
+    }
+
+    for (int y = 0; y < height; y++) {
+        const int x0 = (y < h) ? w : 0;
+        for (int x = x0; x < width; x++) {
+            const float temp = std::fabs(block[x]);
+            if (temp <= d->threshold)
+                block[x] *= frac;
+            else
+                block[x] = (block[x] < 0.f ? -1.f : (block[x] > 0.f ? 1.f : 0.f)) * (temp - shift);
+        }
+        block += stride;
+    }
+}
+
+static void qianThresholding(float * VS_RESTRICT block, const int width, const int height, const int stride, const VagueDenoiserData * d) {
+    const float percent01 = d->percent * 0.01f;
+    const float tr2 = d->threshold * d->threshold * percent01;
+    const float frac = 1.f - percent01;
+
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            const float temp = std::fabs(block[x]);
+            if (temp <= d->threshold) {
+                block[x] *= frac;
+            } else {
+                const float tp2 = temp * temp;
+                block[x] *= (tp2 - tr2) / tp2;
+            }
+        }
+        block += stride;
+    }
+}
+
+static inline void copy(const float * p1, float * VS_RESTRICT p2, const int length) {
     memcpy(p2, p1, length * sizeof(float));
 }
 
-static inline void copy(const float * VS_RESTRICT p1, const int stride1, float * VS_RESTRICT p2, const int length) {
+static inline void copy(const float * p1, const int stride1, float * VS_RESTRICT p2, const int length) {
     for (int i = 0; i < length; i++) {
-        *p2++ = *p1;
+        p2[i] = *p1;
         p1 += stride1;
     }
 }
 
-static inline void copy(const float * VS_RESTRICT p1, float * VS_RESTRICT p2, const int stride2, const int length) {
+static inline void copy(const float * p1, float * VS_RESTRICT p2, const int stride2, const int length) {
     for (int i = 0; i < length; i++) {
-        *p2 = *p1++;
+        *p2 = p1[i];
         p2 += stride2;
     }
 }
@@ -69,9 +167,6 @@ static inline void copy(const float * VS_RESTRICT p1, float * VS_RESTRICT p2, co
 // extension at left bdry is ... 3 2 1 0 | 0 1 2 3 ...
 // same for right boundary
 // if rightExt=1 then ... 3 2 1 0 | 1 2 3
-//
-// symmetry = 1  -> extend symmetrically
-// symmetry = -1 -> extend antisymmetrically
 static void symmetricExtension(float * VS_RESTRICT output, const int size, const int leftExt, const int rightExt) {
     int first = NPAD;
     int last = NPAD - 1 + size;
@@ -123,7 +218,7 @@ static void transformStep(float * VS_RESTRICT input, float * VS_RESTRICT output,
     }
 }
 
-static void invertStep(const float * VS_RESTRICT input, float * VS_RESTRICT output, const int size, float * VS_RESTRICT temp, const VagueDenoiserData * data) {
+static void invertStep(const float * input, float * VS_RESTRICT output, float * VS_RESTRICT temp, const int size, const VagueDenoiserData * data) {
     const int lowSize = (size + 1) >> 1;
     const int highSize = size >> 1;
 
@@ -172,60 +267,38 @@ static void invertStep(const float * VS_RESTRICT input, float * VS_RESTRICT outp
     }
 }
 
-template<typename T>
-static void filterBlock(const VSFrameRef * src, VSFrameRef * dst, float * VS_RESTRICT block, float * VS_RESTRICT tempIn, float * VS_RESTRICT tempOut, float * VS_RESTRICT temp2,
-                        int * hLowSize, int * hHighSize, int * vLowSize, int * vHighSize, const VagueDenoiserData * d, const VSAPI * vsapi) {
-    const float divisor = 1.f / (1 << (d->vi->format->bitsPerSample - 8));
-    const float multiplier = static_cast<float>(1 << (d->vi->format->bitsPerSample - 8));
-    const int peak = (1 << d->vi->format->bitsPerSample) - 1;
+static void filterBlock(const VSFrameRef * src, VSFrameRef * dst, float * block, float * VS_RESTRICT tempIn, float * VS_RESTRICT tempOut, float * VS_RESTRICT temp2,
+                        int * VS_RESTRICT hLowSize, int * VS_RESTRICT hHighSize, int * VS_RESTRICT vLowSize, int * VS_RESTRICT vHighSize,
+                        const VagueDenoiserData * d, const VSAPI * vsapi) {
     for (int plane = 0; plane < d->vi->format->numPlanes; plane++) {
         if (d->process[plane]) {
             const int width = vsapi->getFrameWidth(src, plane);
             const int height = vsapi->getFrameHeight(src, plane);
             const int stride = vsapi->getStride(src, plane) / d->vi->format->bytesPerSample;
-            const T * srcp = reinterpret_cast<const T *>(vsapi->getReadPtr(src, plane));
-            T * dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
-            float * blockp = block;
+            const uint8_t * srcp = vsapi->getReadPtr(src, plane);
+            uint8_t * dstp = vsapi->getWritePtr(dst, plane);
 
-            const int blockWidth = width % 64 ? width : width + WIDTHPAD; // add pad to width to prevent cache conflicts for width=mod64
-
-            for (int i = 0; i < height; i++) {
-                for (int j = 0; j < width; j++)
-                    blockp[j] = srcp[j] * divisor;
-                srcp += stride;
-                blockp += blockWidth;
-            }
-
-            blockp = block;
-            if (blockWidth > width) { // mirror rigthmost WIDTHPAD columns to prevent oscillations near edge
-                for (int i = 0; i < height; i++) {
-                    blockp[blockWidth - WIDTHPAD] = blockp[blockWidth - WIDTHPAD - 1];
-                    blockp[blockWidth - 3] = blockp[blockWidth - WIDTHPAD - 2];
-                    blockp[blockWidth - 2] = blockp[blockWidth - WIDTHPAD - 3];
-                    blockp[blockWidth - 1] = blockp[blockWidth - WIDTHPAD - WIDTHPAD];
-                    blockp += blockWidth;
-                }
-            }
+            d->byteToFloat(srcp, block, width, height, stride, d->vi->format->bitsPerSample);
 
             int nstepsTransform = d->nsteps;
-            int hLowSize0 = blockWidth;
+            int hLowSize0 = width;
             int vLowSize0 = height;
             while (nstepsTransform--) {
                 int lowSize = (hLowSize0 + 1) >> 1;
                 float * inputp = block;
                 for (int j = 0; j < vLowSize0; j++) {
-                    copy(inputp, tempIn + NPAD + OFFSET, hLowSize0);
-                    transformStep(tempIn + OFFSET, tempOut, hLowSize0, lowSize, d);
+                    copy(inputp, tempIn + NPAD, hLowSize0);
+                    transformStep(tempIn, tempOut, hLowSize0, lowSize, d);
                     copy(tempOut + NPAD, inputp, hLowSize0);
-                    inputp += blockWidth;
+                    inputp += stride;
                 }
 
                 lowSize = (vLowSize0 + 1) >> 1;
                 inputp = block;
                 for (int j = 0; j < hLowSize0; j++) {
-                    copy(inputp, blockWidth, tempIn + NPAD + OFFSET, vLowSize0);
-                    transformStep(tempIn + OFFSET, tempOut, vLowSize0, lowSize, d);
-                    copy(tempOut + NPAD, inputp, blockWidth, vLowSize0);
+                    copy(inputp, stride, tempIn + NPAD, vLowSize0);
+                    transformStep(tempIn, tempOut, vLowSize0, lowSize, d);
+                    copy(tempOut + NPAD, inputp, stride, vLowSize0);
                     inputp++;
                 }
 
@@ -233,54 +306,11 @@ static void filterBlock(const VSFrameRef * src, VSFrameRef * dst, float * VS_RES
                 vLowSize0 = (vLowSize0 + 1) >> 1;
             }
 
-            blockp = block;
-            if (d->method == 0) { // Hard thresholding
-                const float frac = 1 - d->percent * 0.01f;
-
-                for (int i = 0; i < blockWidth * height; i++) {
-                    if (std::fabs(blockp[i]) <= d->threshold)
-                        blockp[i] *= frac;
-                }
-            } else if (d->method == 1) { // Soft thresholding
-                const float frac = 1 - d->percent * 0.01f;
-                const float shift = d->threshold * 0.01f * d->percent;
-
-                int w = blockWidth;
-                int h = height;
-                for (int l = 0; l < d->nsteps; l++) {
-                    w = (w + 1) >> 1;
-                    h = (h + 1) >> 1;
-                }
-
-                for (int j = 0; j < height; j++) {
-                    for (int i = j < h ? w : 0; i < blockWidth; i++) {
-                        const float temp = std::fabs(blockp[i]);
-                        if (temp <= d->threshold)
-                            blockp[i] *= frac;
-                        else
-                            blockp[i] = (blockp[i] < 0.f ? -1.f : (blockp[i] > 0.f ? 1.f : 0.f)) * (temp - shift);
-                    }
-                    blockp += blockWidth;
-                }
-            } else { // Qian (garrote) thresholding
-                const float percent01 = d->percent * 0.01f;
-                const float tr2 = d->threshold * d->threshold * percent01;
-                const float frac = 1 - percent01;
-
-                for (int i = 0; i < blockWidth * height; i++) {
-                    const float temp = std::fabs(blockp[i]);
-                    if (temp <= d->threshold) {
-                        blockp[i] *= frac;
-                    } else {
-                        const float tp2 = temp * temp;
-                        blockp[i] *= (tp2 - tr2) / tp2;
-                    }
-                }
-            }
+            d->thresholding(block, width, height, stride, d);
 
             int nstepsInvert = d->nsteps;
-            hLowSize[0] = (blockWidth + 1) >> 1;
-            hHighSize[0] = blockWidth >> 1;
+            hLowSize[0] = (width + 1) >> 1;
+            hHighSize[0] = width >> 1;
             vLowSize[0] = (height + 1) >> 1;
             vHighSize[0] = height >> 1;
             for (int i = 1; i < nstepsInvert; i++) {
@@ -292,29 +322,24 @@ static void filterBlock(const VSFrameRef * src, VSFrameRef * dst, float * VS_RES
             while (nstepsInvert--) {
                 const int idx = vLowSize[nstepsInvert] + vHighSize[nstepsInvert];
                 const int idx2 = hLowSize[nstepsInvert] + hHighSize[nstepsInvert];
-                for (int i = 0; i < idx2; i++) {
-                    float * idx3 = block + i;
-                    copy(idx3, blockWidth, tempIn + NPAD, idx);
-                    invertStep(tempIn, tempOut, idx, temp2, d);
-                    copy(tempOut + NPAD, idx3, blockWidth, idx);
-                }
-
                 float * idx3 = block;
+                for (int i = 0; i < idx2; i++) {
+                    copy(idx3, stride, tempIn + NPAD, idx);
+                    invertStep(tempIn, tempOut, temp2, idx, d);
+                    copy(tempOut + NPAD, idx3, stride, idx);
+                    idx3++;
+                }
+
+                idx3 = block;
                 for (int i = 0; i < idx; i++) {
-                    copy(idx3, tempIn + NPAD + OFFSET, idx2);
-                    invertStep(tempIn + OFFSET, tempOut, idx2, temp2, d);
+                    copy(idx3, tempIn + NPAD, idx2);
+                    invertStep(tempIn, tempOut, temp2, idx2, d);
                     copy(tempOut + NPAD, idx3, idx2);
-                    idx3 += blockWidth;
+                    idx3 += stride;
                 }
             }
 
-            blockp = block;
-            for (int i = 0; i < height; i++) {
-                for (int j = 0; j < width; j++)
-                    dstp[j] = std::min(std::max(static_cast<int>(blockp[j] * multiplier + 0.5f), 0), peak);
-                dstp += stride;
-                blockp += blockWidth;
-            }
+            d->floatToByte(block, dstp, width, height, stride, d->vi->format->bitsPerSample);
         }
     }
 }
@@ -330,17 +355,26 @@ static const VSFrameRef *VS_CC vaguedenoiserGetFrame(int n, int activationReason
     if (activationReason == arInitial) {
         vsapi->requestFrameFilter(n, d->node, frameCtx);
     } else if (activationReason == arAllFramesReady) {
-        float * block = vs_aligned_malloc<float>((((d->vi->width + 7) / 8) * 8 * d->vi->height + d->vi->height * 16) * sizeof(float), 128);
+        const VSFrameRef * src = vsapi->getFrameFilter(n, d->node, frameCtx);
+        const VSFrameRef * fr[] = { d->process[0] ? nullptr : src, d->process[1] ? nullptr : src, d->process[2] ? nullptr : src };
+        const int pl[] = { 0, 1, 2 };
+        VSFrameRef * dst = vsapi->newVideoFrame2(d->vi->format, d->vi->width, d->vi->height, fr, pl, src, core);
+
+        float * block = vs_aligned_malloc<float>((vsapi->getStride(src, 0) / d->vi->format->bytesPerSample * d->vi->height) * sizeof(float), 32);
         if (!block) {
             vsapi->setFilterError("VagueDenoiser: malloc failure (block)", frameCtx);
+            vsapi->freeFrame(src);
+            vsapi->freeFrame(dst);
             return nullptr;
         }
 
-        float * tempIn = vs_aligned_malloc<float>((32 + std::max(d->vi->width, d->vi->height)) * sizeof(float), 128);
-        float * tempOut = vs_aligned_malloc<float>((32 + std::max(d->vi->width, d->vi->height)) * sizeof(float), 128);
-        float * temp2 = vs_aligned_malloc<float>((32 + std::max(d->vi->width, d->vi->height)) * sizeof(float), 128);
+        float * tempIn = vs_aligned_malloc<float>((32 + std::max(d->vi->width, d->vi->height)) * sizeof(float), 32);
+        float * tempOut = vs_aligned_malloc<float>((32 + std::max(d->vi->width, d->vi->height)) * sizeof(float), 32);
+        float * temp2 = vs_aligned_malloc<float>((32 + std::max(d->vi->width, d->vi->height)) * sizeof(float), 32);
         if (!tempIn || !tempOut || !temp2) {
             vsapi->setFilterError("VagueDenoiser: malloc failure (tempIn/tempOut/temp2)", frameCtx);
+            vsapi->freeFrame(src);
+            vsapi->freeFrame(dst);
             return nullptr;
         }
 
@@ -349,16 +383,9 @@ static const VSFrameRef *VS_CC vaguedenoiserGetFrame(int n, int activationReason
         int * vLowSize = new int[d->nsteps];
         int * vHighSize = new int[d->nsteps];
 
-        const VSFrameRef * src = vsapi->getFrameFilter(n, d->node, frameCtx);
-        const VSFrameRef * fr[] = { d->process[0] ? nullptr : src, d->process[1] ? nullptr : src, d->process[2] ? nullptr : src };
-        const int pl[] = { 0, 1, 2 };
-        VSFrameRef * dst = vsapi->newVideoFrame2(d->vi->format, d->vi->width, d->vi->height, fr, pl, src, core);
+        filterBlock(src, dst, block, tempIn, tempOut, temp2, hLowSize, hHighSize, vLowSize, vHighSize, d, vsapi);
 
-        if (d->vi->format->bitsPerSample == 8)
-            filterBlock<uint8_t>(src, dst, block, tempIn, tempOut, temp2, hLowSize, hHighSize, vLowSize, vHighSize, d, vsapi);
-        else
-            filterBlock<uint16_t>(src, dst, block, tempIn, tempOut, temp2, hLowSize, hHighSize, vLowSize, vHighSize, d, vsapi);
-
+        vsapi->freeFrame(src);
         vs_aligned_free(block);
         vs_aligned_free(tempIn);
         vs_aligned_free(tempOut);
@@ -367,7 +394,6 @@ static const VSFrameRef *VS_CC vaguedenoiserGetFrame(int n, int activationReason
         delete[] hHighSize;
         delete[] vLowSize;
         delete[] vHighSize;
-        vsapi->freeFrame(src);
         return dst;
     }
 
@@ -377,6 +403,10 @@ static const VSFrameRef *VS_CC vaguedenoiserGetFrame(int n, int activationReason
 static void VS_CC vaguedenoiserFree(void *instanceData, VSCore *core, const VSAPI *vsapi) {
     VagueDenoiserData * d = static_cast<VagueDenoiserData *>(instanceData);
     vsapi->freeNode(d->node);
+    vs_aligned_free(d->analysisLow);
+    vs_aligned_free(d->analysisHigh);
+    vs_aligned_free(d->synthesisLow);
+    vs_aligned_free(d->synthesisHigh);
     delete d;
 }
 
@@ -465,34 +495,56 @@ static void VS_CC vaguedenoiserCreate(const VSMap *in, VSMap *out, void *userDat
         }
     }
 
-    int nstepsmax; // caclulate max possible nsteps
-    for (nstepsmax = 1; nstepsmax < 15; nstepsmax++) {
-        const int width = d.vi->width >> (d.process[1] || d.process[2] ? d.vi->format->subSamplingW : 0);
-        const int height = d.vi->height >> (d.process[1] || d.process[2] ? d.vi->format->subSamplingH : 0);
-        const int widthPadded = width % 64 ? width : width + WIDTHPAD;
-        if (std::pow(2, nstepsmax) >= height || std::pow(2, nstepsmax) >= widthPadded)
+    const int nstepsWidth = d.vi->width >> (d.process[1] || d.process[2] ? d.vi->format->subSamplingW : 0);
+    const int nstepsHeight = d.vi->height >> (d.process[1] || d.process[2] ? d.vi->format->subSamplingH : 0);
+    int nstepsMax; // caclulate max possible nsteps
+    for (nstepsMax = 1; nstepsMax < 15; nstepsMax++) {
+        if (std::pow(2, nstepsMax) >= nstepsWidth || std::pow(2, nstepsMax) >= nstepsHeight)
             break;
     }
-    nstepsmax -= 2;
-    if (d.nsteps > nstepsmax)
-        d.nsteps = nstepsmax;
+    nstepsMax -= 2;
+    if (d.nsteps > nstepsMax)
+        d.nsteps = nstepsMax;
 
-    d.analysisLow = {
+    const float analysisLow[9] = {
         0.037828455506995f, -0.023849465019380f, -0.110624404418423f, 0.377402855612654f,
         0.852698679009403f, 0.377402855612654f, -0.110624404418423f, -0.023849465019380f, 0.037828455506995f
     };
-    d.analysisHigh = {
+    const float analysisHigh[7] = {
         -0.064538882628938f, 0.040689417609558f, 0.418092273222212f, -0.788485616405664f,
         0.418092273222212f, 0.040689417609558f, -0.064538882628938f
     };
-    d.synthesisLow = {
+    const float synthesisLow[7] = {
         -0.064538882628938f, -0.040689417609558f, 0.418092273222212f, 0.788485616405664f,
         0.418092273222212f, -0.040689417609558f, -0.064538882628938f
     };
-    d.synthesisHigh = {
+    const float synthesisHigh[9] = {
         -0.037828455506995f, -0.023849465019380f, 0.110624404418423f, 0.377402855612654f,
         -0.852698679009403f, 0.377402855612654f, 0.110624404418423f, -0.023849465019380f, -0.037828455506995f
     };
+    d.analysisLow = vs_aligned_malloc<float>(sizeof(analysisLow), 32);
+    d.analysisHigh = vs_aligned_malloc<float>(sizeof(analysisHigh), 32);
+    d.synthesisLow = vs_aligned_malloc<float>(sizeof(synthesisLow), 32);
+    d.synthesisHigh = vs_aligned_malloc<float>(sizeof(synthesisHigh), 32);
+    memcpy(d.analysisLow, analysisLow, sizeof(analysisLow));
+    memcpy(d.analysisHigh, analysisHigh, sizeof(analysisHigh));
+    memcpy(d.synthesisLow, synthesisLow, sizeof(synthesisLow));
+    memcpy(d.synthesisHigh, synthesisHigh, sizeof(synthesisHigh));
+
+    if (d.vi->format->bitsPerSample == 8) {
+        d.byteToFloat = byteToFloat_8;
+        d.floatToByte = floatToByte_8;
+    } else {
+        d.byteToFloat = byteToFloat_16;
+        d.floatToByte = floatToByte_16;
+    }
+
+    if (d.method == 0)
+        d.thresholding = hardThresholding;
+    else if (d.method == 1)
+        d.thresholding = softThresholding;
+    else
+        d.thresholding = qianThresholding;
 
     VagueDenoiserData * data = new VagueDenoiserData(d);
 
