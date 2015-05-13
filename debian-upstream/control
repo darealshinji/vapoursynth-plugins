@@ -86,7 +86,7 @@ Description: nnedi3 plugin for VapourSynth
 Package: vapoursynth-nnedi3-weights
 Architecture: all
 Depends:
- ${misc:Depends},
+ ${misc:Depends}
 Recommends:
  libvapoursynth3,
  vapoursynth-nnedi3-plugin
