@@ -39,7 +39,7 @@ struct EEDI2Data {
     int * limlut, * limlut2;
 };
 
-static inline void memset16(void * ptr, int value, size_t num) {
+static inline void memset16(void * ptr, const uint16_t value, size_t num) {
     uint16_t * tptr = static_cast<uint16_t *>(ptr);
     while (num-- > 0)
         *tptr++ = value;
@@ -820,10 +820,10 @@ static void interpolateLattice(const VSFrameRef * omsk, VSFrameRef * dmsk, VSFra
                 }
             }
             if (x > 1 && x < width - 2 &&
-                ( (dstp[x] < std::max(dstp[x - 2], dstp[x - 1]) - three && dstp[x] < std::max(dstp[x + 2], dstp[x + 1]) - three &&
-                 dstpnn[x] < std::max(dstpnn[x - 2], dstpnn[x - 1]) - three && dstpnn[x] < std::max(dstpnn[x + 2], dstpnn[x + 1]) - three) ) ||
-                ( (dstp[x] > std::min(dstp[x - 2], dstp[x - 1]) + three && dstp[x] > std::min(dstp[x + 2], dstp[x + 1]) + three &&
-                 dstpnn[x]  > std::min(dstpnn[x - 2], dstpnn[x - 1]) + three && dstpnn[x] > std::min(dstpnn[x + 2], dstpnn[x + 1]) + three)) ) {
+                (dstp[x] < std::max(dstp[x - 2], dstp[x - 1]) - three && dstp[x] < std::max(dstp[x + 2], dstp[x + 1]) - three &&
+                 dstpnn[x] < std::max(dstpnn[x - 2], dstpnn[x - 1]) - three && dstpnn[x] < std::max(dstpnn[x + 2], dstpnn[x + 1]) - three) ||
+                (dstp[x] > std::min(dstp[x - 2], dstp[x - 1]) + three && dstp[x] > std::min(dstp[x + 2], dstp[x + 1]) + three &&
+                 dstpnn[x]  > std::min(dstpnn[x - 2], dstpnn[x - 1]) + three && dstpnn[x] > std::min(dstpnn[x + 2], dstpnn[x + 1]) + three)) {
                 dstpn[x] = (dstp[x] + dstpnn[x] + 1) >> 1;
                 dmskp[x] = median;
                 continue;
@@ -970,39 +970,39 @@ static void postProcessCorner(const VSFrameRef * msk, VSFrameRef * dst, const in
     }
 }
 
-template<typename T>
+template<typename T1, typename T2>
 static void gaussianBlur1(const VSFrameRef * src, VSFrameRef * tmp, VSFrameRef * dst, const int plane, const EEDI2Data * d, const VSAPI * vsapi) {
     const int width = vsapi->getFrameWidth(src, plane);
     const int height = vsapi->getFrameHeight(src, plane);
     const int stride = vsapi->getStride(src, plane) / d->vi->format->bytesPerSample;
-    const T * srcp = reinterpret_cast<const T *>(vsapi->getReadPtr(src, plane));
-    T * dstp = reinterpret_cast<T *>(vsapi->getWritePtr(tmp, plane));
+    const T1 * VS_RESTRICT srcp = reinterpret_cast<const T1 *>(vsapi->getReadPtr(src, plane));
+    T1 * VS_RESTRICT dstp = reinterpret_cast<T1 *>(vsapi->getWritePtr(tmp, plane));
     for (int y = 0; y < height; y++) {
-        dstp[0] = (static_cast<int64_t>(srcp[3]) * 582 + srcp[2] * 7078 + srcp[1] * 31724 + srcp[0] * 26152 + 32768) >> 16;
-        dstp[1] = (static_cast<int64_t>(srcp[4]) * 582 + srcp[3] * 7078 + (srcp[0] + srcp[2]) * 15862 + srcp[1] * 26152 + 32768) >> 16;
-        dstp[2] = (static_cast<int64_t>(srcp[5]) * 582 + (srcp[0] + srcp[4]) * 3539 + (srcp[1] + srcp[3]) * 15862 + srcp[2] * 26152 + 32768) >> 16;
+        dstp[0] = (static_cast<T2>(srcp[3]) * 582 + srcp[2] * 7078 + srcp[1] * 31724 + srcp[0] * 26152 + 32768) >> 16;
+        dstp[1] = (static_cast<T2>(srcp[4]) * 582 + srcp[3] * 7078 + (srcp[0] + srcp[2]) * 15862 + srcp[1] * 26152 + 32768) >> 16;
+        dstp[2] = (static_cast<T2>(srcp[5]) * 582 + (srcp[0] + srcp[4]) * 3539 + (srcp[1] + srcp[3]) * 15862 + srcp[2] * 26152 + 32768) >> 16;
         int x;
         for (x = 3; x < width - 3; x++) {
-            dstp[x] = ((static_cast<int64_t>(srcp[x - 3]) + srcp[x + 3]) * 291 + (srcp[x - 2] + srcp[x + 2]) * 3539 + (srcp[x - 1] + srcp[x + 1]) * 15862 + srcp[x] * 26152 + 32768) >> 16;
+            dstp[x] = ((static_cast<T2>(srcp[x - 3]) + srcp[x + 3]) * 291 + (srcp[x - 2] + srcp[x + 2]) * 3539 + (srcp[x - 1] + srcp[x + 1]) * 15862 + srcp[x] * 26152 + 32768) >> 16;
         }
-        dstp[x] = (static_cast<int64_t>(srcp[x - 3]) * 582 + (srcp[x - 2] + srcp[x + 2]) * 3539 + (srcp[x - 1] + srcp[x + 1]) * 15862 + srcp[x] * 26152 + 32768) >> 16;
+        dstp[x] = (static_cast<T2>(srcp[x - 3]) * 582 + (srcp[x - 2] + srcp[x + 2]) * 3539 + (srcp[x - 1] + srcp[x + 1]) * 15862 + srcp[x] * 26152 + 32768) >> 16;
         x++;
-        dstp[x] = (static_cast<int64_t>(srcp[x - 3]) * 582 + srcp[x - 2] * 7078 + (srcp[x - 1] + srcp[x + 1]) * 15862 + srcp[x] * 26152 + 32768) >> 16;
+        dstp[x] = (static_cast<T2>(srcp[x - 3]) * 582 + srcp[x - 2] * 7078 + (srcp[x - 1] + srcp[x + 1]) * 15862 + srcp[x] * 26152 + 32768) >> 16;
         x++;
-        dstp[x] = (static_cast<int64_t>(srcp[x - 3]) * 582 + srcp[x - 2] * 7078 + srcp[x - 1] * 31724 + srcp[x] * 26152 + 32768) >> 16;
+        dstp[x] = (static_cast<T2>(srcp[x - 3]) * 582 + srcp[x - 2] * 7078 + srcp[x - 1] * 31724 + srcp[x] * 26152 + 32768) >> 16;
         srcp += stride;
         dstp += stride;
     }
-    srcp = reinterpret_cast<const T *>(vsapi->getReadPtr(tmp, plane));
-    dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
-    const T * src3p = srcp - stride * 3;
-    const T * src2p = srcp - stride * 2;
-    const T * srcpp = srcp - stride;
-    const T * srcpn = srcp + stride;
-    const T * src2n = srcp + stride * 2;
-    const T * src3n = srcp + stride * 3;
+    srcp = reinterpret_cast<const T1 *>(vsapi->getReadPtr(tmp, plane));
+    dstp = reinterpret_cast<T1 *>(vsapi->getWritePtr(dst, plane));
+    const T1 * VS_RESTRICT src3p = srcp - stride * 3;
+    const T1 * VS_RESTRICT src2p = srcp - stride * 2;
+    const T1 * VS_RESTRICT srcpp = srcp - stride;
+    const T1 * VS_RESTRICT srcpn = srcp + stride;
+    const T1 * VS_RESTRICT src2n = srcp + stride * 2;
+    const T1 * VS_RESTRICT src3n = srcp + stride * 3;
     for (int x = 0; x < width; x++)
-        dstp[x] = (static_cast<int64_t>(src3n[x]) * 582 + src2n[x] * 7078 + srcpn[x] * 31724 + srcp[x] * 26152 + 32768) >> 16;
+        dstp[x] = (static_cast<T2>(src3n[x]) * 582 + src2n[x] * 7078 + srcpn[x] * 31724 + srcp[x] * 26152 + 32768) >> 16;
     src3p += stride;
     src2p += stride;
     srcpp += stride;
@@ -1012,7 +1012,7 @@ static void gaussianBlur1(const VSFrameRef * src, VSFrameRef * tmp, VSFrameRef *
     src3n += stride;
     dstp += stride;
     for (int x = 0; x < width; x++)
-        dstp[x] = (static_cast<int64_t>(src3n[x]) * 582 + src2n[x] * 7078 + (srcpp[x] + srcpn[x]) * 15862 + srcp[x] * 26152 + 32768) >> 16;
+        dstp[x] = (static_cast<T2>(src3n[x]) * 582 + src2n[x] * 7078 + (srcpp[x] + srcpn[x]) * 15862 + srcp[x] * 26152 + 32768) >> 16;
     src3p += stride;
     src2p += stride;
     srcpp += stride;
@@ -1022,7 +1022,7 @@ static void gaussianBlur1(const VSFrameRef * src, VSFrameRef * tmp, VSFrameRef *
     src3n += stride;
     dstp += stride;
     for (int x = 0; x < width; x++)
-        dstp[x] = (static_cast<int64_t>(src3n[x]) * 582 + (src2p[x] + src2n[x]) * 3539 + (srcpp[x] + srcpn[x]) * 15862 + srcp[x] * 26152 + 32768) >> 16;
+        dstp[x] = (static_cast<T2>(src3n[x]) * 582 + (src2p[x] + src2n[x]) * 3539 + (srcpp[x] + srcpn[x]) * 15862 + srcp[x] * 26152 + 32768) >> 16;
     src3p += stride;
     src2p += stride;
     srcpp += stride;
@@ -1033,7 +1033,7 @@ static void gaussianBlur1(const VSFrameRef * src, VSFrameRef * tmp, VSFrameRef *
     dstp += stride;
     for (int y = 3; y < height - 3; y++) {
         for (int x = 0; x < width; x++)
-            dstp[x] = ((static_cast<int64_t>(src3p[x]) + src3n[x]) * 291 + (src2p[x] + src2n[x]) * 3539 + (srcpp[x] + srcpn[x]) * 15862 + srcp[x] * 26152 + 32768) >> 16;
+            dstp[x] = ((static_cast<T2>(src3p[x]) + src3n[x]) * 291 + (src2p[x] + src2n[x]) * 3539 + (srcpp[x] + srcpn[x]) * 15862 + srcp[x] * 26152 + 32768) >> 16;
         src3p += stride;
         src2p += stride;
         srcpp += stride;
@@ -1044,7 +1044,7 @@ static void gaussianBlur1(const VSFrameRef * src, VSFrameRef * tmp, VSFrameRef *
         dstp += stride;
     }
     for (int x = 0; x < width; x++)
-        dstp[x] = (static_cast<int64_t>(src3p[x]) * 582 + (src2p[x] + src2n[x]) * 3539 + (srcpp[x] + srcpn[x]) * 15862 + srcp[x] * 26152 + 32768) >> 16;
+        dstp[x] = (static_cast<T2>(src3p[x]) * 582 + (src2p[x] + src2n[x]) * 3539 + (srcpp[x] + srcpn[x]) * 15862 + srcp[x] * 26152 + 32768) >> 16;
     src3p += stride;
     src2p += stride;
     srcpp += stride;
@@ -1054,7 +1054,7 @@ static void gaussianBlur1(const VSFrameRef * src, VSFrameRef * tmp, VSFrameRef *
     src3n += stride;
     dstp += stride;
     for (int x = 0; x < width; x++)
-        dstp[x] = (static_cast<int64_t>(src3p[x]) * 582 + src2p[x] * 7078 + (srcpp[x] + srcpn[x]) * 15862 + srcp[x] * 26152 + 32768) >> 16;
+        dstp[x] = (static_cast<T2>(src3p[x]) * 582 + src2p[x] * 7078 + (srcpp[x] + srcpn[x]) * 15862 + srcp[x] * 26152 + 32768) >> 16;
     src3p += stride;
     src2p += stride;
     srcpp += stride;
@@ -1064,12 +1064,12 @@ static void gaussianBlur1(const VSFrameRef * src, VSFrameRef * tmp, VSFrameRef *
     src3n += stride;
     dstp += stride;
     for (int x = 0; x < width; x++)
-        dstp[x] = (static_cast<int64_t>(src3p[x]) * 582 + src2p[x] * 7078 + srcpp[x] * 31724 + srcp[x] * 26152 + 32768) >> 16;
+        dstp[x] = (static_cast<T2>(src3p[x]) * 582 + src2p[x] * 7078 + srcpp[x] * 31724 + srcp[x] * 26152 + 32768) >> 16;
 }
 
-static void gaussianBlurSqrt2(const int * VS_RESTRICT src, int * VS_RESTRICT tmp, int * VS_RESTRICT dst, const int width, const int height, const int stride) {
-    const int * srcp = src;
-    int * dstp = tmp;
+static void gaussianBlurSqrt2(const int * src, int * tmp, int * dst, const int width, const int height, const int stride) {
+    const int * VS_RESTRICT srcp = src;
+    int * VS_RESTRICT dstp = tmp;
     for (int y = 0; y < height; y++) {
         int x = 0;
         dstp[x] = (srcp[x + 4] * 678 + srcp[x + 3] * 3902 + srcp[x + 2] * 13618 + srcp[x + 1] * 28830 + srcp[x] * 18508 + 32768) >> 16;
@@ -1093,14 +1093,14 @@ static void gaussianBlurSqrt2(const int * VS_RESTRICT src, int * VS_RESTRICT tmp
     }
     srcp = tmp;
     dstp = dst;
-    const int * src4p = srcp - stride * 4;
-    const int * src3p = srcp - stride * 3;
-    const int * src2p = srcp - stride * 2;
-    const int * srcpp = srcp - stride;
-    const int * srcpn = srcp + stride;
-    const int * src2n = srcp + stride * 2;
-    const int * src3n = srcp + stride * 3;
-    const int * src4n = srcp + stride * 4;
+    const int * VS_RESTRICT src4p = srcp - stride * 4;
+    const int * VS_RESTRICT src3p = srcp - stride * 3;
+    const int * VS_RESTRICT src2p = srcp - stride * 2;
+    const int * VS_RESTRICT srcpp = srcp - stride;
+    const int * VS_RESTRICT srcpn = srcp + stride;
+    const int * VS_RESTRICT src2n = srcp + stride * 2;
+    const int * VS_RESTRICT src3n = srcp + stride * 3;
+    const int * VS_RESTRICT src4n = srcp + stride * 4;
     for (int x = 0; x < width; x++)
         dstp[x] = (src4n[x] * 678 + src3n[x] * 3902 + src2n[x] * 13618 + srcpn[x] * 28830 + srcp[x] * 18508 + 32768) >> 18;
     src4p += stride;
@@ -1329,7 +1329,10 @@ static void EEDI2(const VSFrameRef * src, VSFrameRef * dst, VSFrameRef * msk, VS
                 postProcess<T>(tmp2, tmp2_2, dst2, plane, field, d, vsapi);
             }
             if (d->pp == 2 || d->pp == 3) {
-                gaussianBlur1<T>(src, tmp, dst, plane, d, vsapi);
+                if (sizeof(T) == 1)
+                    gaussianBlur1<T, int32_t>(src, tmp, dst, plane, d, vsapi);
+                else
+                    gaussianBlur1<T, int64_t>(src, tmp, dst, plane, d, vsapi);
                 calcDerivatives<T>(dst, cx2, cy2, cxy, plane, d, vsapi);
                 gaussianBlurSqrt2(cx2, tmpc, cx2, vsapi->getFrameWidth(src, plane), vsapi->getFrameHeight(src, plane), vsapi->getStride(src, plane) / d->vi->format->bytesPerSample);
                 gaussianBlurSqrt2(cy2, tmpc, cy2, vsapi->getFrameWidth(src, plane), vsapi->getFrameHeight(src, plane), vsapi->getStride(src, plane) / d->vi->format->bytesPerSample);
