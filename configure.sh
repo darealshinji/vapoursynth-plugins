@@ -45,6 +45,7 @@ libdir = $libdir
 docdir = $docdir
 EOF
 
+echo ""
 cat config.mak
 echo "Now run 'make && make install'"
 

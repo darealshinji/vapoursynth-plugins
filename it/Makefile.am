@@ -10,6 +10,6 @@ libit_la_SOURCES = \
 	src/vs_it_process.cpp \
 	src/vs_it_sse.cpp
 
-libit_la_CXXFLAGS = -D__SSE -mssse3
+libit_la_CXXFLAGS = $(AM_CXXFLAGS) -D__SSE -mssse3
 
 libit_la_LDFLAGS = $(XGLOBAL_LDFLAGS)

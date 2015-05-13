@@ -34,7 +34,7 @@ libgenericfilters_la_SOURCES = \
 	specific/hysteresis.c \
 	common/common.c
 
-libgenericfilters_la_CFLAGS = -I./alone -I./common -I./convolution -I./neighbors -I./specific
+libgenericfilters_la_CFLAGS = $(AM_CFLAGS) -I./alone -I./common -I./convolution -I./neighbors -I./specific
 
 libgenericfilters_la_LDFLAGS = $(XGLOBAL_LDFLAGS)
 

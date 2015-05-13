@@ -46,28 +46,20 @@ AS_CASE(
    [
       ASFLAGS="$ASFLAGS -f macho$BITS -DPREFIX"
    ],
-   [*linux*],
+   [*linux*|gnu*],
    [
       ASFLAGS="$ASFLAGS -f elf"
    ],
-   [gnu*],
-   [
-      ASFLAGS="$ASFLAGS -f elf"
-   ],
-   [cygwin*],
+   [cygwin*|mingw*],
    [
       ASFLAGS="$ASFLAGS -f win32"
       AS_IF(
          [test "x$BITS" = "x32"],
-         [ASFLAGS="$ASFLAGS -DPREFIX" LDFLAGS="-Wl,--kill-at"]
-      )
-   ],
-   [mingw*],
-   [
-      ASFLAGS="$ASFLAGS -f win32"
-      AS_IF(
-         [test "x$BITS" = "x32"],
-         [ASFLAGS="$ASFLAGS -DPREFIX" LDFLAGS="-Wl,--kill-at"]
+         [
+          ASFLAGS="$ASFLAGS -DPREFIX"
+          AC_SUBST([PLUGINLDFLAGS], ["-Wl,--kill-at"])
+          AC_SUBST([STACKREALIGN], ["-mstackrealign"])
+         ]
       )
    ],
    [AC_MSG_ERROR([Unknown host OS])]

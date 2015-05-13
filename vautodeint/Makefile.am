@@ -7,6 +7,6 @@ libvautodeint_la_SOURCES = \
 	src/PlaneDifferenceFromPrevious.c \
 	src/PluginInit.c
 
-libvautodeint_la_CFLAGS = -std=gnu99
+libvautodeint_la_CFLAGS = $(AM_CFLAGS) -std=gnu99
 
 libvautodeint_la_LDFLAGS = $(XGLOBAL_LDFLAGS)

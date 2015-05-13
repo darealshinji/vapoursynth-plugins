@@ -8,12 +8,13 @@ AM_SILENT_RULES([yes])
 
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([build-aux])
-AM_INIT_AUTOMAKE([-Wall foreign dist-bzip2])
+AM_INIT_AUTOMAKE([foreign dist-bzip2])
 
 # Always build with prototypes
 AC_DEFINE([HAVE_PROTOTYPES], 1, [Define if your compiler supports prototypes])
 
 # Checks for programs.
+CFLAGS="-Wall ${CFLAGS}"
 SAVED_CFLAGS=${CFLAGS}
 SAVED_CPPFLAGS=${CPPFLAGS}
 AC_PROG_CPP

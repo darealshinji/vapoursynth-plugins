@@ -12,8 +12,7 @@ am__v_YASM_1 =
 .asm.lo:
 	$(AM_V_YASM)$(LIBTOOL) $(AM_V_lt) --mode=compile --tag=CC $(AS) $(ASFLAGS) -o $@ $< -prefer-non-pic
 
-libmvtools_la_SOURCES = src/asm-placeholder.cpp \
-						src/CPU.cpp \
+libmvtools_la_SOURCES =	src/CPU.cpp \
 						src/DCT.cpp \
 						src/DCTFFTW.cpp \
 						src/EntryPoint.cpp \
@@ -50,11 +49,12 @@ libmvtools_la_SOURCES = src/asm-placeholder.cpp \
 						src/asm/SAD.asm \
 						src/asm/Variance.asm
 
-libmvtools_la_CXXFLAGS = $(AM_CXXFLAGS) -std=c++11 -msse2 -mfpmath=sse
+libmvtools_la_CXXFLAGS = \
+	$(AM_CXXFLAGS) $(FFTW3F_CFLAGS) \
+	-std=c++11 -msse2 -mfpmath=sse \
+	$(STACKREALIGN) $(PLUGINLDFLAGS)
 
-libmvtools_la_CPPFLAGS = $(VapourSynth_CFLAGS) $(FFTW3F_CFLAGS)
-
-libmvtools_la_LDFLAGS = $(XGLOBAL_LDFLAGS) $(PLUGINLDFLAGS)
+libmvtools_la_LDFLAGS = $(XGLOBAL_LDFLAGS)
 
 libmvtools_la_LIBADD = $(FFTW3F_LIBS)
 

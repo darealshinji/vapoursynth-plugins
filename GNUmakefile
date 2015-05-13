@@ -75,6 +75,8 @@ clobber:
 	$(foreach DIR,$(cleandirs),rm -rf $(DIR)/autom4te.cache $(DIR)/m4 $(DIR)/build-aux ;)
 	$(foreach FILE,$(cleanfiles),find . -name $(FILE) -delete ;)
 	rm -rf .deps $(shell find . -name .deps)
+	cd imagereader/libjpeg-turbo && rm -f config.h.in~ config.h jconfig.h libjpeg.map \
+		md5/md5cmp stamp-h1 stamp-h2 tjbench tjbenchtest tjunittest
 
 config.mak:
 	./configure.sh

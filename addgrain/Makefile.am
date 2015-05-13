@@ -4,4 +4,6 @@ lib_LTLIBRARIES = libaddgrain.la
 
 libaddgrain_la_SOURCES = src/AddGrain.cpp
 
+libaddgrain_la_CXXFLAGS = $(AM_CXXFLAGS) -fno-strict-aliasing
+
 libaddgrain_la_LDFLAGS = $(XGLOBAL_LDFLAGS)

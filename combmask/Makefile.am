@@ -10,6 +10,6 @@ libcombmask_la_SOURCES = \
 	src/merge_frames.c \
 	src/write_combmask.c
 
-libcombmask_la_CFLAGS = -std=gnu99 -msse2
+libcombmask_la_CFLAGS = $(AM_CFLAGS) -std=gnu99 -msse2
 
 libcombmask_la_LDFLAGS = $(XGLOBAL_LDFLAGS)

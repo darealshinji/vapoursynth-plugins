@@ -18,9 +18,10 @@ libf3kdb_la_SOURCES = \
 	src/random.cpp \
 	src/vapoursynth/plugin.cpp
 
-libf3kdb_la_CXXFLAGS = -I./include  -DHAVE_ALIGNAS=1  \
-			-std=c++11 -fvisibility=hidden -fvisibility-inlines-hidden -ggdb -ftrapv  \
-			-msse2 -mssse3 -msse4.1
+libf3kdb_la_CXXFLAGS = $(AM_CXXFLAGS) \
+	-I./include  -DHAVE_ALIGNAS=1  \
+	-std=c++11 -fvisibility=hidden -fvisibility-inlines-hidden -ggdb -ftrapv  \
+	-msse2 -mssse3 -msse4.1
 
 libf3kdb_la_LDFLAGS = $(XGLOBAL_LDFLAGS)
 endif

@@ -10,7 +10,7 @@ libimagereader_la_SOURCES = \
 			tga.c \
 			writeframe.c
 
-libimagereader_la_CFLAGS = -I../libjpeg-turbo
+libimagereader_la_CFLAGS = $(AM_CFLAGS) -I../libjpeg-turbo
 
 libimagereader_la_LDFLAGS = $(XGLOBAL_LDFLAGS)
 
