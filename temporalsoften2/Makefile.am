@@ -6,4 +6,3 @@ libtemporalsoften2_la_SOURCES = src/temporalsoften.c
 
 libtemporalsoften2_la_CFLAGS = $(AM_CFLAGS) -msse2
 
-libtemporalsoften2_la_LDFLAGS = $(XGLOBAL_LDFLAGS)

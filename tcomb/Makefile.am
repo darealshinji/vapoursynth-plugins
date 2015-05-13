@@ -19,10 +19,8 @@ am__v_YASM_1 =
 
 libtcomb_la_SOURCES = src/tcomb.c
 
-libtcomb_la_LDFLAGS = $(XGLOBAL_LDFLAGS)
-
 if x86_64
 libtcomb_la_SOURCES += src/asm/tcomb.asm
-libtcomb_la_LDFLAGS += -Xlinker src/asm/tcomb.o
+libtcomb_la_LDFLAGS = $(AM_LDFLAGS) -Xlinker src/asm/tcomb.o
 libtcomb_la_DEPENDENCIES = src/asm/tcomb.o
 endif

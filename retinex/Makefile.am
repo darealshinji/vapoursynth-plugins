@@ -9,4 +9,3 @@ libretinex_la_SOURCES = \
 	src/MSRCR.cpp \
 	src/VSPlugin.cpp
 
-libretinex_la_LDFLAGS = $(XGLOBAL_LDFLAGS)

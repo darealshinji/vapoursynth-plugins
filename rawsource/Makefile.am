@@ -6,4 +6,3 @@ librawsource_la_SOURCES = src/rawsource.c
 
 librawsource_la_CFLAGS = $(AM_CFLAGS) -std=gnu99
 
-librawsource_la_LDFLAGS = $(XGLOBAL_LDFLAGS)

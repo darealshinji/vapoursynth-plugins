@@ -12,4 +12,3 @@ libit_la_SOURCES = \
 
 libit_la_CXXFLAGS = $(AM_CXXFLAGS) -D__SSE -mssse3
 
-libit_la_LDFLAGS = $(XGLOBAL_LDFLAGS)

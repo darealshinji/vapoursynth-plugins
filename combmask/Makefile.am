@@ -12,4 +12,3 @@ libcombmask_la_SOURCES = \
 
 libcombmask_la_CFLAGS = $(AM_CFLAGS) -std=gnu99 -msse2
 
-libcombmask_la_LDFLAGS = $(XGLOBAL_LDFLAGS)

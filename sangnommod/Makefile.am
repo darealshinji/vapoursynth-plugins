@@ -6,4 +6,3 @@ libsangnommod_la_SOURCES = src/sangnom.cpp
 
 libsangnommod_la_CXXFLAGS = $(AM_CXXFLAGS) -msse2
 
-libsangnommod_la_LDFLAGS = $(XGLOBAL_LDFLAGS)

@@ -9,4 +9,3 @@ libvautodeint_la_SOURCES = \
 
 libvautodeint_la_CFLAGS = $(AM_CFLAGS) -std=gnu99
 
-libvautodeint_la_LDFLAGS = $(XGLOBAL_LDFLAGS)

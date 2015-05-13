@@ -50,11 +50,11 @@ libmvtools_la_SOURCES =	src/CPU.cpp \
 						src/asm/Variance.asm
 
 libmvtools_la_CXXFLAGS = \
-	$(AM_CXXFLAGS) $(FFTW3F_CFLAGS) \
+	$(AM_CXXFLAGS) \
+	$(FFTW3F_CFLAGS) \
 	-std=c++11 -msse2 -mfpmath=sse \
-	$(STACKREALIGN) $(PLUGINLDFLAGS)
-
-libmvtools_la_LDFLAGS = $(XGLOBAL_LDFLAGS)
+	$(STACKREALIGN) \
+	$(PLUGINLDFLAGS)
 
 libmvtools_la_LIBADD = $(FFTW3F_LIBS)
 

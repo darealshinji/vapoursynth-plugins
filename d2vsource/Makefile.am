@@ -11,6 +11,4 @@ libd2vsource_la_SOURCES = \
 	src/directrender.cpp \
 	src/vapoursynth.cpp
 
-libd2vsource_la_LDFLAGS = $(XGLOBAL_LDFLAGS)
-
 libd2vsource_la_LIBADD = -lavcodec -lavformat -lavutil

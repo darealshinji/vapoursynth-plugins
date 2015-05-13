@@ -24,5 +24,3 @@ libnnedi3_la_CXXFLAGS = $(AM_CXXFLAGS) -std=c++11 -DNNEDI3_DATADIR='"$(pkgdatadi
 
 libnnedi3_la_LIBADD = -lm
 
-libnnedi3_la_LDFLAGS = $(XGLOBAL_LDFLAGS)
-

@@ -37,5 +37,4 @@ libvszimg_la_SOURCES = vszimg/vszimg.c
 libvszimg_la_CFLAGS  = $(AM_CFLAGS) -I./API
 
 libzimg_la_LIBADD  = libsse2.la libavx2.la libf16c.la libvszimg.la
-libzimg_la_LDFLAGS = $(XGLOBAL_LDFLAGS)
 

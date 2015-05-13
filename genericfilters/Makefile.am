@@ -36,7 +36,5 @@ libgenericfilters_la_SOURCES = \
 
 libgenericfilters_la_CFLAGS = $(AM_CFLAGS) -I./alone -I./common -I./convolution -I./neighbors -I./specific
 
-libgenericfilters_la_LDFLAGS = $(XGLOBAL_LDFLAGS)
-
 libgenericfilters_la_LIBADD = -lm
 

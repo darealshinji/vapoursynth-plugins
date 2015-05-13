@@ -19,10 +19,8 @@ am__v_YASM_1 =
 
 libfluxsmooth_la_SOURCES = src/fluxsmooth.c
 
-libfluxsmooth_la_LDFLAGS = $(XGLOBAL_LDFLAGS)
-
 if x86_64
 libfluxsmooth_la_SOURCES += src/asm/fluxsmooth.asm
-libfluxsmooth_la_LDFLAGS += -Xlinker src/asm/fluxsmooth.o
+libfluxsmooth_la_LDFLAGS = $(AM_LDFLAGS) -Xlinker src/asm/fluxsmooth.o
 libfluxsmooth_la_DEPENDENCIES = src/asm/fluxsmooth.o
 endif
