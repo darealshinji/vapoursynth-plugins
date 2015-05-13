@@ -25,7 +25,6 @@ AM_SILENT_RULES([yes])
 
 LT_INIT([disable-static])
 
-CHECK_GNU_MAKE
 AC_PROG_CXX
 AC_PROG_AWK
 AC_PROG_CC
@@ -99,6 +98,7 @@ AC_CONFIG_FILES([Makefile \
                  fieldhint/Makefile \
                  fillborders/Makefile \
                  flash3kyuu_deband/Makefile \
+                 fmtconv/Makefile \
                  genericfilters/Makefile \
                  histogram/Makefile \
                  imagereader/Makefile \

@@ -18,6 +18,7 @@ SUBDIRS = \
 	fillborders \
 	flash3kyuu_deband \
 	fluxsmooth \
+	fmtconv \
 	genericfilters \
 	histogram \
 	imagereader \

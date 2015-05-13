@@ -54,6 +54,9 @@ install:
 	$(install) rawsource/format_list.txt $(DESTDIR)$(docdir)/rawsource_format_list
 	$(install) flash3kyuu_deband/flash3kyuu_deband.txt $(DESTDIR)$(docdir)
 	$(install) flash3kyuu_deband/flash3kyuu_deband.zh.txt $(DESTDIR)$(docdir)
+	$(install) fmtconv/doc/fmtconv.html $(DESTDIR)$(docdir)
+	$(install) fmtconv/doc/colorspace-subsampling.png $(DESTDIR)$(docdir)
+	$(install) fmtconv/doc/vapourdoc.css $(DESTDIR)$(docdir)
 
 	install -m755 -D d2vsource/d2vscan.pl $(DESTDIR)$(plugins)
 	$(install) d2vsource/d2vscan.txt $(DESTDIR)$(docdir)/d2vscan

@@ -51,6 +51,10 @@ Files: flash3kyuu_deband/*
 Copyright: 2011-2014 Joe Hu <i@sapika.ch>
 License: GPL-3+
 
+Files: fmtconv/*
+Copyright: 2012-2015 cretindesalpes
+License: WTFPL
+
 Files: it/*
 Copyright: 2002 thejam79
            2003 minamina
