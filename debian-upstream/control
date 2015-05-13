@@ -56,6 +56,7 @@ Description: Additional plugins for VapourSynth
 Package: vapoursynth-nnedi3-plugin
 Architecture: amd64 i386
 Depends:
+ vapoursynth-extra-plugins (>= ${binary:Version}),
  vapoursynth-nnedi3-weights,
  ${misc:Depends},
  ${shlibs:Depends}
