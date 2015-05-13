@@ -26,7 +26,7 @@
 #include <vapoursynth/VapourSynth.h>
 #include <vapoursynth/VSHelper.h>
 #ifdef VS_TARGET_CPU_X86
-#include "./vectorclass/vectorclass.h"
+#include "vectorclass/vectorclass.h"
 #endif
 
 struct YadifmodData {
@@ -41,7 +41,7 @@ struct YadifmodData {
 template<typename T, typename V1, typename V2, int vectorSize>
 static void Yadifmod_SIMD(const T * prev2pp, const T * prev2pn, const T * prevp2p, const T * prevp, const T * prevp2n, const T * srcpp, const T * srcpn,
                           const T * nextp2p, const T * nextp, const T * nextp2n, const T * next2pp, const T * next2pn, const T * edeintp, T * dstp,
-                          const int width, const int starty, const int stopy, const int stride, const YadifmodData * d) {
+                          const int width, const int starty, const int stopy, const int stride, const int mode) {
     for (int y = starty; y <= stopy; y += 2) {
         for (int x = 0; x < width; x += vectorSize) {
             V1 prev2ppV = V1().load_a(prev2pp + x);
@@ -65,7 +65,7 @@ static void Yadifmod_SIMD(const T * prev2pp, const T * prev2pn, const T * prevp2
             V2 tdiff1 = (abs(V2(extend_low(prev2ppV), extend_high(prev2ppV)) - p1) + abs(V2(extend_low(prev2pnV), extend_high(prev2pnV)) - p3)) >> 1;
             V2 tdiff2 = (abs(V2(extend_low(next2ppV), extend_high(next2ppV)) - p1) + abs(V2(extend_low(next2pnV), extend_high(next2pnV)) - p3)) >> 1;
             V2 diff = max(max(tdiff0 >> 1, tdiff1), tdiff2);
-            if (d->mode < 2) {
+            if (mode < 2) {
                 V2 p0 = (V2(extend_low(prevp2pV), extend_high(prevp2pV)) + V2(extend_low(nextp2pV), extend_high(nextp2pV))) >> 1;
                 V2 p4 = (V2(extend_low(prevp2nV), extend_high(prevp2nV)) + V2(extend_low(nextp2nV), extend_high(nextp2nV))) >> 1;
                 V2 maxs = max(max(p2 - p3, p2 - p1), min(p0 - p1, p4 - p3));
@@ -94,8 +94,8 @@ static void Yadifmod_SIMD(const T * prev2pp, const T * prev2pn, const T * prevp2
 #else
 template<typename T>
 static void Yadifmod_C(const T * prev2pp, const T * prev2pn, const T * prevp2p, const T * prevp, const T * prevp2n, const T * srcpp, const T * srcpn,
-                       const T * nextp2p, const T * nextp, const T * nextp2n, const T * next2pp, const T * next2pn, const T * edeintp, T * dstp,
-                       const int width, const int starty, const int stopy, const int stride, const YadifmodData * d) {
+                       const T * nextp2p, const T * nextp, const T * nextp2n, const T * next2pp, const T * next2pn, const T * edeintp, T * VS_RESTRICT dstp,
+                       const int width, const int starty, const int stopy, const int stride, const int mode) {
     for (int y = starty; y <= stopy; y += 2) {
         for (int x = 0; x < width; x++) {
             const int p1 = srcpp[x];
@@ -105,7 +105,7 @@ static void Yadifmod_C(const T * prev2pp, const T * prev2pn, const T * prevp2p, 
             const int tdiff1 = (std::abs(prev2pp[x] - p1) + std::abs(prev2pn[x] - p3)) >> 1;
             const int tdiff2 = (std::abs(next2pp[x] - p1) + std::abs(next2pn[x] - p3)) >> 1;
             int diff = std::max(std::max(tdiff0 >> 1, tdiff1), tdiff2);
-            if (d->mode < 2) {
+            if (mode < 2) {
                 const int p0 = (prevp2p[x] + nextp2p[x]) >> 1;
                 const int p4 = (prevp2n[x] + nextp2n[x]) >> 1;
                 const int maxs = std::max(std::max(p2 - p3, p2 - p1), std::min(p0 - p1, p4 - p3));
@@ -154,16 +154,28 @@ static const VSFrameRef *VS_CC yadifmodGetFrame(int n, int activationReason, voi
     } else if (activationReason == arAllFramesReady) {
         const VSFrameRef * edeint = vsapi->getFrameFilter(n, d->edeint, frameCtx);
 
-        int fieldt = d->field;
-        if (d->mode & 1) {
-            fieldt = n & 1 ? 1 - d->order : d->order;
+        const int nSaved = n;
+        if (d->mode & 1)
             n /= 2;
-        }
 
         const VSFrameRef * prv = vsapi->getFrameFilter(std::max(n - 1, 0), d->node, frameCtx);
         const VSFrameRef * src = vsapi->getFrameFilter(n, d->node, frameCtx);
         const VSFrameRef * nxt = vsapi->getFrameFilter(std::min(n + 1, d->viSaved->numFrames - 1), d->node, frameCtx);
         VSFrameRef * dst = vsapi->newVideoFrame(d->vi.format, d->vi.width, d->vi.height, src, core);
+
+        int err;
+        const int fieldBased = int64ToIntS(vsapi->propGetInt(vsapi->getFramePropsRO(src), "_FieldBased", 0, &err));
+        int effectiveOrder = d->order;
+        if (fieldBased == 1)
+            effectiveOrder = 0;
+        else if (fieldBased == 2)
+            effectiveOrder = 1;
+
+        int fieldt;
+        if (d->mode & 1)
+            fieldt = (nSaved & 1) ? 1 - effectiveOrder : effectiveOrder;
+        else
+            fieldt = (d->field == -1) ? effectiveOrder : d->field;
 
         for (int plane = 0; plane < d->vi.format->numPlanes; plane++) {
             const int width = vsapi->getFrameWidth(src, plane);
@@ -174,16 +186,19 @@ static const VSFrameRef *VS_CC yadifmodGetFrame(int n, int activationReason, voi
             const uint8_t * srcp2 = vsapi->getReadPtr(nxt, plane);
             const uint8_t * edeintp = vsapi->getReadPtr(edeint, plane);
             uint8_t * dstp = vsapi->getWritePtr(dst, plane);
+
             if (!fieldt)
-                vs_bitblt(dstp, stride, srcp1 + stride, stride, width * d->vi.format->bytesPerSample, 1);
+                memcpy(dstp, srcp1 + stride, width * d->vi.format->bytesPerSample);
             else
-                vs_bitblt(dstp + stride, stride, edeintp + stride, stride, width * d->vi.format->bytesPerSample, 1);
+                memcpy(dstp + stride, edeintp + stride, width * d->vi.format->bytesPerSample);
             vs_bitblt(dstp + stride * (1 - fieldt), stride * 2, srcp1 + stride * (1 - fieldt), stride * 2, width * d->vi.format->bytesPerSample, height / 2);
+
             const int starty = 2 + fieldt;
             const int stopy = fieldt ? height - 3 : height - 4;
+
             const int stride1 = stride * starty;
             const uint8_t * prevp, * nextp;
-            if (fieldt ^ d->order) {
+            if (fieldt ^ effectiveOrder) {
                 prevp = srcp1 + stride1;
                 nextp = srcp2 + stride1;
             } else {
@@ -192,10 +207,12 @@ static const VSFrameRef *VS_CC yadifmodGetFrame(int n, int activationReason, voi
             }
             edeintp += stride1;
             dstp += stride1;
+
             const int stride2 = stride * (starty - 1);
             const uint8_t * prev2pp = srcp0 + stride2;
             const uint8_t * srcpp = srcp1 + stride2;
             const uint8_t * next2pp = srcp2 + stride2;
+
             const int stride3 = stride * 2;
             const uint8_t * prev2pn = prev2pp + stride3;
             const uint8_t * prevp2p = prevp - stride3;
@@ -207,22 +224,46 @@ static const VSFrameRef *VS_CC yadifmodGetFrame(int n, int activationReason, voi
 
             if (d->vi.format->bytesPerSample == 1) {
 #ifdef VS_TARGET_CPU_X86
-                Yadifmod_SIMD<uint8_t, Vec16uc, Vec16s, 16>(prev2pp, prev2pn, prevp2p, prevp, prevp2n, srcpp, srcpn, nextp2p, nextp, nextp2n, next2pp, next2pn, edeintp, dstp, width, starty, stopy, stride3, d);
+                Yadifmod_SIMD<uint8_t, Vec16uc, Vec16s, 16>(prev2pp, prev2pn, prevp2p, prevp, prevp2n, srcpp, srcpn, nextp2p, nextp, nextp2n, next2pp, next2pn, edeintp, dstp,
+                                                            width, starty, stopy, stride3, d->mode);
 #else
-                Yadifmod_C<uint8_t>(prev2pp, prev2pn, prevp2p, prevp, prevp2n, srcpp, srcpn, nextp2p, nextp, nextp2n, next2pp, next2pn, edeintp, dstp, width, starty, stopy, stride3, d);
+                Yadifmod_C<uint8_t>(prev2pp, prev2pn, prevp2p, prevp, prevp2n, srcpp, srcpn, nextp2p, nextp, nextp2n, next2pp, next2pn, edeintp, dstp,
+                                    width, starty, stopy, stride3, d->mode);
 #endif
             } else {
 #ifdef VS_TARGET_CPU_X86
-                Yadifmod_SIMD<uint16_t, Vec8us, Vec8i, 8>(reinterpret_cast<const uint16_t *>(prev2pp), reinterpret_cast<const uint16_t *>(prev2pn), reinterpret_cast<const uint16_t *>(prevp2p), reinterpret_cast<const uint16_t *>(prevp), reinterpret_cast<const uint16_t *>(prevp2n), reinterpret_cast<const uint16_t *>(srcpp), reinterpret_cast<const uint16_t *>(srcpn), reinterpret_cast<const uint16_t *>(nextp2p), reinterpret_cast<const uint16_t *>(nextp), reinterpret_cast<const uint16_t *>(nextp2n), reinterpret_cast<const uint16_t *>(next2pp), reinterpret_cast<const uint16_t *>(next2pn), reinterpret_cast<const uint16_t *>(edeintp), reinterpret_cast<uint16_t *>(dstp), width, starty, stopy, stride3 / 2, d);
+                Yadifmod_SIMD<uint16_t, Vec8us, Vec8i, 8>(reinterpret_cast<const uint16_t *>(prev2pp), reinterpret_cast<const uint16_t *>(prev2pn),
+                                                          reinterpret_cast<const uint16_t *>(prevp2p), reinterpret_cast<const uint16_t *>(prevp),
+                                                          reinterpret_cast<const uint16_t *>(prevp2n), reinterpret_cast<const uint16_t *>(srcpp),
+                                                          reinterpret_cast<const uint16_t *>(srcpn), reinterpret_cast<const uint16_t *>(nextp2p),
+                                                          reinterpret_cast<const uint16_t *>(nextp), reinterpret_cast<const uint16_t *>(nextp2n),
+                                                          reinterpret_cast<const uint16_t *>(next2pp), reinterpret_cast<const uint16_t *>(next2pn),
+                                                          reinterpret_cast<const uint16_t *>(edeintp), reinterpret_cast<uint16_t *>(dstp), width, starty, stopy, stride3 / 2, d->mode);
 #else
-                Yadifmod_C<uint16_t>(reinterpret_cast<const uint16_t *>(prev2pp), reinterpret_cast<const uint16_t *>(prev2pn), reinterpret_cast<const uint16_t *>(prevp2p), reinterpret_cast<const uint16_t *>(prevp), reinterpret_cast<const uint16_t *>(prevp2n), reinterpret_cast<const uint16_t *>(srcpp), reinterpret_cast<const uint16_t *>(srcpn), reinterpret_cast<const uint16_t *>(nextp2p), reinterpret_cast<const uint16_t *>(nextp), reinterpret_cast<const uint16_t *>(nextp2n), reinterpret_cast<const uint16_t *>(next2pp), reinterpret_cast<const uint16_t *>(next2pn), reinterpret_cast<const uint16_t *>(edeintp), reinterpret_cast<uint16_t *>(dstp), width, starty, stopy, stride3 / 2, d);
+                Yadifmod_C<uint16_t>(reinterpret_cast<const uint16_t *>(prev2pp), reinterpret_cast<const uint16_t *>(prev2pn), reinterpret_cast<const uint16_t *>(prevp2p),
+                                     reinterpret_cast<const uint16_t *>(prevp), reinterpret_cast<const uint16_t *>(prevp2n), reinterpret_cast<const uint16_t *>(srcpp),
+                                     reinterpret_cast<const uint16_t *>(srcpn), reinterpret_cast<const uint16_t *>(nextp2p), reinterpret_cast<const uint16_t *>(nextp),
+                                     reinterpret_cast<const uint16_t *>(nextp2n), reinterpret_cast<const uint16_t *>(next2pp), reinterpret_cast<const uint16_t *>(next2pn),
+                                     reinterpret_cast<const uint16_t *>(edeintp), reinterpret_cast<uint16_t *>(dstp), width, starty, stopy, stride3 / 2, d->mode);
 #endif
             }
 
             if (!fieldt)
-                vs_bitblt(vsapi->getWritePtr(dst, plane) + stride * (height - 2), stride, vsapi->getReadPtr(edeint, plane) + stride * (height - 2), stride, width * d->vi.format->bytesPerSample, 1);
+                memcpy(vsapi->getWritePtr(dst, plane) + stride * (height - 2), vsapi->getReadPtr(edeint, plane) + stride * (height - 2), width * d->vi.format->bytesPerSample);
             else
-                vs_bitblt(vsapi->getWritePtr(dst, plane) + stride * (height - 1), stride, srcp1 + stride * (height - 2), stride, width * d->vi.format->bytesPerSample, 1);
+                memcpy(vsapi->getWritePtr(dst, plane) + stride * (height - 1), srcp1 + stride * (height - 2), width * d->vi.format->bytesPerSample);
+        }
+
+        if (d->mode & 1) {
+            VSMap * props = vsapi->getFramePropsRW(dst);
+            int errNum, errDen;
+            int64_t durationNum = vsapi->propGetInt(props, "_DurationNum", 0, &errNum);
+            int64_t durationDen = vsapi->propGetInt(props, "_DurationDen", 0, &errDen);
+            if (!errNum && !errDen) {
+                muldivRational(&durationNum, &durationDen, 1, 2);
+                vsapi->propSetInt(props, "_DurationNum", durationNum, paReplace);
+                vsapi->propSetInt(props, "_DurationDen", durationDen, paReplace);
+            }
         }
 
         vsapi->freeFrame(prv);
@@ -249,11 +290,11 @@ static void VS_CC yadifmodCreate(const VSMap *in, VSMap *out, void *userData, VS
     d.order = !!vsapi->propGetInt(in, "order", 0, nullptr);
     d.field = !!vsapi->propGetInt(in, "field", 0, &err);
     if (err)
-        d.field = d.order;
+        d.field = -1;
     d.mode = int64ToIntS(vsapi->propGetInt(in, "mode", 0, &err));
 
     if (d.mode < 0 || d.mode > 3) {
-        vsapi->setError(out, "Yadifmod: mode must be 0, 1, 2, or 3");
+        vsapi->setError(out, "Yadifmod: mode must be 0, 1, 2 or 3");
         return;
     }
 
@@ -262,7 +303,7 @@ static void VS_CC yadifmodCreate(const VSMap *in, VSMap *out, void *userData, VS
     d.vi = *vsapi->getVideoInfo(d.node);
     d.viSaved = vsapi->getVideoInfo(d.node);
 
-    if (!isConstantFormat(&d.vi) || !d.vi.numFrames || d.vi.format->sampleType != stInteger || d.vi.format->bytesPerSample > 2) {
+    if (!isConstantFormat(&d.vi) || d.vi.format->sampleType != stInteger || d.vi.format->bytesPerSample > 2) {
         vsapi->setError(out, "Yadifmod: only constant format 8-16 bits integer input supported");
         vsapi->freeNode(d.node);
         vsapi->freeNode(d.edeint);
@@ -277,8 +318,15 @@ static void VS_CC yadifmodCreate(const VSMap *in, VSMap *out, void *userData, VS
     }
 
     if (d.mode & 1) {
+        if (d.vi.numFrames > INT_MAX / 2) {
+            vsapi->setError(out, "Yadifmod: resulting clip is too long");
+            vsapi->freeNode(d.node);
+            vsapi->freeNode(d.edeint);
+            return;
+        }
+
         d.vi.numFrames *= 2;
-        d.vi.fpsNum *= 2;
+        muldivRational(&d.vi.fpsNum, &d.vi.fpsDen, 2, 1);
     }
 
     if (vsapi->getVideoInfo(d.edeint)->numFrames != d.vi.numFrames) {
