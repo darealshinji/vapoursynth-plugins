@@ -31,7 +31,7 @@
 /* from 'Implementing Median Filters in XC4000E FPGAs' by John L. Smith */
 
 #define LOWHIGH(X, Y) {\
-    if (X < Y) {\
+    if (X > Y) {\
         int t = X;\
         X = Y;\
         Y = t;\

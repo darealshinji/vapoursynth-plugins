@@ -44,7 +44,7 @@ proc_8bit_sse2(uint8_t *buff, int bstride, int width, int height, int stride,
     uint8_t *p2 = p1 + bstride;
     uint8_t *orig = p0, *end = p2;
 
-    line_copy8(p0, srcp, width, 1);
+    line_copy8(p0, srcp + stride, width, 1);
     line_copy8(p1, srcp, width, 1);
 
     for (int y = 0; y < height; y++) {
@@ -112,7 +112,7 @@ proc_16bit_sse2(uint8_t *buff, int bstride, int width, int height, int stride,
     uint16_t *p2 = p1 + bstride;
     uint16_t *orig = p0, *end = p2;
 
-    line_copy16(p0, srcp, width, 1);
+    line_copy16(p0, srcp + stride, width, 1);
     line_copy16(p1, srcp, width, 1);
 
     for (int y = 0; y < height; y++) {
