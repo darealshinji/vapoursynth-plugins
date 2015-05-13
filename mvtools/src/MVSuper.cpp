@@ -5,8 +5,8 @@
 #include <VapourSynth.h>
 #include <VSHelper.h>
 
+#include "MVFrame.h"
 #include "MVSuper.h"
-#include "MVInterface.h"
 
 
 typedef struct {
@@ -115,12 +115,12 @@ static const VSFrameRef *VS_CC mvsuperGetFrame(int n, int activationReason, void
         if (n == 0) {
             VSMap *props = vsapi->getFramePropsRW(dst);
 
-            vsapi->propSetInt(props, "Super height", d->nHeight, paReplace);
-            vsapi->propSetInt(props, "Super hpad", d->nHPad, paReplace);
-            vsapi->propSetInt(props, "Super vpad", d->nVPad, paReplace);
-            vsapi->propSetInt(props, "Super pel", d->nPel, paReplace);
-            vsapi->propSetInt(props, "Super modeyuv", d->nModeYUV, paReplace);
-            vsapi->propSetInt(props, "Super levels", d->nLevels, paReplace);
+            vsapi->propSetInt(props, "Super_height", d->nHeight, paReplace);
+            vsapi->propSetInt(props, "Super_hpad", d->nHPad, paReplace);
+            vsapi->propSetInt(props, "Super_vpad", d->nVPad, paReplace);
+            vsapi->propSetInt(props, "Super_pel", d->nPel, paReplace);
+            vsapi->propSetInt(props, "Super_modeyuv", d->nModeYUV, paReplace);
+            vsapi->propSetInt(props, "Super_levels", d->nLevels, paReplace);
         }
 
         return dst;
@@ -144,29 +144,29 @@ static void VS_CC mvsuperCreate(const VSMap *in, VSMap *out, void *userData, VSC
 
     int err;
 
-    d.nHPad = vsapi->propGetInt(in, "hpad", 0, &err);
+    d.nHPad = int64ToIntS(vsapi->propGetInt(in, "hpad", 0, &err));
     if (err)
         d.nHPad = 8;
 
-    d.nVPad = vsapi->propGetInt(in, "vpad", 0, &err);
+    d.nVPad = int64ToIntS(vsapi->propGetInt(in, "vpad", 0, &err));
     if (err)
         d.nVPad = 8;
 
-    d.nPel = vsapi->propGetInt(in, "pel", 0, &err);
+    d.nPel = int64ToIntS(vsapi->propGetInt(in, "pel", 0, &err));
     if (err)
         d.nPel = 2;
 
-    d.nLevels = vsapi->propGetInt(in, "levels", 0, &err);
+    d.nLevels = int64ToIntS(vsapi->propGetInt(in, "levels", 0, &err));
 
     d.chroma = !!vsapi->propGetInt(in, "chroma", 0, &err);
     if (err)
         d.chroma = 1;
 
-    d.sharp = vsapi->propGetInt(in, "sharp", 0, &err); // pel2 interpolation type
+    d.sharp = int64ToIntS(vsapi->propGetInt(in, "sharp", 0, &err)); // pel2 interpolation type
     if (err)
         d.sharp = 2;
 
-    d.rfilter = vsapi->propGetInt(in, "rfilter", 0, &err);
+    d.rfilter = int64ToIntS(vsapi->propGetInt(in, "rfilter", 0, &err));
     if (err)
         d.rfilter = 2;
 

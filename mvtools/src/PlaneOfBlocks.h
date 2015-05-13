@@ -20,7 +20,8 @@
 
 #include <cstdlib>
 
-#include "MVInterface.h"
+#include "MVClip.h"
+#include "MVFrame.h"
 #include "Interpolation.h"
 #include "CopyCode.h"
 #include "SADFunctions.h"
@@ -29,6 +30,15 @@
 #include "DCT.h"
 
 #define MAX_PREDICTOR 20 // right now 5 should be enough (TSchniede)
+
+#define ALIGN_PLANES 64 // all luma/chroma planes of all frames will have the effective frame area
+// aligned to this (source plane can be accessed with aligned loads, 64 required for effective use of x264 sad on Core2) 1.9.5
+#define ALIGN_SOURCEBLOCK 16    // ALIGN_PLANES aligns the sourceblock UNLESS overlap != 0 OR special case: MMX function AND Block=16, Overlap = 8
+// ALIGN_SOURCEBLOCK creates aligned copy of Source block
+//this options make things usually slower
+#define ALLOW_DCT                // complex check in lumaSAD & DCT code in SearchMV / PseudoEPZ
+//#define    ONLY_CHECK_NONDEFAULT_MV // make the check if it is no default reference (zero, global,...)
+
 
 class PlaneOfBlocks {
 
@@ -43,7 +53,8 @@ class PlaneOfBlocks {
     int nLogPel;                /* logarithm of the pel refinement accuracy */
     int nScale;                 /* scaling factor of the plane */
     int nLogScale;              /* logarithm of the scaling factor */
-    int nFlags;                 /* additionnal flags */
+    int nMotionFlags;           /* additionnal flags */
+    int nCPUFlags;
     int nOverlapX; // overlap size
     int nOverlapY; // overlap size
     int xRatioUV;
@@ -132,11 +143,8 @@ class PlaneOfBlocks {
     int verybigSAD;
 
 #ifdef ALIGN_SOURCEBLOCK
-    int nSrcPitch_plane[3];    //stores the pitch of the whole plane for easy access (nSrcPitch in non-aligned mode)
+    int nSrcPitch_temp[3];
     uint8_t* pSrc_temp[3];    //for easy WRITE access to temp block
-    uint8_t* pSrc_temp_base;    //stores base memory pointer to non _base pointer
-    uint8_t * dctSrc_base;        //stores base memory pointer to non _base pointer
-    uint8_t * dctRef_base;        //stores base memory pointer to non _base pointer
 #endif
 
     /* inline functions */
@@ -202,7 +210,7 @@ class PlaneOfBlocks {
         return (nLambda * dist) >> 8;
     }
 
-    int LumaSADx (const unsigned char *pRef0)
+    int LumaSADx (const uint8_t *pRef0)
     {
         int sad;
         switch (dctmode)
@@ -308,7 +316,7 @@ class PlaneOfBlocks {
         return sad;
     }
 
-    inline int LumaSAD (const unsigned char *pRef0)
+    inline int LumaSAD (const uint8_t *pRef0)
     {
 #ifdef ALLOW_DCT
         // made simple SAD more prominent (~1% faster) while keeping DCT support (TSchniede)
@@ -509,7 +517,7 @@ class PlaneOfBlocks {
 
     public :
 
-    PlaneOfBlocks(int _nBlkX, int _nBlkY, int _nBlkSizeX, int _nBlkSizeY, int _nPel, int _nLevel, int _nFlags, int _nOverlapX, int _nOverlapY, int _xRatioUV, int _yRatioUV, int _bitsPerSample);
+    PlaneOfBlocks(int _nBlkX, int _nBlkY, int _nBlkSizeX, int _nBlkSizeY, int _nPel, int _nLevel, int _nMotionFlags, int _nCPUFlags, int _nOverlapX, int _nOverlapY, int _xRatioUV, int _yRatioUV, int _bitsPerSample);
 
     ~PlaneOfBlocks();
 
@@ -545,8 +553,7 @@ class PlaneOfBlocks {
 
     /* search the vectors for the whole plane */
     void SearchMVs(MVFrame *_pSrcFrame, MVFrame *_pRefFrame, SearchType st,
-            int stp, int _lambda, int _lSAD, int _pennew, int _plevel,
-            int flags, int *out, VECTOR *globalMVec, short * outfilebuf, int _fieldShiftCur,
+            int stp, int _lambda, int _lSAD, int _pennew, int _plevel, int *out, VECTOR *globalMVec, short * outfilebuf, int _fieldShiftCur,
             DCTClass * _DCT, int * _meanLumaChange, int _divideExtra,
             int _pzero, int _pglobal, int badSAD, int badrange, bool meander, int *vecPrev, bool tryMany);
 
@@ -566,7 +573,7 @@ class PlaneOfBlocks {
 
     void RecalculateMVs(MVClipBalls & mvClip, MVFrame *_pSrcFrame, MVFrame *_pRefFrame, SearchType st,
             int stp, int _lambda, int _pennew,
-            int flags, int *out, short * outfilebuf, int _fieldShiftCur, int thSAD, DCTClass * _DCT,
+            int *out, short * outfilebuf, int _fieldShiftCur, int thSAD, DCTClass * _DCT,
             int _divideExtra, int smooth, bool meander);
 };
 

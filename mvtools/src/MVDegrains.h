@@ -6,10 +6,7 @@
 
 #include <emmintrin.h>
 
-#include <VSHelper.h>
-
-#include "MVInterface.h"
-
+#include "MVFrame.h"
 
 enum VectorOrder {
     Backward1 = 0,
@@ -176,7 +173,7 @@ static void LimitChanges_C(uint8_t *pDst8, intptr_t nDstPitch, const uint8_t *pS
             const PixelType *pSrc = (const PixelType *)pSrc8;
             PixelType *pDst = (PixelType *)pDst8;
 
-            pDst[i] = VSMIN( VSMAX(pDst[i], (pSrc[i] - nLimit)), (pSrc[i] + nLimit));
+            pDst[i] = (PixelType)VSMIN(VSMAX(pDst[i], (pSrc[i] - nLimit)), (pSrc[i] + nLimit));
         }
         pDst8 += nDstPitch;
         pSrc8 += nSrcPitch;
@@ -188,7 +185,7 @@ inline int DegrainWeight(int64_t thSAD, int64_t blockSAD) {
     if (blockSAD >= thSAD)
         return 0;
 
-    return (thSAD - blockSAD) * (thSAD + blockSAD) * 256 / (thSAD * thSAD + blockSAD * blockSAD);
+    return int((thSAD - blockSAD) * (thSAD + blockSAD) * 256 / (thSAD * thSAD + blockSAD * blockSAD));
 }
 
 

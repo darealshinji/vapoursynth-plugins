@@ -17,7 +17,7 @@
 // Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA, or visit
 // http://www.gnu.org/copyleft/gpl.html .
 
-#include "MVInterface.h"
+#include "MVClip.h"
 
 MVClipDicks::MVClipDicks(VSNodeRef *vectors, int _nSCD1, int _nSCD2, const VSAPI *_vsapi) :
     vsapi(_vsapi)
@@ -52,13 +52,19 @@ MVClipDicks::MVClipDicks(VSNodeRef *vectors, int _nSCD1, int _nSCD2, const VSAPI
     yRatioUV = pAnalyseFilter->GetYRatioUV();
     nVPadding = pAnalyseFilter->GetVPadding();
     nHPadding = pAnalyseFilter->GetHPadding();
-    nFlags = pAnalyseFilter->GetFlags();
+    nMotionFlags = pAnalyseFilter->GetMotionFlags();
+    nCPUFlags = pAnalyseFilter->GetCPUFlags();
 
     nBlkX = pAnalyseFilter->GetBlkX();
     nBlkY = pAnalyseFilter->GetBlkY();
     nBlkCount = nBlkX * nBlkY;
 
     bitsPerSample = pAnalyseFilter->GetBitsPerSample();
+
+    int maxSAD = 8 * 8 * 255;
+
+    if (_nSCD1 > maxSAD)
+        throw MVException(std::string("thscd1 can be at most ").append(std::to_string(maxSAD)).append("."));
 
     // SCD thresholds
     int referenceBlockSize = 8 * 8;
@@ -67,7 +73,7 @@ MVClipDicks::MVClipDicks(VSNodeRef *vectors, int _nSCD1, int _nSCD2, const VSAPI
         nSCD1 += nSCD1 / (xRatioUV * yRatioUV) * 2;
 
     int pixelMax = (1 << bitsPerSample) - 1;
-    nSCD1 = (double)nSCD1 * pixelMax / 255 + 0.5;
+    nSCD1 = int((double)nSCD1 * pixelMax / 255.0 + 0.5);
 
     nSCD2 = _nSCD2 * nBlkCount / 256;
 

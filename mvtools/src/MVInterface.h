@@ -32,15 +32,6 @@
 #include <VapourSynth.h>
 
 
-#define ALIGN_PLANES 64 // all luma/chroma planes of all frames will have the effective frame area
-// aligned to this (source plane can be accessed with aligned loads, 64 required for effective use of x264 sad on Core2) 1.9.5
-#define ALIGN_SOURCEBLOCK 16    // ALIGN_PLANES aligns the sourceblock UNLESS overlap != 0 OR special case: MMX function AND Block=16, Overlap = 8
-// ALIGN_SOURCEBLOCK creates aligned copy of Source block
-//this options make things usually slower
-#define ALLOW_DCT                // complex check in lumaSAD & DCT code in SearchMV / PseudoEPZ
-//#define    ONLY_CHECK_NONDEFAULT_MV // make the check if it is no default reference (zero, global,...)
-
-
 #define MOTION_MAGIC_KEY 0x564D //'MV' is IMHO better 31415926 :)
 
 struct VECTOR {
@@ -59,16 +50,6 @@ inline void CopyVector (VECTOR *destVector, const VECTOR *srcVector)
 #define N_PER_BLOCK 3
 
 
-enum MVPlaneSet {
-    YPLANE = 1,
-    UPLANE = 2,
-    VPLANE = 4,
-    YUPLANES = 3,
-    YVPLANES = 5,
-    UVPLANES = 6,
-    YUVPLANES = 7
-};
-
 /*! \brief Search type : defines the algorithm used for minimizing the SAD */
 enum SearchType {
     ONETIME = 1,
@@ -84,35 +65,15 @@ enum SearchType {
 #define MAX(a,b) (((a) < (b)) ? (b) : (a))
 #define MIN(a,b) (((a) > (b)) ? (b) : (a))
 
-//#define MOTION_CALC_SRC_LUMA        0x00000001
-//#define MOTION_CALC_REF_LUMA        0x00000002
-//#define MOTION_CALC_VAR             0x00000004
-#define MOTION_CALC_BLOCK           0x00000008
-#define MOTION_USE_MMX              0x00000010
-#define MOTION_USE_ISSE             0x00000020
-#define MOTION_IS_BACKWARD          0x00000040
-#define MOTION_SMALLEST_PLANE       0x00000080
-//#define MOTION_COMPENSATE_LUMA      0x00000100
-//#define MOTION_COMPENSATE_CHROMA_U  0x00000200
-//#define MOTION_COMPENSATE_CHROMA_V  0x00000400
-#define MOTION_USE_CHROMA_MOTION    0x00000800
 
-//cpu capability flags from x264 cpu.h //added in 1.9.5.4
-#define CPU_CACHELINE_32   0x00001000  /* avoid memory loads that span the border between two cachelines */
-#define CPU_CACHELINE_64   0x00002000  /* 32/64 is the size of a cacheline in bytes */
-#define CPU_MMX            0x00004000
-#define CPU_MMXEXT         0x00008000  /* MMX2 aka MMXEXT aka ISSE */
-#define CPU_SSE            0x00010000
-#define CPU_SSE2           0x00020000
-#define CPU_SSE2_IS_SLOW   0x00040000  /* avoid most SSE2 functions on Athlon64 */
-#define CPU_SSE2_IS_FAST   0x00080000  /* a few functions are only faster on Core2 and Phenom */
-#define CPU_SSE3           0x00100000
-#define CPU_SSSE3          0x00200000
-#define CPU_PHADD_IS_FAST  0x00400000  /* pre-Penryn Core2 have a uselessly slow PHADD instruction */
-#define CPU_SSE4           0x00800000  /* SSE4.1 */
+#define MOTION_USE_ISSE             0x00000001
+#define MOTION_IS_BACKWARD          0x00000002
+#define MOTION_SMALLEST_PLANE       0x00000004
+#define MOTION_USE_CHROMA_MOTION    0x00000008
 //force MVAnalyse to use a different function for SAD / SADCHROMA (debug)
-#define MOTION_USE_SSD     0x01000000
-#define MOTION_USE_SATD    0x02000000
+#define MOTION_USE_SSD              0x00000010
+#define MOTION_USE_SATD             0x00000020
+
 
 #define MV_DEFAULT_SCD1             400 // increased in v1.4.1
 #define MV_DEFAULT_SCD2             130
@@ -120,107 +81,6 @@ enum SearchType {
 //#define MV_BUFFER_FRAMES 10
 
 static const VECTOR zeroMV = { 0, 0, -1 };
-
-
-class FakeBlockData {
-    int x;
-    int y;
-    VECTOR vector;
-
-    public :
-    FakeBlockData();
-    FakeBlockData(int _x, int _y);
-    ~FakeBlockData();
-
-    void Init(int _x, int _y);
-    void Update(const int *array);
-
-    inline int GetX() const { return x; }
-    inline int GetY() const { return y; }
-    inline VECTOR GetMV() const { return vector; }
-    inline int GetSAD() const { return vector.sad; }
-};
-
-class FakePlaneOfBlocks {
-
-    int nWidth_Bi;
-    int nHeight_Bi;
-    int nBlkX;
-    int nBlkY;
-    int nBlkSizeX;
-    int nBlkSizeY;
-    int nBlkCount;
-    int nPel;
-    int nLogPel;
-    int nScale;
-    int nLogScale;
-    int nOverlapX;
-    int nOverlapY;
-
-    FakeBlockData *blocks;
-
-    public :
-
-    FakePlaneOfBlocks(int sizex,  int sizey, int lv, int pel, int overlapx, int overlapy, int nBlkX, int nBlkY);
-    ~FakePlaneOfBlocks();
-
-    void Update(const int *array);
-    bool IsSceneChange(int nTh1, int nTh2) const;
-
-    inline bool IsInFrame(int i) const
-    {
-        return (( i >= 0 ) && ( i < nBlkCount ));
-    }
-
-    inline const FakeBlockData& operator[](const int i) const {
-        return (blocks[i]);
-    }
-
-    inline int GetBlockCount() const { return nBlkCount; }
-    inline int GetReducedWidth() const { return nBlkX; }
-    inline int GetReducedHeight() const { return nBlkY; }
-    inline int GetWidth() const { return nWidth_Bi; }
-    inline int GetHeight() const { return nHeight_Bi; }
-    inline int GetScaleLevel() const { return nLogScale; }
-    inline int GetEffectiveScale() const { return nScale; }
-    inline int GetBlockSizeX() const { return nBlkSizeX; }
-    inline int GetBlockSizeY() const { return nBlkSizeY; }
-    inline int GetPel() const { return nPel; }
-    inline const FakeBlockData& GetBlock(int i) const { return (blocks[i]); }
-    inline int GetOverlapX() const { return nOverlapX; }
-    inline int GetOverlapY() const { return nOverlapY; }
-};
-
-class FakeGroupOfPlanes {
-    int nLvCount_;
-    bool validity;
-    int nWidth_B;
-    int nHeight_B;
-    int yRatioUV_B;
-    FakePlaneOfBlocks **planes;
-    inline static bool GetValidity(const int *array) { return (array[1] == 1); }
-    //CRITICAL_SECTION cs;
-
-    public :
-    FakeGroupOfPlanes();
-    ~FakeGroupOfPlanes();
-
-    void Create(int _nBlkSizeX, int _nBlkSizeY, int _nLevelCount, int _nPel, int _nOverlapX, int _nOverlapY, int _yRatioUV, int _nBlkX, int _nBlkY);
-
-    void Update(const int *array);
-    bool IsSceneChange(int nThSCD1, int nThSCD2) const;
-
-    inline const FakePlaneOfBlocks& operator[](const int i) const {
-        return *(planes[i]);
-    }
-
-
-    inline bool IsValid() const { return validity; }
-    inline int GetPitch() const { return nWidth_B; }
-    inline int GetPitchUV() const { return nWidth_B / 2; } // FIXME: lol
-
-    inline const FakePlaneOfBlocks& GetPlane(int i) const { return *(planes[i]); }
-};
 
 
 #define MVANALYSIS_DATA_VERSION 5
@@ -250,8 +110,10 @@ class MVAnalysisData
         /*! \brief direction of the search ( forward / backward ) */
         bool isBackward;
 
+        int nCPUFlags;
+
         /*! \brief diverse flags to set up the search */
-        int nFlags;
+        int nMotionFlags;
 
         /*! \brief Width of the frame */
         int nWidth;
@@ -280,8 +142,10 @@ class MVAnalysisData
 
     public :
 
-        inline void SetFlags(int _nFlags) { nFlags |= _nFlags; }
-        inline int GetFlags() const { return nFlags; }
+        inline void SetCPUFlags(int _nCPUFlags) { nCPUFlags |= _nCPUFlags; }
+        inline int GetCPUFlags() const { return nCPUFlags; }
+        inline void SetMotionFlags(int _nMotionFlags) { nMotionFlags |= _nMotionFlags; }
+        inline int GetMotionFlags() const { return nMotionFlags; }
         inline int GetBlkSizeX() const { return nBlkSizeX; }
         inline int GetPel() const { return nPel; }
         inline int GetLevelCount() const { return nLvCount; }
@@ -290,7 +154,7 @@ class MVAnalysisData
         inline int GetDeltaFrame() const { return nDeltaFrame; }
         inline int GetWidth() const { return nWidth; }
         inline int GetHeight() const { return nHeight; }
-        inline bool IsChromaMotion() const { return nFlags & MOTION_USE_CHROMA_MOTION; }
+        inline bool IsChromaMotion() const { return !!(nMotionFlags & MOTION_USE_CHROMA_MOTION); }
         inline int GetOverlapX() const { return nOverlapX; }
         inline int GetBlkX() const { return nBlkX; }
         inline int GetBlkY() const { return nBlkY; }
@@ -305,42 +169,6 @@ class MVAnalysisData
 };
 
 
-class MVClipDicks : public MVAnalysisData {
-    /*! \brief Number of blocks at the first level */
-    int nBlkCount;
-
-    /*! \brief First Scene Change Detection threshold ( compared against SAD value of the block ) */
-    int nSCD1;
-
-    /*! \brief Second Scene Change Detection threshold ( compared against the number of block over the first threshold */
-    int nSCD2;
-
-    const VSAPI *vsapi;
-
-    public:
-    MVClipDicks(VSNodeRef *vectors, int nSCD1, int nSCD2, const VSAPI *_vsapi);
-    ~MVClipDicks();
-
-    inline int GetBlkCount() const { return nBlkCount; }
-    inline int GetThSCD1() const { return nSCD1; }
-    inline int GetThSCD2() const { return nSCD2; }
-};
-
-
-class MVClipBalls : public FakeGroupOfPlanes {
-    MVClipDicks *dicks;
-    const VSAPI *vsapi;
-    public:
-    MVClipBalls(MVClipDicks *_dicks, const VSAPI *_vsapi);
-    ~MVClipBalls();
-
-    void Update(const VSFrameRef *fn); // v1.4.13
-    inline const FakeBlockData& GetBlock(int nLevel, int nBlk) const { return GetPlane(nLevel)[nBlk]; }
-    bool IsUsable() const;
-    bool IsSceneChange(int nSCD1, int nSCD2) const { return FakeGroupOfPlanes::IsSceneChange(nSCD1, nSCD2); }
-};
-
-
 class MVException : public std::runtime_error {
     public:
         MVException(const char *descr) : std::runtime_error(descr) {}
@@ -348,255 +176,6 @@ class MVException : public std::runtime_error {
 };
 
 
-class MVFilter {
-    public:
-        /*! \brief Number of blocks horizontaly, at the first level */
-        int nBlkX;
-
-        /*! \brief Number of blocks verticaly, at the first level */
-        int nBlkY;
-
-        /*! \brief Number of blocks at the first level */
-        int nBlkCount;
-
-        /*! \brief Number of blocks at the first level */
-        int nBlkSizeX;
-
-        int nBlkSizeY;
-
-        /*! \brief Horizontal padding */
-        int nHPadding;
-
-        /*! \brief Vertical padding */
-        int nVPadding;
-
-        /*! \brief Width of the frame */
-        int nWidth;
-
-        /*! \brief Height of the frame */
-        int nHeight;
-
-        /*! \brief MVFrames idx */
-        int nIdx;
-
-        /*! \brief pixel refinement of the motion estimation */
-        int nPel;
-
-        int nOverlapX;
-        int nOverlapY;
-
-        int bitsPerSample;
-        int yRatioUV;
-        int xRatioUV;
-
-        /*! \brief Filter's name */
-        const char * name; //v1.8 replaced std::string (why it was used?)
-
-        MVFilter(VSNodeRef *vector, const char *filterName, const VSAPI *vsapi);
-
-        void CheckSimilarity(const MVClipDicks *vector, const char *vectorName);
-};
-
-
 //#define MOTION_DELTA_FRAME_BUFFER 5
-
-class MVPlane {
-    uint8_t **pPlane;
-    int nWidth;
-    int nHeight;
-    int nExtendedWidth;
-    int nExtendedHeight;
-    int nPitch;
-    int nHPadding;
-    int nVPadding;
-    int nOffsetPadding;
-    int nHPaddingPel;
-    int nVPaddingPel;
-    int bitsPerSample;
-    int bytesPerSample;
-
-    int nPel;
-
-    bool isse;
-
-    bool isPadded;
-    bool isRefined;
-    bool isFilled;
-
-    //CRITICAL_SECTION cs;
-
-    template <typename PixelType>
-    void RefineExtPel2(const uint8_t *pSrc2x, int nSrc2xPitch, bool isExtPadded);
-
-    template <typename PixelType>
-    void RefineExtPel4(const uint8_t *pSrc2x, int nSrc2xPitch, bool isExtPadded);
-
-    public :
-
-    MVPlane(int _nWidth, int _nHeight, int _nPel, int _nHPad, int _nVPad, bool _isse, int _bitsPerSample);
-    ~MVPlane();
-
-    void Update(uint8_t* pSrc, int _nPitch);
-    void ChangePlane(const uint8_t *pNewPlane, int nNewPitch);
-    void Pad();
-    void Refine(int interType);
-    void RefineExt(const uint8_t *pSrc2x, int nSrc2xPitch, bool isExtPadded); //2.0.08
-    void ReduceTo(MVPlane *pReducedPlane, int rfilter);
-    void WritePlane(FILE *pFile);
-
-    inline const uint8_t *GetAbsolutePointer(int nX, int nY) const
-    {
-        if ( nPel == 1 )
-            return pPlane[0] + nX * bytesPerSample + nY * nPitch;
-        else if (nPel == 2) {
-            int idx = (nX&1) | ((nY&1)<<1);
-
-            nX >>= 1;
-            nY >>= 1;
-
-            return pPlane[idx] + nX * bytesPerSample + nY * nPitch;
-        }
-        else // nPel = 4
-        {
-            int idx = (nX&3) | ((nY&3)<<2);
-
-            nX >>= 2;
-            nY >>= 2;
-
-            return pPlane[idx] + nX * bytesPerSample + nY * nPitch;
-        }
-    }
-
-    inline const uint8_t *GetAbsolutePointerPel1(int nX, int nY) const
-    {
-        return pPlane[0] + nX * bytesPerSample + nY * nPitch;
-    }
-
-    inline const uint8_t *GetAbsolutePointerPel2(int nX, int nY) const
-    {
-        int idx = (nX&1) | ((nY&1)<<1);
-
-        nX >>= 1;
-        nY >>= 1;
-
-        return pPlane[idx] + nX * bytesPerSample + nY * nPitch;
-    }
-
-    inline const uint8_t *GetAbsolutePointerPel4(int nX, int nY) const
-    {
-        int idx = (nX&3) | ((nY&3)<<2);
-
-        nX >>= 2;
-        nY >>= 2;
-
-        return pPlane[idx] + nX * bytesPerSample + nY * nPitch;
-    }
-
-    inline const uint8_t *GetPointer(int nX, int nY) const
-    {
-        return GetAbsolutePointer(nX + nHPaddingPel, nY + nVPaddingPel);
-    }
-
-    inline const uint8_t *GetPointerPel1(int nX, int nY) const
-    {
-        return GetAbsolutePointerPel1(nX + nHPaddingPel, nY + nVPaddingPel);
-    }
-
-    inline const uint8_t *GetPointerPel2(int nX, int nY) const
-    {
-        return GetAbsolutePointerPel2(nX + nHPaddingPel, nY + nVPaddingPel);
-    }
-
-    inline const uint8_t *GetPointerPel4(int nX, int nY) const
-    {
-        return GetAbsolutePointerPel4(nX + nHPaddingPel, nY + nVPaddingPel);
-    }
-
-    inline const uint8_t *GetAbsolutePelPointer(int nX, int nY) const
-    {  return pPlane[0] + nX * bytesPerSample + nY * nPitch; }
-
-    inline int GetPitch() const { return nPitch; }
-    inline int GetWidth() const { return nWidth; }
-    inline int GetHeight() const { return nHeight; }
-    inline int GetExtendedWidth() const { return nExtendedWidth; }
-    inline int GetExtendedHeight() const { return nExtendedHeight; }
-    inline int GetHPadding() const { return nHPadding; }
-    inline int GetVPadding() const { return nVPadding; }
-    inline void ResetState() { isRefined = isFilled = isPadded = false; }
-
-};
-
-class MVFrame {
-
-    MVPlane *pYPlane;
-    MVPlane *pUPlane;
-    MVPlane *pVPlane;
-
-    int nMode;
-    bool isse;
-    int xRatioUV;
-    int yRatioUV;
-    int bitsPerSample;
-
-    public:
-    MVFrame(int nWidth, int nHeight, int nPel, int nHPad, int nVPad, int _nMode, bool _isse, int _xRatioUV, int _yRatioUV, int _bitsPerSample);
-    ~MVFrame();
-
-    void Update(int _nMode, uint8_t * pSrcY, int pitchY, uint8_t * pSrcU, int pitchU, uint8_t *pSrcV, int pitchV);
-    void ChangePlane(const uint8_t *pNewSrc, int nNewPitch, MVPlaneSet _nMode);
-    void Refine(MVPlaneSet _nMode, int interType);
-    void Pad(MVPlaneSet _nMode);
-    void ReduceTo(MVFrame *pFrame, MVPlaneSet _nMode, int rfilter);
-    void ResetState();
-    void WriteFrame(FILE *pFile);
-
-    inline MVPlane *GetPlane(MVPlaneSet _nMode)
-    {
-        // no reason to test for nMode because returning NULL isn't expected in other parts
-        // assert(nMode & _nMode & (YPLANE | UPLANE | VPLANE));
-
-        if ( _nMode & YPLANE ) // ( nMode & _nMode & YPLANE )
-            return pYPlane;
-
-        if ( _nMode & UPLANE ) // ( nMode & _nMode & UPLANE )
-            return pUPlane;
-
-        if ( _nMode & VPLANE ) // ( nMode & _nMode & VPLANE )
-            return pVPlane;
-
-        return 0;
-    }
-
-    inline int GetMode() { return nMode; }
-
-};
-
-
-class MVGroupOfFrames {
-    int nLevelCount;
-    MVFrame **pFrames;
-
-    int nWidth;
-    int nHeight;
-    int nPel;
-    int nHPad;
-    int nVPad;
-    int xRatioUV;
-    int yRatioUV;
-    int bitsPerSample;
-
-    public :
-
-    MVGroupOfFrames(int _nLevelCount, int nWidth, int nHeight, int nPel, int nHPad, int nVPad, int nMode, bool isse, int _xRatioUV, int yRatioUV, int _bitsPerSample);
-    ~MVGroupOfFrames();
-    void Update(int nModeYUV, uint8_t * pSrcY, int pitchY, uint8_t * pSrcU, int pitchU, uint8_t *pSrcV, int pitchV);
-
-    MVFrame *GetFrame(int nLevel);
-    void SetPlane(const uint8_t *pNewSrc, int nNewPitch, MVPlaneSet nMode);
-    void Refine(MVPlaneSet nMode, int interType);
-    void Pad(MVPlaneSet nMode);
-    void Reduce(MVPlaneSet nMode, int rfilter);
-    void ResetState();
-};
 
 #endif
