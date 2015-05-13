@@ -50,7 +50,7 @@ libmvtools_la_SOURCES = src/asm-placeholder.cpp \
 						src/asm/SAD.asm \
 						src/asm/Variance.asm
 
-libmvtools_la_CXXFLAGS = -std=c++11 -msse2 -mfpmath=sse
+libmvtools_la_CXXFLAGS = $(AM_CXXFLAGS) -std=c++11 -msse2 -mfpmath=sse
 
 libmvtools_la_CPPFLAGS = $(VapourSynth_CFLAGS) $(FFTW3F_CFLAGS)
 
