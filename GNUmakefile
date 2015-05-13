@@ -47,6 +47,7 @@ dirs:
 install:
 	$(install_DIR) $(DESTDIR)$(plugins)
 	$(install_DIR) $(DESTDIR)$(docdir)
+	$(install_DIR) $(DESTDIR)$(prefix)/share/nnedi3
 	$(foreach LIB,$(shell echo */.libs/*.so),$(install) $(LIB) $(DESTDIR)$(plugins) $(NL))
 	$(foreach SCRIPT,$(python_SCRIPTS),$(install) $(SCRIPT) $(DESTDIR)$(plugins) $(NL))
 
@@ -57,6 +58,7 @@ install:
 	$(install) fmtconv/doc/fmtconv.html $(DESTDIR)$(docdir)
 	$(install) fmtconv/doc/colorspace-subsampling.png $(DESTDIR)$(docdir)
 	$(install) fmtconv/doc/vapourdoc.css $(DESTDIR)$(docdir)
+	$(install) nnedi3/src/nnedi3_weights.bin $(DESTDIR)$(prefix)/share/nnedi3
 
 	install -m755 -D d2vsource/d2vscan.pl $(DESTDIR)$(plugins)
 	$(install) d2vsource/d2vscan.txt $(DESTDIR)$(docdir)/d2vscan
