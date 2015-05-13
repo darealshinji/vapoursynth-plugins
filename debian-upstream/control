@@ -11,7 +11,7 @@ Build-Depends:
  libavcodec-dev,
  libavutil-dev,
  libfftw3-dev,
- libjpeg-turbo8-dev,
+ libjpeg-dev,
  libpng12-dev,
  libsndfile1-dev,
  libxvidcore-dev,
@@ -64,8 +64,6 @@ Pre-Depends:
  ${misc:Pre-Depends}
 Recommends:
  libvapoursynth3
-Suggests:
- vapoursynth-extra-plugins
 Description: nnedi3 plugin for VapourSynth
  It's an application for video manipulation. Or a plugin. Or a library.
  It's hard to tell because it has a core library written in C++ and a
@@ -91,8 +89,6 @@ Depends:
 Recommends:
  libvapoursynth3,
  vapoursynth-nnedi3-plugin
-Suggests:
- vapoursynth-extra-plugins
 Description: weights file for the nnedi3 plugin
  It's an application for video manipulation. Or a plugin. Or a library.
  It's hard to tell because it has a core library written in C++ and a
