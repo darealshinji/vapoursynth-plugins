@@ -2,9 +2,9 @@
 
 #include <stdio.h>
 
-#include <emmintrin.h>
-
 #ifdef ENABLE_DEBUG_DUMP
+
+#include <emmintrin.h>
 
 void dump_init(const TCHAR* dump_base_name, int plane, int items_per_line);
 
