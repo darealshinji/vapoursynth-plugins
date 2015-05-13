@@ -62,10 +62,13 @@ install:
 
 clean:
 	test -f Makefile && $(MAKE) clean || true
+	cd imagereader/src && rm -rf .libs *.la *.lo
+	cd imagereader/libjpeg-turbo && rm -f md5/md5cmp stamp-h1 stamp-h2 tjbench tjbenchtest tjunittest
 
 distclean:
 	test -f Makefile && $(MAKE) distclean || true
 	rm -f config.mak
+	cd imagereader/libjpeg-turbo && rm -f config.h.in~ config.h jconfig.h libjpeg.map
 
 cleanfiles = .dirstamp aclocal.m4 configure config.h.in config.h.in~ config.log \
 	config.mak config.status jsimdcfg.inc libtool Makefile Makefile.in
@@ -75,8 +78,6 @@ clobber:
 	$(foreach DIR,$(cleandirs),rm -rf $(DIR)/autom4te.cache $(DIR)/m4 $(DIR)/build-aux ;)
 	$(foreach FILE,$(cleanfiles),find . -name $(FILE) -delete ;)
 	rm -rf .deps $(shell find . -name .deps)
-	cd imagereader/libjpeg-turbo && rm -f config.h.in~ config.h jconfig.h libjpeg.map \
-		md5/md5cmp stamp-h1 stamp-h2 tjbench tjbenchtest tjunittest
 
 config.mak:
 	./configure.sh
