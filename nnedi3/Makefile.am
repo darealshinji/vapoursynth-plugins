@@ -1,4 +1,5 @@
 include ../global.inc
+include ../config.mak
 
 ACLOCAL_AMFLAGS = -I m4
 
@@ -20,7 +21,8 @@ libnnedi3_la_SOURCES += src/asm/cpu-a.asm \
 						src/asm/nnedi3.asm
 endif
 
-libnnedi3_la_CXXFLAGS = $(AM_CXXFLAGS) -std=c++11 -DNNEDI3_DATADIR='"$(pkgdatadir)"'
+libnnedi3_la_CXXFLAGS = $(AM_CXXFLAGS) -std=c++11 -DNNEDI3_DATADIR='"$(prefix)/share/nnedi3"'
+#-DNNEDI3_DATADIR='"$(pkgdatadir)"'
 
 libnnedi3_la_LIBADD = -lm
 
