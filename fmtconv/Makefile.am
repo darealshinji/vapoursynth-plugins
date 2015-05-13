@@ -65,7 +65,8 @@ libavx2_la_SOURCES = \
 	src/fstb/ToolsAvx2.cpp \
 	src/main.cpp
 
-libavx2_la_CXXFLAGS = $(AM_CXXFLAGS) -Isrc -mavx2 -fabi-version=6 -Wno-reorder -Wno-return-type
+libavx2_la_CXXFLAGS = $(AM_CXXFLAGS) -Isrc -mavx2 -fabi-version=6 \
+	-Wno-reorder -Wno-return-type -Wno-unused-variable
 
 
 libfmtconv_la_LIBADD = libavx2.la
