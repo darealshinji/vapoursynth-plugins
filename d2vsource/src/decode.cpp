@@ -34,6 +34,7 @@ extern "C" {
 #include "d2v.hpp"
 #include "decode.hpp"
 #include "gop.hpp"
+#include "libavversion.hpp"
 
 using namespace std;
 
@@ -230,8 +231,10 @@ decodecontext *decodeinit(d2vcontext *dctx, int threads, string& err)
      */
     ret->avctx->flags |= CODEC_FLAG_EMU_EDGE;
 
+#if !defined(__OLD_AVCODEC_API)
     /* Use refcounted frames. */
     ret->avctx->refcounted_frames = 1;
+#endif
 
     /* Open it. */
     av_ret = avcodec_open2(ret->avctx, ret->incodec, NULL);
@@ -499,9 +502,11 @@ int decodeframe(int frame_num, d2vcontext *ctx, decodecontext *dctx, AVFrame *ou
             } while(dctx->inpkt.stream_index != dctx->stream_index);
         }
 
+#if !defined(__OLD_AVCODEC_API)
         /* Unreference all but the last frame. */
         if (j != o)
             av_frame_unref(out);
+#endif
     }
 
     /*

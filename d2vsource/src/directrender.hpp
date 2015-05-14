@@ -27,6 +27,9 @@ extern "C" {
 #include <libavcodec/avcodec.h>
 }
 
+#include "libavversion.hpp"
+
+#if defined(__OLD_AVCODEC_API)
 #include "d2v.hpp"
 
 typedef struct VSData {
@@ -36,5 +39,9 @@ typedef struct VSData {
 
 int VSGetBuffer(AVCodecContext *avctx, AVFrame *pic, int flag);
 void VSReleaseBuffer(void *opaque, uint8_t *data);
+#else
+int VSGetBuffer(AVCodecContext *avctx, AVFrame *pic);
+void VSReleaseBuffer(AVCodecContext *avctx, AVFrame *pic);
+#endif
 
 #endif
