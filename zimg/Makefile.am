@@ -1,4 +1,3 @@
-include ../global.inc
 
 lib_LTLIBRARIES    = libzimg.la
 noinst_LTLIBRARIES = libsse2.la libavx2.la libf16c.la libvszimg.la

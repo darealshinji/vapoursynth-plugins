@@ -1,4 +1,3 @@
-include ../global.inc
 
 ACLOCAL_AMFLAGS = -I m4
 

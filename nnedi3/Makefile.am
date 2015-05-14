@@ -1,4 +1,3 @@
-include ../global.inc
 include ../config.mak
 
 ACLOCAL_AMFLAGS = -I m4

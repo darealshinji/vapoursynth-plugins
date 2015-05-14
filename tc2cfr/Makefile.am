@@ -1,4 +1,3 @@
-include ../global.inc
 
 lib_LTLIBRARIES = libtc2cfr.la
 

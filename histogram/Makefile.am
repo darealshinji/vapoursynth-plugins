@@ -1,4 +1,3 @@
-include ../global.inc
 
 lib_LTLIBRARIES = libhistogram.la
 
