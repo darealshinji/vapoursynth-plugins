@@ -23,6 +23,8 @@ override_dh_install:
 	dh_install -pvapoursynth-extra-plugins -Xnnedi3
 	dh_install --remaining-packages
 
+override_dh_makeshlibs:
+
 override_dh_strip:
 	dh_strip --dbg-package=vapoursynth-extra-plugins-dbg
 
