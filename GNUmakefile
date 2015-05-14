@@ -51,8 +51,8 @@ install:
 	$(install_DIR) $(DESTDIR)$(prefix)/share/nnedi3
 	$(foreach LIB,$(shell echo */.libs/*.so),$(install) $(LIB) $(DESTDIR)$(plugins) $(NL))
 	ffmslib=$$($(GREP) 'dlname' ffms2/src/core/libffms2.la | cut -d"'" -f2) ;\
-		cp -f ffms2/src/core/.libs/$$ffmslib ffms2 ;\
-		$(install) ffms2/$$ffmslib $(DESTDIR)$(plugins)
+    cp -f ffms2/src/core/.libs/$$ffmslib ffms2 ;\
+    $(install) ffms2/$$ffmslib $(DESTDIR)$(plugins)
 	$(foreach SCRIPT,$(python_SCRIPTS),$(install) $(SCRIPT) $(DESTDIR)$(plugins) $(NL))
 
 	$(install) README.md $(DESTDIR)$(docdir)
@@ -87,6 +87,9 @@ clobber: distclean
 	$(foreach DIR,$(cleandirs),rm -rf $(DIR)/autom4te.cache $(DIR)/m4 $(DIR)/build-aux ;)
 	$(foreach FILE,$(cleanfiles),find . -name $(FILE) -delete ;)
 	rm -rf .deps $(shell find . -name .deps)
+	if [ -d ".git" ] && [ "x$$(type -p git)" != "x" ]; then \
+    git submodule deinit -f ffms2; \
+fi
 
 config.mak:
 	./configure.sh
