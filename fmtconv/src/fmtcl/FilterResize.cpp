@@ -61,8 +61,12 @@ namespace fmtcl
 
 
 FilterResize::FilterResize (const ResampleSpecPlane &spec, ContFirInterface &kernel_fnc_h, ContFirInterface &kernel_fnc_v, bool norm_flag, double norm_val_h, double norm_val_v, double gain, SplFmt src_type, int src_res, SplFmt dst_type, int dst_res, bool int_flag, bool sse2_flag, bool avx2_flag)
+#if defined(__USE_AVSTP)
 :	_avstp (AvstpWrapper::use_instance ())
 ,	_task_rsz_pool ()
+#else
+:	_task_rsz_pool ()
+#endif
 /*,	_src_size ()
 ,	_dst_size ()
 ,	_win_pos ()
@@ -517,7 +521,9 @@ void	FilterResize::process_plane_normal (uint8_t *dst_msb_ptr, uint8_t *dst_lsb_
 	assert (stride_dst > 0);
 	assert (stride_src > 0);
 
+#if defined(__USE_AVSTP)
 	avstp_TaskDispatcher *	task_dispatcher_ptr = _avstp.create_dispatcher ();
+#endif
 
 	TaskRszGlobal	trg;
 	trg._this_ptr       = this;
@@ -612,19 +618,25 @@ void	FilterResize::process_plane_normal (uint8_t *dst_msb_ptr, uint8_t *dst_lsb_
 				tr._work_dst [d] = work_dst [d];
 			}
 
+#if defined(__USE_AVSTP)
 			_avstp.enqueue_task (
 				task_dispatcher_ptr,
 				&redirect_task_resize,
 				tr_cell_ptr
 			);
+#endif
 		}	// for Dir_H
 	}	// for Dir_V
 
+#if defined(__USE_AVSTP)
 	_avstp.wait_completion (task_dispatcher_ptr);
+#endif
 
 	// Done
+#if defined(__USE_AVSTP)
 	_avstp.destroy_dispatcher (task_dispatcher_ptr);
 	task_dispatcher_ptr = 0;
+#endif
 }
 
 
