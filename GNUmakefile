@@ -10,10 +10,11 @@ MAKE = make -f Makefile
 AUTORECONF = autoreconf -i
 endif
 
+GREP ?= grep
 install = install -m644 -D
 install_DIR = install -m755 -d
 
-cleandirs = . fluxsmooth mvtools nnedi3 tcomb imagereader/libjpeg-turbo
+cleandirs = . ffms2 fluxsmooth mvtools nnedi3 tcomb imagereader/libjpeg-turbo
 
 python_SCRIPTS = \
 	finesharp/finesharp.py \
@@ -49,6 +50,9 @@ install:
 	$(install_DIR) $(DESTDIR)$(docdir)
 	$(install_DIR) $(DESTDIR)$(prefix)/share/nnedi3
 	$(foreach LIB,$(shell echo */.libs/*.so),$(install) $(LIB) $(DESTDIR)$(plugins) $(NL))
+	ffmslib=$$($(GREP) 'dlname' ffms2/src/core/libffms2.la | cut -d"'" -f2) ;\
+		cp -f ffms2/src/core/.libs/$$ffmslib ffms2 ;\
+		$(install) ffms2/$$ffmslib $(DESTDIR)$(plugins)
 	$(foreach SCRIPT,$(python_SCRIPTS),$(install) $(SCRIPT) $(DESTDIR)$(plugins) $(NL))
 
 	$(install) README.md $(DESTDIR)$(docdir)
@@ -69,6 +73,7 @@ clean:
 	test -f Makefile && $(MAKE) clean || true
 	cd imagereader/src && rm -rf .libs *.la *.lo
 	cd imagereader/libjpeg-turbo && rm -f md5/md5cmp stamp-h1 stamp-h2 tjbench tjbenchtest tjunittest
+	rm -f ffms2/*.so.*
 
 distclean: clean
 	test -f Makefile && $(MAKE) distclean || true

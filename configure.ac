@@ -113,7 +113,8 @@ AC_CONFIG_FILES([Makefile \
                  yadifmod/Makefile \
                  zimg/Makefile
                  ])
-AC_CONFIG_SUBDIRS([fluxsmooth
+AC_CONFIG_SUBDIRS([ffms2
+                   fluxsmooth
                    mvtools
                    nnedi3
                    tcomb

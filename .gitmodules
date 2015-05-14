@@ -1,0 +1,3 @@
+[submodule "ffms2"]
+	path = ffms2
+	url = https://github.com/FFMS/ffms2
