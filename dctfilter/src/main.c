@@ -89,7 +89,7 @@ static void VS_CC PluginCreate(const VSMap * a_pInMap, VSMap * a_pOutMap,
 		{
 			char errorString[51] = {0};
 			sprintf(errorString, "dct.Filter: %d element in factors array "
-				"is not a valid real number.", i);
+				"is not a valid real number.", (int)i);
 			a_cpVSAPI->setError(a_pOutMap, errorString);
 			a_cpVSAPI->freeNode(internalData.pInputNode);
 			return;
