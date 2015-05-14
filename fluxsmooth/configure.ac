@@ -1,6 +1,7 @@
 AC_INIT([fluxsmooth], [1], [https://github.com/dubhater/vapoursynth-fluxsmooth/issues], [fluxsmooth], [https://github.com/dubhater/vapoursynth-fluxsmooth/])
 
-: ${CFLAGS="-O2"}
+: ${CFLAGS="-g -O3"}
+: ${CXXFLAGS="-g -O3"}
 
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([build-aux])
@@ -72,17 +73,11 @@ AC_SUBST([ASFLAGS])
 
 PKG_CHECK_MODULES([VapourSynth], [vapoursynth])
 
-# Checks for header files.
-AC_CHECK_HEADERS([stdint.h stdlib.h string.h])
-
-# Checks for typedefs, structures, and compiler characteristics.
-AC_TYPE_INT16_T
-AC_TYPE_INT64_T
-AC_TYPE_UINT16_T
-AC_TYPE_UINT8_T
-
-# Checks for library functions.
-AC_FUNC_MALLOC
+# Build flags
+commonflags="-Wall -Wextra -Wno-unused-parameter -Wno-unused-result"
+CFLAGS="${commonflags} ${CFLAGS} ${VapourSynth_CFLAGS}"
+CXXFLAGS="${commonflags} ${CXXFLAGS} ${VapourSynth_CFLAGS}"
+LDFLAGS="${LDFLAGS} -no-undefined -avoid-version -Wl,-z,noexecstack -Wl,--as-needed"
 
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT

@@ -3,6 +3,10 @@
 
 AC_PREREQ([2.56])
 AC_INIT([libjpeg-turbo], [1.3.0])
+
+: ${CFLAGS="-Wall -g -O3"}
+: ${CXXFLAGS="-Wall -g -O3"}
+
 BUILD=`date +%Y%m%d`
 AM_SILENT_RULES([yes])
 
@@ -14,7 +18,6 @@ AM_INIT_AUTOMAKE([foreign dist-bzip2])
 AC_DEFINE([HAVE_PROTOTYPES], 1, [Define if your compiler supports prototypes])
 
 # Checks for programs.
-CFLAGS="-Wall ${CFLAGS}"
 SAVED_CFLAGS=${CFLAGS}
 SAVED_CPPFLAGS=${CPPFLAGS}
 AC_PROG_CPP

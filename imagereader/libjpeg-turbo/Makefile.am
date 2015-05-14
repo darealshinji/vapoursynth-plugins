@@ -1,12 +1,13 @@
 ACLOCAL_AMFLAGS = -I m4
 
 lib_LTLIBRARIES = libjpeg.la
-libjpeg_la_LDFLAGS = -version-info ${LIBTOOL_CURRENT}:${SO_MINOR_VERSION}:${SO_AGE} -no-undefined
+libjpeg_la_LDFLAGS = $(AM_LDFLAGS) -version-info ${LIBTOOL_CURRENT}:${SO_MINOR_VERSION}:${SO_AGE} -no-undefined
 include_HEADERS = jerror.h jmorecfg.h jpeglib.h
 
 if WITH_TURBOJPEG
 lib_LTLIBRARIES += libturbojpeg.la
-libturbojpeg_la_LDFLAGS = -version-info 0:0 -no-undefined
+libturbojpeg_la_CFLAGS = $(AM_CFLAGS) -Wno-clobbered
+libturbojpeg_la_LDFLAGS = $(AM_LDFLAGS) -version-info 0:0 -no-undefined
 include_HEADERS += turbojpeg.h
 endif
 

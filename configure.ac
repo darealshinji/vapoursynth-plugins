@@ -17,6 +17,10 @@ AC_DEFUN([AC_CXX_FLAG], [{
 
 
 AC_INIT([vapoursynth-plugins], [1], [https://github.com/darealshinji/vapoursynth-plugins/issues])
+
+: ${CFLAGS="-g -O3"}
+: ${CXXFLAGS="-g -O3"}
+
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([build-aux])
 
@@ -24,9 +28,6 @@ AM_INIT_AUTOMAKE([foreign no-dist-gzip dist-xz subdir-objects no-define])
 AM_SILENT_RULES([yes])
 
 LT_INIT([disable-static])
-
-: ${CFLAGS="-g -O3"}
-: ${CXXFLAGS="-g -O3"}
 
 AC_PROG_CXX
 AC_PROG_AWK
@@ -63,26 +64,11 @@ PKG_CHECK_MODULES([libavutil], [libavutil])
 PKG_CHECK_MODULES([fftw3f], [fftw3])
 PKG_CHECK_MODULES([SNDFILE], [sndfile])
 
-# Checks for header files.
-AC_CHECK_HEADERS([float.h inttypes.h malloc.h stdint.h stdlib.h string.h png.h])
-
-# Checks for typedefs, structures, and compiler characteristics.
-AC_CHECK_HEADER_STDBOOL
-AC_C_INLINE
-AC_TYPE_INT16_T
-AC_TYPE_INT32_T
-AC_TYPE_INT64_T
-AC_TYPE_INT8_T
-AC_TYPE_SIZE_T
-AC_TYPE_UINT16_T
-AC_TYPE_UINT32_T
-AC_TYPE_UINT64_T
-AC_TYPE_UINT8_T
-
-# Checks for library functions.
-AC_FUNC_FSEEKO
-AC_FUNC_MALLOC
-AC_CHECK_FUNCS([floor memset pow sqrt strcasecmp strchr strspn strtoul])
+# Build flags
+commonflags="-Wall -Wextra -Wno-unused-parameter -Wno-unused-result"
+CFLAGS="${commonflags} ${CFLAGS} ${VapourSynth_CFLAGS}"
+CXXFLAGS="${commonflags} ${CXXFLAGS} ${VapourSynth_CFLAGS}"
+LDFLAGS="${LDFLAGS} -no-undefined -avoid-version -Wl,-z,noexecstack -Wl,--as-needed"
 
 AC_CONFIG_FILES([Makefile \
                  addgrain/Makefile \
