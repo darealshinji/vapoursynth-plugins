@@ -25,6 +25,9 @@ AM_SILENT_RULES([yes])
 
 LT_INIT([disable-static])
 
+: ${CFLAGS="-g -O3"}
+: ${CXXFLAGS="-g -O3"}
+
 AC_PROG_CXX
 AC_PROG_AWK
 AC_PROG_CC
