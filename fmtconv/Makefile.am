@@ -47,7 +47,7 @@ libfmtconv_la_SOURCES = \
 #libfmtconv_la_SOURCES += src/AvstpFinder.cpp src/AvstpWrapper.cpp
 #endif
 
-libfmtconv_la_CXXFLAGS = $(AM_CXXFLAGS) -Isrc -mfpmath=sse -msse2 -Wno-return-type
+libfmtconv_la_CXXFLAGS = $(AM_CXXFLAGS) -Isrc -mfpmath=sse -msse2 -march=native -Wno-return-type
 
 
 noinst_LTLIBRARIES = libavx2.la
@@ -65,7 +65,7 @@ libavx2_la_SOURCES = \
 	src/fstb/ToolsAvx2.cpp \
 	src/main.cpp
 
-libavx2_la_CXXFLAGS = $(AM_CXXFLAGS) -Isrc -mavx2 -fabi-version=6 \
+libavx2_la_CXXFLAGS = $(AM_CXXFLAGS) -Isrc -mavx2 -march=native -fabi-version=6 \
 	-Wno-reorder -Wno-return-type -Wno-unused-variable
 
 
