@@ -65,7 +65,7 @@ Copyright: 2002 thejam79
            2014 msg7086
 License: GPL-2+
 
-Files: msmoosh/* mvtools/* nnedi3/* tcomb/*
+Files: histogram/* msmoosh/* mvtools/* nnedi3/* tcomb/* wwxd/*
 Copyright: 2012-2015 dubhater
 License: GPL-2+
 
@@ -120,10 +120,6 @@ Files: vautodeint
 Copyright: 2013 Acfun
            2013 Li Yonggang <gnaggnoyil@gmail.com>
 License: GPL-3+
-
-Files: wwxd/*
-Copyright: 2014 dubhater
-License: GPL-2+
 
 Files: yadifmod/*
 Copyright: 2007 Kevin Stone
