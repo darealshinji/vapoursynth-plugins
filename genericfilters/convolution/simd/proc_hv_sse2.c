@@ -67,7 +67,11 @@ proc_8bit_sse2(convolution_hv_t *ch, uint8_t *buff, int bstride, int width,
 
             for (int j = 0; j < 2; j++) {
                 __m128i *matrix = j == 0 ? matrix_v : matrix_h;
-                __m128i sum[4] = {zero, zero, zero, zero};
+                __m128i sum[4];
+                sum[0] = _mm_setzero_si128();
+                sum[1] = _mm_setzero_si128();
+                sum[2] = _mm_setzero_si128();
+                sum[3] = _mm_setzero_si128();
 
                 for (int i = 0; i < 5; i++) {
                     __m128i xmm0, xmm1, xmm2;
@@ -172,7 +176,9 @@ proc_9_10_sse2(convolution_hv_t *ch, uint8_t *buff, int bstride, int width,
 
             for (int j = 0; j < 2; j++) {
                 __m128i *matrix = j == 0 ? matrix_v : matrix_h;
-                __m128i sum[2] = {zero, zero};
+                __m128i sum[2];
+                sum[0] = _mm_setzero_si128();
+                sum[1] = _mm_setzero_si128();
 
                 for (int i = 0; i < 5; i++) {
                     __m128i xmm0, xmm1;
@@ -274,7 +280,9 @@ proc_16bit_sse2(convolution_hv_t *ch, uint8_t *buff, int bstride, int width,
                 __m128i *matrix = j == 0 ? matrix_v : matrix_h;
                 int *sign = j == 0 ? sign_v : sign_h;
                 __m128 rdiv = j == 0 ? rdiv_v : rdiv_h;
-                __m128i sum[2] = { zero, zero };
+                __m128i sum[2];
+                sum[0] = _mm_setzero_si128();
+                sum[1] = _mm_setzero_si128();
 
                 for (int i = 0; i < 5; i++) {
                     __m128i xmm0, xmm1, xmm2;

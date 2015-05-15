@@ -107,7 +107,7 @@ proc_non_max_suppress(const float *srcp, float *dstp, const uint8_t *direction,
     int pos[8] = {1, 1 - stride, 0, stride, 0, 0, 0, 1 + stride};
 
     for (int y = 1; y < height - 1; y++) {
-        direction += stride;
+
         dstp[0] = 0.0f;
         
         for (int x = 1; x < width - 1; x++) {
@@ -119,25 +119,27 @@ proc_non_max_suppress(const float *srcp, float *dstp, const uint8_t *direction,
         dstp[width - 1] = 0.0f;
         srcp += stride;
         dstp += stride;
+        direction += stride;
     }
+
     memset(dstp, 0, stride * sizeof(float));
 }
 
 
-static void reset(stack_t *s, int size)
+static void reset(canny_stack *s, int size)
 {
     s->index = -1;
     memset(s->map, 0, size);
 }
 
 
-static void push(stack_t *s, int x, int y)
+static void push(canny_stack *s, int x, int y)
 {
     s->pos[++s->index] = (int32_t)((x << 16) | y);
 }
 
 
-static int32_t pop(stack_t *s)
+static int32_t pop(canny_stack *s)
 {
     return s->pos[s->index--];
 }
@@ -145,7 +147,7 @@ static int32_t pop(stack_t *s)
 
 static void VS_CC
 proc_hysteresis(float *edge, int width, int height, int stride, float tmax,
-                float tmin, stack_t *stack)
+                float tmin, canny_stack *stack)
 {
     reset(stack, width * height);
 

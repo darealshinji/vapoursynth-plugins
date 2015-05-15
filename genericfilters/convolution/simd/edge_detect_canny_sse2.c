@@ -23,6 +23,7 @@
 
 #include "sse2.h"
 #include "canny.h"
+#include <math.h>
 
 
 static F_INLINE __m128i calc_direction(const __m128 gx, const __m128 gy)

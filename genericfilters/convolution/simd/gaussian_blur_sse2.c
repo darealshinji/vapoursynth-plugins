@@ -118,11 +118,14 @@ proc_8bit(int radius, float *kernel, const uint8_t *srcp, float *buff,
     }
 
     __m128i zero = _mm_setzero_si128();
-    __m128 zerof = _mm_castsi128_ps(zero);
 
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x += 16) {
-            __m128 sum[4] = {zerof, zerof, zerof, zerof};
+            __m128 sum[4];
+            sum[0] = _mm_setzero_ps();
+            sum[1] = _mm_setzero_ps();
+            sum[2] = _mm_setzero_ps();
+            sum[3] = _mm_setzero_ps();
             
             for (int i = 0; i < length; i++) {
                 __m128 f[4];

@@ -92,7 +92,7 @@ static const char * VS_CC set_alone_handler(generic_handler_t *gh)
     gh->fdata = ah;
     gh->free_data = alone_free_data;
     gh->get_frame_filter = alone_get_frame;
-    ah->lut_size = 1 << (8 * gh->vi->format->bytesPerSample);
+    ah->lut_size = ((size_t)1 << (8 * gh->vi->format->bytesPerSample));
     ah->lut = (uint16_t *)malloc(sizeof(uint16_t) * ah->lut_size);
     if (!ah->lut) {
         return "out of memory";

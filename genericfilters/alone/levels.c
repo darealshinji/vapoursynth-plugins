@@ -56,7 +56,7 @@ set_levels_data(generic_handler_t *gh, filter_id_t id, char *msg,
     }
     int imax = (int)vsapi->propGetInt(in, "max_in", 0, &err);
     if (err || imax > size - 1) {
-        imax = 0xFF << (bps - 8);
+        imax = (1 << bps) - 1;
     }
     int omin = (int)vsapi->propGetInt(in, "min_out", 0, &err);
     if (err || omin < 0) {
@@ -64,7 +64,7 @@ set_levels_data(generic_handler_t *gh, filter_id_t id, char *msg,
     }
     int omax = (int)vsapi->propGetInt(in, "max_out", 0, &err);
     if (err || omax > size - 1) {
-        omax = 0xFF << (bps - 8);
+		omax = (1 << bps) - 1;
     }
     double gamma = vsapi->propGetFloat(in, "gamma", 0, &err);
     if (err || gamma <= 0.0f) {

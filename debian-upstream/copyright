@@ -18,7 +18,7 @@ Copyright: 2006 Simon Perreault
            2014 HolyWu
 License: GPL-2+
 
-Files: combmask/* convo2d/* genericfilters/* imagereader/*
+Files: combmask/* convo2d/* imagereader/*
        rawsource/* scenechange/* temporalsoften2/*
 Copyright: 2012-2013, 2015 Oka Motofumi
 License: LGPL-2.1
@@ -58,6 +58,11 @@ License: GPL-3+
 Files: fmtconv/*
 Copyright: 2012-2015 cretindesalpes
 License: WTFPL
+
+Files: genericfilters/*
+Copyright: 2012-2013, 2015 Oka Motofumi
+           2013-2015 Fredrik Mellbin
+License: LGPL-2.1
 
 Files: it/*
 Copyright: 2002 thejam79

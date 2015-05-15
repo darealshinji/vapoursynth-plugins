@@ -34,7 +34,7 @@ typedef struct stack {
     int index;
     int32_t *pos;
     uint8_t *map;
-} stack_t;
+} canny_stack;
 
 
 typedef void (VS_CC *proc_gblur)(int radius, float *kernel, const uint8_t *srcp,
@@ -50,7 +50,7 @@ typedef void (VS_CC *proc_nms)(const float *srcp, float *dstp,
                                int stride);
 
 typedef void (VS_CC *proc_hyst)(float *edge, int width, int height, int stride,
-                                float tmax, float tmin, stack_t *stack);
+                                float tmax, float tmin, canny_stack *stack);
 
 typedef void (VS_CC *write_dst)(const float *srcp, uint8_t *d, int width,
                                 int height, int src_stride, int dst_stride,

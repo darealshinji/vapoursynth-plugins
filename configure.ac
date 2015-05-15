@@ -41,6 +41,14 @@ AC_PROG_CC_C99
 AC_CXX_FLAG([-std=c++11])
 
 AC_CANONICAL_HOST
+
+X86="false"
+AS_CASE(
+        [$host_cpu],
+        [i?86], [X86="true"],
+        [x86_64], [X86="true"],
+)
+AM_CONDITIONAL([X86], [test "x$X86" = "xtrue"])
 AM_CONDITIONAL([x86_64], [test "x$host_cpu" = "xx86_64"])
 
 AC_CHECK_PROGS([YASM], [yasm])

@@ -21,7 +21,6 @@
 */
 
 
-
 #ifdef USE_X86_INTRINSICS
 #include "simd/minimum_sse2.c"
 #else
@@ -55,14 +54,14 @@ proc_8bit(uint8_t *buff, int bstride, int width, int height, int stride,
                 if (enable[i]) {
                     min = min_int(*(coordinates[i] + x), min);
                 }
-                min = max_int(limit, min);
-                dstp[x] = (uint8_t)min;
             }
-            dstp += stride;
-            p0 = p1;
-            p1 = p2;
-            p2 = (p2 == end) ? orig : p2 + bstride;
+            min = max_int(limit, min);
+            dstp[x] = (uint8_t)min;
         }
+        dstp += stride;
+        p0 = p1;
+        p1 = p2;
+        p2 = (p2 == end) ? orig : p2 + bstride;
     }
 }
 
@@ -98,14 +97,14 @@ proc_16bit(uint8_t *buff, int bstride, int width, int height, int stride,
                 if (enable[i]) {
                     min = min_int(*(coordinates[i] + x), min);
                 }
-                min = max_int(limit, min);
-                dstp[x] = (uint16_t)min;
             }
-            dstp += stride;
-            p0 = p1;
-            p1 = p2;
-            p2 = (p2 == end) ? orig : p2 + bstride;
+            min = max_int(limit, min);
+            dstp[x] = (uint16_t)min;
         }
+        dstp += stride;
+        p0 = p1;
+        p1 = p2;
+        p2 = (p2 == end) ? orig : p2 + bstride;
     }
 }
 

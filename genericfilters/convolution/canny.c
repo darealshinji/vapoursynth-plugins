@@ -28,9 +28,9 @@
 #include "canny.h"
 
 
-static stack_t *create_stack(int size)
+static canny_stack *create_stack(int size)
 {
-    stack_t *s = (stack_t *)malloc(sizeof(stack_t));
+    canny_stack *s = (canny_stack *)malloc(sizeof(canny_stack));
     if (!s) {
         return NULL;
     }
@@ -49,7 +49,7 @@ static stack_t *create_stack(int size)
 }
 
 
-static void free_stack(stack_t *s)
+static void free_stack(canny_stack *s)
 {
     if(!s) {
         return;
@@ -78,7 +78,7 @@ canny_get_frame(generic_handler_t *gh, const VSFormat *fi, const VSFrameRef **fr
     float *edge = (float *)_aligned_malloc(fstride * fheight * sizeof(float), 16);
     uint8_t *direction = (uint8_t *)_aligned_malloc(fstride * fheight, 16);
     float *buff = (float *)_aligned_malloc(bstride * sizeof(float) * 3, 16);
-    stack_t *stack = create_stack(fwidth * fheight);
+    canny_stack *stack = create_stack(fwidth * fheight);
 
     if (!blur || !buff || !edge || !direction || !stack) {
         goto close_canny;

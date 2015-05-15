@@ -74,8 +74,12 @@ proc_8bit_sse2(uint8_t *buff, int bstride, int width, int height, int stride,
         uint8_t* posv[] = {p0, p1, p3, p4};
 
         for (int x = 0; x < width; x += 16) {
-            __m128i sumx[2] = {zero, zero};
-            __m128i sumy[2] = {zero, zero};
+            __m128i sumx[2];
+            sumx[0] = _mm_setzero_si128();
+            sumx[1] = _mm_setzero_si128();
+            __m128i sumy[2];
+            sumy[0] = _mm_setzero_si128();
+            sumy[1] = _mm_setzero_si128();
 
             for (int i = 0; i < 4; i++) {
                 __m128i xmm0, xmm1, xmul;
@@ -173,8 +177,12 @@ proc_9_10_sse2(uint8_t *buff, int bstride, int width, int height, int stride,
         uint16_t* posv[] = {p0, p1, p3, p4};
 
         for (int x = 0; x < width; x += 8) {
-            __m128i sumx[2] = {zero, zero};
-            __m128i sumy[2] = {zero, zero};
+            __m128i sumx[2];
+            sumx[0] = _mm_setzero_si128();
+            sumx[1] = _mm_setzero_si128();
+            __m128i sumy[2];
+            sumy[0] = _mm_setzero_si128();
+            sumy[1] = _mm_setzero_si128();
 
             for (int i = 0; i < 4; i++) {
                 __m128i xmm0, xmm1, xmul;
@@ -270,8 +278,12 @@ proc_16bit_sse2(uint8_t *buff, int bstride, int width, int height, int stride,
         uint16_t* posv[] = {p0, p1, p3, p4};
 
         for (int x = 0; x < width; x += 8) {
-            __m128 sumx[2] = {(__m128)zero, (__m128)zero};
-            __m128 sumy[2] = {(__m128)zero, (__m128)zero};
+            __m128 sumx[2];
+            sumx[0] = _mm_setzero_ps();
+            sumx[1] = _mm_setzero_ps();
+            __m128 sumy[2];
+            sumy[0] = _mm_setzero_ps();
+            sumy[1] = _mm_setzero_ps();
 
             for (int i = 0; i < 4; i++) {
                 __m128 xmul = _mm_load_ps(ar_mulxf[i]);
