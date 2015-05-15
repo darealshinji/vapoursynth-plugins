@@ -42,10 +42,6 @@ http://sam.zoy.org/wtfpl/COPYING for more details.
 
 #include <cstdint>
 
-#if defined(__CYGWIN32__) || defined(__CYGWIN__) || defined(__MINGW32__) || defined(__MINGW64__) || defined(_MSC_VER) || \
-defined(__WIN32) || defined(__WIN32__) || defined(_WIN32) || defined(__WIN64) || defined(__WIN64__) || defined(_WIN64)
-#  define __USE_AVSTP
-#endif
 
 
 namespace fmtcl
@@ -162,9 +158,7 @@ private:
 
 	static void    redirect_task_resize (avstp_TaskDispatcher *dispatcher_ptr, void *data_ptr);
 
-#if defined(__USE_AVSTP)
 	AvstpWrapper & _avstp;
-#endif
 	conc::CellPool <TaskRsz>
 	               _task_rsz_pool;
 

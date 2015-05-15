@@ -40,13 +40,14 @@ libfmtconv_la_SOURCES = \
 	src/vsutl/FilterBase.cpp \
 	src/vsutl/fnc.cpp \
 	src/vsutl/PlaneProcCbInterface.cpp \
-	src/vsutl/PlaneProcessor.cpp
+	src/vsutl/PlaneProcessor.cpp \
+	src/AvstpWrapper.cpp
 
 #if WINDOWS
-#libfmtconv_la_SOURCES += src/AvstpFinder.cpp src/AvstpWrapper.cpp
+#libfmtconv_la_SOURCES += src/AvstpFinder.cpp
 #endif
 
-libfmtconv_la_CXXFLAGS = $(AM_CXXFLAGS) -Isrc -mfpmath=sse -msse2 -march=native -Wno-return-type
+libfmtconv_la_CXXFLAGS = $(AM_CXXFLAGS) -Isrc -pipe -msse2 -march=native -Wno-return-type
 
 
 noinst_LTLIBRARIES = libavx2.la
@@ -64,9 +65,10 @@ libavx2_la_SOURCES = \
 	src/fstb/ToolsAvx2.cpp \
 	src/main.cpp
 
-libavx2_la_CXXFLAGS = $(AM_CXXFLAGS) -Isrc -mavx2 -march=native -fabi-version=6 \
+libavx2_la_CXXFLAGS = $(AM_CXXFLAGS) -Isrc -pipe -mavx2 -msse2 -march=native -fabi-version=6 \
 	-Wno-reorder -Wno-return-type -Wno-unused-variable
 
+#libfmtconv_la_LDFLAGS = $(AM_LDFLAGS) -Wl,-z,defs
 
 libfmtconv_la_LIBADD = libavx2.la
 
