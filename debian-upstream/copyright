@@ -9,6 +9,10 @@ Copyright: 2002 Tom Barry
            2014 HolyWu
 License: GPL-2+
 
+Files: adjust/*
+Copyright: 2015 dubhater
+License: WTFPL
+
 Files: bilateral/* retinex/*
 Copyright: 2014 mawen1250
 License: GPL-3+
@@ -73,6 +77,10 @@ License: GPL-2+
 Files: histogram/* msmoosh/* mvtools/* nnedi3/* tcomb/* wwxd/*
 Copyright: 2012-2015 dubhater
 License: GPL-2+
+
+Files: lsmashsource/*
+Copyright: 2012-2015 L-SMASH Works project
+License: ISC
 
 Files: nnedi3/src/nnedi3.c
 Copyright: 2010-2011 Kevin Stone
