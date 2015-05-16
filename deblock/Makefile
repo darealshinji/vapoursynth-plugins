@@ -1,0 +1,6 @@
+
+LIB = libdeblock.so
+local_CXXFLAGS = -std=c++11
+
+include ../cxx.inc
+
