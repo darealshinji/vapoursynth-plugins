@@ -32,7 +32,6 @@ extern "C" {
 #include "d2vsource.hpp"
 #include "decode.hpp"
 #include "directrender.hpp"
-#include "libavversion.hpp"
 
 void VS_CC d2vInit(VSMap *in, VSMap *out, void **instanceData, VSNode *node, VSCore *core, const VSAPI *vsapi)
 {
@@ -48,10 +47,8 @@ const VSFrameRef *VS_CC d2vGetFrame(int n, int activationReason, void **instance
     string msg;
     int ret;
 
-#if !defined(__OLD_AVCODEC_API)
     /* Unreference the previously decoded frame. */
     av_frame_unref(d->frame);
-#endif
 
     ret = decodeframe(n, d->d2v, d->dec, d->frame, msg);
     if (ret < 0) {
@@ -90,9 +87,7 @@ void VS_CC d2vFree(void *instanceData, VSCore *core, const VSAPI *vsapi)
     d2vData *d = (d2vData *) instanceData;
     d2vfreep(&d->d2v);
     decodefreep(&d->dec);
-#if !defined(__OLD_AVCODEC_API)
     av_frame_unref(d->frame);
-#endif
     av_freep(&d->frame);
     free(d);
 }
@@ -143,12 +138,7 @@ void VS_CC d2vCreate(const VSMap *in, VSMap *out, void *userData, VSCore *core, 
      * set our custom get/release_buffer funcs.
      */
     data->dec->avctx->opaque         = (void *) data;
-#if defined(__OLD_AVCODEC_API)
-    data->dec->avctx->get_buffer     = VSGetBuffer;
-    data->dec->avctx->release_buffer = VSReleaseBuffer;
-#else
     data->dec->avctx->get_buffer2    = VSGetBuffer;
-#endif
 
     /* Last frame is crashy right now. */
     data->vi.numFrames = data->d2v->frames.size();
@@ -168,11 +158,7 @@ void VS_CC d2vCreate(const VSMap *in, VSMap *out, void *userData, VSCore *core, 
     data->aligned_width  = FFALIGN(data->vi.width, 16);
     data->aligned_height = FFALIGN(data->vi.height, 32);
 
-#if defined(__OLD_AVCODEC_API)
-    data->frame = avcodec_alloc_frame();
-#else
     data->frame = av_frame_alloc();
-#endif
     if (!data->frame) {
         vsapi->setError(out, "Cannot allocate AVFrame.");
         d2vfreep(&data->d2v);
@@ -193,11 +179,7 @@ void VS_CC d2vCreate(const VSMap *in, VSMap *out, void *userData, VSCore *core, 
         vsapi->setError(out, msg.c_str());
         d2vfreep(&data->d2v);
         decodefreep(&data->dec);
-#if defined(__OLD_AVCODEC_API)
-        avcodec_get_frame_defaults(data->frame);
-#else
         av_frame_unref(data->frame);
-#endif
         av_freep(&data->frame);
         free(data);
         return;
@@ -250,11 +232,7 @@ void VS_CC d2vCreate(const VSMap *in, VSMap *out, void *userData, VSCore *core, 
             vsapi->freeMap(ret);
             d2vfreep(&data->d2v);
             decodefreep(&data->dec);
-#if defined(__OLD_AVCODEC_API)
-            avcodec_get_frame_defaults(data->frame);
-#else
             av_frame_unref(data->frame);
-#endif
             av_freep(&data->frame);
             free(data);
             return;
