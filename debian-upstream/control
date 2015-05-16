@@ -11,6 +11,7 @@ Build-Depends:
  libavcodec-dev,
  libavresample-dev,
  libavutil-dev,
+ libswscale-dev,
  libfftw3-dev,
  liblsmash-dev,
  libjpeg-dev,
