@@ -12,6 +12,7 @@ fi
 ./configure.sh "$@" >/dev/null
 autoreconf -ivf
 autoreconf -ivf imagereader/libjpeg-turbo
+autoreconf -ivf ffms2
 
 ./configure.sh "$@"
 
