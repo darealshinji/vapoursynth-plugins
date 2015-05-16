@@ -1,23 +1,7 @@
 #!/usr/bin/make -f
 
-export V=1
-
-DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
-
-export CFLAGS = -g -O3 $(filter-out -g -O2,$(shell dpkg-buildflags --get CFLAGS))
-export CXXFLAGS = -g -O3 $(filter-out -g -O2,$(shell dpkg-buildflags --get CXXFLAGS))
-
-
 %:
-	dh ${@} --parallel --with autoreconf
-
-override_dh_autoreconf:
-	dh_autoreconf -- ./autogen.sh --prefix=/usr --libdir=/usr/lib/$(DEB_HOST_MULTIARCH)
-
-override_dh_auto_configure:
-
-override_dh_auto_clean:
-	$(MAKE) clobber || true
+	dh ${@} --parallel
 
 override_dh_install:
 	dh_install -pvapoursynth-extra-plugins -Xnnedi3
