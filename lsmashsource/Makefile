@@ -1,5 +1,5 @@
 
-LIB = libit.so
+LIB = liblsmashsource.so
 local_CFLAGS = -std=gnu99 -msse2
 LIBADD = -llsmash -lavformat -lavcodec -lswscale -lavutil
 
