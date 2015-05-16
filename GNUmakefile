@@ -17,6 +17,7 @@ install_DIR = install -m755 -d
 cleandirs = . ffms2 fluxsmooth mvtools nnedi3 tcomb imagereader/libjpeg-turbo
 
 python_SCRIPTS = \
+	adjust/adjust.py \
 	finesharp/finesharp.py \
 	havsfunc/havsfunc.py \
 	maskdetail/MaskDetail.py \
