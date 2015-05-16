@@ -69,6 +69,8 @@ PKG_CHECK_MODULES([VapourSynth], [vapoursynth])
 PKG_CHECK_MODULES([libavcodec], [libavcodec])
 PKG_CHECK_MODULES([libavformat], [libavformat])
 PKG_CHECK_MODULES([libavutil], [libavutil])
+PKG_CHECK_MODULES([libswscale], [libswscale])
+PKG_CHECK_MODULES([liblsmash], [liblsmash])
 PKG_CHECK_MODULES([fftw3f], [fftw3])
 PKG_CHECK_MODULES([SNDFILE], [sndfile])
 
@@ -101,6 +103,7 @@ AC_CONFIG_FILES([Makefile \
                  imagereader/Makefile \
                  imagereader/src/Makefile \
                  it/Makefile \
+                 lsmashsource/Makefile \
                  msmoosh/Makefile \
                  rawsource/Makefile \
                  retinex/Makefile \

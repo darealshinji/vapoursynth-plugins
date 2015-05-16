@@ -25,6 +25,7 @@ SUBDIRS = \
 	imagereader \
 	imagereader/src \
 	it \
+	lsmashsource \
 	msmoosh \
 	mvtools \
 	nnedi3 \
