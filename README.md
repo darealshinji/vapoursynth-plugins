@@ -13,8 +13,10 @@ libavformat-dev
 libavcodec-dev
 libavresample-dev
 libavutil-dev
+libswscale-dev
 libfftw3-dev
-libjpeg-turbo8-dev
+liblsmash-dev
+libjpeg-dev
 libpng12-dev
 libsndfile1-dev
 libxvidcore-dev
