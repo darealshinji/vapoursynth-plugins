@@ -12,6 +12,7 @@ Build-Depends:
  libavresample-dev,
  libavutil-dev,
  libfftw3-dev,
+ liblsmash-dev,
  libjpeg-dev,
  libpng12-dev,
  libsndfile1-dev,
