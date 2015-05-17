@@ -82,7 +82,7 @@ enum
 # define F3KDB_EXTERNAL_API(ret) F3KDB_EXTERN_C ret F3KDB_CC
 #endif
 
-#if !defined(FLASH3KYUU_DEBAND_EXPORTS) && defined(_WIN32) && !defined(F3KDB_STATIC)
+#if !defined(FLASH3KYUU_DEBAND_EXPORTS) && defined(_WIN32) && !defined(F3KDB_STATIC) && !defined(__GNUC__)
 # define F3KDB_API(ret) F3KDB_EXTERN_C __declspec(dllimport) ret F3KDB_CC
 #else
 # define F3KDB_API(ret) F3KDB_EXTERNAL_API(ret)

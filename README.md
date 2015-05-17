@@ -55,7 +55,7 @@ make install
 [fieldhint 1.0](https://github.com/dubhater/vapoursynth-fieldhint)<br>
 [fillborders 1.0](https://github.com/dubhater/vapoursynth-fillborders)<br>
 [finesharp 2013.07.29](http://forum.doom9.org/showthread.php?t=166524)<br>
-[flash3kyuu_deband 1.5.1+git20140721](https://github.com/SAPikachu/flash3kyuu_deband)<br>
+[flash3kyuu_deband 1.5.1+git20150509](https://github.com/SAPikachu/flash3kyuu_deband)<br>
 [fluxsmooth 1.0](https://github.com/dubhater/vapoursynth-fluxsmooth)<br>
 [fmtconv r12](http://forum.doom9.org/showthread.php?t=166504)<br>
 [genericfilters 1.0.0+git20150505](https://github.com/myrsloik/GenericFilters)<br>

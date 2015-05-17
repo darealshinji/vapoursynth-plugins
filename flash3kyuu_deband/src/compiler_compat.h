@@ -16,19 +16,24 @@
 #define __PRAGMA_NOUNROLL__
 #endif
 
-#ifndef _WIN32
-#define __forceinline inline
-#define __cdecl
-#define InterlockedCompareExchangePointer(a,b,c) __sync_val_compare_and_swap(a,c,b)
-
+#if defined(__GNUC__) || defined(__clang__)
 #include <cstring>
-#include <cstdlib>
+#include <stdio.h>
 
 #define stricmp strcasecmp
 #define strnicmp strncasecmp
 #define _stricmp strcasecmp
 #define _strnicmp strncasecmp
 #define _snprintf snprintf
+#endif
+
+#ifndef _WIN32
+#include <stdlib.h>
+#define __forceinline inline
+#ifndef __cdecl
+#define __cdecl
+#endif
+#define InterlockedCompareExchangePointer(a,b,c) __sync_val_compare_and_swap(a,c,b)
 
 static inline void* _aligned_malloc(size_t size, size_t alignment)
 {
