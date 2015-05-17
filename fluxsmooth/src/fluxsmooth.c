@@ -39,7 +39,6 @@ extern void fluxsmooth_temporal_uint16_sse2(const uint8_t *srcpp, const uint8_t 
 static void fluxsmooth_temporal_uint8_c(const uint8_t *srcpp, const uint8_t *srccp, const uint8_t *srcnp, uint8_t *dstp, int width, int height, int stride, int threshold) {
    int x, y;
    int16_t magic_numbers[] = { 0, 32767, 16384, 10923 };
-
    /* Calculated thusly:
    magic_numbers[1] = 32767;
    for (int i = 2; i < 4; i++) {
