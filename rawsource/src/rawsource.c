@@ -444,7 +444,7 @@ static int VS_CC check_y4m(rs_hnd_t *rh)
     char buff[256] = { 0 };
     char ctag[32] = { 0 };
 
-    //fread(buff, 1, sizeof buff, rh->file);
+    fread(buff, 1, sizeof buff, rh->file);
     if (strncmp(buff, stream_header, sh_length) != 0) {
         return 1;
     }
@@ -517,8 +517,8 @@ static int check_bmp(rs_hnd_t *rh)
     bmp_info_header_t info = { 0 };
 
     fseek(rh->file, 10, SEEK_SET);
-    //fread(&offset_data, 1, sizeof(uint32_t), rh->file);
-    //fread(&info, 1, sizeof(bmp_info_header_t), rh->file);
+    fread(&offset_data, 1, sizeof(uint32_t), rh->file);
+    fread(&info, 1, sizeof(bmp_info_header_t), rh->file);
 
     if (info.num_planes != 1 || info.fourcc != 0 ||
         (info.bits_per_pixel != 24 && info.bits_per_pixel != 32)) {
@@ -535,10 +535,10 @@ static int check_bmp(rs_hnd_t *rh)
 }
 
 
-char head[2];
 static int check_header(rs_hnd_t *rh)
 {
-    //fread(head, 1, 2, rh->file);
+    char head[2];
+    fread(head, 1, 2, rh->file);
     fseek(rh->file, 0, SEEK_SET);
 
     if (head[0] == 'B' && head[1] == 'M') {
@@ -624,7 +624,7 @@ static const char * VS_CC check_args(rs_hnd_t *rh, vs_args_t *va)
         { "P016",      2, 2, 2, 2, 0, { 0, 1, 2, 9 }, pfYUV420P16, write_px1x_frame    },
         { "P210",      2, 1, 2, 2, 0, { 0, 1, 2, 9 }, pfYUV422P16, write_px1x_frame    },
         { "P216",      2, 1, 2, 2, 0, { 0, 1, 2, 9 }, pfYUV422P16, write_px1x_frame    },
-        { rh->src_format, 0, 0, 0, 0, 0, { 0, 0, 0, 0 }, 0, 0 }
+        { rh->src_format, 0 }
     };
 
     int i = 0;
