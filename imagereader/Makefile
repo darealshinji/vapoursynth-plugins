@@ -31,4 +31,5 @@ clean:
 distclean:
 	$(MAKE) -C $(turbodir) distclean || true
 	$(MAKE) -f imagereader.mk distclean
+	rm -rf $(turbodir)/autom4te.cache/
 

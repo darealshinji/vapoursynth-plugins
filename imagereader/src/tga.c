@@ -258,7 +258,7 @@ check_tga(img_hnd_t *ih, int n, FILE *fp, vs_args_t *va)
     ih->src[n].height = tga.height;
 
     uint32_t row_size = tga.width * (tga.depth >> 3);
-    if (sizeof(row_size) > sizeof(va->max_row_size)) {
+    if (row_size > va->max_row_size) {
         va->max_row_size = row_size;
     }
     

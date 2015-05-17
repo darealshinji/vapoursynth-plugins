@@ -209,7 +209,7 @@ check_png(img_hnd_t *ih, int n, FILE *fp, vs_args_t *va)
 
     ih->src[n].flip = 0;
 
-    if (sizeof(row_size) > sizeof(va->max_row_size)) {
+    if (row_size > va->max_row_size) {
         va->max_row_size = row_size;
     }
 

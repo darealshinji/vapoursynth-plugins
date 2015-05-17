@@ -94,7 +94,7 @@ check_jpeg(img_hnd_t *ih, int n, FILE *fp, vs_args_t *va)
         return "source file does not exist";
     }
     ih->src[n].image_size = st.st_size;
-    if (sizeof(ih->src_buff_size) < sizeof(st.st_size)) {
+    if (ih->src_buff_size < st.st_size) {
         ih->src_buff_size = st.st_size;
         free(ih->src_buff);
         ih->src_buff = malloc(ih->src_buff_size);
@@ -105,7 +105,7 @@ check_jpeg(img_hnd_t *ih, int n, FILE *fp, vs_args_t *va)
 
     unsigned long read = fread(ih->src_buff, 1, st.st_size, fp);
     fclose(fp);
-    if (sizeof(read) < sizeof(st.st_size)) {
+    if (read < st.st_size) {
         return "failed to read jpeg file";
     }
 
@@ -131,7 +131,7 @@ check_jpeg(img_hnd_t *ih, int n, FILE *fp, vs_args_t *va)
     ih->src[n].format = va->vsapi->getFormatPreset(pf, va->core);
 
     uint32_t row_size = tjBufSizeYUV(width, height, subsample) / height;
-    if (sizeof(row_size) > sizeof(va->max_row_size)) {
+    if (row_size > va->max_row_size) {
         va->max_row_size = row_size;
     }
 
