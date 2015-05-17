@@ -4,7 +4,7 @@
 #include <string.h>
 #include <math.h>
 #include <emmintrin.h>
-#include <VapourSynth.h>
+#include "VapourSynth.h"
 
 #ifdef _MSC_VER
 #pragma warning(disable:4224 4996)
@@ -93,8 +93,9 @@ mode2_16bit(uint8_t *dstp8, const uint8_t **srcp8, int frames, int width,
 }
 #endif
 
-static void mode2_8bit_sse2(uint8_t *dstp, const uint8_t **srcp, int frames,
-                            int frame_size, int threshold)
+static void TS_FUNC_ALIGN VS_CC
+mode2_8bit_sse2(uint8_t *dstp, const uint8_t **srcp, int frames, int frame_size,
+                int threshold)
 {
     int16_t half_frames = frames / 2;
     int f;
@@ -161,8 +162,9 @@ static void mode2_8bit_sse2(uint8_t *dstp, const uint8_t **srcp, int frames,
 }
 
 
-static void mode2_9_or_10_sse2(uint8_t *dstp8, const uint8_t **srcp8,
-                               int frames, int frame_size, int threshold)
+static void TS_FUNC_ALIGN VS_CC
+mode2_9_or_10_sse2(uint8_t *dstp8, const uint8_t **srcp8, int frames,
+                   int frame_size, int threshold)
 {
     uint16_t *dstp = (uint16_t *)dstp8;
     const uint16_t *srcp[16];
@@ -221,8 +223,9 @@ typedef struct {
     TS_ALIGN uint16_t buff[8];
 } buff_t;
 
-static void mode2_16bit_sse2(uint8_t *dstp8, const uint8_t **srcp8,
-                             int frames, int frame_size, int threshold)
+static void TS_FUNC_ALIGN VS_CC
+mode2_16bit_sse2(uint8_t *dstp8, const uint8_t **srcp8, int frames,
+                   int frame_size, int threshold)
 {
     uint16_t *dstp = (uint16_t *)dstp8;
     const uint16_t *srcp[16];
