@@ -26,7 +26,6 @@
 */
 
 #include <algorithm>
-#include <vector>
 #include <vapoursynth/VapourSynth.h>
 #include <vapoursynth/VSHelper.h>
 
@@ -52,9 +51,9 @@ static void buildEdgeMask(const VSFrameRef * src, VSFrameRef * dst, const int pl
     const int ten = 10 << shift;
     const int width = vsapi->getFrameWidth(src, plane);
     const int height = vsapi->getFrameHeight(src, plane);
-    const int stride = vsapi->getStride(src, plane) / d->vi->format->bytesPerSample;
+    const int stride = vsapi->getStride(src, plane) / sizeof(T);
     const T * srcp = reinterpret_cast<const T *>(vsapi->getReadPtr(src, plane));
-    T * dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
+    T * VS_RESTRICT dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
     memset(dstp, 0, vsapi->getStride(src, plane) * height);
     srcp += stride;
     dstp += stride;
@@ -63,9 +62,8 @@ static void buildEdgeMask(const VSFrameRef * src, VSFrameRef * dst, const int pl
     for (int y = 1; y < height - 1; y++) {
         for (int x = 1; x < width - 1; x++) {
             if ((std::abs(srcpp[x] - srcp[x]) < ten && std::abs(srcp[x] - srcpn[x]) < ten && std::abs(srcpp[x] - srcpn[x]) < ten) ||
-                (std::abs(srcpp[x - 1] - srcp[x - 1]) < ten && std::abs(srcp[x - 1] - srcpn[x - 1]) < ten &&
-                 std::abs(srcpp[x - 1] - srcpn[x - 1]) < ten && std::abs(srcpp[x + 1] - srcp[x + 1]) < ten &&
-                 std::abs(srcp[x + 1] - srcpn[x + 1]) < ten && std::abs(srcpp[x + 1] - srcpn[x + 1]) < ten))
+                (std::abs(srcpp[x - 1] - srcp[x - 1]) < ten && std::abs(srcp[x - 1] - srcpn[x - 1]) < ten && std::abs(srcpp[x - 1] - srcpn[x - 1]) < ten &&
+                 std::abs(srcpp[x + 1] - srcp[x + 1]) < ten && std::abs(srcp[x + 1] - srcpn[x + 1]) < ten && std::abs(srcpp[x + 1] - srcpn[x + 1]) < ten))
                 continue;
             const int sum = (srcpp[x - 1] + srcpp[x] + srcpp[x + 1] +
                              srcp[x - 1] + srcp[x] + srcp[x + 1] +
@@ -98,10 +96,10 @@ static void dilate(const VSFrameRef * msk, VSFrameRef * dst, const int plane, co
     const T peak = (1 << d->vi->format->bitsPerSample) - 1;
     const int width = vsapi->getFrameWidth(msk, plane);
     const int height = vsapi->getFrameHeight(msk, plane);
-    const int stride = vsapi->getStride(msk, plane) / d->vi->format->bytesPerSample;
+    const int stride = vsapi->getStride(msk, plane) / sizeof(T);
     const T * mskp = reinterpret_cast<const T *>(vsapi->getReadPtr(msk, plane));
-    T * dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
-    memcpy(dstp, mskp, vsapi->getStride(msk, plane) * height);
+    T * VS_RESTRICT dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
+    vs_bitblt(dstp, vsapi->getStride(msk, plane), mskp, vsapi->getStride(msk, plane), width * sizeof(T), height);
     mskp += stride;
     dstp += stride;
     const T * mskpp = mskp - stride;
@@ -132,10 +130,10 @@ static void erode(const VSFrameRef * msk, VSFrameRef * dst, const int plane, con
     const T peak = (1 << d->vi->format->bitsPerSample) - 1;
     const int width = vsapi->getFrameWidth(msk, plane);
     const int height = vsapi->getFrameHeight(msk, plane);
-    const int stride = vsapi->getStride(msk, plane) / d->vi->format->bytesPerSample;
+    const int stride = vsapi->getStride(msk, plane) / sizeof(T);
     const T * mskp = reinterpret_cast<const T *>(vsapi->getReadPtr(msk, plane));
-    T * dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
-    memcpy(dstp, mskp, vsapi->getStride(msk, plane) * height);
+    T * VS_RESTRICT dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
+    vs_bitblt(dstp, vsapi->getStride(msk, plane), mskp, vsapi->getStride(msk, plane), width * sizeof(T), height);
     mskp += stride;
     dstp += stride;
     const T * mskpp = mskp - stride;
@@ -166,21 +164,18 @@ static void removeSmallHorzGaps(const VSFrameRef * msk, VSFrameRef * dst, const 
     const T peak = (1 << d->vi->format->bitsPerSample) - 1;
     const int width = vsapi->getFrameWidth(msk, plane);
     const int height = vsapi->getFrameHeight(msk, plane);
-    const int stride = vsapi->getStride(msk, plane) / d->vi->format->bytesPerSample;
+    const int stride = vsapi->getStride(msk, plane) / sizeof(T);
     const T * mskp = reinterpret_cast<const T *>(vsapi->getReadPtr(msk, plane));
-    T * dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
-    memcpy(dstp, mskp, vsapi->getStride(msk, plane) * height);
+    T * VS_RESTRICT dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
+    vs_bitblt(dstp, vsapi->getStride(msk, plane), mskp, vsapi->getStride(msk, plane), width * sizeof(T), height);
     mskp += stride;
     dstp += stride;
     for (int y = 1; y < height - 1; y++) {
         for (int x = 3; x < width - 3; x++) {
             if (mskp[x]) {
-                if (mskp[x - 3]) continue;
-                if (mskp[x - 2]) continue;
-                if (mskp[x - 1]) continue;
-                if (mskp[x + 1]) continue;
-                if (mskp[x + 2]) continue;
-                if (mskp[x + 3]) continue;
+                if (mskp[x - 3] || mskp[x - 2] || mskp[x - 1] ||
+                    mskp[x + 1] || mskp[x + 2] || mskp[x + 3])
+                    continue;
                 dstp[x] = 0;
             } else {
                 if ((mskp[x + 1] && (mskp[x - 1] || mskp[x - 2] || mskp[x - 3])) ||
@@ -201,11 +196,11 @@ static void calcDirections(const VSFrameRef * src, const VSFrameRef * msk, VSFra
     const int shift2 = 2 + (d->vi->format->bitsPerSample - 8);
     const int width = vsapi->getFrameWidth(src, plane);
     const int height = vsapi->getFrameHeight(src, plane);
-    const int stride = vsapi->getStride(src, plane) / d->vi->format->bytesPerSample;
+    const int stride = vsapi->getStride(src, plane) / sizeof(T);
     const T * srcp = reinterpret_cast<const T *>(vsapi->getReadPtr(src, plane));
     const T * mskp = reinterpret_cast<const T *>(vsapi->getReadPtr(msk, plane));
-    T * dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
-    if (d->vi->format->bitsPerSample == 8)
+    T * VS_RESTRICT dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
+    if (sizeof(T) == 1)
         memset(dstp, peak, stride * height);
     else
         memset16(dstp, peak, stride * height);
@@ -285,7 +280,7 @@ static void calcDirections(const VSFrameRef * src, const VSFrameRef * msk, VSFra
             if (dire != -5000) order[k++] = dire;
             if (k > 1) {
                 std::sort(order, order + k);
-                const int mid = k & 1 ? order[k >> 1] : (order[(k - 1) >> 1] + order[k >> 1] + 1) >> 1;
+                const int mid = (k & 1) ? order[k >> 1] : (order[(k - 1) >> 1] + order[k >> 1] + 1) >> 1;
                 const int tlim = std::max(d->limlut[std::abs(mid)] >> 2, 2);
                 int sum = 0, count = 0;
                 for (int i = 0; i < k; i++) {
@@ -294,7 +289,7 @@ static void calcDirections(const VSFrameRef * src, const VSFrameRef * msk, VSFra
                         sum += order[i];
                     }
                 }
-                dstp[x] = count > 1 ? median + (static_cast<int>(static_cast<float>(sum) / count) << shift2) : median;
+                dstp[x] = (count > 1) ? median + (static_cast<int>(static_cast<float>(sum) / count) << shift2) : median;
             } else {
                 dstp[x] = median;
             }
@@ -319,11 +314,11 @@ static void filterMap(const VSFrameRef * msk, const VSFrameRef * dmsk, VSFrameRe
     const int twleve = 12 << shift;
     const int width = vsapi->getFrameWidth(msk, plane);
     const int height = vsapi->getFrameHeight(msk, plane);
-    const int stride = vsapi->getStride(msk, plane) / d->vi->format->bytesPerSample;
+    const int stride = vsapi->getStride(msk, plane) / sizeof(T);
     const T * mskp = reinterpret_cast<const T *>(vsapi->getReadPtr(msk, plane));
     const T * dmskp = reinterpret_cast<const T *>(vsapi->getReadPtr(dmsk, plane));
-    T * dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
-    memcpy(dstp, dmskp, vsapi->getStride(msk, plane) * height);
+    T * VS_RESTRICT dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
+    vs_bitblt(dstp, vsapi->getStride(msk, plane), dmskp, vsapi->getStride(msk, plane), width * sizeof(T), height);
     mskp += stride;
     dmskp += stride;
     dstp += stride;
@@ -399,11 +394,11 @@ static void filterDirMap(const VSFrameRef * msk, const VSFrameRef * dmsk, VSFram
     const int shift2 = 2 + (d->vi->format->bitsPerSample - 8);
     const int width = vsapi->getFrameWidth(msk, plane);
     const int height = vsapi->getFrameHeight(msk, plane);
-    const int stride = vsapi->getStride(msk, plane) / d->vi->format->bytesPerSample;
+    const int stride = vsapi->getStride(msk, plane) / sizeof(T);
     const T * mskp = reinterpret_cast<const T *>(vsapi->getReadPtr(msk, plane));
     const T * dmskp = reinterpret_cast<const T *>(vsapi->getReadPtr(dmsk, plane));
-    T * dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
-    memcpy(dstp, dmskp, vsapi->getStride(msk, plane) * height);
+    T * VS_RESTRICT dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
+    vs_bitblt(dstp, vsapi->getStride(msk, plane), dmskp, vsapi->getStride(msk, plane), width * sizeof(T), height);
     mskp += stride;
     dmskp += stride;
     dstp += stride;
@@ -427,7 +422,7 @@ static void filterDirMap(const VSFrameRef * msk, const VSFrameRef * dmsk, VSFram
                 continue;
             }
             std::sort(order, order + u);
-            const int mid = u & 1 ? order[u >> 1] : (order[(u - 1) >> 1] + order[u >> 1] + 1) >> 1;
+            const int mid = (u & 1) ? order[u >> 1] : (order[(u - 1) >> 1] + order[u >> 1] + 1) >> 1;
             const int lim = d->limlut2[std::abs(mid - median) >> shift2];
             int sum = 0, count = 0;
             for (int i = 0; i < u; i++) {
@@ -457,11 +452,11 @@ static void filterDirMap2X(const VSFrameRef * msk, const VSFrameRef * dmsk, VSFr
     const int shift2 = 2 + (d->vi->format->bitsPerSample - 8);
     const int width = vsapi->getFrameWidth(msk, plane);
     const int height = vsapi->getFrameHeight(msk, plane);
-    const int stride = vsapi->getStride(msk, plane) / d->vi->format->bytesPerSample;
+    const int stride = vsapi->getStride(msk, plane) / sizeof(T);
     const T * mskp = reinterpret_cast<const T *>(vsapi->getReadPtr(msk, plane));
     const T * dmskp = reinterpret_cast<const T *>(vsapi->getReadPtr(dmsk, plane));
-    T * dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
-    memcpy(dstp, dmskp, vsapi->getStride(msk, plane) * height);
+    T * VS_RESTRICT dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
+    vs_bitblt(dstp, vsapi->getStride(msk, plane), dmskp, vsapi->getStride(msk, plane), width * sizeof(T), height);
     mskp += stride * (1 - field);
     dmskp += stride * (2 - field);
     dstp += stride * (2 - field);
@@ -490,7 +485,7 @@ static void filterDirMap2X(const VSFrameRef * msk, const VSFrameRef * dmsk, VSFr
                 continue;
             }
             std::sort(order, order + u);
-            const int mid = u & 1 ? order[u >> 1] : (order[(u - 1) >> 1] + order[u >> 1] + 1) >> 1;
+            const int mid = (u & 1) ? order[u >> 1] : (order[(u - 1) >> 1] + order[u >> 1] + 1) >> 1;
             const int lim = d->limlut2[std::abs(mid - median) >> shift2];
             int sum = 0, count = 0;
             for (int i = 0; i < u; i++) {
@@ -521,11 +516,11 @@ static void expandDirMap(const VSFrameRef * msk, const VSFrameRef * dmsk, VSFram
     const int shift2 = 2 + (d->vi->format->bitsPerSample - 8);
     const int width = vsapi->getFrameWidth(msk, plane);
     const int height = vsapi->getFrameHeight(msk, plane);
-    const int stride = vsapi->getStride(msk, plane) / d->vi->format->bytesPerSample;
+    const int stride = vsapi->getStride(msk, plane) / sizeof(T);
     const T * mskp = reinterpret_cast<const T *>(vsapi->getReadPtr(msk, plane));
     const T * dmskp = reinterpret_cast<const T *>(vsapi->getReadPtr(dmsk, plane));
-    T * dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
-    memcpy(dstp, dmskp, vsapi->getStride(msk, plane) * height);
+    T * VS_RESTRICT dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
+    vs_bitblt(dstp, vsapi->getStride(msk, plane), dmskp, vsapi->getStride(msk, plane), width * sizeof(T), height);
     mskp += stride;
     dmskp += stride;
     dstp += stride;
@@ -545,7 +540,7 @@ static void expandDirMap(const VSFrameRef * msk, const VSFrameRef * dmsk, VSFram
             if (dmskpn[x + 1] != peak) order[u++] = dmskpn[x + 1];
             if (u < 5) continue;
             std::sort(order, order + u);
-            const int mid = u & 1 ? order[u >> 1] : (order[(u - 1) >> 1] + order[u >> 1] + 1) >> 1;
+            const int mid = (u & 1) ? order[u >> 1] : (order[(u - 1) >> 1] + order[u >> 1] + 1) >> 1;
             const int lim = d->limlut2[std::abs(mid - median) >> shift2];
             int sum = 0, count = 0;
             for (int i = 0; i < u; i++) {
@@ -572,11 +567,11 @@ static void expandDirMap2X(const VSFrameRef * msk, const VSFrameRef * dmsk, VSFr
     const int shift2 = 2 + (d->vi->format->bitsPerSample - 8);
     const int width = vsapi->getFrameWidth(msk, plane);
     const int height = vsapi->getFrameHeight(msk, plane);
-    const int stride = vsapi->getStride(msk, plane) / d->vi->format->bytesPerSample;
+    const int stride = vsapi->getStride(msk, plane) / sizeof(T);
     const T * mskp = reinterpret_cast<const T *>(vsapi->getReadPtr(msk, plane));
     const T * dmskp = reinterpret_cast<const T *>(vsapi->getReadPtr(dmsk, plane));
-    T * dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
-    memcpy(dstp, dmskp, vsapi->getStride(msk, plane) * height);
+    T * VS_RESTRICT dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
+    vs_bitblt(dstp, vsapi->getStride(msk, plane), dmskp, vsapi->getStride(msk, plane), width * sizeof(T), height);
     mskp += stride * (1 - field);
     dmskp += stride * (2 - field);
     dstp += stride * (2 - field);
@@ -601,7 +596,7 @@ static void expandDirMap2X(const VSFrameRef * msk, const VSFrameRef * dmsk, VSFr
             }
             if (u < 5) continue;
             std::sort(order, order + u);
-            const int mid = u & 1 ? order[u >> 1] : (order[(u - 1) >> 1] + order[u >> 1] + 1) >> 1;
+            const int mid = (u & 1) ? order[u >> 1] : (order[(u - 1) >> 1] + order[u >> 1] + 1) >> 1;
             const int lim = d->limlut2[std::abs(mid - median) >> shift2];
             int sum = 0, count = 0;
             for (int i = 0; i < u; i++) {
@@ -632,11 +627,11 @@ static void fillGaps2X(const VSFrameRef * msk, const VSFrameRef * dmsk, VSFrameR
     const int shift2 = 2 + (d->vi->format->bitsPerSample - 8);
     const int width = vsapi->getFrameWidth(msk, plane);
     const int height = vsapi->getFrameHeight(msk, plane);
-    const int stride = vsapi->getStride(msk, plane) / d->vi->format->bytesPerSample;
+    const int stride = vsapi->getStride(msk, plane) / sizeof(T);
     const T * mskp = reinterpret_cast<const T *>(vsapi->getReadPtr(msk, plane));
     const T * dmskp = reinterpret_cast<const T *>(vsapi->getReadPtr(dmsk, plane));
-    T * dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
-    memcpy(dstp, dmskp, vsapi->getStride(msk, plane) * height);
+    T * VS_RESTRICT dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
+    vs_bitblt(dstp, vsapi->getStride(msk, plane), dmskp, vsapi->getStride(msk, plane), width * sizeof(T), height);
     mskp += stride * (1 - field);
     dmskp += stride * (2 - field);
     dstp += stride * (2 - field);
@@ -710,9 +705,9 @@ static void fillGaps2X(const VSFrameRef * msk, const VSFrameRef * dmsk, VSFrameR
     }
 }
 
-static inline void upscaleBy2(const VSFrameRef * src, VSFrameRef * dst, const int plane, const int field, const EEDI2Data * d, const VSAPI * vsapi) {
+static inline void upscaleBy2(const VSFrameRef * src, VSFrameRef * dst, const int plane, const int field, const int bytesPerSample, const VSAPI * vsapi) {
     vs_bitblt(vsapi->getWritePtr(dst, plane) + vsapi->getStride(dst, plane) * (1 - field), vsapi->getStride(dst, plane) * 2,
-              vsapi->getReadPtr(src, plane), vsapi->getStride(src, plane), vsapi->getFrameWidth(src, plane) * d->vi->format->bytesPerSample, vsapi->getFrameHeight(src, plane));
+              vsapi->getReadPtr(src, plane), vsapi->getStride(src, plane), vsapi->getFrameWidth(src, plane) * bytesPerSample, vsapi->getFrameHeight(src, plane));
 }
 
 template<typename T>
@@ -722,11 +717,11 @@ static void markDirections2X(const VSFrameRef * msk, const VSFrameRef * dmsk, VS
     const int shift2 = 2 + (d->vi->format->bitsPerSample - 8);
     const int width = vsapi->getFrameWidth(msk, plane);
     const int height = vsapi->getFrameHeight(msk, plane);
-    const int stride = vsapi->getStride(msk, plane) / d->vi->format->bytesPerSample;
+    const int stride = vsapi->getStride(msk, plane) / sizeof(T);
     const T * mskp = reinterpret_cast<const T *>(vsapi->getReadPtr(msk, plane));
     const T * dmskp = reinterpret_cast<const T *>(vsapi->getReadPtr(dmsk, plane));
-    T * dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
-    if (d->vi->format->bitsPerSample == 8)
+    T * VS_RESTRICT dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
+    if (sizeof(T) == 1)
         memset(dstp, peak, stride * height);
     else
         memset16(dstp, peak, stride * height);
@@ -749,7 +744,7 @@ static void markDirections2X(const VSFrameRef * msk, const VSFrameRef * dmsk, VS
                 continue;
             } else {
                 std::sort(order, order + v);
-                const int mid = v & 1 ? order[v >> 1] : (order[(v - 1) >> 1] + order[v >> 1] + 1) >> 1;
+                const int mid = (v & 1) ? order[v >> 1] : (order[(v - 1) >> 1] + order[v >> 1] + 1) >> 1;
                 const int lim = d->limlut2[std::abs(mid - median) >> shift2];
                 int u = 0;
                 if (std::abs(dmskp[x - 1] - dmskpn[x - 1]) <= lim || dmskp[x - 1] == peak || dmskpn[x - 1] == peak) u++;
@@ -785,10 +780,10 @@ static void interpolateLattice(const VSFrameRef * omsk, VSFrameRef * dmsk, VSFra
     const int shift2 = 2 + shift;
     const int width = vsapi->getFrameWidth(omsk, plane);
     const int height = vsapi->getFrameHeight(omsk, plane);
-    const int stride = vsapi->getStride(omsk, plane) / d->vi->format->bytesPerSample;
+    const int stride = vsapi->getStride(omsk, plane) / sizeof(T);
     const T * omskp = reinterpret_cast<const T *>(vsapi->getReadPtr(omsk, plane));
-    T * dmskp = reinterpret_cast<T *>(vsapi->getWritePtr(dmsk, plane));
-    T * dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
+    T * VS_RESTRICT dmskp = reinterpret_cast<T *>(vsapi->getWritePtr(dmsk, plane));
+    T * VS_RESTRICT dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
     if (field == 1)
         memcpy(dstp + stride * (height - 1), dstp + stride * (height - 2), vsapi->getStride(omsk, plane));
     else
@@ -797,7 +792,7 @@ static void interpolateLattice(const VSFrameRef * omsk, VSFrameRef * dmsk, VSFra
     dmskp += stride * (2 - field);
     dstp += stride * (1 - field);
     const T * omskn = omskp + stride * 2;
-    T * dstpn = dstp + stride;
+    T * VS_RESTRICT dstpn = dstp + stride;
     const T * dstpnn = dstp + stride * 2;
     for (int y = 2 - field; y < height - 1; y += 2) {
         for (int x = 0; x < width; x++) {
@@ -810,7 +805,8 @@ static void interpolateLattice(const VSFrameRef * omsk, VSFrameRef * dmsk, VSFra
                 continue;
             }
             if (lim < nine) {
-                const int sum = (dstp[x - 1] + dstp[x] + dstp[x + 1] + dstpnn[x - 1] + dstpnn[x] + dstpnn[x + 1]) >> shift;
+                const int sum = (dstp[x - 1] + dstp[x] + dstp[x + 1] +
+                                 dstpnn[x - 1] + dstpnn[x] + dstpnn[x + 1]) >> shift;
                 const int sumsq = (dstp[x - 1] >> shift) * (dstp[x - 1] >> shift) + (dstp[x] >> shift) * (dstp[x] >> shift) + (dstp[x + 1] >> shift) * (dstp[x + 1] >> shift) +
                                   (dstpnn[x - 1] >> shift) * (dstpnn[x - 1] >> shift) + (dstpnn[x] >> shift) * (dstpnn[x] >> shift) + (dstpnn[x + 1] >> shift) * (dstpnn[x + 1] >> shift);
                 if (6 * sumsq - sum * sum < 576) {
@@ -819,19 +815,19 @@ static void interpolateLattice(const VSFrameRef * omsk, VSFrameRef * dmsk, VSFra
                     continue;
                 }
             }
-            if (x > 1 && x < width - 2 &&
-                (dstp[x] < std::max(dstp[x - 2], dstp[x - 1]) - three && dstp[x] < std::max(dstp[x + 2], dstp[x + 1]) - three &&
-                 dstpnn[x] < std::max(dstpnn[x - 2], dstpnn[x - 1]) - three && dstpnn[x] < std::max(dstpnn[x + 2], dstpnn[x + 1]) - three) ||
+            if ((x > 1 && x < width - 2 &&
+                 (dstp[x] < std::max(dstp[x - 2], dstp[x - 1]) - three && dstp[x] < std::max(dstp[x + 2], dstp[x + 1]) - three &&
+                  dstpnn[x] < std::max(dstpnn[x - 2], dstpnn[x - 1]) - three && dstpnn[x] < std::max(dstpnn[x + 2], dstpnn[x + 1]) - three)) ||
                 (dstp[x] > std::min(dstp[x - 2], dstp[x - 1]) + three && dstp[x] > std::min(dstp[x + 2], dstp[x + 1]) + three &&
-                 dstpnn[x]  > std::min(dstpnn[x - 2], dstpnn[x - 1]) + three && dstpnn[x] > std::min(dstpnn[x + 2], dstpnn[x + 1]) + three)) {
+                 dstpnn[x] > std::min(dstpnn[x - 2], dstpnn[x - 1]) + three && dstpnn[x] > std::min(dstpnn[x + 2], dstpnn[x + 1]) + three)) {
                 dstpn[x] = (dstp[x] + dstpnn[x] + 1) >> 1;
                 dmskp[x] = median;
                 continue;
             }
-            dir = (dir - median + (1 << shift2) / 2) >> shift2;
+            dir = (dir - median + (1 << (shift2 - 1))) >> shift2;
             int val = (dstp[x] + dstpnn[x] + 1) >> 1;
-            const int startu = dir - 2 < 0 ? std::max(-x + 1, std::max(dir - 2, -width + 2 + x)) : std::min(x - 1, std::min(dir - 2, width - 2 - x));
-            const int stopu = dir + 2 < 0 ? std::max(-x + 1, std::max(dir + 2, -width + 2 + x)) : std::min(x - 1, std::min(dir + 2, width - 2 - x));
+            const int startu = (dir - 2 < 0) ? std::max(-x + 1, std::max(dir - 2, -width + 2 + x)) : std::min(x - 1, std::min(dir - 2, width - 2 - x));
+            const int stopu = (dir + 2 < 0) ? std::max(-x + 1, std::max(dir + 2, -width + 2 + x)) : std::min(x - 1, std::min(dir + 2, width - 2 - x));
             int min = 8 * d->nt;
             for (int u = startu; u <= stopu; u++) {
                 const int diff = std::abs(dstp[x - 1] - dstpnn[x - u - 1]) + std::abs(dstp[x] - dstpnn[x - u]) + std::abs(dstp[x + 1] - dstpnn[x - u + 1]) +
@@ -853,7 +849,8 @@ static void interpolateLattice(const VSFrameRef * omsk, VSFrameRef * dmsk, VSFra
                           omskp[x + ((u + 1) >> 1)] != peak))) {
                         if ((std::abs(dmskp[x] - omskp[x + (u >> 1)]) <= lim || std::abs(dmskp[x] - omskp[x + ((u + 1) >> 1)]) <= lim) &&
                             (std::abs(dmskp[x] - omskn[x - (u >> 1)]) <= lim || std::abs(dmskp[x] - omskn[x - ((u + 1) >> 1)]) <= lim)) {
-                            val = (dstp[x + (u >> 1)] + dstp[x + ((u + 1) >> 1)] + dstpnn[x - (u >> 1)] + dstpnn[x - ((u + 1) >> 1)] + 2) >> 2;
+                            val = (dstp[x + (u >> 1)] + dstp[x + ((u + 1) >> 1)] +
+                                   dstpnn[x - (u >> 1)] + dstpnn[x - ((u + 1) >> 1)] + 2) >> 2;
                             min = diff;
                             dir = u;
                         }
@@ -886,7 +883,7 @@ static void interpolateLattice(const VSFrameRef * omsk, VSFrameRef * dmsk, VSFra
                     }
                 }
                 dstpn[x] = val;
-                dmskp[x] = min == 7 * d->nt ? median : median + (dir << shift2);
+                dmskp[x] = (min == 7 * d->nt) ? median : median + (dir << shift2);
             }
         }
         omskp += stride * 2;
@@ -905,10 +902,10 @@ static void postProcess(const VSFrameRef * nmsk, const VSFrameRef * omsk, VSFram
     const int shift2 = 2 + (d->vi->format->bitsPerSample - 8);
     const int width = vsapi->getFrameWidth(nmsk, plane);
     const int height = vsapi->getFrameHeight(nmsk, plane);
-    const int stride = vsapi->getStride(nmsk, plane) / d->vi->format->bytesPerSample;
+    const int stride = vsapi->getStride(nmsk, plane) / sizeof(T);
     const T * nmskp = reinterpret_cast<const T *>(vsapi->getReadPtr(nmsk, plane));
     const T * omskp = reinterpret_cast<const T *>(vsapi->getReadPtr(omsk, plane));
-    T * dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
+    T * VS_RESTRICT dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
     nmskp += stride * (2 - field);
     omskp += stride * (2 - field);
     dstp += stride * (2 - field);
@@ -929,15 +926,15 @@ static void postProcess(const VSFrameRef * nmsk, const VSFrameRef * omsk, VSFram
 }
 
 template<typename T>
-static void postProcessCorner(const VSFrameRef * msk, VSFrameRef * dst, const int * VS_RESTRICT x2, const int * VS_RESTRICT y2, const int * VS_RESTRICT xy,
-                              const int plane, const int field, const EEDI2Data * d, const VSAPI * vsapi) {
-    const T median = 1 << (d->vi->format->bitsPerSample - 1);
-    const T peak = (1 << d->vi->format->bitsPerSample) - 1;
+static void postProcessCorner(const VSFrameRef * msk, VSFrameRef * dst, const int * x2, const int * y2, const int * xy,
+                              const int plane, const int field, const int bitsPerSample, const VSAPI * vsapi) {
+    const T median = 1 << (bitsPerSample - 1);
+    const T peak = (1 << bitsPerSample) - 1;
     const int width = vsapi->getFrameWidth(msk, plane);
     const int height = vsapi->getFrameHeight(msk, plane);
-    const int stride = vsapi->getStride(msk, plane) / d->vi->format->bytesPerSample;
+    const int stride = vsapi->getStride(msk, plane) / sizeof(T);
     const T * mskp = reinterpret_cast<const T *>(vsapi->getReadPtr(msk, plane));
-    T * dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
+    T * VS_RESTRICT dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
     mskp += stride * (8 - field);
     dstp += stride * (8 - field);
     x2 += stride * 3;
@@ -971,20 +968,19 @@ static void postProcessCorner(const VSFrameRef * msk, VSFrameRef * dst, const in
 }
 
 template<typename T1, typename T2>
-static void gaussianBlur1(const VSFrameRef * src, VSFrameRef * tmp, VSFrameRef * dst, const int plane, const EEDI2Data * d, const VSAPI * vsapi) {
+static void gaussianBlur1(const VSFrameRef * src, VSFrameRef * tmp, VSFrameRef * dst, const int plane, const VSAPI * vsapi) {
     const int width = vsapi->getFrameWidth(src, plane);
     const int height = vsapi->getFrameHeight(src, plane);
-    const int stride = vsapi->getStride(src, plane) / d->vi->format->bytesPerSample;
-    const T1 * VS_RESTRICT srcp = reinterpret_cast<const T1 *>(vsapi->getReadPtr(src, plane));
+    const int stride = vsapi->getStride(src, plane) / sizeof(T1);
+    const T1 * srcp = reinterpret_cast<const T1 *>(vsapi->getReadPtr(src, plane));
     T1 * VS_RESTRICT dstp = reinterpret_cast<T1 *>(vsapi->getWritePtr(tmp, plane));
     for (int y = 0; y < height; y++) {
         dstp[0] = (static_cast<T2>(srcp[3]) * 582 + srcp[2] * 7078 + srcp[1] * 31724 + srcp[0] * 26152 + 32768) >> 16;
         dstp[1] = (static_cast<T2>(srcp[4]) * 582 + srcp[3] * 7078 + (srcp[0] + srcp[2]) * 15862 + srcp[1] * 26152 + 32768) >> 16;
         dstp[2] = (static_cast<T2>(srcp[5]) * 582 + (srcp[0] + srcp[4]) * 3539 + (srcp[1] + srcp[3]) * 15862 + srcp[2] * 26152 + 32768) >> 16;
         int x;
-        for (x = 3; x < width - 3; x++) {
-            dstp[x] = ((static_cast<T2>(srcp[x - 3]) + srcp[x + 3]) * 291 + (srcp[x - 2] + srcp[x + 2]) * 3539 + (srcp[x - 1] + srcp[x + 1]) * 15862 + srcp[x] * 26152 + 32768) >> 16;
-        }
+        for (x = 3; x < width - 3; x++)
+            dstp[x] = (static_cast<T2>(srcp[x - 3] + srcp[x + 3]) * 291 + (srcp[x - 2] + srcp[x + 2]) * 3539 + (srcp[x - 1] + srcp[x + 1]) * 15862 + srcp[x] * 26152 + 32768) >> 16;
         dstp[x] = (static_cast<T2>(srcp[x - 3]) * 582 + (srcp[x - 2] + srcp[x + 2]) * 3539 + (srcp[x - 1] + srcp[x + 1]) * 15862 + srcp[x] * 26152 + 32768) >> 16;
         x++;
         dstp[x] = (static_cast<T2>(srcp[x - 3]) * 582 + srcp[x - 2] * 7078 + (srcp[x - 1] + srcp[x + 1]) * 15862 + srcp[x] * 26152 + 32768) >> 16;
@@ -995,12 +991,12 @@ static void gaussianBlur1(const VSFrameRef * src, VSFrameRef * tmp, VSFrameRef *
     }
     srcp = reinterpret_cast<const T1 *>(vsapi->getReadPtr(tmp, plane));
     dstp = reinterpret_cast<T1 *>(vsapi->getWritePtr(dst, plane));
-    const T1 * VS_RESTRICT src3p = srcp - stride * 3;
-    const T1 * VS_RESTRICT src2p = srcp - stride * 2;
-    const T1 * VS_RESTRICT srcpp = srcp - stride;
-    const T1 * VS_RESTRICT srcpn = srcp + stride;
-    const T1 * VS_RESTRICT src2n = srcp + stride * 2;
-    const T1 * VS_RESTRICT src3n = srcp + stride * 3;
+    const T1 * src3p = srcp - stride * 3;
+    const T1 * src2p = srcp - stride * 2;
+    const T1 * srcpp = srcp - stride;
+    const T1 * srcpn = srcp + stride;
+    const T1 * src2n = srcp + stride * 2;
+    const T1 * src3n = srcp + stride * 3;
     for (int x = 0; x < width; x++)
         dstp[x] = (static_cast<T2>(src3n[x]) * 582 + src2n[x] * 7078 + srcpn[x] * 31724 + srcp[x] * 26152 + 32768) >> 16;
     src3p += stride;
@@ -1033,7 +1029,7 @@ static void gaussianBlur1(const VSFrameRef * src, VSFrameRef * tmp, VSFrameRef *
     dstp += stride;
     for (int y = 3; y < height - 3; y++) {
         for (int x = 0; x < width; x++)
-            dstp[x] = ((static_cast<T2>(src3p[x]) + src3n[x]) * 291 + (src2p[x] + src2n[x]) * 3539 + (srcpp[x] + srcpn[x]) * 15862 + srcp[x] * 26152 + 32768) >> 16;
+            dstp[x] = (static_cast<T2>(src3p[x] + src3n[x]) * 291 + (src2p[x] + src2n[x]) * 3539 + (srcpp[x] + srcpn[x]) * 15862 + srcp[x] * 26152 + 32768) >> 16;
         src3p += stride;
         src2p += stride;
         srcpp += stride;
@@ -1068,7 +1064,7 @@ static void gaussianBlur1(const VSFrameRef * src, VSFrameRef * tmp, VSFrameRef *
 }
 
 static void gaussianBlurSqrt2(const int * src, int * tmp, int * dst, const int width, const int height, const int stride) {
-    const int * VS_RESTRICT srcp = src;
+    const int * srcp = src;
     int * VS_RESTRICT dstp = tmp;
     for (int y = 0; y < height; y++) {
         int x = 0;
@@ -1093,14 +1089,14 @@ static void gaussianBlurSqrt2(const int * src, int * tmp, int * dst, const int w
     }
     srcp = tmp;
     dstp = dst;
-    const int * VS_RESTRICT src4p = srcp - stride * 4;
-    const int * VS_RESTRICT src3p = srcp - stride * 3;
-    const int * VS_RESTRICT src2p = srcp - stride * 2;
-    const int * VS_RESTRICT srcpp = srcp - stride;
-    const int * VS_RESTRICT srcpn = srcp + stride;
-    const int * VS_RESTRICT src2n = srcp + stride * 2;
-    const int * VS_RESTRICT src3n = srcp + stride * 3;
-    const int * VS_RESTRICT src4n = srcp + stride * 4;
+    const int * src4p = srcp - stride * 4;
+    const int * src3p = srcp - stride * 3;
+    const int * src2p = srcp - stride * 2;
+    const int * srcpp = srcp - stride;
+    const int * srcpn = srcp + stride;
+    const int * src2n = srcp + stride * 2;
+    const int * src3n = srcp + stride * 3;
+    const int * src4n = srcp + stride * 4;
     for (int x = 0; x < width; x++)
         dstp[x] = (src4n[x] * 678 + src3n[x] * 3902 + src2n[x] * 13618 + srcpn[x] * 28830 + srcp[x] * 18508 + 32768) >> 18;
     src4p += stride;
@@ -1204,11 +1200,11 @@ static void gaussianBlurSqrt2(const int * src, int * tmp, int * dst, const int w
 }
 
 template<typename T>
-static void calcDerivatives(const VSFrameRef * src, int * VS_RESTRICT x2, int * VS_RESTRICT y2, int * VS_RESTRICT xy, const int plane, const EEDI2Data * d, const VSAPI * vsapi) {
-    const int shift = d->vi->format->bitsPerSample - 8;
+static void calcDerivatives(const VSFrameRef * src, int * VS_RESTRICT x2, int * VS_RESTRICT y2, int * VS_RESTRICT xy, const int plane, const int bitsPerSample, const VSAPI * vsapi) {
+    const int shift = bitsPerSample - 8;
     const int width = vsapi->getFrameWidth(src, plane);
     const int height = vsapi->getFrameHeight(src, plane);
-    const int stride = vsapi->getStride(src, plane) / d->vi->format->bytesPerSample;
+    const int stride = vsapi->getStride(src, plane) / sizeof(T);
     const T * srcp = reinterpret_cast<const T *>(vsapi->getReadPtr(src, plane));
     const T * srcpp = srcp - stride;
     const T * srcpn = srcp + stride;
@@ -1294,7 +1290,7 @@ static void calcDerivatives(const VSFrameRef * src, int * VS_RESTRICT x2, int * 
 
 template<typename T>
 static void EEDI2(const VSFrameRef * src, VSFrameRef * dst, VSFrameRef * msk, VSFrameRef * tmp,
-                  VSFrameRef * dst2, VSFrameRef * dst2M, VSFrameRef * tmp2, VSFrameRef * tmp2_2, VSFrameRef * msk2,
+                  VSFrameRef * dst2, VSFrameRef * dst2M, VSFrameRef * tmp2, VSFrameRef ** tmp2_2, VSFrameRef * msk2,
                   int * VS_RESTRICT cx2, int * VS_RESTRICT cy2, int * VS_RESTRICT cxy, int * VS_RESTRICT tmpc, const int field, const EEDI2Data * d, VSCore * core, const VSAPI * vsapi) {
     for (int plane = 0; plane < d->vi->format->numPlanes; plane++) {
         buildEdgeMask<T>(src, msk, plane, d, vsapi);
@@ -1310,34 +1306,34 @@ static void EEDI2(const VSFrameRef * src, VSFrameRef * dst, VSFrameRef * msk, VS
             if (d->map == 2)
                 continue;
             memset(vsapi->getWritePtr(dst2, plane), 0, vsapi->getStride(dst2, plane) * vsapi->getFrameHeight(dst2, plane));
-            upscaleBy2(src, dst2, plane, field, d, vsapi);
-            upscaleBy2(dst, tmp2_2, plane, field, d, vsapi);
-            upscaleBy2(msk, msk2, plane, field, d, vsapi);
-            markDirections2X<T>(msk2, tmp2_2, tmp2, plane, field, d, vsapi);
+            upscaleBy2(src, dst2, plane, field, sizeof(T), vsapi);
+            upscaleBy2(dst, *tmp2_2, plane, field, sizeof(T), vsapi);
+            upscaleBy2(msk, msk2, plane, field, sizeof(T), vsapi);
+            markDirections2X<T>(msk2, *tmp2_2, tmp2, plane, field, d, vsapi);
             filterDirMap2X<T>(msk2, tmp2, dst2M, plane, field, d, vsapi);
             expandDirMap2X<T>(msk2, dst2M, tmp2, plane, field, d, vsapi);
             fillGaps2X<T>(msk2, tmp2, dst2M, plane, field, d, vsapi);
             fillGaps2X<T>(msk2, dst2M, tmp2, plane, field, d, vsapi);
             if (d->map == 3)
                 continue;
-            interpolateLattice<T>(tmp2_2, tmp2, dst2, plane, field, d, vsapi);
+            interpolateLattice<T>(*tmp2_2, tmp2, dst2, plane, field, d, vsapi);
             if (d->pp == 1 || d->pp == 3) {
-                vsapi->freeFrame(tmp2_2);
-                tmp2_2 = vsapi->copyFrame(tmp2, core);
+                vsapi->freeFrame(*tmp2_2);
+                *tmp2_2 = vsapi->copyFrame(tmp2, core);
                 filterDirMap2X<T>(msk2, tmp2, dst2M, plane, field, d, vsapi);
                 expandDirMap2X<T>(msk2, dst2M, tmp2, plane, field, d, vsapi);
-                postProcess<T>(tmp2, tmp2_2, dst2, plane, field, d, vsapi);
+                postProcess<T>(tmp2, *tmp2_2, dst2, plane, field, d, vsapi);
             }
             if (d->pp == 2 || d->pp == 3) {
                 if (sizeof(T) == 1)
-                    gaussianBlur1<T, int32_t>(src, tmp, dst, plane, d, vsapi);
+                    gaussianBlur1<T, int32_t>(src, tmp, dst, plane, vsapi);
                 else
-                    gaussianBlur1<T, int64_t>(src, tmp, dst, plane, d, vsapi);
-                calcDerivatives<T>(dst, cx2, cy2, cxy, plane, d, vsapi);
-                gaussianBlurSqrt2(cx2, tmpc, cx2, vsapi->getFrameWidth(src, plane), vsapi->getFrameHeight(src, plane), vsapi->getStride(src, plane) / d->vi->format->bytesPerSample);
-                gaussianBlurSqrt2(cy2, tmpc, cy2, vsapi->getFrameWidth(src, plane), vsapi->getFrameHeight(src, plane), vsapi->getStride(src, plane) / d->vi->format->bytesPerSample);
-                gaussianBlurSqrt2(cxy, tmpc, cxy, vsapi->getFrameWidth(src, plane), vsapi->getFrameHeight(src, plane), vsapi->getStride(src, plane) / d->vi->format->bytesPerSample);
-                postProcessCorner<T>(tmp2_2, dst2, cx2, cy2, cxy, plane, field, d, vsapi);
+                    gaussianBlur1<T, int64_t>(src, tmp, dst, plane, vsapi);
+                calcDerivatives<T>(dst, cx2, cy2, cxy, plane, d->vi->format->bitsPerSample, vsapi);
+                gaussianBlurSqrt2(cx2, tmpc, cx2, vsapi->getFrameWidth(src, plane), vsapi->getFrameHeight(src, plane), vsapi->getStride(src, plane) / sizeof(T));
+                gaussianBlurSqrt2(cy2, tmpc, cy2, vsapi->getFrameWidth(src, plane), vsapi->getFrameHeight(src, plane), vsapi->getStride(src, plane) / sizeof(T));
+                gaussianBlurSqrt2(cxy, tmpc, cxy, vsapi->getFrameWidth(src, plane), vsapi->getFrameHeight(src, plane), vsapi->getStride(src, plane) / sizeof(T));
+                postProcessCorner<T>(*tmp2_2, dst2, cx2, cy2, cxy, plane, field, d->vi->format->bitsPerSample, vsapi);
             }
         }
     }
@@ -1370,7 +1366,7 @@ static const VSFrameRef *VS_CC eedi2GetFrame(int n, int activationReason, void *
 
         int field = d->field;
         if (d->fieldS > 1)
-            field = n & 1 ? (d->fieldS == 2 ? 1 : 0) : (d->fieldS == 2 ? 0 : 1);
+            field = (n & 1) ? (d->fieldS == 2 ? 1 : 0) : (d->fieldS == 2 ? 0 : 1);
 
         const VSFrameRef * src = vsapi->getFrameFilter(n, d->node, frameCtx);
         VSFrameRef * dst = vsapi->newVideoFrame(d->vi->format, d->vi->width, d->vi->height, src, core);
@@ -1386,9 +1382,9 @@ static const VSFrameRef *VS_CC eedi2GetFrame(int n, int activationReason, void *
         }
 
         if (d->vi->format->bitsPerSample == 8)
-            EEDI2<uint8_t>(src, dst, msk, tmp, dst2, dst2M, tmp2, tmp2_2, msk2, cx2, cy2, cxy, tmpc, field, d, core, vsapi);
+            EEDI2<uint8_t>(src, dst, msk, tmp, dst2, dst2M, tmp2, &tmp2_2, msk2, cx2, cy2, cxy, tmpc, field, d, core, vsapi);
         else
-            EEDI2<uint16_t>(src, dst, msk, tmp, dst2, dst2M, tmp2, tmp2_2, msk2, cx2, cy2, cxy, tmpc, field, d, core, vsapi);
+            EEDI2<uint16_t>(src, dst, msk, tmp, dst2, dst2M, tmp2, &tmp2_2, msk2, cx2, cy2, cxy, tmpc, field, d, core, vsapi);
 
         vs_aligned_free(cx2);
         vs_aligned_free(cy2);

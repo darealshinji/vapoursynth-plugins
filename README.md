@@ -50,7 +50,7 @@ make install
 [deblock r3](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Deblock)<br>
 [delogo 0.3+git20150415](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-DeLogo)<br>
 [dfttest r2](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-DFTTest)<br>
-[eedi2 r5+20150221](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-EEDI2)<br>
+[eedi2 r6](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-EEDI2)<br>
 [ffms2](https://github.com/FFMS/ffms2)<br>
 [fieldhint 1.0](https://github.com/dubhater/vapoursynth-fieldhint)<br>
 [fillborders 1.0](https://github.com/dubhater/vapoursynth-fillborders)<br>
