@@ -48,7 +48,7 @@ make install
 [damb r3](https://github.com/dubhater/vapoursynth-damb)<br>
 [dctfilter r2](https://bitbucket.org/mystery_keeper/vapoursynth-dctfilter)<br>
 [deblock r3](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Deblock)<br>
-[delogo 0.3](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-DeLogo)<br>
+[delogo 0.3+git20150415](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-DeLogo)<br>
 [dfttest r2](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-DFTTest)<br>
 [eedi2 r5+20150221](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-EEDI2)<br>
 [ffms2](https://github.com/FFMS/ffms2)<br>

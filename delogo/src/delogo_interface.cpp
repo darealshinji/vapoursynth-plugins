@@ -74,7 +74,7 @@ logoCreate(const VSMap *in, VSMap *out, void *userData, VSCore *core, const VSAP
 	PARAM_INT(yc_u, 0);
 	PARAM_INT(yc_v, 0);
 	PARAM_INT(start, 0);
-	PARAM_INT(end, -1);
+	PARAM_INT(end, vi->numFrames - 1);
 	PARAM_INT(fadein, 0);
 	PARAM_INT(fadeout, 0);
 	PARAM_INT(cutoff, 0);
