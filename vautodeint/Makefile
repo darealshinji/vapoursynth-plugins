@@ -1,7 +1,7 @@
 
 LIB = libvautodeint.so
 
-local_CFLAGS = -std=gnu99
+local_CFLAGS = -Wno-parentheses -std=gnu99
 
 include ../cc.inc
 
