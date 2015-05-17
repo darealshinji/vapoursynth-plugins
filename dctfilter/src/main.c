@@ -132,7 +132,7 @@ static void VS_CC PluginFree(void * a_pInstanceData, VSCore * a_pCore,
 	UNUSED(a_pCore);
 	UNUSED(a_cpVSAPI);
 
-	//PluginData * pPluginData = (PluginData *)a_pInstanceData;
+	PluginData * pPluginData = (PluginData *)a_pInstanceData;
 	free(a_pInstanceData);
 }
 
