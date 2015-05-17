@@ -14,10 +14,6 @@ LIBADD = -lavcodec -lavresample -lz
 
 include ../global.inc
 
-clobber-local:
-	git submodule deinit -f src
-	rm -f submodule-stamp
-
 CXXSRCS = \
 	src/src/core/audiosource.cpp \
 	src/src/core/ffms.cpp \
@@ -35,16 +31,12 @@ CXXSRCS = \
 	src/src/vapoursynth/vapoursource.cpp \
 	src/src/vapoursynth/vapoursynth.cpp
 
-$(CXXSRCS): submodule-stamp
-
-submodule-stamp:
-	git submodule init src
-	git submodule update src
-	touch $@
-
 %.o: %.cpp
 	$(CXX) $(VSCXXFLAGS) -o $@ $^
 
 $(LIB): $(CXXOBJS)
 	$(CXX) $(VSLDFLAGS) -o $@ $^ $(LIBADD) $(LIBS)
+
+../config.mak:
+	cd .. && ./configure
 

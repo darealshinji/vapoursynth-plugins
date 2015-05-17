@@ -14,7 +14,6 @@ SUBDIRS = \
 	delogo \
 	dfttest \
 	eedi2 \
-	ffms2 \
 	fieldhint \
 	fillborders \
 	flash3kyuu_deband \
@@ -68,8 +67,9 @@ define NL
 endef
 
 
-all: ffms2/Makefile
+all:
 	$(foreach DIR,$(SUBDIRS),$(MAKE) -C $(DIR) $(NL))
+	$(MAKE) -C ffms2 || true
 
 install:
 	$(install_DIR) $(DESTDIR)$(plugins)
@@ -77,10 +77,13 @@ install:
 	$(install_DIR) $(DESTDIR)$(prefix)/share/nnedi3
 
 	$(foreach LIB,$(shell ls */*.so),$(install) $(LIB) $(DESTDIR)$(plugins) $(NL))
-	ffmslib=$$($(GREP) 'dlname' ffms2/src/core/libffms2.la | cut -d"'" -f2) ;\
-    cp -f ffms2/src/core/.libs/$$ffmslib ffms2 ;\
-    $(install) ffms2/$$ffmslib $(DESTDIR)$(plugins)
 	$(foreach SCRIPT,$(shell ls */*.py),$(install) $(SCRIPT) $(DESTDIR)$(plugins) $(NL))
+
+	if [ -f "ffms2/src/core/libffms2.la" ]; then \
+    ffmslib=$$($(GREP) 'dlname' ffms2/src/core/libffms2.la | cut -d "'" -f2) ;\
+    cp -f ffms2/src/core/.libs/$$ffmslib ffms2 ;\
+    $(install) ffms2/$$ffmslib $(DESTDIR)$(plugins) ;\
+fi
 
 	$(install) README.md $(DESTDIR)$(docdir)
 	$(install) rawsource/format_list.txt $(DESTDIR)$(docdir)/rawsource_format_list
@@ -98,13 +101,12 @@ install:
 
 clean:
 	$(foreach DIR,$(SUBDIRS),$(MAKE) -C $(DIR) clean || true $(NL))
+	$(MAKE) -C ffms2 clean || true
 
 distclean: clean
 	$(foreach DIR,$(SUBDIRS),$(MAKE) -C $(DIR) distclean || true $(NL))
+	$(MAKE) -C ffms2 distclean || true
 	rm -f config.mak
-
-clobber: distclean
-	$(foreach DIR,$(SUBDIRS),$(MAKE) -C $(DIR) clobber || true $(NL))
 
 config.mak:
 	./configure

@@ -25,6 +25,11 @@ zlib1g-dev
 
 **Installation**:
 ```
+git clone https://github.com/darealshinji/vapoursynth-plugins.git
+cd vapoursynth-plugins
+git submodule init
+git submodule update
+
 ./configure
 make
 make install

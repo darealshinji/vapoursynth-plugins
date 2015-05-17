@@ -32,7 +32,3 @@ distclean:
 	$(MAKE) -C $(turbodir) distclean || true
 	$(MAKE) -f imagereader.mk distclean
 
-clobber:
-	cd libjpeg-turbo && rm -rf Makefile.in aclocal.m4 autom4te.cache/ build-aux/ config.h.in \
-	configure m4/ md5/Makefile.in simd/Makefile.in simd/jsimdcfg.inc
-
