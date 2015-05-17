@@ -1,7 +1,9 @@
 CXX = g++
 CC = gcc
 
-VapourSynth_CFLAGS = $(shell pkg-config --cflags vapoursynth)
+#VapourSynth_CFLAGS = $(shell pkg-config --cflags vapoursynth)
+VapourSynth_CFLAGS = -I/usr/local/include/vapoursynth -I/usr/include/vapoursynth
+
 commonflags = -c -O2 -fPIC -Wall -Wextra -Wno-unused-parameter -Wno-unused-result -Isrc
 
 VSCFLAGS = $(commonflags) $(CFLAGS) $(local_CFLAGS) $(VapourSynth_CFLAGS) $(CPPFLAGS)
