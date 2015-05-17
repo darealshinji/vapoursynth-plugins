@@ -59,7 +59,7 @@ make install
 [fluxsmooth 1.0+git20141002](https://github.com/dubhater/vapoursynth-fluxsmooth)<br>
 [fmtconv r12](http://forum.doom9.org/showthread.php?t=166504)<br>
 [genericfilters 1.0.0+git20150505](https://github.com/myrsloik/GenericFilters)<br>
-[havsfunc r16](http://forum.doom9.org/showthread.php?t=166582)<br>
+[havsfunc r17](http://forum.doom9.org/showthread.php?t=166582)<br>
 [histogram 1.0+git20141212](https://github.com/dubhater/vapoursynth-histogram)<br>
 [imagereader 0.2.1](https://github.com/chikuzen/vsimagereader)<br>
 [it 1.2](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-IT)<br>
