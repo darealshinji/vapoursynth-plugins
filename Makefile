@@ -83,12 +83,6 @@ install:
 	$(foreach LIB,$(shell ls */*.so),$(install) $(LIB) $(DESTDIR)$(plugins) $(NL))
 	$(foreach SCRIPT,$(shell ls */*.py),$(install) $(SCRIPT) $(DESTDIR)$(plugins) $(NL))
 
-	if [ -f "ffms2/src/core/libffms2.la" ]; then \
-    ffmslib=$$($(GREP) 'dlname' ffms2/src/core/libffms2.la | cut -d "'" -f2) ;\
-    cp -f ffms2/src/core/.libs/$$ffmslib ffms2 ;\
-    $(install) ffms2/$$ffmslib $(DESTDIR)$(plugins) ;\
-fi
-
 	$(install) README.md $(DESTDIR)$(docdir)
 	$(install) rawsource/format_list.txt $(DESTDIR)$(docdir)/rawsource_format_list
 	$(install) flash3kyuu_deband/flash3kyuu_deband.txt $(DESTDIR)$(docdir)
