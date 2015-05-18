@@ -1,0 +1,475 @@
+Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Source: https://github.com/darealshinji/vapoursynth-plugins
+
+Files: addgrain/*
+Copyright: 2002 Tom Barry
+           2006-2010 Foxyshadis <foxyshadis@hotmail.com>
+           2010-2012 Firesledge
+           2011 LaTo INV.
+           2014 HolyWu
+License: GPL-2+
+
+Files: adjust/*
+Copyright: 2015 dubhater
+License: WTFPL
+
+Files: bilateral/* retinex/*
+Copyright: 2014 mawen1250
+License: GPL-3+
+
+Files: ctmf/*
+Copyright: 2006 Simon Perreault
+           2014 HolyWu
+License: GPL-2+
+
+Files: combmask/* convo2d/* imagereader/*
+       rawsource/* scenechange/* temporalsoften2/*
+Copyright: 2012-2013, 2015 Oka Motofumi
+License: LGPL-2.1
+
+Files: d2vsource/*
+Copyright: 2012-2014 Derek Buitenhuis
+License: LGPL-2.1
+
+Files: deblock/*
+Copyright: 2004 Manao
+           2006 Alexander Balakhnin
+           2014 HolyWu
+License: GPL-2+
+
+Files: delogo/*
+Copyright: 2003 MakKi
+           2014-2015 msg7086
+License: GPL-2+
+
+Files: dfttest/*
+Copyright: 2015 HolyWu
+License: GPL-2+
+
+Files: eedi2/*
+Copyright: 2005-2006 Kevin Stone
+           2014-2015 HolyWu
+License: GPL-2+
+
+Files: ffms2/*
+Copyright: 2007-2015 Fredrik Mellbin
+License: MIT
+
+Files: flash3kyuu_deband/*
+Copyright: 2011-2014 Joe Hu <i@sapika.ch>
+License: GPL-3+
+
+Files: fmtconv/*
+Copyright: 2012-2015 cretindesalpes
+License: WTFPL
+
+Files: genericfilters/*
+Copyright: 2012-2013, 2015 Oka Motofumi
+           2013-2015 Fredrik Mellbin
+License: LGPL-2.1
+
+Files: it/*
+Copyright: 2002 thejam79
+           2003 minamina
+           2014 msg7086
+License: GPL-2+
+
+Files: histogram/* msmoosh/* mvtools/* nnedi3/* tcomb/* wwxd/*
+Copyright: 2012-2015 dubhater
+License: GPL-2+
+
+Files: lsmashsource/*
+Copyright: 2012-2015 L-SMASH Works project
+License: ISC
+
+Files: nnedi3/src/nnedi3.c
+Copyright: 2010-2011 Kevin Stone
+           2014 dubhater
+License: GPL-2+
+
+Files: nnedi3/src/asm/include/x86inc.asm
+Copyright: 2005-2012 x264 project
+           Loren Merritt <lorenm@u.washington.edu>
+           Anton Mitrofanov <BugMaster@narod.ru>
+           Jason Garrett-Glaser <darkshikari@gmail.com>
+           Henrik Gramner <hengar-6@student.ltu.se>
+License: ISC
+
+Files: sangnommod/*
+Copyright: 2014 msg7086
+License: GPL-2+
+
+Files: damb/* scrawl/* videoscope/*
+Copyright: 2013-2014 dubhater
+License: WTFPL
+
+Files: zimg/*
+Copyright: 2013-2014 dubhater
+           2013-2014 Stephen R. Savage
+License: WTFPL
+
+Files: scrawl/src/ter-116n.h
+Copyright: 2012 Dimitar Toshkov Zhekov
+License: OFL
+
+Files: tc2cfr/*
+Copyright: 2013 Li Yonggang <gnaggnoyil@gmail.com>
+License: BSD-2-clause
+
+Files: tdeintmod/*
+Copyright: 2004-2007 Kevin Stone
+           2014-2015 HolyWu
+License: GPL-2+
+
+Files: dctfilter/* templinearapproximate/*
+Copyright: 2014 Aleksey Lyashin <mystkeeper@gmail.com>
+License: MIT
+
+Files: vaguedenoiser/*
+Copyright: 2015 HolyWu
+License: GPL-2+
+
+Files: vautodeint
+Copyright: 2013 Acfun
+           2013 Li Yonggang <gnaggnoyil@gmail.com>
+License: GPL-3+
+
+Files: yadifmod/*
+Copyright: 2007 Kevin Stone
+           2007 Alexander G. Balakhnin
+           2006 Michael Niedermayer <michaelni@gmx.at>
+           2014-2015 HolyWu
+License: GPL-2+
+
+Files: yadifmod/src/vectorclass/*
+Copyright: 2012-2014 Agner Fog
+License: GPL-3+
+
+Files: imagereader/libjpeg-turbo/*
+Copyright: 1999-2006 MIYASAKA Masaru
+           2004 Landmark Graphics Corporation
+           2005-2007 Sun Microsystems, Inc.
+           2009 Pierre Ossman for Cendio AB
+           2009-2010 D. R. Commander
+           2010 Thomas G. Lane, Guido Vollbeding
+           2009, Thomas G. Lane, Guido Vollbeding
+           1998, Thomas G. Lane
+           2010 Nokia Corporation
+License: JPEG
+
+Files: imagereader/libjpeg-turbo/md5/md5.*
+Copyright: 1991-2, RSA Data Security, Inc.
+License: other-1
+
+Files: debian/*
+Copyright: 2014-2015 djcj <djcj@gmx.de>
+License: MIT
+
+
+License: LGPL-2.1
+ This library is free software; you can redistribute it and/or
+ modify it under the terms of the GNU Lesser General Public
+ License as published by the Free Software Foundation; either
+ version 2.1 of the License, or (at your option) any later version.
+ .
+ This library is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ Lesser General Public License for more details.
+ .
+ You should have received a copy of the GNU Lesser General Public
+ License along with this program. If not, see <http://www.gnu.org/licenses/>.
+ .
+ On Debian systems, the complete text of the GNU Lesser General
+ Public License version 2.1 can be found in "/usr/share/common-licenses/LGPL-2.1".
+
+License: GPL-2+
+ This program is free software: you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation, either version 2 of the License, or (at
+ your option) any later version.
+ .
+ This program is distributed in the hope that it will be useful, but
+ WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ General Public License for more details.
+ .
+ You should have received a copy of the GNU General Public License
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
+ .
+ On Debian systems, the complete text of the GNU General
+ Public License version 2 can be found in "/usr/share/common-licenses/GPL-2".
+
+License: GPL-3+
+ This program is free software: you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation, either version 3 of the License, or (at
+ your option) any later version.
+ .
+ This program is distributed in the hope that it will be useful, but
+ WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ General Public License for more details.
+ .
+ You should have received a copy of the GNU General Public License
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
+ .
+ On Debian systems, the complete text of the GNU General
+ Public License version 3 can be found in "/usr/share/common-licenses/GPL-3".
+
+License: MIT
+ Permission is hereby granted, free of charge, to any person obtaining a copy
+ of this software and associated documentation files (the "Software"), to deal
+ in the Software without restriction, including without limitation the rights
+ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ copies of the Software, and to permit persons to whom the Software is
+ furnished to do so, subject to the following conditions:
+ .
+ The above copyright notice and this permission notice shall be included in all
+ copies or substantial portions of the Software.
+ .
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ SOFTWARE.
+
+License: ISC
+ Permission to use, copy, modify, and/or distribute this software for any
+ purpose with or without fee is hereby granted, provided that the above
+ copyright notice and this permission notice appear in all copies.
+ .
+ THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+License: BSD-2-clause
+ Redistribution and use in source and binary forms, with or without modification,
+ are permitted provided that the following conditions are met:
+ .
+   1.Redistributions of source code must retain the above copyright notice, this
+     list of conditions and the following disclaimer.
+ .
+   2.Redistributions in binary form must reproduce the above copyright notice,
+     this list of conditions and the following disclaimer in the documentation
+     and/or other materials provided with the distribution.
+ .
+ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+ INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+ LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+ OF THE POSSIBILITY OF SUCH DAMAGE.
+
+License: WTFPL
+            DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE
+                    Version 2, December 2004
+ .
+ Copyright (C) 2004 Sam Hocevar
+  14 rue de Plaisance, 75014 Paris, France
+ Everyone is permitted to copy and distribute verbatim or modified
+ copies of this license document, and changing it is allowed as long
+ as the name is changed.
+ .
+            DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE
+   TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION
+ .
+  0. You just DO WHAT THE FUCK YOU WANT TO.
+
+License: OFL
+ This Font Software is licensed under the SIL Open Font License, Version 1.1.
+ This license is copied below, and is also available with a FAQ at:
+ http://scripts.sil.org/OFL
+ .
+ -----------------------------------------------------------
+ SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
+ -----------------------------------------------------------
+ .
+ PREAMBLE
+ The goals of the Open Font License (OFL) are to stimulate worldwide
+ development of collaborative font projects, to support the font creation
+ efforts of academic and linguistic communities, and to provide a free and
+ open framework in which fonts may be shared and improved in partnership
+ with others.
+ .
+ The OFL allows the licensed fonts to be used, studied, modified and
+ redistributed freely as long as they are not sold by themselves. The
+ fonts, including any derivative works, can be bundled, embedded, 
+ redistributed and/or sold with any software provided that any reserved
+ names are not used by derivative works. The fonts and derivatives,
+ however, cannot be released under any other type of license. The
+ requirement for fonts to remain under this license does not apply
+ to any document created using the fonts or their derivatives.
+ .
+ DEFINITIONS
+ "Font Software" refers to the set of files released by the Copyright
+ Holder(s) under this license and clearly marked as such. This may
+ include source files, build scripts and documentation.
+ .
+ "Reserved Font Name" refers to any names specified as such after the
+ copyright statement(s).
+ .
+ "Original Version" refers to the collection of Font Software components as
+ distributed by the Copyright Holder(s).
+ .
+ "Modified Version" refers to any derivative made by adding to, deleting,
+ or substituting -- in part or in whole -- any of the components of the
+ Original Version, by changing formats or by porting the Font Software to a
+ new environment.
+ .
+ "Author" refers to any designer, engineer, programmer, technical
+ writer or other person who contributed to the Font Software.
+ .
+ PERMISSION & CONDITIONS
+ Permission is hereby granted, free of charge, to any person obtaining
+ a copy of the Font Software, to use, study, copy, merge, embed, modify,
+ redistribute, and sell modified and unmodified copies of the Font
+ Software, subject to the following conditions:
+ .
+ 1) Neither the Font Software nor any of its individual components,
+ in Original or Modified Versions, may be sold by itself.
+ .
+ 2) Original or Modified Versions of the Font Software may be bundled,
+ redistributed and/or sold with any software, provided that each copy
+ contains the above copyright notice and this license. These can be
+ included either as stand-alone text files, human-readable headers or
+ in the appropriate machine-readable metadata fields within text or
+ binary files as long as those fields can be easily viewed by the user.
+ .
+ 3) No Modified Version of the Font Software may use the Reserved Font
+ Name(s) unless explicit written permission is granted by the corresponding
+ Copyright Holder. This restriction only applies to the primary font name as
+ presented to the users.
+ .
+ 4) The name(s) of the Copyright Holder(s) or the Author(s) of the Font
+ Software shall not be used to promote, endorse or advertise any
+ Modified Version, except to acknowledge the contribution(s) of the
+ Copyright Holder(s) and the Author(s) or with their explicit written
+ permission.
+ . 
+ 5) The Font Software, modified or unmodified, in part or in whole,
+ must be distributed entirely under this license, and must not be
+ distributed under any other license. The requirement for fonts to
+ remain under this license does not apply to any document created
+ using the Font Software.
+ .
+ TERMINATION
+ This license becomes null and void if any of the above conditions are
+ not met.
+ .
+ DISCLAIMER
+ THE FONT SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTIES OF
+ MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT
+ OF COPYRIGHT, PATENT, TRADEMARK, OR OTHER RIGHT. IN NO EVENT SHALL THE
+ COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ INCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL
+ DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
+ OTHER DEALINGS IN THE FONT SOFTWARE.
+
+License: JPEG
+ .
+ In plain English:
+ .
+ 1. We don't promise that this software works.  (But if you find any bugs,
+   please let us know!)
+ 2. You can use this software for whatever you want.  You don't have to pay us.
+ 3. You may not pretend that you wrote this software.  If you use it in a
+   program, you must acknowledge somewhere in your documentation that
+   you've used the IJG code.
+ .
+ In legalese:
+ The authors make NO WARRANTY or representation, either express or implied,
+ with respect to this software, its quality, accuracy, merchantability, or
+ fitness for a particular purpose.  This software is provided "AS IS", and you,
+ its user, assume the entire risk as to its quality and accuracy.
+ .
+ This software is copyright (C) 1991-2010, Thomas G. Lane, Guido Vollbeding.
+ All Rights Reserved except as specified below.
+ .
+ Permission is hereby granted to use, copy, modify, and distribute this
+ software (or portions thereof) for any purpose, without fee, subject to these
+ conditions:
+ (1) If any part of the source code for this software is distributed, then this
+ README file must be included, with this copyright and no-warranty notice
+ unaltered; and any additions, deletions, or changes to the original files
+ must be clearly indicated in accompanying documentation.
+ (2) If only executable code is distributed, then the accompanying
+ documentation must state that "this software is based in part on the work of
+ the Independent JPEG Group".
+ (3) Permission for use of this software is granted only if the user accepts
+ full responsibility for any undesirable consequences; the authors accept
+ NO LIABILITY for damages of any kind.
+ .
+ These conditions apply to any software derived from or based on the IJG code,
+ not just to the unmodified library.  If you use our work, you ought to
+ acknowledge us.
+ .
+ Permission is NOT granted for the use of any IJG author's name or company name
+ in advertising or publicity relating to this software or products derived from
+ it.  This software may be referred to only as "the Independent JPEG Group's
+ software".
+ .
+ We specifically permit and encourage the use of this software as the basis of
+ commercial products, provided that all warranty or liability claims are
+ assumed by the product vendor.
+ .
+ .
+ ansi2knr.c is included in this distribution by permission of L. Peter Deutsch,
+ sole proprietor of its copyright holder, Aladdin Enterprises of Menlo Park, CA
+ .
+ ansi2knr.c is NOT covered by the above copyright and conditions, but instead
+ by the usual distribution terms of the Free Software Foundation; principally,
+ that you must include source code if you redistribute it.  (See the file
+ ansi2knr.c for full details.)  However, since ansi2knr.c is not needed as part
+ of any program generated from the IJG code, this does not limit you more than
+ the foregoing paragraphs do.
+ .
+ The Unix configuration script "configure" was produced with GNU Autoconf.
+ It is copyright by the Free Software Foundation but is freely distributable.
+ The same holds for its supporting scripts (config.guess, config.sub,
+ ltmain.sh).  Another support script, install-sh, is copyright by X Consortium
+ but is also freely distributable.
+ .
+ The IJG distribution formerly included code to read and write GIF files.
+ To avoid entanglement with the Unisys LZW patent, GIF reading support has
+ been removed altogether, and the GIF writer has been simplified to produce
+ "uncompressed GIFs".  This technique does not use the LZW algorithm; the
+ resulting GIF files are larger than usual, but are readable by all standard
+ GIF decoders.
+ .
+ We are required to state that
+    "The Graphics Interchange Format(c) is the Copyright property of
+    CompuServe Incorporated.  GIF(sm) is a Service Mark property of
+    CompuServe Incorporated."
+
+License: other-1
+ License to copy and use this software is granted provided that it
+ is identified as the "RSA Data Security, Inc. MD5 Message-Digest
+ Algorithm" in all material mentioning or referencing this software
+ or this function.
+ .
+ License is also granted to make and use derivative works provided
+ that such works are identified as "derived from the RSA Data
+ Security, Inc. MD5 Message-Digest Algorithm" in all material
+ mentioning or referencing the derived work.
+ .
+ RSA Data Security, Inc. makes no representations concerning either
+ the merchantability of this software or the suitability of this
+ software for any particular purpose. It is provided "as is"
+ without express or implied warranty of any kind.
+ .
+ These notices must be retained in any copies of any part of this
+ documentation and/or software.
+

@@ -1,0 +1,13 @@
+Source: nnedi3-weights
+Section: misc
+Priority: optional
+Maintainer: Marshall Banana <djcj@gmx.de>
+Build-Depends: debhelper (>= 9),
+Standards-Version: 3.9.5
+Homepage: http://bengal.missouri.edu/~kes25c/
+
+Package: nnedi3-weights
+Architecture: all
+Depends: ${misc:Depends}
+Description: model weights for nnedi3
+ The model weights for nnedi3 are stored in a binary file.

@@ -1,0 +1,107 @@
+vapoursynth-extra-plugins (20150517-1~trusty) trusty; urgency=low
+
+  * New plugins: ffms2, lsmashsource
+  * New script: adjust
+  * Updates: HAvsFunc, flash3kyuu_deband, EEDI2, DeLogo, d2vsource
+
+ -- Marshall Banana <djcj@gmx.de>  Mon, 18 May 2015 07:27:54 +0200
+
+vapoursynth-extra-plugins (20150515-1~trusty) trusty; urgency=low
+
+  * Updates: GenericFilters
+
+ -- Marshall Banana <djcj@gmx.de>  Fri, 15 May 2015 16:49:48 +0200
+
+vapoursynth-extra-plugins (2015.05.14-1~trusty) trusty; urgency=low
+
+  * Build separate vapoursynth-nnedi3-weights package
+  * Remove nnedi3_weights.bin from source package to reduce size
+  * New plugin: fmtconv
+  * Update plugins: DeLogo, DFTTest, eedi2, HAvsFunc, Histogram, MVTools,
+    nnedi3, TDeintMod, VagueDenoiser and YadifMod.
+  * Small fixes in GenericFilters and flash3kyuu_deband
+
+ -- Marshall Banana <djcj@gmx.de>  Thu, 14 May 2015 13:09:19 +0200
+
+vapoursynth-extra-plugins (2015.02.16-1~trusty) trusty; urgency=low
+
+  * New plugin: tc2cfr
+
+ -- Marshall Banana <djcj@gmx.de>  Mon, 16 Feb 2015 13:06:29 +0100
+
+vapoursynth-extra-plugins (2015.02.15-1~trusty) trusty; urgency=low
+
+  * New plugins: VagueDenoiser, DFTTest
+  * Updates: Damb, DeLogo, EEDI2, HAvsFunc, MVTools, nnedi3, SangNomMod, scxvid
+
+ -- Marshall Banana <djcj@gmx.de>  Sun, 15 Feb 2015 09:39:26 +0100
+
+vapoursynth-extra-plugins (2014.12.22-1~trusty) trusty; urgency=low
+
+  * New plugins: flash3kyuu_deband (amd64), dctfilter
+  * New scripts: MaskDetail, vapoursynth-modules
+
+ -- Marshall Banana <djcj@gmx.de>  Mon, 22 Dec 2014 09:58:15 +0100
+
+vapoursynth-extra-plugins (2014.12.21-1~trusty) trusty; urgency=low
+
+  * New plugin: Damb
+  * Build debug package
+
+ -- Marshall Banana <djcj@gmx.de>  Sun, 21 Dec 2014 10:35:56 +0100
+
+vapoursynth-extra-plugins (2014.12.07-1~trusty1) trusty; urgency=low
+
+  * Update plugins: AddGrain, Bilateral, CTMF, Deblock, DeLogo, EEDI2, IT,
+    MVTools, Retinex, TDeintMod, TempLinearApproximate and YadifMod.
+
+ -- Marshall Banana <djcj@gmx.de>  Sun, 07 Dec 2014 14:25:12 +0100
+
+vapoursynth-extra-plugins (2014.11.09-1~trusty) trusty; urgency=medium
+
+  * New plugin: zimg
+  * link imagereader dynamically aginst libjpeg
+
+ -- Marshall Banana <djcj@gmx.de>  Sun, 09 Nov 2014 01:23:18 +0100
+
+vapoursynth-extra-plugins (2014.10.29-1~trusty) trusty; urgency=low
+
+  * New plugins: Bilateral, Retinex
+  * New script: d2vscan
+
+ -- Marshall Banana <djcj@gmx.de>  Wed, 29 Oct 2014 04:47:28 +0100
+
+vapoursynth-extra-plugins (2014.10.26-1~trusty) trusty; urgency=low
+
+  * Update TDeintMod
+
+ -- Marshall Banana <djcj@gmx.de>  Sun, 26 Oct 2014 02:22:23 +0200
+
+vapoursynth-extra-plugins (2014.10.18-1~trusty) trusty; urgency=medium
+
+  * Update MVTools
+  * Enable ASM on MVTools for i386
+  * New plugins: AddGrain, CTMF, Deblock, DeLogo, EEDI2, ImageReader,
+    IT, SangNomMod, Scenechange, TempLinearApproximate, TDeintMod,
+    TemporalSoften2, YadifMod.
+  * Add scripts: HAvsFunc, FineSharp
+
+ -- Marshall Banana <djcj@gmx.de>  Sat, 18 Oct 2014 17:30:26 +0200
+
+vapoursynth-extra-plugins (2014.10.01-2~trusty) trusty; urgency=medium
+
+  * Make d2vsource compatible to the repository's libav version
+
+ -- Marshall Banana <djcj@gmx.de>  Thu, 02 Oct 2014 16:52:40 +0200
+
+vapoursynth-extra-plugins (2014.10.01-1~trusty) trusty; urgency=low
+
+  * PPA upload
+
+ -- Marshall Banana <djcj@gmx.de>  Thu, 02 Oct 2014 06:44:39 +0200
+
+vapoursynth (2014.09.29) UNRELEASED; urgency=low
+
+  * Initial release
+
+ -- Marshall Banana <djcj@gmx.de>  Mon, 29 Sep 2014 12:00:00 +0200

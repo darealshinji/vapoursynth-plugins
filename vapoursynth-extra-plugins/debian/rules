@@ -1,0 +1,17 @@
+#!/usr/bin/make -f
+
+
+%:
+	dh ${@} --parallel
+
+override_dh_auto_install:
+	touch nnedi3/src/nnedi3_weights.bin
+	dh_auto_install
+
+override_dh_install:
+	dh_install -pvapoursynth-extra-plugins -Xnnedi3
+	dh_install --remaining-packages
+
+override_dh_strip:
+	dh_strip --dbg-package=vapoursynth-extra-plugins-dbg
+
