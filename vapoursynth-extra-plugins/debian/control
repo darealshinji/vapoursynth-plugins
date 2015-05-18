@@ -11,6 +11,7 @@ Build-Depends:
  libavresample-ffmpeg-dev,
  libavutil-ffmpeg-dev,
  libfftw3-dev,
+ liblsmash-dev,
  libjpeg-dev,
  libpng12-dev,
  libsndfile1-dev,
