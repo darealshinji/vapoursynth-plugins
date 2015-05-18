@@ -10,7 +10,7 @@ local_CXXFLAGS = \
 	-std=c++11 \
 	-fvisibility=hidden \
 	-Wno-missing-field-initializers
-LIBADD = -lavcodec -lavresample -lz
+LIBADD = -lavcodec -lavutil -lavformat -lavresample -lswscale -lz
 
 include ../global.inc
 
