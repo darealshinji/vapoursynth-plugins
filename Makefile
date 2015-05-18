@@ -15,8 +15,13 @@ SUBDIRS = \
 	dfttest \
 	eedi2 \
 	fieldhint \
-	fillborders \
-	flash3kyuu_deband \
+	fillborders
+
+ifeq ($(shell uname -p),x86_64)
+SUBDIRS += flash3kyuu_deband
+endif
+
+SUBDIRS += \
 	fluxsmooth \
 	fmtconv \
 	genericfilters \
