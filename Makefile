@@ -96,7 +96,7 @@ fi
 	install -m755 -D d2vsource/d2vscan.pl $(DESTDIR)$(plugins)
 	$(install) d2vsource/d2vscan.txt $(DESTDIR)$(docdir)/d2vscan
 	$(foreach FILE,$(shell ls */readme* */README*), \
-		$(install) $(FILE) $(DESTDIR)$(docdir)/$(shell ls $$(dirname $(FILE))) $(NL))
+		$(install) $(FILE) $(DESTDIR)$(docdir)/$(shell echo $$(dirname $(FILE))) $(NL))
 
 clean:
 	$(foreach DIR,$(SUBDIRS),$(MAKE) -C $(DIR) clean || true $(NL))
