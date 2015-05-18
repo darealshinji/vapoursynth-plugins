@@ -10,9 +10,7 @@ libavformat-dev
 libavcodec-dev
 libavresample-dev
 libavutil-dev
-libswscale-dev
 libfftw3-dev
-liblsmash-dev
 libjpeg-dev
 libpng12-dev
 libsndfile1-dev
@@ -63,7 +61,6 @@ make install
 [histogram 1.0+git20141212](https://github.com/dubhater/vapoursynth-histogram)<br>
 [imagereader 0.2.1](https://github.com/chikuzen/vsimagereader)<br>
 [it 1.2](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-IT)<br>
-[lsmashsource git20150420](https://github.com/VFR-maniac/L-SMASH-Works)<br>
 [maskdetail git20141221](https://github.com/MonoS/VS-MaskDetail)<br>
 [msmoosh 1.1](https://github.com/dubhater/vapoursynth-msmoosh)<br>
 [mvtools 8](https://github.com/dubhater/vapoursynth-mvtools)<br>

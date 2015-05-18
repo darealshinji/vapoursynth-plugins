@@ -23,7 +23,6 @@ SUBDIRS = \
 	histogram \
 	imagereader \
 	it \
-	lsmashsource \
 	msmoosh \
 	mvtools \
 	nnedi3 \
