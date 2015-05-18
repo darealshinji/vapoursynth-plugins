@@ -1,10 +1,10 @@
-vapoursynth-extra-plugins (20150517-1~trusty) trusty; urgency=low
+vapoursynth-extra-plugins (20150518-1~trusty) trusty; urgency=low
 
-  * New plugins: ffms2, lsmashsource
+  * New plugin: ffms2
   * New script: adjust
   * Updates: HAvsFunc, flash3kyuu_deband, EEDI2, DeLogo, d2vsource
 
- -- Marshall Banana <djcj@gmx.de>  Mon, 18 May 2015 07:27:54 +0200
+ -- Marshall Banana <djcj@gmx.de>  Mon, 18 May 2015 17:38:56 +0200
 
 vapoursynth-extra-plugins (20150515-1~trusty) trusty; urgency=low
 
