@@ -1,3 +1,9 @@
+vapoursynth-extra-plugins (20150520-1~trusty) trusty; urgency=low
+
+  * New plugin: TCanny
+
+ -- Marshall Banana <djcj@gmx.de>  Wed, 20 May 2015 01:06:32 +0200
+
 vapoursynth-extra-plugins (20150518-1~trusty) trusty; urgency=low
 
   * New plugin: ffms2
