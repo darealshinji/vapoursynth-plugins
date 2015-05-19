@@ -56,10 +56,8 @@ plugins = $(libdir)/vapoursynth/
 
 ifeq ($(V), 1)
 MAKE = make V=1
-AUTORECONF = autoreconf -iv
 else
 MAKE = make
-AUTORECONF = autoreconf -i
 endif
 
 GREP ?= grep

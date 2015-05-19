@@ -1,6 +1,13 @@
 CXX = g++
 CC = gcc
 
+ifneq ($(V),1)
+CXXLD_silent = @ echo '  CXXLD    '$@;
+CXX_silent   = @ echo '  CXX      '$@;
+CCLD_silent  = @ echo '  CCLD     '$@;
+CC_silent    = @ echo '  CC       '$@;
+endif
+
 #VapourSynth_CFLAGS = $(shell pkg-config --cflags vapoursynth)
 VapourSynth_CFLAGS = -I/usr/include/vapoursynth
 

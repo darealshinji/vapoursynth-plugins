@@ -2,8 +2,8 @@
 include ../global.inc
 
 $(LIB): $(COBJS)
-	$(CC) $(VSLDFLAGS) -o $@ $(COBJS) $(LIBADD) $(LIBS)
+	$(CCLD_silent)$(CC) $(VSLDFLAGS) -o $@ $(COBJS) $(LIBADD) $(LIBS)
 
 %.o: %.c
-	$(CC) $(VSCFLAGS) -o $@ $^
+	$(CC_silent)$(CC) $(VSCFLAGS) -o $@ $^
 

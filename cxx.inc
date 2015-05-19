@@ -2,8 +2,8 @@
 include ../global.inc
 
 $(LIB): $(CXXOBJS)
-	$(CXX) $(VSLDFLAGS) -o $@ $(CXXOBJS) $(LIBADD) $(LIBS)
+	$(CXXLD_silent)$(CXX) $(VSLDFLAGS) -o $@ $(CXXOBJS) $(LIBADD) $(LIBS)
 
 %.o: %.cpp
-	$(CXX) $(VSCXXFLAGS) -o $@ $^
+	$(CXX_silent)$(CXX) $(VSCXXFLAGS) -o $@ $^
 

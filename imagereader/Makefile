@@ -1,3 +1,11 @@
+ifeq ($(V), 1)
+MAKE = make V=1
+AUTORECONF = autoreconf -iv
+else
+MAKE = make V=0
+AUTORECONF = autoreconf -i
+endif
+
 
 turbodir = libjpeg-turbo
 
@@ -22,7 +30,7 @@ $(turbodir)/Makefile: $(turbodir)/configure
 
 $(turbodir)/configure:
 	mkdir -p $(turbodir)/m4
-	autoreconf -ivf $(turbodir)
+	$(AUTORECONF) $(turbodir)
 
 clean:
 	$(MAKE) -C $(turbodir) clean || true
