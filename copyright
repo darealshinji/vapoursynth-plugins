@@ -112,6 +112,11 @@ Files: tc2cfr/*
 Copyright: 2013 Li Yonggang <gnaggnoyil@gmail.com>
 License: BSD-2-clause
 
+Files: tcanny/*
+Copyright: 2009 Kevin Stone
+           2015 HolyWu
+License: GPL2+
+
 Files: tdeintmod/*
 Copyright: 2004-2007 Kevin Stone
            2014-2015 HolyWu

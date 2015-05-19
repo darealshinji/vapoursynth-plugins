@@ -39,6 +39,7 @@ SUBDIRS += \
 	scxvid \
 	ssiq \
 	tc2cfr \
+	tcanny \
 	tcomb \
 	tdeintmod \
 	templinearapproximate \
