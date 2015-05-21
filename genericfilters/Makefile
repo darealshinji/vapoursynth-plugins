@@ -43,9 +43,9 @@ CSRCS = \
 	src/neighbors/simd/median_sse2.c \
 	src/neighbors/simd/minimum_sse2.c
 
-$(LIB): $(COBJS)
-	$(CC) $(VSLDFLAGS) -o $@ $(COBJS) $(LIBADD) $(LIBS)
-
 %.o: %.c
-	$(CC) $(VSCFLAGS) -o $@ $^
+	$(CC_silent)$(CC) $(VSCFLAGS) -o $@ $^
+
+$(LIB): $(COBJS)
+	$(CCLD_silent)$(CC) $(VSLDFLAGS) -o $@ $(COBJS) $(LIBADD) $(LIBS)
 

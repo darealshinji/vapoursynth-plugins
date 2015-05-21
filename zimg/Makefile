@@ -1,7 +1,7 @@
 
 LIB = libzimg.so
 $(LIB): src/vszimg/vszimg.o
-local_CXXFLAGS = -std=c++11 -Isrc/API -Wno-missing-field-initializers
+local_CXXFLAGS = -Wno-missing-field-initializers -Isrc/API
 
 include ../global.inc
 
@@ -29,20 +29,20 @@ CXXSRCS = src/API/zimg.cpp \
 		src/Colorspace/operation_impl_f16c.cpp
 
 %_sse2.o: %_sse2.cpp
-	$(CXX) $(VSCXXFLAGS) -msse2 -o $@ $^
+	$(CXX_silent)$(CXX) $(VSCXXFLAGS) -msse2 -o $@ $^
 
 %_avx2.o: %_avx2.cpp
-	$(CXX) $(VSCXXFLAGS) -mavx2 -mfma -mf16c -o $@ $^
+	$(CXX_silent)$(CXX) $(VSCXXFLAGS) -mavx2 -mfma -mf16c -o $@ $^
 
 %_f16c.o: %_f16c.cpp
-	$(CXX) $(VSCXXFLAGS) -mf16c -o $@ $^
+	$(CXX_silent)$(CXX) $(VSCXXFLAGS) -mf16c -o $@ $^
 
 src/vszimg/vszimg.o: src/vszimg/vszimg.c
-	$(CC) $(VSCFLAGS) -Isrc/API -o $@ $^
+	$(CXX_silent)$(CC) $(VSCFLAGS) -Isrc/API -o $@ $^
 
 %.o: %.cpp
-	$(CXX) $(VSCXXFLAGS) -o $@ $^
+	$(CXX_silent)$(CXX) $(VSCXXFLAGS) -o $@ $^
 
 $(LIB): $(CXXOBJS)
-	$(CXX) $(VSLDFLAGS) -o $@ $(CXXOBJS) src/vszimg/vszimg.o $(LIBS)
+	$(CXXLD_silent)$(CXX) $(VSLDFLAGS) -o $@ $(CXXOBJS) src/vszimg/vszimg.o $(LIBS)
 

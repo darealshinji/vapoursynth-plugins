@@ -12,7 +12,7 @@ CLEANFILES = $(ASMOBJS)
 VSASFLAGS = -Dprivate_prefix=tcomb -DARCH_X86_64=1 -DPIC -f elf64 $(ASFLAGS)
 
 %.o: %.asm
-	yasm $(VSASFLAGS) -o $@ $<
+	$(YASM_silent)$(YASM) $(VSASFLAGS) -o $@ $<
 
 endif
 

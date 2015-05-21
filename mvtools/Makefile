@@ -1,6 +1,6 @@
 
 LIB = libmvtools.so
-local_CXXFLAGS = -std=c++11 -msse2 -mfpmath=sse
+local_CXXFLAGS = -msse2 -mfpmath=sse
 
 
 ASMSRCS = \
@@ -27,7 +27,7 @@ VSASFLAGS += -DARCH_X86_64=0
 endif
 
 %.o: %.asm
-	yasm $(VSASFLAGS) -o $@ $<
+	$(YASM_silent)$(YASM) $(VSASFLAGS) -o $@ $<
 
 include ../cxx.inc
 

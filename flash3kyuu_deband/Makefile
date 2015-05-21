@@ -2,7 +2,7 @@
 ifeq ($(shell uname -p),x86_64)
 
 LIB = libf3kdb.so
-local_CXXFLAGS = -std=c++11 -Isrc/include -DHAVE_ALIGNAS=1 -fvisibility=hidden -fvisibility-inlines-hidden
+local_CXXFLAGS = -Isrc/include -DHAVE_ALIGNAS=1 -fvisibility=hidden -fvisibility-inlines-hidden
 
 include ../global.inc
 
@@ -20,19 +20,19 @@ CXXSRCS = \
 	src/vapoursynth/plugin.cpp
 
 %_sse2.o: %_sse2.cpp
-	$(CXX) $(VSCXXFLAGS) -msse2 -o $@ $^
+	$(CXX_silent)$(CXX) $(VSCXXFLAGS) -msse2 -o $@ $^
 
 %_ssse3.o: %_ssse3.cpp
-	$(CXX) $(VSCXXFLAGS) -mssse3 -o $@ $^
+	$(CXX_silent)$(CXX) $(VSCXXFLAGS) -mssse3 -o $@ $^
 
 %_sse4.o: %_sse4.cpp
-	$(CXX) $(VSCXXFLAGS) -msse4.1 -o $@ $^
+	$(CXX_silent)$(CXX) $(VSCXXFLAGS) -msse4.1 -o $@ $^
 
 %.o: %.cpp
-	$(CXX) $(VSCXXFLAGS) -o $@ $^
+	$(CXX_silent)$(CXX) $(VSCXXFLAGS) -o $@ $^
 
 $(LIB): $(CXXOBJS)
-	$(CXX) $(VSLDFLAGS) -o $@ $(CXXOBJS) $(LIBS)
+	$(CXXLD_silent)$(CXX) $(VSLDFLAGS) -o $@ $(CXXOBJS) $(LIBS)
 
 endif
 

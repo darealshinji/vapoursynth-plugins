@@ -7,7 +7,6 @@ local_CXXFLAGS = \
 	-DFFMS_EXPORTS \
 	-D__STDC_CONSTANT_MACROS \
 	-DWITH_AVRESAMPLE=1 \
-	-std=c++11 \
 	-fvisibility=hidden \
 	-Wno-missing-field-initializers
 LIBADD = -lavcodec -lavutil -lavformat -lavresample -lswscale -lz
@@ -36,7 +35,4 @@ CXXSRCS = \
 
 $(LIB): $(CXXOBJS)
 	$(CXX) $(VSLDFLAGS) -o $@ $^ $(LIBADD) $(LIBS)
-
-../config.mak:
-	cd .. && ./configure
 

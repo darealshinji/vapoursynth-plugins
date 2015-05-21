@@ -2,7 +2,7 @@ include ../config.mak
 
 LIB = libnnedi3.so
 
-local_CXXFLAGS = -Wno-unused-variable -std=c++11 -mfpmath=sse -msse2 -DNNEDI3_DATADIR='"$(prefix)/share/nnedi3"'
+local_CXXFLAGS = -Wno-unused-variable -mfpmath=sse -msse2 -DNNEDI3_DATADIR='"$(prefix)/share/nnedi3"'
 
 ASMSRCS = src/asm/cpu-a.asm src/asm/nnedi3.asm
 ASMOBJS = $(ASMSRCS:%.asm=%.o)
@@ -18,11 +18,11 @@ VSASFLAGS += -DARCH_X86_64=0
 endif
 
 %.o: %.asm
-	yasm $(VSASFLAGS) -o $@ $<
+	$(YASM_silent)$(YASM) $(VSASFLAGS) -o $@ $<
 
 include ../cxx.inc
 
 
 ../config.mak:
-	cd .. && ./configure.sh
+	cd .. && ./configure
 
