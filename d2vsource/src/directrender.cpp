@@ -33,9 +33,15 @@ extern "C" {
 #include <VapourSynth.h>
 #include <VSHelper.h>
 
+#if defined(USE_OLD_FFAPI)
+int VSGetBuffer(AVCodecContext *avctx, AVFrame *pic)
+{
+    VSFrameRef *vs_frame;
+#else
 int VSGetBuffer(AVCodecContext *avctx, AVFrame *pic, int flag)
 {
     VSData *userdata;
+#endif
     d2vData *data = (d2vData *) avctx->opaque;
     int i;
 
@@ -53,6 +59,9 @@ int VSGetBuffer(AVCodecContext *avctx, AVFrame *pic, int flag)
         data->format_set = true;
     }
 
+#if defined(USE_OLD_FFAPI)
+    vs_frame = data->api->newVideoFrame(data->vi.format, data->aligned_width, data->aligned_height, NULL, data->core);
+#else
     userdata = new VSData;
     userdata->d2v      = (d2vData *) avctx->opaque;
     userdata->vs_frame = data->api->newVideoFrame(data->vi.format, data->aligned_width, data->aligned_height, NULL, data->core);
@@ -60,8 +69,14 @@ int VSGetBuffer(AVCodecContext *avctx, AVFrame *pic, int flag)
     pic->buf[0] = av_buffer_create(NULL, 0, VSReleaseBuffer, userdata, 0);
     if (!pic->buf[0])
         return -1;
+#endif
 
+#if defined(USE_OLD_FFAPI)
+    pic->opaque              = (void *) vs_frame;
+    pic->type                = FF_BUFFER_TYPE_USER;
+#else
     pic->opaque              = (void *) userdata->vs_frame;
+#endif
     pic->extended_data       = pic->data;
     pic->width               = data->aligned_width;
     pic->height              = data->aligned_height;
@@ -69,13 +84,35 @@ int VSGetBuffer(AVCodecContext *avctx, AVFrame *pic, int flag)
     pic->sample_aspect_ratio = avctx->sample_aspect_ratio;
 
     for(i = 0; i < data->vi.format->numPlanes; i++) {
+#if defined(USE_OLD_FFAPI)
+        pic->base[i]     = data->api->getWritePtr(vs_frame, i);
+        pic->data[i]     = pic->base[i];
+        pic->linesize[i] = data->api->getStride(vs_frame, i);
+#else
         pic->data[i]     = data->api->getWritePtr(userdata->vs_frame, i);
         pic->linesize[i] = data->api->getStride(userdata->vs_frame, i);
+#endif
     }
 
     return 0;
 }
 
+#if defined(USE_OLD_FFAPI)
+void VSReleaseBuffer(AVCodecContext *avctx, AVFrame *pic)
+{
+    VSFrameRef *vs_frame = (VSFrameRef *) pic->opaque;
+    d2vData *data = (d2vData *) avctx->opaque;
+    int i;
+
+    for(i = 0; i < data->vi.format->numPlanes; i++) {
+        pic->base[i]     = NULL;
+        pic->data[i]     = NULL;
+        pic->linesize[i] = 0;
+    }
+
+    data->api->freeFrame(vs_frame);
+}
+#else
 void VSReleaseBuffer(void *opaque, uint8_t *data)
 {
     VSData *userdata = (VSData *) opaque;
@@ -83,3 +120,4 @@ void VSReleaseBuffer(void *opaque, uint8_t *data)
     userdata->d2v->api->freeFrame(userdata->vs_frame);
     delete userdata;
 }
+#endif
