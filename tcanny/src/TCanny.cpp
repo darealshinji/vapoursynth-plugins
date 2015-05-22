@@ -31,7 +31,7 @@ struct TCannyData {
     VSNodeRef * node;
     const VSVideoInfo * vi;
     float sigma, t_h, t_l, gmmax;
-    int nms, mode;
+    int nms, mode, op;
     bool process[3];
     int grad;
     float * weights;
@@ -42,11 +42,6 @@ struct Stack {
     std::pair<int, int> * pos;
     int index;
 };
-
-static void reset(Stack & s, const size_t size) {
-    memset(s.map, 0, size);
-    s.index = -1;
-}
 
 static void push(Stack & s, const int x, const int y) {
     s.pos[++s.index].first = x;
@@ -121,7 +116,8 @@ static int getBin(const float dir, const int n) {
     return (bin >= n) ? 0 : bin;
 }
 
-static void gmDirImages(float * VS_RESTRICT srcp, float * VS_RESTRICT gimg, float * VS_RESTRICT dimg, const int width, const int height, const int stride, const int nms) {
+static void gmDirImages(float * VS_RESTRICT srcp, float * VS_RESTRICT gimg, float * VS_RESTRICT dimg, const int width, const int height, const int stride,
+                        const int nms, const int mode, const int op) {
     memset(gimg, 0, stride * height * sizeof(float));
     memset(dimg, 0, stride * height * sizeof(float));
     float * VS_RESTRICT srcpT = srcp + stride;
@@ -129,9 +125,20 @@ static void gmDirImages(float * VS_RESTRICT srcp, float * VS_RESTRICT gimg, floa
     float * VS_RESTRICT dirT = dimg + stride;
     for (int y = 1; y < height - 1; y++) {
         for (int x = 1; x < width - 1; x++) {
-            const float dx = srcpT[x + 1] - srcpT[x - 1];
-            const float dy = srcpT[x - stride] - srcpT[x + stride];
+            float dx, dy;
+            if (op == 0) {
+                dx = srcpT[x + 1] - srcpT[x - 1];
+                dy = srcpT[x - stride] - srcpT[x + stride];
+            } else if (op == 1) {
+                dx = (srcpT[x - stride + 1] + srcpT[x + 1] + srcpT[x + stride + 1] - srcpT[x - stride - 1] - srcpT[x - 1] - srcpT[x + stride - 1]) / 2.f;
+                dy = (srcpT[x - stride - 1] + srcpT[x - stride] + srcpT[x - stride + 1] - srcpT[x + stride - 1] - srcpT[x + stride] - srcpT[x + stride + 1]) / 2.f;
+            } else {
+                dx = srcpT[x - stride + 1] + 2.f * srcpT[x + 1] + srcpT[x + stride + 1] - srcpT[x - stride - 1] - 2.f * srcpT[x - 1] - srcpT[x + stride - 1];
+                dy = srcpT[x - stride - 1] + 2.f * srcpT[x - stride] + srcpT[x - stride + 1] - srcpT[x + stride - 1] - 2.f * srcpT[x + stride] - srcpT[x + stride + 1];
+            }
             gmnT[x] = std::sqrt(dx * dx + dy * dy);
+            if (mode == 1)
+                continue;
             const float dr = std::atan2(dy, dx);
             dirT[x] = dr + (dr < 0.f ? M_PIF : 0.f);
         }
@@ -140,7 +147,7 @@ static void gmDirImages(float * VS_RESTRICT srcp, float * VS_RESTRICT gimg, floa
         dirT += stride;
     }
     memcpy(srcp, gimg, stride * height * sizeof(float));
-    if (!nms)
+    if (mode & 1)
         return;
     const int offTable[4] = { 1, -stride + 1, -stride, -stride - 1 };
     srcpT = srcp + stride;
@@ -186,8 +193,8 @@ static void gmDirImages(float * VS_RESTRICT srcp, float * VS_RESTRICT gimg, floa
 }
 
 static void hystersis(float * VS_RESTRICT srcp, Stack & VS_RESTRICT stack, const int width, const int height, const int stride, const float t_h, const float t_l) {
-    reset(stack, width * height);
-
+    memset(stack.map, 0, width * height);
+    stack.index = -1;
     for (int y = 1; y < height - 1; y++) {
         for (int x = 1; x < width - 1; x++) {
             if (srcp[x + y * stride] < t_h || stack.map[x + y * width])
@@ -195,7 +202,6 @@ static void hystersis(float * VS_RESTRICT srcp, Stack & VS_RESTRICT stack, const
             srcp[x + y * stride] = FLT_MAX;
             stack.map[x + y * width] = UINT8_MAX;
             push(stack, x, y);
-
             while (stack.index > -1) {
                 const std::pair<int, int> pos = pop(stack);
                 const int xMin = (pos.first > 1) ? pos.first - 1 : 1;
@@ -273,7 +279,7 @@ static void TCanny(const VSFrameRef * src, VSFrameRef * dst, float * VS_RESTRICT
             T * VS_RESTRICT dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
             genConvV(srcp, fa[1], width, height, stride, d->grad, d->weights, d->vi->format->bitsPerSample);
             genConvH(fa[1], fa[0], width, height, stride, d->grad, d->weights);
-            gmDirImages(fa[0], fa[1], fa[2], width, height, stride, (d->mode & 1) ? 0 : d->nms);
+            gmDirImages(fa[0], fa[1], fa[2], width, height, stride, d->nms, d->mode, d->op);
             if (!(d->mode & 1))
                 hystersis(fa[0], stack, width, height, stride, d->t_h, d->t_l);
             if (d->mode == 0)
@@ -367,6 +373,9 @@ static void VS_CC tcannyCreate(const VSMap *in, VSMap *out, void *userData, VSCo
     if (err)
         d.nms = 3;
     d.mode = int64ToIntS(vsapi->propGetInt(in, "mode", 0, &err));
+    d.op = int64ToIntS(vsapi->propGetInt(in, "op", 0, &err));
+    if (err)
+        d.op = 1;
     d.gmmax = static_cast<float>(vsapi->propGetFloat(in, "gmmax", 0, &err));
     if (err)
         d.gmmax = 50.f;
@@ -381,6 +390,10 @@ static void VS_CC tcannyCreate(const VSMap *in, VSMap *out, void *userData, VSCo
     }
     if (d.mode < 0 || d.mode > 3) {
         vsapi->setError(out, "TCanny: mode must be set to 0, 1, 2 or 3");
+        return;
+    }
+    if (d.op < 0 || d.op > 2) {
+        vsapi->setError(out, "TCanny: op must be set to 0, 1 or 2");
         return;
     }
     if (d.gmmax < 1.f) {
@@ -437,5 +450,5 @@ static void VS_CC tcannyCreate(const VSMap *in, VSMap *out, void *userData, VSCo
 
 VS_EXTERNAL_API(void) VapourSynthPluginInit(VSConfigPlugin configFunc, VSRegisterFunction registerFunc, VSPlugin *plugin) {
     configFunc("com.holywu.tcanny", "tcanny", "Build an edge map using canny edge detection", VAPOURSYNTH_API_VERSION, 1, plugin);
-    registerFunc("TCanny", "clip:clip;sigma:float:opt;t_h:float:opt;t_l:float:opt;nms:int:opt;mode:int:opt;gmmax:float:opt;planes:int[]:opt;", tcannyCreate, nullptr, plugin);
+    registerFunc("TCanny", "clip:clip;sigma:float:opt;t_h:float:opt;t_l:float:opt;nms:int:opt;mode:int:opt;op:int:opt;gmmax:float:opt;planes:int[]:opt;", tcannyCreate, nullptr, plugin);
 }

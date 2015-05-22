@@ -9,7 +9,7 @@ Ported from AviSynth plugin http://bengal.missouri.edu/~kes25c/
 Usage
 =====
 
-    tcanny.TCanny(clip clip[, float sigma=1.5, float t_h=8.0, float t_l=1.0, int nms=3, int mode=0, float gmmax=50.0, int[] planes])
+    tcanny.TCanny(clip clip[, float sigma=1.5, float t_h=8.0, float t_l=1.0, int nms=3, int mode=0, int op=1, float gmmax=50.0, int[] planes])
 
 * sigma: Standard deviation of gaussian blur.
 
@@ -26,6 +26,11 @@ Usage
   * 1 = gradient magnitude map
   * 2 = edge pixel only gradient direction map (non-edge pixels set to 0)
   * 3 = gradient direction map
+
+* op: Sets the operator for edge detection.
+  * 0 = the operator used in tritical's original filter
+  * 1 = the operator proposed by P. Zhou et al.
+  * 2 = the Sobel operator
 
 * gmmax: Used for scaling gradient magnitude into [0, 2^bitdepth-1] for mode=1.
 
