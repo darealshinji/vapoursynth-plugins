@@ -1,13 +1,16 @@
 include ../config.mak
 
 LIB = libnnedi3.so
+LIBADD = -lm
+local_CXXFLAGS = -Wno-unused-variable -mfpmath=sse -msse2 -DNNEDI3_DATADIR='"$(datarootdir)/nnedi3"'
 
-local_CXXFLAGS = -Wno-unused-variable -mfpmath=sse -msse2 -DNNEDI3_DATADIR='"$(prefix)/share/nnedi3"'
+
+ifeq ($(HAVE_YASM),yes)
 
 ASMSRCS = src/asm/cpu-a.asm src/asm/nnedi3.asm
 ASMOBJS = $(ASMSRCS:%.asm=%.o)
 $(LIB): $(ASMOBJS)
-LIBADD = $(ASMOBJS) -lm
+LIBADD = $(ASMOBJS)
 CLEANFILES = $(ASMOBJS)
 
 VSASFLAGS = $(ASFLAGS) -f elf -Dprivate_prefix=nnedi3
@@ -20,9 +23,8 @@ endif
 %.o: %.asm
 	$(YASM_silent)$(YASM) $(VSASFLAGS) -o $@ $<
 
+endif #HAVE_YASM
+
+
 include ../cxx.inc
-
-
-../config.mak:
-	cd .. && ./configure
 

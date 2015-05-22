@@ -1,7 +1,4 @@
-
-LIB = libmvtools.so
-local_CXXFLAGS = -msse2 -mfpmath=sse
-
+include ../config.mak
 
 ASMSRCS = \
 	src/asm/const-a.asm \
@@ -15,9 +12,16 @@ ASMSRCS = \
 	src/asm/Variance.asm
 
 ASMOBJS = $(ASMSRCS:%.asm=%.o)
+CLEANFILES = $(ASMOBJS)
+
+
+ifeq ($(HAVE_YASM),yes)
+ifeq ($(HAVE_FFTW3F),yes)
+
+LIB = libmvtools.so
 $(LIB): $(ASMOBJS)
 LIBADD = $(ASMOBJS) -lfftw3f
-CLEANFILES = $(ASMOBJS)
+local_CXXFLAGS = -msse2 -mfpmath=sse
 
 VSASFLAGS = $(ASFLAGS) -Dprivate_prefix=mvtools -DHIGH_BIT_DEPTH=0 -DBIT_DEPTH=8 -f elf
 ifeq ($(shell uname -p),x86_64)
@@ -28,6 +32,10 @@ endif
 
 %.o: %.asm
 	$(YASM_silent)$(YASM) $(VSASFLAGS) -o $@ $<
+
+endif #HAVE_FFTW3F
+endif #HAVE_YASM
+
 
 include ../cxx.inc
 

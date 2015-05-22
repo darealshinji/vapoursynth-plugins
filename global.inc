@@ -35,3 +35,5 @@ clean:
 distclean: clean
 	@ if [ "x`grep '^distclean-local:' Makefile`" != "x" ]; then $(MAKE) distclean-local; fi
 
+../config.mak:
+	cd .. && ./configure

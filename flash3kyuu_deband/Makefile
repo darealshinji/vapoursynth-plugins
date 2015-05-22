@@ -1,8 +1,8 @@
 
 ifeq ($(shell uname -p),x86_64)
-
 LIB = libf3kdb.so
 local_CXXFLAGS = -Isrc/include -DHAVE_ALIGNAS=1 -fvisibility=hidden -fvisibility-inlines-hidden
+endif
 
 include ../global.inc
 
@@ -33,6 +33,4 @@ CXXSRCS = \
 
 $(LIB): $(CXXOBJS)
 	$(CXXLD_silent)$(CXX) $(VSLDFLAGS) -o $@ $(CXXOBJS) $(LIBS)
-
-endif
 

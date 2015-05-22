@@ -1,6 +1,6 @@
 
 LIB = temporalsoften2.so
-local_CFLAGS = -msse2 -std=gnu99
+local_CFLAGS = -Wno-attributes -msse2 -std=gnu99
 LIBADD = -lm
 
 include ../cc.inc

@@ -1,3 +1,19 @@
+include ../config.mak
+
+ifeq ($(HAVE_AVCODEC),yes)
+ifeq ($(HAVE_AVUTIL),yes)
+ifeq ($(HAVE_AVFORMAT),yes)
+ifeq ($(HAVE_SWSCALE),yes)
+ifeq ($(HAVE_ZLIB),yes)
+FFMS2 = yes
+endif #ZLIB
+endif #SWSCALE
+endif #AVFORMAT
+endif #AVUTIL
+endif #AVCODEC
+
+
+ifeq ($(FFMS2),yes)
 
 LIB = libffms2.so
 local_CXXFLAGS = \
@@ -6,10 +22,17 @@ local_CXXFLAGS = \
 	-D_FILE_OFFSET_BITS=64 \
 	-DFFMS_EXPORTS \
 	-D__STDC_CONSTANT_MACROS \
-	-DWITH_AVRESAMPLE=1 \
 	-fvisibility=hidden \
 	-Wno-missing-field-initializers
-LIBADD = -lavcodec -lavutil -lavformat -lavresample -lswscale -lz
+LIBADD = -lavcodec -lavutil -lavformat -lswscale -lz
+
+ifeq ($(HAVE_AVRESAMPLE),yes)
+local_CXXFLAGS += -DWITH_AVRESAMPLE=1
+LIBADD += -lavresample
+endif
+
+endif #FFMS2
+
 
 include ../global.inc
 
@@ -31,8 +54,8 @@ CXXSRCS = \
 	src/src/vapoursynth/vapoursynth.cpp
 
 %.o: %.cpp
-	$(CXX) $(VSCXXFLAGS) -o $@ $^
+	$(CXX_silent)$(CXX) $(VSCXXFLAGS) -o $@ $^
 
 $(LIB): $(CXXOBJS)
-	$(CXX) $(VSLDFLAGS) -o $@ $^ $(LIBADD) $(LIBS)
+	$(CXXLD_silent)$(CXX) $(VSLDFLAGS) -o $@ $^ $(LIBADD) $(LIBS)
 

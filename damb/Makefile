@@ -1,7 +1,9 @@
+include ../config.mak
 
+ifeq ($(HAVE_SNDFILE),yes)
 LIB = libdamb.so
-local_CXXFLAGS = $(shell pkg-config --cflags sndfile)
-LIBADD = $(shell pkg-config --libs sndfile)
+LIBADD = -lsndfile
+endif
 
 include ../cxx.inc
 
