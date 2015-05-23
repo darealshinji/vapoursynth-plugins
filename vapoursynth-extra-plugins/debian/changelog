@@ -1,3 +1,9 @@
+vapoursynth-extra-plugins (20150523-1~trusty) trusty; urgency=low
+
+  * New plugin: BM3D
+
+ -- Marshall Banana <djcj@gmx.de>  Sat, 23 May 2015 20:04:34 +0200
+
 vapoursynth-extra-plugins (20150520-1~trusty) trusty; urgency=low
 
   * New plugin: TCanny

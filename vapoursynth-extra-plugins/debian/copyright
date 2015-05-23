@@ -13,8 +13,8 @@ Files: adjust/*
 Copyright: 2015 dubhater
 License: WTFPL
 
-Files: bilateral/* retinex/*
-Copyright: 2014 mawen1250
+Files: bilateral/* bm3d/* retinex/*
+Copyright: 2014-2015 mawen1250
 License: GPL-3+
 
 Files: ctmf/*
