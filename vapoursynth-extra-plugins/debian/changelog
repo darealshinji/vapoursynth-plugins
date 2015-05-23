@@ -1,6 +1,7 @@
 vapoursynth-extra-plugins (20150523-1~trusty) trusty; urgency=low
 
   * New plugin: BM3D
+  * Updates: fmtconv
 
  -- Marshall Banana <djcj@gmx.de>  Sat, 23 May 2015 20:04:34 +0200
 
