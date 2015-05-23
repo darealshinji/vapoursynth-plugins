@@ -4,6 +4,7 @@ SUBDIRS = \
 	addgrain \
 	bifrost \
 	bilateral \
+	bm3d \
 	combmask \
 	convo2d \
 	ctmf \
