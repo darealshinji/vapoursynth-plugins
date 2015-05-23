@@ -1,6 +1,9 @@
 A collection of [VapourSynth](https://github.com/vapoursynth/vapoursynth) plugins
 ===================================
 
+The main reason for this collection is to make it easier to build packages for Ubuntu.
+So don't expect this build system to work on anything else than Linux on x86 architectures.
+
 **Build dependencies**:<br>
 `git
 libtool
