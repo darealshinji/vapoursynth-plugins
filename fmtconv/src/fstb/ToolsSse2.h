@@ -57,6 +57,12 @@ public:
 	               load_8_16m (const void *msb_ptr, __m128i zero);
 	static fstb_FORCEINLINE __m128i
 	               load_8_16l (const void *lsb_ptr, __m128i zero);
+	static fstb_FORCEINLINE __m128i
+	               load_8_16ml_partial (const void *msb_ptr, const void *lsb_ptr, int len);
+	static fstb_FORCEINLINE __m128i
+	               load_8_16m_partial (const void *msb_ptr, __m128i zero, int len);
+	static fstb_FORCEINLINE __m128i
+	               load_8_16l_partial (const void *lsb_ptr, __m128i zero, int len);
 	static fstb_FORCEINLINE void
 	               store_8_16ml (void *msb_ptr, void *lsb_ptr, __m128i val, __m128i mask_lsb);
 	static fstb_FORCEINLINE void
@@ -64,15 +70,24 @@ public:
 	static fstb_FORCEINLINE void
 	               store_8_16l (void *lsb_ptr, __m128i val, __m128i mask_lsb);
 	static fstb_FORCEINLINE void
-	               store_8_16ml_partial (void *msb_ptr, void *lsb_ptr, __m128i val, __m128i mask_lsb, __m128i mask_store);
+	               store_8_16ml_partial (void *msb_ptr, void *lsb_ptr, __m128i val, __m128i mask_lsb, int len);
 	static fstb_FORCEINLINE void
-	               store_8_16m_partial (void *msb_ptr, __m128i val, __m128i mask_lsb, __m128i mask_store);
+	               store_8_16m_partial (void *msb_ptr, __m128i val, __m128i mask_lsb, int len);
 	static fstb_FORCEINLINE void
-	               store_8_16l_partial (void *lsb_ptr, __m128i val, __m128i mask_lsb, __m128i mask_store);
+	               store_8_16l_partial (void *lsb_ptr, __m128i val, __m128i mask_lsb, int len);
 
-	template <class T>
+	static fstb_FORCEINLINE __m128
+	               load_ps_partial (const void *ptr, int len);
 	static fstb_FORCEINLINE __m128i
-	               create_store_mask (int nbr_pix);
+	               load_si128_partial (const void *ptr, int len);
+	static fstb_FORCEINLINE __m128i
+	               load_epi64_partial (const void *ptr, int len);
+	static fstb_FORCEINLINE void
+	               store_ps_partial (void *ptr, __m128 val, int len);
+	static fstb_FORCEINLINE void
+		            store_si128_partial (void *ptr, __m128i val, int len);
+	static fstb_FORCEINLINE void
+		            store_epi64_partial (void *ptr, __m128i val, int len);
 
 	static fstb_FORCEINLINE void
 	               add_x16_s32 (__m128i &dst0, __m128i &dst1, __m128i src, __m128i msw);
@@ -99,8 +114,11 @@ public:
 	static fstb_FORCEINLINE __m128i
 	               abs_dif_epi16 (const __m128i &a, const __m128i &b);
 
-	fstb_TYPEDEF_ALIGN (16, uint32_t, VectI32 [4]);
-	fstb_TYPEDEF_ALIGN (16, float,    VectF32 [4]);
+	fstb_TYPEDEF_ALIGN (16, uint8_t , VectI08 [16]);
+	fstb_TYPEDEF_ALIGN (16, uint16_t, VectI16 [ 8]);
+	fstb_TYPEDEF_ALIGN (16, uint32_t, VectI32 [ 4]);
+	fstb_TYPEDEF_ALIGN (16, uint64_t, VectI64 [ 2]);
+	fstb_TYPEDEF_ALIGN (16, float   , VectF32 [ 4]);
 
 	static const VectI32
 	               _zero;

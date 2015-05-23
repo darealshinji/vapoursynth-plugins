@@ -1,6 +1,6 @@
 
 LIB = libfmtconv.so
-local_CXXFLAGS = -Wno-reorder -Wno-return-type -Wno-unused-variable -mavx2 -msse2 -march=native -pipe -fabi-version=6
+local_CXXFLAGS = -mavx2 -msse2 -march=native
 
 include ../cxx.inc
 

@@ -33,9 +33,8 @@ http://sam.zoy.org/wtfpl/COPYING for more details.
 #include "fmtcl/BitBltConv.h"
 #include "fmtcl/Proxy.h"
 #include "fmtcl/ProxyRwCpp.h"
-#include "fstb/CpuId.h"
 #if (fstb_ARCHI == fstb_ARCHI_X86)
-	#include "fmtcl/ProxyRwSse.h"
+	#include "fmtcl/ProxyRwSse2.h"
 #endif
 
 #include <stdexcept>
@@ -51,17 +50,6 @@ namespace fmtcl
 
 
 /*\\\ PUBLIC \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\*/
-
-
-
-BitBltConv::BitBltConv ()
-:	_sse2_flag (false)
-,	_avx2_flag (false)
-{
-	fstb::CpuId    ci;
-	_sse2_flag = ci._sse2_flag;
-	_avx2_flag = ci._avx2_flag;
-}
 
 
 
@@ -245,33 +233,33 @@ void	BitBltConv::bitblt_int_to_flt (uint8_t *dst_ptr, int dst_stride, fmtcl::Spl
 
 	switch ((scale_flag << 17) + (_sse2_flag << 16) + (src_fmt << 8) + src_res)
 	{
-	fmtcl_BitBltConv_CASE (false, false, cpp, Cpp, STACK16, 16, s16)
-	fmtcl_BitBltConv_CASE (false, false, cpp, Cpp, INT16  , 16, i16)
-	fmtcl_BitBltConv_CASE (false, false, cpp, Cpp, INT16  , 12, i16)
-	fmtcl_BitBltConv_CASE (false, false, cpp, Cpp, INT16  , 10, i16)
-	fmtcl_BitBltConv_CASE (false, false, cpp, Cpp, INT16  ,  9, i16)
-	fmtcl_BitBltConv_CASE (false, false, cpp, Cpp, INT8   ,  8, i08)
+	fmtcl_BitBltConv_CASE (false, false, cpp , Cpp , STACK16, 16, s16)
+	fmtcl_BitBltConv_CASE (false, false, cpp , Cpp , INT16  , 16, i16)
+	fmtcl_BitBltConv_CASE (false, false, cpp , Cpp , INT16  , 12, i16)
+	fmtcl_BitBltConv_CASE (false, false, cpp , Cpp , INT16  , 10, i16)
+	fmtcl_BitBltConv_CASE (false, false, cpp , Cpp , INT16  ,  9, i16)
+	fmtcl_BitBltConv_CASE (false, false, cpp , Cpp , INT8   ,  8, i08)
 #if (fstb_ARCHI == fstb_ARCHI_X86)
-	fmtcl_BitBltConv_CASE (false, true , sse, Sse, STACK16, 16, s16)
-	fmtcl_BitBltConv_CASE (false, true , sse, Sse, INT16  , 16, i16)
-	fmtcl_BitBltConv_CASE (false, true , sse, Sse, INT16  , 12, i16)
-	fmtcl_BitBltConv_CASE (false, true , sse, Sse, INT16  , 10, i16)
-	fmtcl_BitBltConv_CASE (false, true , sse, Sse, INT16  ,  9, i16)
-	fmtcl_BitBltConv_CASE (false, true , sse, Sse, INT8   ,  8, i08)
+	fmtcl_BitBltConv_CASE (false, true , sse2, Sse2, STACK16, 16, s16)
+	fmtcl_BitBltConv_CASE (false, true , sse2, Sse2, INT16  , 16, i16)
+	fmtcl_BitBltConv_CASE (false, true , sse2, Sse2, INT16  , 12, i16)
+	fmtcl_BitBltConv_CASE (false, true , sse2, Sse2, INT16  , 10, i16)
+	fmtcl_BitBltConv_CASE (false, true , sse2, Sse2, INT16  ,  9, i16)
+	fmtcl_BitBltConv_CASE (false, true , sse2, Sse2, INT8   ,  8, i08)
 #endif
-	fmtcl_BitBltConv_CASE (true , false, cpp, Cpp, STACK16, 16, s16)
-	fmtcl_BitBltConv_CASE (true , false, cpp, Cpp, INT16  , 16, i16)
-	fmtcl_BitBltConv_CASE (true , false, cpp, Cpp, INT16  , 12, i16)
-	fmtcl_BitBltConv_CASE (true , false, cpp, Cpp, INT16  , 10, i16)
-	fmtcl_BitBltConv_CASE (true , false, cpp, Cpp, INT16  ,  9, i16)
-	fmtcl_BitBltConv_CASE (true , false, cpp, Cpp, INT8   ,  8, i08)
+	fmtcl_BitBltConv_CASE (true , false, cpp , Cpp , STACK16, 16, s16)
+	fmtcl_BitBltConv_CASE (true , false, cpp , Cpp , INT16  , 16, i16)
+	fmtcl_BitBltConv_CASE (true , false, cpp , Cpp , INT16  , 12, i16)
+	fmtcl_BitBltConv_CASE (true , false, cpp , Cpp , INT16  , 10, i16)
+	fmtcl_BitBltConv_CASE (true , false, cpp , Cpp , INT16  ,  9, i16)
+	fmtcl_BitBltConv_CASE (true , false, cpp , Cpp , INT8   ,  8, i08)
 #if (fstb_ARCHI == fstb_ARCHI_X86)
-	fmtcl_BitBltConv_CASE (true , true , sse, Sse, STACK16, 16, s16)
-	fmtcl_BitBltConv_CASE (true , true , sse, Sse, INT16  , 16, i16)
-	fmtcl_BitBltConv_CASE (true , true , sse, Sse, INT16  , 12, i16)
-	fmtcl_BitBltConv_CASE (true , true , sse, Sse, INT16  , 10, i16)
-	fmtcl_BitBltConv_CASE (true , true , sse, Sse, INT16  ,  9, i16)
-	fmtcl_BitBltConv_CASE (true , true , sse, Sse, INT8   ,  8, i08)
+	fmtcl_BitBltConv_CASE (true , true , sse2, Sse2, STACK16, 16, s16)
+	fmtcl_BitBltConv_CASE (true , true , sse2, Sse2, INT16  , 16, i16)
+	fmtcl_BitBltConv_CASE (true , true , sse2, Sse2, INT16  , 12, i16)
+	fmtcl_BitBltConv_CASE (true , true , sse2, Sse2, INT16  , 10, i16)
+	fmtcl_BitBltConv_CASE (true , true , sse2, Sse2, INT16  ,  9, i16)
+	fmtcl_BitBltConv_CASE (true , true , sse2, Sse2, INT8   ,  8, i08)
 #endif
 	default:
 		assert (false);
@@ -308,17 +296,17 @@ void	BitBltConv::bitblt_flt_to_int (fmtcl::SplFmt dst_fmt, int dst_res, uint8_t 
 
 	switch ((scale_flag << 5) + (_sse2_flag << 4) + dst_fmt)
 	{
-	fmtcl_BitBltConv_CASE (false, false, cpp, Cpp, STACK16, s16)
-	fmtcl_BitBltConv_CASE (false, false, cpp, Cpp, INT16  , i16)
+	fmtcl_BitBltConv_CASE (false, false, cpp , Cpp , STACK16, s16)
+	fmtcl_BitBltConv_CASE (false, false, cpp , Cpp , INT16  , i16)
 #if (fstb_ARCHI == fstb_ARCHI_X86)
-	fmtcl_BitBltConv_CASE (false, true , sse, Sse, STACK16, s16)
-	fmtcl_BitBltConv_CASE (false, true , sse, Sse, INT16  , i16)
+	fmtcl_BitBltConv_CASE (false, true , sse2, Sse2, STACK16, s16)
+	fmtcl_BitBltConv_CASE (false, true , sse2, Sse2, INT16  , i16)
 #endif
-	fmtcl_BitBltConv_CASE (true , false, cpp, Cpp, STACK16, s16)
-	fmtcl_BitBltConv_CASE (true , false, cpp, Cpp, INT16  , i16)
+	fmtcl_BitBltConv_CASE (true , false, cpp , Cpp , STACK16, s16)
+	fmtcl_BitBltConv_CASE (true , false, cpp , Cpp , INT16  , i16)
 #if (fstb_ARCHI == fstb_ARCHI_X86)
-	fmtcl_BitBltConv_CASE (true , true , sse, Sse, STACK16, s16)
-	fmtcl_BitBltConv_CASE (true , true , sse, Sse, INT16  , i16)
+	fmtcl_BitBltConv_CASE (true , true , sse2, Sse2, STACK16, s16)
+	fmtcl_BitBltConv_CASE (true , true , sse2, Sse2, INT16  , i16)
 #endif
 	default:
 		assert (false);
@@ -355,39 +343,39 @@ void	BitBltConv::bitblt_int_to_int (fmtcl::SplFmt dst_fmt, int dst_res, uint8_t 
 
 	switch ((_sse2_flag << 24) + (dst_fmt << 20) + (src_fmt << 16) + (dst_res << 8) + src_res)
 	{
-	fmtcl_BitBltConv_CASE (false, cpp, Cpp, STACK16, INT16  , 16, 16, s16, i16)
-	fmtcl_BitBltConv_CASE (false, cpp, Cpp, STACK16, INT16  , 16, 12, s16, i16)
-	fmtcl_BitBltConv_CASE (false, cpp, Cpp, STACK16, INT16  , 16, 10, s16, i16)
-	fmtcl_BitBltConv_CASE (false, cpp, Cpp, STACK16, INT16  , 16,  9, s16, i16)
-	fmtcl_BitBltConv_CASE (false, cpp, Cpp, STACK16, INT8   , 16,  8, s16, i08)
-	fmtcl_BitBltConv_CASE (false, cpp, Cpp, INT16  , STACK16, 16, 16, i16, s16)
-	fmtcl_BitBltConv_CASE (false, cpp, Cpp, INT16  , INT16  , 16, 12, i16, i16)
-	fmtcl_BitBltConv_CASE (false, cpp, Cpp, INT16  , INT16  , 16, 10, i16, i16)
-	fmtcl_BitBltConv_CASE (false, cpp, Cpp, INT16  , INT16  , 16,  9, i16, i16)
-	fmtcl_BitBltConv_CASE (false, cpp, Cpp, INT16  , INT8   , 16,  8, i16, i08)
-	fmtcl_BitBltConv_CASE (false, cpp, Cpp, INT16  , INT16  , 12, 10, i16, i16)
-	fmtcl_BitBltConv_CASE (false, cpp, Cpp, INT16  , INT16  , 12,  9, i16, i16)
-	fmtcl_BitBltConv_CASE (false, cpp, Cpp, INT16  , INT8   , 12,  8, i16, i08)
-	fmtcl_BitBltConv_CASE (false, cpp, Cpp, INT16  , INT16  , 10,  9, i16, i16)
-	fmtcl_BitBltConv_CASE (false, cpp, Cpp, INT16  , INT8   , 10,  8, i16, i08)
-	fmtcl_BitBltConv_CASE (false, cpp, Cpp, INT16  , INT8   ,  9,  8, i16, i08)
+	fmtcl_BitBltConv_CASE (false, cpp , Cpp , STACK16, INT16  , 16, 16, s16, i16)
+	fmtcl_BitBltConv_CASE (false, cpp , Cpp , STACK16, INT16  , 16, 12, s16, i16)
+	fmtcl_BitBltConv_CASE (false, cpp , Cpp , STACK16, INT16  , 16, 10, s16, i16)
+	fmtcl_BitBltConv_CASE (false, cpp , Cpp , STACK16, INT16  , 16,  9, s16, i16)
+	fmtcl_BitBltConv_CASE (false, cpp , Cpp , STACK16, INT8   , 16,  8, s16, i08)
+	fmtcl_BitBltConv_CASE (false, cpp , Cpp , INT16  , STACK16, 16, 16, i16, s16)
+	fmtcl_BitBltConv_CASE (false, cpp , Cpp , INT16  , INT16  , 16, 12, i16, i16)
+	fmtcl_BitBltConv_CASE (false, cpp , Cpp , INT16  , INT16  , 16, 10, i16, i16)
+	fmtcl_BitBltConv_CASE (false, cpp , Cpp , INT16  , INT16  , 16,  9, i16, i16)
+	fmtcl_BitBltConv_CASE (false, cpp , Cpp , INT16  , INT8   , 16,  8, i16, i08)
+	fmtcl_BitBltConv_CASE (false, cpp , Cpp , INT16  , INT16  , 12, 10, i16, i16)
+	fmtcl_BitBltConv_CASE (false, cpp , Cpp , INT16  , INT16  , 12,  9, i16, i16)
+	fmtcl_BitBltConv_CASE (false, cpp , Cpp , INT16  , INT8   , 12,  8, i16, i08)
+	fmtcl_BitBltConv_CASE (false, cpp , Cpp , INT16  , INT16  , 10,  9, i16, i16)
+	fmtcl_BitBltConv_CASE (false, cpp , Cpp , INT16  , INT8   , 10,  8, i16, i08)
+	fmtcl_BitBltConv_CASE (false, cpp , Cpp , INT16  , INT8   ,  9,  8, i16, i08)
 #if (fstb_ARCHI == fstb_ARCHI_X86)
-	fmtcl_BitBltConv_CASE (true , sse, Sse, STACK16, INT16  , 16, 16, s16, i16)
-	fmtcl_BitBltConv_CASE (true , sse, Sse, STACK16, INT16  , 16, 12, s16, i16)
-	fmtcl_BitBltConv_CASE (true , sse, Sse, STACK16, INT16  , 16, 10, s16, i16)
-	fmtcl_BitBltConv_CASE (true , sse, Sse, STACK16, INT16  , 16,  9, s16, i16)
-	fmtcl_BitBltConv_CASE (true , sse, Sse, STACK16, INT8   , 16,  8, s16, i08)
-	fmtcl_BitBltConv_CASE (true , sse, Sse, INT16  , STACK16, 16, 16, i16, s16)
-	fmtcl_BitBltConv_CASE (true , sse, Sse, INT16  , INT16  , 16, 12, i16, i16)
-	fmtcl_BitBltConv_CASE (true , sse, Sse, INT16  , INT16  , 16, 10, i16, i16)
-	fmtcl_BitBltConv_CASE (true , sse, Sse, INT16  , INT16  , 16,  9, i16, i16)
-	fmtcl_BitBltConv_CASE (true , sse, Sse, INT16  , INT8   , 16,  8, i16, i08)
-	fmtcl_BitBltConv_CASE (true , sse, Sse, INT16  , INT16  , 12, 10, i16, i16)
-	fmtcl_BitBltConv_CASE (true , sse, Sse, INT16  , INT16  , 12,  9, i16, i16)
-	fmtcl_BitBltConv_CASE (true , sse, Sse, INT16  , INT8   , 12,  8, i16, i08)
-	fmtcl_BitBltConv_CASE (true , sse, Sse, INT16  , INT16  , 10,  9, i16, i16)
-	fmtcl_BitBltConv_CASE (true , sse, Sse, INT16  , INT8   , 10,  8, i16, i08)
-	fmtcl_BitBltConv_CASE (true , sse, Sse, INT16  , INT8   ,  9,  8, i16, i08)
+	fmtcl_BitBltConv_CASE (true , sse2, Sse2, STACK16, INT16  , 16, 16, s16, i16)
+	fmtcl_BitBltConv_CASE (true , sse2, Sse2, STACK16, INT16  , 16, 12, s16, i16)
+	fmtcl_BitBltConv_CASE (true , sse2, Sse2, STACK16, INT16  , 16, 10, s16, i16)
+	fmtcl_BitBltConv_CASE (true , sse2, Sse2, STACK16, INT16  , 16,  9, s16, i16)
+	fmtcl_BitBltConv_CASE (true , sse2, Sse2, STACK16, INT8   , 16,  8, s16, i08)
+	fmtcl_BitBltConv_CASE (true , sse2, Sse2, INT16  , STACK16, 16, 16, i16, s16)
+	fmtcl_BitBltConv_CASE (true , sse2, Sse2, INT16  , INT16  , 16, 12, i16, i16)
+	fmtcl_BitBltConv_CASE (true , sse2, Sse2, INT16  , INT16  , 16, 10, i16, i16)
+	fmtcl_BitBltConv_CASE (true , sse2, Sse2, INT16  , INT16  , 16,  9, i16, i16)
+	fmtcl_BitBltConv_CASE (true , sse2, Sse2, INT16  , INT8   , 16,  8, i16, i08)
+	fmtcl_BitBltConv_CASE (true , sse2, Sse2, INT16  , INT16  , 12, 10, i16, i16)
+	fmtcl_BitBltConv_CASE (true , sse2, Sse2, INT16  , INT16  , 12,  9, i16, i16)
+	fmtcl_BitBltConv_CASE (true , sse2, Sse2, INT16  , INT8   , 12,  8, i16, i08)
+	fmtcl_BitBltConv_CASE (true , sse2, Sse2, INT16  , INT16  , 10,  9, i16, i16)
+	fmtcl_BitBltConv_CASE (true , sse2, Sse2, INT16  , INT8   , 10,  8, i16, i08)
+	fmtcl_BitBltConv_CASE (true , sse2, Sse2, INT16  , INT8   ,  9,  8, i16, i08)
 #endif
 	default:
 		assert (false);
@@ -525,7 +513,7 @@ void	BitBltConv::bitblt_int_to_flt_cpp (uint8_t *dst_ptr, int dst_stride, typena
 // Stride offsets are still in bytes
 // Destination pointer must be 16-byte aligned!
 template <bool SF, class SRC, int SBD>
-void	BitBltConv::bitblt_int_to_flt_sse (uint8_t *dst_ptr, int dst_stride, typename SRC::PtrConst::Type src_ptr, int src_stride, int w, int h, const ScaleInfo *scale_info_ptr)
+void	BitBltConv::bitblt_int_to_flt_sse2 (uint8_t *dst_ptr, int dst_stride, typename SRC::PtrConst::Type src_ptr, int src_stride, int w, int h, const ScaleInfo *scale_info_ptr)
 {
 	assert (fstb::ToolsSse2::check_ptr_align (dst_ptr));
 	assert (SRC::PtrConst::check_ptr (src_ptr));
@@ -559,7 +547,7 @@ void	BitBltConv::bitblt_int_to_flt_sse (uint8_t *dst_ptr, int dst_stride, typena
 
 		for (int x = 0; x < w8; x += 8)
 		{
-			SRC::read (cur_src_ptr, val_03, val_47, zero);
+			SRC::read_flt (cur_src_ptr, val_03, val_47, zero);
 			if (SF)
 			{
 				val_03 = _mm_add_ps (_mm_mul_ps (val_03, gain), add_cst);
@@ -573,7 +561,7 @@ void	BitBltConv::bitblt_int_to_flt_sse (uint8_t *dst_ptr, int dst_stride, typena
 
 		if (w7 > 0)
 		{
-			SRC::read (cur_src_ptr, val_03, val_47, zero);
+			SRC::read_flt_partial (cur_src_ptr, val_03, val_47, zero, w7);
 			if (SF)
 			{
 				val_03 = _mm_add_ps (_mm_mul_ps (val_03, gain), add_cst);
@@ -640,7 +628,7 @@ void	BitBltConv::bitblt_flt_to_int_cpp (typename DST::Ptr::Type dst_ptr, int dst
 
 // Stride offsets are still in bytes
 template <bool SF, class DST>
-void	BitBltConv::bitblt_flt_to_int_sse (typename DST::Ptr::Type dst_ptr, int dst_stride, const uint8_t *src_ptr, int src_stride, int w, int h, const ScaleInfo *scale_info_ptr)
+void	BitBltConv::bitblt_flt_to_int_sse2 (typename DST::Ptr::Type dst_ptr, int dst_stride, const uint8_t *src_ptr, int src_stride, int w, int h, const ScaleInfo *scale_info_ptr)
 {
 	assert (DST::Ptr::check_ptr (dst_ptr));
 	assert (src_ptr != 0);
@@ -663,12 +651,11 @@ void	BitBltConv::bitblt_flt_to_int_sse (typename DST::Ptr::Type dst_ptr, int dst
 
 	const __m128i  mask_lsb = _mm_set1_epi16 (0x00FF);
 	const __m128i  sign_bit = _mm_set1_epi16 (-0x8000);
+	const __m128i  zero     = _mm_setzero_si128 ();
 	const __m128   offset   = _mm_set1_ps (-32768);
 
 	const int      w8 = w & -8;
 	const int      w7 = w - w8;
-	const __m128i  mask_store =
-		fstb::ToolsSse2::create_store_mask <typename DST::Ptr::DataType> (w7);
 
 	for (int y = 0; y < h; ++y)
 	{
@@ -685,21 +672,26 @@ void	BitBltConv::bitblt_flt_to_int_sse (typename DST::Ptr::Type dst_ptr, int dst
 				val_03 = _mm_add_ps (_mm_mul_ps (val_03, gain), add_cst);
 				val_47 = _mm_add_ps (_mm_mul_ps (val_47, gain), add_cst);
 			}
-			DST::write (cur_dst_ptr, val_03, val_47, mask_lsb, sign_bit, offset);
+			DST::write_flt (
+				cur_dst_ptr, val_03, val_47, mask_lsb, sign_bit, offset
+			);
 
 			DST::Ptr::jump (cur_dst_ptr, 8);
 		}
 
 		if (w7 > 0)
 		{
-			val_03 = _mm_loadu_ps (src_flt_ptr + w8    );
-			val_47 = _mm_loadu_ps (src_flt_ptr + w8 + 4);
+			ProxyRwSse2 <SplFmt_FLOAT>::read_flt_partial (
+				src_flt_ptr + w8, val_03, val_47, zero, w7
+			);
 			if (SF)
 			{
 				val_03 = _mm_add_ps (_mm_mul_ps (val_03, gain), add_cst);
 				val_47 = _mm_add_ps (_mm_mul_ps (val_47, gain), add_cst);
 			}
-			DST::write_partial (cur_dst_ptr, val_03, val_47, mask_lsb, sign_bit, offset, mask_store);
+			DST::write_flt_partial (
+				cur_dst_ptr, val_03, val_47, mask_lsb, sign_bit, offset, w7
+			);
 		}
 
 		DST::Ptr::jump (dst_ptr, dst_stride);
@@ -757,7 +749,7 @@ void	BitBltConv::bitblt_ixx_to_x16_cpp (typename DST::Ptr::Type dst_ptr, int dst
 
 // Stride offsets are still in bytes
 template <class DST, class SRC, int DBD, int SBD>
-void	BitBltConv::bitblt_ixx_to_x16_sse (typename DST::Ptr::Type dst_ptr, int dst_stride, typename SRC::PtrConst::Type src_ptr, int src_stride, int w, int h)
+void	BitBltConv::bitblt_ixx_to_x16_sse2 (typename DST::Ptr::Type dst_ptr, int dst_stride, typename SRC::PtrConst::Type src_ptr, int src_stride, int w, int h)
 {
 	assert (DST::Ptr::check_ptr (dst_ptr));
 	assert (SRC::PtrConst::check_ptr (src_ptr));
@@ -772,14 +764,12 @@ void	BitBltConv::bitblt_ixx_to_x16_sse (typename DST::Ptr::Type dst_ptr, int dst
 	src_stride /= sizeof (typename SRC::PtrConst::DataType);
 	dst_stride /= sizeof (typename DST::Ptr::DataType);
 
-	const __m128i	zero     = _mm_setzero_si128 ();
+	const __m128i  zero     = _mm_setzero_si128 ();
 	const __m128i  val_ma   = _mm_set1_epi16 ((DBD < 16) ? (1 << DBD) - 1 : 0);
 	const __m128i  mask_lsb = _mm_set1_epi16 (0x00FF);
 
 	const int      w8 = w & -8;
 	const int      w7 = w - w8;
-	const __m128i  mask_store =
-		fstb::ToolsSse2::create_store_mask <typename DST::Ptr::DataType> (w7);
 
 	for (int y = 0; y < h; ++y)
 	{
@@ -805,7 +795,7 @@ void	BitBltConv::bitblt_ixx_to_x16_sse (typename DST::Ptr::Type dst_ptr, int dst
 
 		if (w7 > 0)
 		{
-			__m128i        val = SRC::read_i16 (cur_src_ptr, zero);
+			__m128i        val = SRC::read_i16_partial (cur_src_ptr, zero, w7);
 			if (DBD != SBD)
 			{
 				val = _mm_slli_epi16 (val, DBD - SBD);
@@ -814,7 +804,7 @@ void	BitBltConv::bitblt_ixx_to_x16_sse (typename DST::Ptr::Type dst_ptr, int dst
 			{
 				val = _mm_min_epi16 (val, val_ma);
 			}
-			DST::write_i16_partial (cur_dst_ptr, val, mask_lsb, mask_store);
+			DST::write_i16_partial (cur_dst_ptr, val, mask_lsb, w7);
 		}
 
 		SRC::PtrConst::jump (src_ptr, src_stride);

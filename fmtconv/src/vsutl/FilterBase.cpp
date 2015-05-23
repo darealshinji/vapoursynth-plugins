@@ -97,10 +97,6 @@ void	FilterBase::throw_logic_err (const char msg_0 []) const
 
 
 
-/*\\\ PROTECTED \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\*/
-
-
-
 bool	FilterBase::is_arg_defined (const ::VSMap &in, const char name_0 []) const
 {
 	assert (&in != 0);
@@ -292,6 +288,10 @@ std::vector <std::string>	FilterBase::get_arg_vstr (const ::VSMap &in, ::VSMap &
 
 	return (vec);
 }
+
+
+
+/*\\\ PROTECTED \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\*/
 
 
 

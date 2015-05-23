@@ -32,10 +32,10 @@ http://sam.zoy.org/wtfpl/COPYING for more details.
 #include "fmtc/Bitdepth.h"
 #include "fmtc/SplFmtUtl.h"
 #if (fstb_ARCHI == fstb_ARCHI_X86)
-	#include "fmtcl/ProxyRwSse.h"
+	#include "fmtcl/ProxyRwSse2.h"
 #endif
 #include "fstb/fnc.h"
-#include "fstb/CpuId.h"
+#include "vsutl/CpuOpt.h"
 #include "vsutl/fnc.h"
 
 #include <algorithm>
@@ -92,9 +92,9 @@ Bitdepth::Bitdepth (const ::VSMap &in, ::VSMap &out, void *user_data_ptr, ::VSCo
 	assert (&core != 0);
 	assert (&vsapi != 0);
 
-	fstb::CpuId    cid;
-	_sse2_flag = cid._sse2_flag;
-	_avx2_flag = cid._avx2_flag;
+	vsutl::CpuOpt  cpu_opt (*this, in, out);
+	_sse2_flag = cpu_opt.has_sse2 ();
+	_avx2_flag = cpu_opt.has_avx2 ();
 
 	// Checks the input clip
 	if (_vi_in.format == 0)
@@ -1004,8 +1004,8 @@ void	Bitdepth::process_seg_fast_int_int_sse (uint8_t *dst_ptr, const uint8_t *sr
 	enum {         DIF_BITS = SRC_BITS - DST_BITS };
 	static_assert (DIF_BITS >= 0, "This function cannot increase bidepth.");
 
-	typedef typename  fmtcl::ProxyRwSse <SRC_FMT>::PtrConst::Type  SrcPtr;
-	typedef typename  fmtcl::ProxyRwSse <DST_FMT>::Ptr::Type       DstPtr;
+	typedef typename  fmtcl::ProxyRwSse2 <SRC_FMT>::PtrConst::Type SrcPtr;
+	typedef typename  fmtcl::ProxyRwSse2 <DST_FMT>::Ptr::Type      DstPtr;
 	SrcPtr         src_n_ptr = reinterpret_cast <SrcPtr> (src_ptr);
 	DstPtr         dst_n_ptr = reinterpret_cast <DstPtr> (dst_ptr);
 	const __m128i  zero      = _mm_setzero_si128 ();
@@ -1013,9 +1013,9 @@ void	Bitdepth::process_seg_fast_int_int_sse (uint8_t *dst_ptr, const uint8_t *sr
 	for (int pos = 0; pos < w; pos += 8)
 	{
 		const __m128i  s   =
-			fmtcl::ProxyRwSse <SRC_FMT>::read_i16 (src_n_ptr + pos, zero);
+			fmtcl::ProxyRwSse2 <SRC_FMT>::read_i16 (src_n_ptr + pos, zero);
 		const __m128i  pix = _mm_srli_epi16 (s, DIF_BITS);
-		fmtcl::ProxyRwSse <DST_FMT>::write_i16 (dst_n_ptr + pos, pix, zero);
+		fmtcl::ProxyRwSse2 <DST_FMT>::write_i16 (dst_n_ptr + pos, pix, zero);
 	}
 }
 
@@ -1060,8 +1060,8 @@ void	Bitdepth::process_seg_fast_flt_int_sse (uint8_t *dst_ptr, const uint8_t *sr
 	assert (w > 0);
 	assert (&scale_info != 0);
 
-	typedef typename  fmtcl::ProxyRwSse <SRC_FMT>::PtrConst::Type  SrcPtr;
-	typedef typename  fmtcl::ProxyRwSse <DST_FMT>::Ptr::Type       DstPtr;
+	typedef typename  fmtcl::ProxyRwSse2 <SRC_FMT>::PtrConst::Type  SrcPtr;
+	typedef typename  fmtcl::ProxyRwSse2 <DST_FMT>::Ptr::Type       DstPtr;
 	SrcPtr         src_n_ptr = reinterpret_cast <SrcPtr> (src_ptr);
 	DstPtr         dst_n_ptr = reinterpret_cast <DstPtr> (dst_ptr);
 
@@ -1078,12 +1078,14 @@ void	Bitdepth::process_seg_fast_flt_int_sse (uint8_t *dst_ptr, const uint8_t *sr
 	{
 		__m128         s0;
 		__m128         s1;
-		fmtcl::ProxyRwSse <SRC_FMT>::read (src_n_ptr + pos, s0, s1, zero_i);
+		fmtcl::ProxyRwSse2 <SRC_FMT>::read_flt (
+			src_n_ptr + pos, s0, s1, zero_i
+		);
 		s0 = _mm_add_ps (_mm_mul_ps (s0, mul), add);
 		s1 = _mm_add_ps (_mm_mul_ps (s1, mul), add);
 		s0 = _mm_max_ps (_mm_min_ps (s0, vmax), zero_f);
 		s1 = _mm_max_ps (_mm_min_ps (s1, vmax), zero_f);
-		fmtcl::ProxyRwSse <DST_FMT>::write (
+		fmtcl::ProxyRwSse2 <DST_FMT>::write_flt (
 			dst_n_ptr + pos, s0, s1, mask_lsb, sign_bit, offset
 		);
 	}

@@ -4,7 +4,7 @@
         Author: Laurent de Soras, 2013
 
 TO DO:
-	- SSE2 optimizations
+	- SSE2/AVX2 optimizations
 
 --- Legal stuff ---
 
@@ -30,7 +30,7 @@ http://sam.zoy.org/wtfpl/COPYING for more details.
 #include "fmtcl/ColorSpaceH265.h"
 #include "fmtc/Matrix2020CL.h"
 #include "fstb/fnc.h"
-#include "fstb/CpuId.h"
+#include "vsutl/CpuOpt.h"
 #include "vsutl/fnc.h"
 #include "vsutl/FrameRefSPtr.h"
 
@@ -83,8 +83,8 @@ Matrix2020CL::Matrix2020CL (const ::VSMap &in, ::VSMap &out, void *user_data_ptr
 ,	_clip_src_sptr (vsapi.propGetNode (&in, "clip", 0, 0), vsapi)
 ,	_vi_in (*_vsapi.getVideoInfo (_clip_src_sptr.get ()))
 ,	_vi_out (_vi_in)
-,	_sse_flag (fstb::CpuId ()._sse_flag)
-,	_sse2_flag (fstb::CpuId ()._sse2_flag)
+,	_sse_flag (false)
+,	_sse2_flag (false)
 ,	_range_set_flag (false)
 ,	_full_range_flag (false)
 ,	_b12_flag (false)
@@ -103,6 +103,10 @@ Matrix2020CL::Matrix2020CL (const ::VSMap &in, ::VSMap &out, void *user_data_ptr
 	assert (&out != 0);
 	assert (&core != 0);
 	assert (&vsapi != 0);
+
+	vsutl::CpuOpt  cpu_opt (*this, in, out);
+	_sse_flag  = cpu_opt.has_sse ();
+	_sse2_flag = cpu_opt.has_sse2 ();
 
 	// Checks the input clip
 	if (_vi_in.format == 0)

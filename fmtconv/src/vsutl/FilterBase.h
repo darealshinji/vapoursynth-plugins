@@ -54,6 +54,19 @@ public:
 	::VSFilterMode get_filter_mode () const;
 	int            get_filter_flags () const;
 
+	bool           is_arg_defined (const ::VSMap &in, const char name_0 []) const;
+
+	int            get_arg_int (const ::VSMap &in, ::VSMap &out, const char name_0 [], int def_val, int pos = 0, bool *defined_ptr = 0) const;
+	double         get_arg_flt (const ::VSMap &in, ::VSMap &out, const char name_0 [], double def_val, int pos = 0, bool *defined_ptr = 0) const;
+	std::string    get_arg_str (const ::VSMap &in, ::VSMap &out, const char name_0 [], std::string def_val, int pos = 0, bool *defined_ptr = 0) const;
+
+	std::vector <int>
+	               get_arg_vint (const ::VSMap &in, ::VSMap &out, const char name_0 [], const std::vector <int> &def_val, bool *defined_ptr = 0) const;
+	std::vector <double>
+	               get_arg_vflt (const ::VSMap &in, ::VSMap &out, const char name_0 [], const std::vector <double> &def_val, bool *defined_ptr = 0) const;
+	std::vector <std::string>
+	               get_arg_vstr (const ::VSMap &in, ::VSMap &out, const char name_0 [], const std::vector <std::string> &def_val, bool *defined_ptr = 0) const;
+
 	void           throw_inval_arg (const char msg_0 []) const;
 	void           throw_rt_err (const char msg_0 []) const;
 	void           throw_logic_err (const char msg_0 []) const;
@@ -68,19 +81,6 @@ public:
 /*\\\ PROTECTED \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\*/
 
 protected:
-
-	bool           is_arg_defined (const ::VSMap &in, const char name_0 []) const;
-
-	int            get_arg_int (const ::VSMap &in, ::VSMap &out, const char name_0 [], int def_val, int pos = 0, bool *defined_ptr = 0) const;
-	double         get_arg_flt (const ::VSMap &in, ::VSMap &out, const char name_0 [], double def_val, int pos = 0, bool *defined_ptr = 0) const;
-	std::string    get_arg_str (const ::VSMap &in, ::VSMap &out, const char name_0 [], std::string def_val, int pos = 0, bool *defined_ptr = 0) const;
-
-	std::vector <int>
-	               get_arg_vint (const ::VSMap &in, ::VSMap &out, const char name_0 [], const std::vector <int> &def_val, bool *defined_ptr = 0) const;
-	std::vector <double>
-	               get_arg_vflt (const ::VSMap &in, ::VSMap &out, const char name_0 [], const std::vector <double> &def_val, bool *defined_ptr = 0) const;
-	std::vector <std::string>
-	               get_arg_vstr (const ::VSMap &in, ::VSMap &out, const char name_0 [], const std::vector <std::string> &def_val, bool *defined_ptr = 0) const;
 
 	const VSFormat *
 	               register_format (int color_family, int sample_type, int bits_per_sample, int sub_sampling_w, int sub_sampling_h, ::VSCore &core) const;

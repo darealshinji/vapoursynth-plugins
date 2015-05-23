@@ -8,8 +8,6 @@ slowdown.
 
 TO DO:
 	- Make the AVX2 code use aligned read/write.
-	- In the AVX2 code, swap the plane and the row loops for a more efficient
-		cache use.
 	- Make a special case for kRkGkB matrix conversions, where the luma plane
 		is not used to compute the chroma planes.
 
@@ -145,24 +143,22 @@ void	Matrix::apply_matrix_n_avx2_int (::VSFrameRef &dst, const ::VSFrameRef &src
 		_coef_simd_arr.use_vect_avx2 (0)
 	);
 
-	// Would it be faster to loop over lines then over planes? At least
-	// we would have more chance to keep the input line in the L1 cache.
 	const int      nbr_planes = std::min (_vi_out.format->numPlanes, NP);
-	for (int plane_index = 0; plane_index < nbr_planes; ++ plane_index)
+	const int      src_0_str = _vsapi.getStride (&src, 0);
+	const int      src_1_str = _vsapi.getStride (&src, 1);
+	const int      src_2_str = _vsapi.getStride (&src, 2);
+
+	for (int y = 0; y < h; ++y)
 	{
-		const uint8_t* src_0_ptr = _vsapi.getReadPtr (&src, 0);
-		const uint8_t* src_1_ptr = _vsapi.getReadPtr (&src, 1);
-		const uint8_t* src_2_ptr = _vsapi.getReadPtr (&src, 2);
-		const int      src_0_str = _vsapi.getStride (&src, 0);
-		const int      src_1_str = _vsapi.getStride (&src, 1);
-		const int      src_2_str = _vsapi.getStride (&src, 2);
-
-		uint8_t *      dst_ptr   = _vsapi.getWritePtr (&dst, plane_index);
-		const int      dst_str   = _vsapi.getStride (&dst, plane_index);
-		const int      cind = plane_index * (NBR_PLANES + 1);
-
-		for (int y = 0; y < h; ++y)
+		for (int plane_index = 0; plane_index < nbr_planes; ++ plane_index)
 		{
+			const uint8_t* src_0_ptr = _vsapi.getReadPtr (&src, 0) + y * src_0_str;
+			const uint8_t* src_1_ptr = _vsapi.getReadPtr (&src, 1) + y * src_1_str;
+			const uint8_t* src_2_ptr = _vsapi.getReadPtr (&src, 2) + y * src_2_str;
+			const int      dst_str   = _vsapi.getStride (&dst, plane_index);
+			uint8_t *      dst_ptr   = _vsapi.getWritePtr (&dst, plane_index) + y * dst_str;
+			const int      cind      = plane_index * (NBR_PLANES + 1);
+
 			for (int x = 0; x < w; x += 16)
 			{
 				typedef typename SRC::template S16 <false     , (SB == 16)> SrcS16R;
@@ -212,12 +208,6 @@ void	Matrix::apply_matrix_n_avx2_int (::VSFrameRef &dst, const ::VSFrameRef &src
 					sign_bit
 				);
 			}
-
-			src_0_ptr += src_0_str;
-			src_1_ptr += src_1_str;
-			src_2_ptr += src_2_str;
-
-			dst_ptr   += dst_str;
 		}
 	}
 

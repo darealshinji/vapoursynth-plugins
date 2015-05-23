@@ -47,6 +47,19 @@ namespace fstb
 
 
 
+// Native word size, in power of 2 bits
+#if defined (_WIN64) || defined (__64BIT__) || defined (__amd64__) || defined (__x86_64__)
+	#define fstb_WORD_SIZE_L2      6
+	#define fstb_WORD_SIZE        64
+	#define fstb_WORD_SIZE_BYTE    8
+#else
+	#define fstb_WORD_SIZE_L2      5
+	#define fstb_WORD_SIZE        32
+	#define fstb_WORD_SIZE_BYTE    4
+#endif
+
+
+
 // Function inlining
 #if defined (_MSC_VER)
    #define  fstb_FORCEINLINE   __forceinline

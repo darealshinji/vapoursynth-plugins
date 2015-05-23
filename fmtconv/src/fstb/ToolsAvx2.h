@@ -57,6 +57,12 @@ public:
 	               load_16_16m (const void *msb_ptr);
 	static fstb_FORCEINLINE __m256i
 	               load_16_16l (const void *lsb_ptr);
+	static fstb_FORCEINLINE __m256i
+	               load_16_16ml_partial (const void *msb_ptr, const void *lsb_ptr, int len);
+	static fstb_FORCEINLINE __m256i
+	               load_16_16m_partial (const void *msb_ptr, int len);
+	static fstb_FORCEINLINE __m256i
+	               load_16_16l_partial (const void *lsb_ptr, int len);
 	static fstb_FORCEINLINE void
 	               store_16_16ml (void *msb_ptr, void *lsb_ptr, __m256i val, __m256i mask_lsb);
 	static fstb_FORCEINLINE void
@@ -66,19 +72,22 @@ public:
 	static fstb_FORCEINLINE void
 	               store_16_16l (void *lsb_ptr, __m256i val, __m256i mask_lsb);
 	static fstb_FORCEINLINE void
-	               store_16_16ml_partial (void *msb_ptr, void *lsb_ptr, __m256i val, __m256i mask_lsb, __m256i mask_store);
+	               store_16_16ml_partial (void *msb_ptr, void *lsb_ptr, __m256i val, __m256i mask_lsb, int len);
 	static fstb_FORCEINLINE void
-	               store_16_16ml_perm_partial (void *msb_ptr, void *lsb_ptr, __m256i val, __m256i mask_lsb, __m256i permute, const __m256i &mask_store);
+	               store_16_16ml_perm_partial (void *msb_ptr, void *lsb_ptr, __m256i val, __m256i mask_lsb, __m256i permute, int len);
 	static fstb_FORCEINLINE void
-	               store_16_16m_partial (void *msb_ptr, __m256i val, __m256i mask_lsb, __m256i mask_store);
+	               store_16_16m_partial (void *msb_ptr, __m256i val, __m256i mask_lsb, int len);
 	static fstb_FORCEINLINE void
-	               store_16_16l_partial (void *lsb_ptr, __m256i val, __m256i mask_lsb, __m256i mask_store);
-	static fstb_FORCEINLINE void
-	               store_partial (void *ptr, __m256i val, __m256i mask_store);
+	               store_16_16l_partial (void *lsb_ptr, __m256i val, __m256i mask_lsb, int len);
 
-	template <class T>
+	static fstb_FORCEINLINE __m256
+	               load_ps_partial (const void *ptr, int len);
 	static fstb_FORCEINLINE __m256i
-	               create_store_mask (int nbr_pix);
+	               load_si256_partial (const void *ptr, int len);
+	static fstb_FORCEINLINE void
+	               store_ps_partial (void *ptr, __m256 val, int len);
+	static fstb_FORCEINLINE void
+	               store_si256_partial (void *ptr, __m256i val, int len);
 
 	static fstb_FORCEINLINE void
 	               mac_s16_s16_s32 (__m256i &dst0, __m256i &dst1, __m256i src, __m256i coef);
@@ -99,8 +108,9 @@ public:
 	static fstb_FORCEINLINE __m256i
 	               abs_dif_epi16 (const __m256i &a, const __m256i &b);
 
-	fstb_TYPEDEF_ALIGN (32, uint32_t, VectI32 [8]);
-	fstb_TYPEDEF_ALIGN (32, float   , VectF32 [8]);
+	fstb_TYPEDEF_ALIGN (32, uint8_t , VectI08 [32]);
+	fstb_TYPEDEF_ALIGN (32, uint32_t, VectI32 [ 8]);
+	fstb_TYPEDEF_ALIGN (32, float   , VectF32 [ 8]);
 
 	static const VectI32
 	               _zero;

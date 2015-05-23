@@ -229,7 +229,7 @@ void	BitBltConv::bitblt_int_to_flt_avx2 (uint8_t *dst_ptr, int dst_stride, typen
 
 		for (int x = 0; x < w16; x += 16)
 		{
-			SRC::read (cur_src_ptr, val_0007, val_0815, zero);
+			SRC::read_flt (cur_src_ptr, val_0007, val_0815, zero);
 			if (SF)
 			{
 				val_0007 = _mm256_add_ps (_mm256_mul_ps (val_0007, gain), add_cst);
@@ -243,13 +243,13 @@ void	BitBltConv::bitblt_int_to_flt_avx2 (uint8_t *dst_ptr, int dst_stride, typen
 
 		if (w15 > 0)
 		{
-			SRC::read (cur_src_ptr, val_0007, val_0815, zero);
+			SRC::read_flt (cur_src_ptr, val_0007, val_0815, zero);
 			if (SF)
 			{
 				val_0007 = _mm256_add_ps (_mm256_mul_ps (val_0007, gain), add_cst);
 				val_0815 = _mm256_add_ps (_mm256_mul_ps (val_0815, gain), add_cst);
 			}
-			_mm256_store_ps (dst_flt_ptr + w16    , val_0007);
+			_mm256_store_ps (dst_flt_ptr + w16, val_0007);
 			if (w15 > 8)
 			{
 				_mm256_store_ps (dst_flt_ptr + w16 + 8, val_0815);
@@ -288,12 +288,11 @@ void	BitBltConv::bitblt_flt_to_int_avx2 (typename DST::Ptr::Type dst_ptr, int ds
 
 	const __m256i  mask_lsb = _mm256_set1_epi16 (0x00FF);
 	const __m256i  sign_bit = _mm256_set1_epi16 (-0x8000);
+	const __m256i  zero     = _mm256_setzero_si256 ();
 	const __m256   offset   = _mm256_set1_ps (-32768);
 
 	const int      w16 = w & -16;
 	const int      w15 = w - w16;
-	const __m256i  mask_store =
-		fstb::ToolsAvx2::create_store_mask <typename DST::Ptr::DataType> (w15);
 
 	for (int y = 0; y < h; ++y)
 	{
@@ -310,21 +309,26 @@ void	BitBltConv::bitblt_flt_to_int_avx2 (typename DST::Ptr::Type dst_ptr, int ds
 				val_0007 = _mm256_add_ps (_mm256_mul_ps (val_0007, gain), add_cst);
 				val_0815 = _mm256_add_ps (_mm256_mul_ps (val_0815, gain), add_cst);
 			}
-			DST::write (cur_dst_ptr, val_0007, val_0815, mask_lsb, sign_bit, offset);
+			DST::write_flt (
+				cur_dst_ptr, val_0007, val_0815, mask_lsb, sign_bit, offset
+			);
 
 			DST::Ptr::jump (cur_dst_ptr, 16);
 		}
 
 		if (w15 > 0)
 		{
-			val_0007 = _mm256_loadu_ps (src_flt_ptr + w16    );
-			val_0815 = _mm256_loadu_ps (src_flt_ptr + w16 + 8);
+			ProxyRwAvx2 <SplFmt_FLOAT>::read_flt_partial (
+				src_flt_ptr + w16, val_0007, val_0815, zero, w15
+			);
 			if (SF)
 			{
 				val_0007 = _mm256_add_ps (_mm256_mul_ps (val_0007, gain), add_cst);
 				val_0815 = _mm256_add_ps (_mm256_mul_ps (val_0815, gain), add_cst);
 			}
-			DST::write_partial (cur_dst_ptr, val_0007, val_0815, mask_lsb, sign_bit, offset, mask_store);
+			DST::write_flt_partial (
+				cur_dst_ptr, val_0007, val_0815, mask_lsb, sign_bit, offset, w15
+			);
 		}
 
 		DST::Ptr::jump (dst_ptr, dst_stride);
@@ -351,14 +355,12 @@ void	BitBltConv::bitblt_ixx_to_x16_avx2 (typename DST::Ptr::Type dst_ptr, int ds
 	src_stride /= sizeof (typename SRC::PtrConst::DataType);
 	dst_stride /= sizeof (typename DST::Ptr::DataType);
 
-	const __m256i	zero     = _mm256_setzero_si256 ();
+	const __m256i  zero     = _mm256_setzero_si256 ();
 	const __m256i  val_ma   = _mm256_set1_epi16 ((DBD < 16) ? (1 << DBD) - 1 : 0);
 	const __m256i  mask_lsb = _mm256_set1_epi16 (0x00FF);
 
 	const int      w16 = w & -16;
 	const int      w15 = w - w16;
-	const __m256i  mask_store =
-		fstb::ToolsAvx2::create_store_mask <typename DST::Ptr::DataType> (w15);
 
 	for (int y = 0; y < h; ++y)
 	{
@@ -384,7 +386,7 @@ void	BitBltConv::bitblt_ixx_to_x16_avx2 (typename DST::Ptr::Type dst_ptr, int ds
 
 		if (w15 > 0)
 		{
-			__m256i        val = SRC::read_i16 (cur_src_ptr, zero);
+			__m256i        val = SRC::read_i16_partial (cur_src_ptr, zero, w15);
 			if (DBD != SBD)
 			{
 				val = _mm256_slli_epi16 (val, DBD - SBD);
@@ -393,7 +395,7 @@ void	BitBltConv::bitblt_ixx_to_x16_avx2 (typename DST::Ptr::Type dst_ptr, int ds
 			{
 				val = _mm256_min_epi16 (val, val_ma);
 			}
-			DST::write_i16_partial (cur_dst_ptr, val, mask_lsb, mask_store);
+			DST::write_i16_partial (cur_dst_ptr, val, mask_lsb, w15);
 		}
 
 		SRC::PtrConst::jump (src_ptr, src_stride);

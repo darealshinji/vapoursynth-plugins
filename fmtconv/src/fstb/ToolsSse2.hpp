@@ -3,13 +3,6 @@
         ToolsSse2.hpp
         Author: Laurent de Soras, 2011
 
-TO DO:
-
-- Replace all the _mm_maskmoveu_si128 (MASKMOVDQU) with regular load/mask/store
-because the instruction is potentially extremely slow (hello Bobcat/Jaguar).
-Check if there are problems related to page boundaries.
-
-
 --- Legal stuff ---
 
 This program is free software. It comes without any warranty, to
@@ -28,6 +21,8 @@ http://sam.zoy.org/wtfpl/COPYING for more details.
 
 
 /*\\\ INCLUDE FILES \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\*/
+
+#include "fstb/def.h"
 
 #include <cassert>
 #include <cstddef>
@@ -98,6 +93,50 @@ __m128i	ToolsSse2::load_8_16l (const void *lsb_ptr, __m128i zero)
 
 
 
+__m128i	ToolsSse2::load_8_16ml_partial (const void *msb_ptr, const void *lsb_ptr, int len)
+{
+	assert (msb_ptr != 0);
+	assert (lsb_ptr != 0);
+	assert (len >= 0);
+	assert (len < 8);
+
+	const __m128i  val_msb = load_epi64_partial (msb_ptr, len);
+	const __m128i  val_lsb = load_epi64_partial (lsb_ptr, len);
+	const __m128i  val = _mm_unpacklo_epi8 (val_lsb, val_msb);
+
+	return (val);
+}
+
+
+
+__m128i	ToolsSse2::load_8_16m_partial (const void *msb_ptr, __m128i zero, int len)
+{
+	assert (msb_ptr != 0);
+	assert (len >= 0);
+	assert (len < 8);
+
+	const __m128i  val_msb = load_epi64_partial (msb_ptr, len);
+	const __m128i  val = _mm_unpacklo_epi8 (zero, val_msb);
+
+	return (val);
+}
+
+
+
+__m128i	ToolsSse2::load_8_16l_partial (const void *lsb_ptr, __m128i zero, int len)
+{
+	assert (lsb_ptr != 0);
+	assert (len >= 0);
+	assert (len < 8);
+
+	const __m128i  val_lsb = load_epi64_partial (lsb_ptr, len);
+	const __m128i  val = _mm_unpacklo_epi8 (val_lsb, zero);
+
+	return (val);
+}
+
+
+
 // mask_lsb = 0x00FF00FF00FF00FF00FF00FF00FF00FF
 void	ToolsSse2::store_8_16ml (void *msb_ptr, void *lsb_ptr, __m128i val, __m128i mask_lsb)
 {
@@ -143,8 +182,7 @@ void	ToolsSse2::store_8_16l (void *lsb_ptr, __m128i val, __m128i mask_lsb)
 
 
 
-// mask_store = 0x0000...000080...808080
-void	ToolsSse2::store_8_16ml_partial (void *msb_ptr, void *lsb_ptr, __m128i val, __m128i mask_lsb, __m128i mask_store)
+void	ToolsSse2::store_8_16ml_partial (void *msb_ptr, void *lsb_ptr, __m128i val, __m128i mask_lsb, int len)
 {
 	assert (msb_ptr != 0);
 	assert (lsb_ptr != 0);
@@ -155,99 +193,252 @@ void	ToolsSse2::store_8_16ml_partial (void *msb_ptr, void *lsb_ptr, __m128i val,
 	msb = _mm_srli_si128 (msb, 1);
 
 	__m128i        tmp = _mm_packus_epi16 (lsb, msb);
-	_mm_maskmoveu_si128 (tmp, mask_store, reinterpret_cast <char *> (lsb_ptr));
+	store_epi64_partial (lsb_ptr, tmp, len);
 
 	tmp = _mm_unpackhi_epi64 (tmp, tmp);
-	_mm_maskmoveu_si128 (tmp, mask_store, reinterpret_cast <char *> (msb_ptr));
+	store_epi64_partial (msb_ptr, tmp, len);
 }
 
 
 
-// mask_store = 0x0000...000080...808080
-void	ToolsSse2::store_8_16m_partial (void *msb_ptr, __m128i val, __m128i mask_lsb, __m128i mask_store)
+void	ToolsSse2::store_8_16m_partial (void *msb_ptr, __m128i val, __m128i mask_lsb, int len)
 {
 	assert (msb_ptr != 0);
 
 	__m128i        msb = _mm_andnot_si128 (mask_lsb, val);
 	msb = _mm_srli_si128 (msb, 1);
 	msb = _mm_packus_epi16 (msb, msb);
-	_mm_maskmoveu_si128 (msb, mask_store, reinterpret_cast <char *> (msb_ptr));
+	store_epi64_partial (msb_ptr, msb, len);
 }
 
 
 
-void	ToolsSse2::store_8_16l_partial (void *lsb_ptr, __m128i val, __m128i mask_lsb, __m128i mask_store)
+void	ToolsSse2::store_8_16l_partial (void *lsb_ptr, __m128i val, __m128i mask_lsb, int len)
 {
 	assert (lsb_ptr != 0);
 
 	__m128i        lsb = _mm_and_si128 (mask_lsb, val);
 	lsb = _mm_packus_epi16 (lsb, lsb);
-	_mm_maskmoveu_si128 (lsb, mask_store, reinterpret_cast <char *> (lsb_ptr));
+	store_epi64_partial (lsb_ptr, lsb, len);
 }
 
 
 
-template <class T>
-inline __m128i	ToolsSse2::create_store_mask (int nbr_pix)
+__m128	ToolsSse2::load_ps_partial (const void *ptr, int len)
 {
-	assert (false);
-	return (_mm_setzero_si128 ());
-}
+	assert (ptr != 0);
+	assert (len >= 0);
+	assert (len < 4);
 
-// Shouldn't be actually used.
-// Defined just to avoid the assert.
-template <>
-inline __m128i	ToolsSse2::create_store_mask <float> (int nbr_pix)
-{
-	return (_mm_setzero_si128 ());
-}
-
-template <>
-inline __m128i	ToolsSse2::create_store_mask <uint16_t> (int nbr_pix)
-{
-	assert (nbr_pix >= 0);
-	assert (nbr_pix < 8);
-
-	fstb_TYPEDEF_ALIGN (16, uint32_t, AlignUInt32 [8] [4]);
-
-	static const AlignUInt32   v =
+	VectF32        tmp_arr = { 0 };
+	while (len > 0)
 	{
-		{ 0x00000000, 0x00000000, 0x00000000, 0x00000000 },
-		{ 0x0000FFFF, 0x00000000, 0x00000000, 0x00000000 },
-		{ 0xFFFFFFFF, 0x00000000, 0x00000000, 0x00000000 },
-		{ 0xFFFFFFFF, 0x0000FFFF, 0x00000000, 0x00000000 },
-		{ 0xFFFFFFFF, 0xFFFFFFFF, 0x00000000, 0x00000000 },
-		{ 0xFFFFFFFF, 0xFFFFFFFF, 0x0000FFFF, 0x00000000 },
-		{ 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x00000000 },
-		{ 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x0000FFFF }
-	};
+		-- len;
+		tmp_arr [len] = reinterpret_cast <const float *> (ptr) [len];
+	}
+	const __m128   val = _mm_load_ps (tmp_arr);
 
-	const __m128i  mask_store = _mm_loadu_si128 (
-		reinterpret_cast <const __m128i *> (&v [nbr_pix] [0])
-	);
-
-	return (mask_store);
+	return (val);
 }
 
-template <>
-inline __m128i	ToolsSse2::create_store_mask <uint8_t> (int nbr_pix)
+
+
+__m128i	ToolsSse2::load_si128_partial (const void *ptr, int len)
 {
-	assert (nbr_pix >= 0);
-	assert (nbr_pix < 8);
+	assert (ptr != 0);
+	assert (len >= 0);
+	assert (len < 16);
 
-#if 0
-	const int      v0 = (nbr_pix >=  4) ? -1 : 0x00FFFFFF >> (( 3 - nbr_pix) * 8);
-	const int      v1 = (nbr_pix >=  8) ? -1 : 0x00FFFFFF >> (( 7 - nbr_pix) * 8);
-	const int      v2 = (nbr_pix >= 12) ? -1 : 0x00FFFFFF >> ((11 - nbr_pix) * 8);
-	const int      v3 = (nbr_pix <  12) ?  0 : 0x00FFFFFF >> ((15 - nbr_pix) * 8);
-	const __m128i  mask_store = _mm_set_epi32 (v3, v2, v1, v0);
+	int            tmp = 0;
+	if ((len & 1) != 0)
+	{
+		-- len;
+		tmp = *(reinterpret_cast <const uint8_t *> (ptr) + len);
+	}
+	if ((len & 2) != 0)
+	{
+		len -= 2;
+		tmp <<= 16;
+		const int      ofs = len >> 1;
+		tmp += *(reinterpret_cast <const uint16_t *> (ptr) + ofs);
+	}
+	__m128i        val;
+	if (len >= 8)
+	{
+		const int      tmp0 = *(reinterpret_cast <const int32_t *> (ptr)    );
+		const int      tmp1 = *(reinterpret_cast <const int32_t *> (ptr) + 1);
+		if (len == 8)
+		{
+			val = _mm_set_epi32 (0, tmp, tmp1, tmp0);
+		}
+		else
+		{
+			const int      tmp2 = *(reinterpret_cast <const int32_t *> (ptr) + 2);
+			val = _mm_set_epi32 (tmp, tmp2, tmp1, tmp0);
+		}
+	}
+	else
+	{
+		if (len == 0)
+		{
+			val = _mm_set_epi32 (0, 0, 0, tmp);
+		}
+		else
+		{
+			const int      tmp0 = *reinterpret_cast <const int32_t *> (ptr);
+			val = _mm_set_epi32 (0, 0, tmp, tmp0);
+		}
+	}
+
+	return (val);
+}
+
+
+
+__m128i	ToolsSse2::load_epi64_partial (const void *ptr, int len)
+{
+	assert (ptr != 0);
+	assert (len >= 0);
+	assert (len < 8);
+
+	int            tmp = 0;
+	if ((len & 1) != 0)
+	{
+		-- len;
+		tmp = *(reinterpret_cast <const uint8_t *> (ptr) + len);
+	}
+	if ((len & 2) != 0)
+	{
+		len -= 2;
+		tmp <<= 16;
+		const int      ofs = len >> 1;
+		tmp += *(reinterpret_cast <const uint16_t *> (ptr) + ofs);
+	}
+	__m128i        val;
+	if ((len & 4) != 0)
+	{
+		const int      tmp2 = *reinterpret_cast <const int32_t *> (ptr);
+		val = _mm_set_epi32 (0, 0, tmp, tmp2);
+	}
+	else
+	{
+		val = _mm_set_epi32 (0, 0, 0, tmp);
+	}
+
+	return (val);
+}
+
+
+
+void	ToolsSse2::store_ps_partial (void *ptr, __m128 val, int len)
+{
+	assert (ptr != 0);
+	assert (len >= 0);
+	assert (len < 4);
+
+	VectF32        tmp_arr;
+	_mm_store_ps (tmp_arr, val);
+	while (len > 0)
+	{
+		-- len;
+		reinterpret_cast <float *> (ptr) [len] = tmp_arr [len];
+	}
+}
+
+
+
+void	ToolsSse2::store_si128_partial (void *ptr, __m128i val, int len)
+{
+	assert (ptr != 0);
+	assert (len >= 0);
+	assert (len < 16);
+
+	union
+	{
+		VectI08        v08;
+		VectI16        v16;
+		VectI32        v32;
+		VectI64        v64;
+		__m128i        m;
+	}              tmp;
+	_mm_store_si128 (&tmp.m, val);
+
+	if ((len & 1) != 0)
+	{
+		*(reinterpret_cast <uint8_t  *> (ptr) + len - 1) = tmp.v08 [len - 1];
+	}
+	len >>= 1;
+	if ((len & 1) != 0)
+	{
+		*(reinterpret_cast <uint16_t *> (ptr) + len - 1) = tmp.v16 [len - 1];
+	}
+	len >>= 1;
+	if ((len & 1) != 0)
+	{
+		*(reinterpret_cast <uint32_t *> (ptr) + len - 1) = tmp.v32 [len - 1];
+	}
+	len >>= 1;
+	if (len != 0)
+	{
+		* reinterpret_cast <uint64_t *> (ptr)            = tmp.v64 [0      ];
+	}
+}
+
+
+
+void	ToolsSse2::store_epi64_partial (void *ptr, __m128i val, int len)
+{
+	assert (ptr != 0);
+	assert (len >= 0);
+	assert (len < 8);
+
+#if (fstb_WORD_SIZE == 64)
+
+	uint64_t       tmp = _mm_cvtsi128_si64 (val);
+	if ((len & 4) != 0)
+	{
+		*reinterpret_cast <uint32_t *> (ptr) = uint32_t (tmp);
+		ptr = reinterpret_cast <uint32_t *> (ptr) + 1;
+		tmp >>= 32;
+	}
+	if ((len & 2) != 0)
+	{
+		*reinterpret_cast <uint16_t *> (ptr) = uint16_t (tmp);
+		ptr = reinterpret_cast <uint16_t *> (ptr) + 1;
+		tmp >>= 16;
+	}
+	if ((len & 1) != 0)
+	{
+		*reinterpret_cast <uint8_t *> (ptr) = uint8_t (tmp);
+	}
+
 #else
-	const int      v0 = (nbr_pix >= 4) ? -1 : 0x00FFFFFF >> ((3 - nbr_pix) * 8);
-	const int      v1 = (nbr_pix <  4) ?  0 : 0x00FFFFFF >> ((7 - nbr_pix) * 8);
-	const __m128i  mask_store = _mm_set_epi32 (0, 0, v1, v0);
-#endif
 
-	return (mask_store);
+	union
+	{
+		VectI08        v08;
+		VectI16        v16;
+		VectI32        v32;
+		__m128i        m;
+	}              tmp;
+	_mm_store_si128 (&tmp.m, val);
+
+	if ((len & 1) != 0)
+	{
+		*(reinterpret_cast <uint8_t  *> (ptr) + len - 1) = tmp.v08 [len - 1];
+	}
+	len >>= 1;
+	if ((len & 1) != 0)
+	{
+		*(reinterpret_cast <uint16_t *> (ptr) + len - 1) = tmp.v16 [len - 1];
+	}
+	len >>= 1;
+	if (len != 0)
+	{
+		*(reinterpret_cast <uint32_t *> (ptr) + len - 1) = tmp.v32 [len - 1];
+	}
+
+#endif
 }
 
 

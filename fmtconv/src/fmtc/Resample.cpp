@@ -26,7 +26,7 @@ http://sam.zoy.org/wtfpl/COPYING for more details.
 
 #include "fmtc/Resample.h"
 #include "fmtc/SplFmtUtl.h"
-#include "fstb/CpuId.h"
+#include "vsutl/CpuOpt.h"
 #include "vsutl/fnc.h"
 #include "vsutl/FrameRefSPtr.h"
 #include "vsutl/PlaneProcMode.h"
@@ -97,9 +97,9 @@ Resample::Resample (const ::VSMap &in, ::VSMap &out, void *user_data_ptr, ::VSCo
 	assert (&core != 0);
 	assert (&vsapi != 0);
 
-	fstb::CpuId    cid;
-	_sse2_flag = cid._sse2_flag;
-	_avx2_flag = cid._avx2_flag;
+	vsutl::CpuOpt  cpu_opt (*this, in, out);
+	_sse2_flag = cpu_opt.has_sse2 ();
+	_avx2_flag = cpu_opt.has_avx2 ();
 
 	// Checks the input clip
 	if (! vsutl::is_constant_format (_vi_in))

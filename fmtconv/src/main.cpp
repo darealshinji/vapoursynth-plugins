@@ -41,7 +41,15 @@ http://sam.zoy.org/wtfpl/COPYING for more details.
 
 
 
+#define main_HISTLUMA
+#undef  main_INT16TOFLOAT
+#undef  main_FLOATTOINT16
+
 #include "vsutl/fnc.h"
+
+
+
+#if defined (main_HISTLUMA)
 
 class TmpHistLuma
 :	public vsutl::FilterBase
@@ -183,6 +191,10 @@ private:
 
 };
 
+#endif   // main_HISTLUMA
+
+#if defined (main_INT16TOFLOAT)
+
 class TmpInt16ToFloat
 :	public vsutl::FilterBase
 {
@@ -297,6 +309,10 @@ private:
 	bool           _full_flag;
 
 };
+
+#endif   // main_INT16TOFLOAT
+
+#if defined (main_FLOATTOINT16)
 
 class TmpFloatToInt16
 :	public vsutl::FilterBase
@@ -415,6 +431,8 @@ private:
 
 };
 
+#endif   // main_FLOATTOINT16
+
 
 
 /*############################################################################
@@ -485,6 +503,7 @@ VS_EXTERNAL_API (void) VapourSynthPluginInit (::VSConfigPlugin config_fnc, ::VSR
 		"tff:int:opt;"
 		"tffd:int:opt;"
 		"flt:int:opt;"
+		"cpuopt:int:opt;"
 		, &vsutl::Redirect <fmtc::Resample>::create, 0, plugin_ptr
 	);
 
@@ -500,6 +519,7 @@ VS_EXTERNAL_API (void) VapourSynthPluginInit (::VSConfigPlugin config_fnc, ::VSR
 		"col_fam:int:opt;"  // Same goal as csp, but takes precedence over it.
 		"bits:int:opt;"
 		"singleout:int:opt;"
+		"cpuopt:int:opt;"
 		, &vsutl::Redirect <fmtc::Matrix>::create, 0, plugin_ptr
 	);
 
@@ -508,6 +528,7 @@ VS_EXTERNAL_API (void) VapourSynthPluginInit (::VSConfigPlugin config_fnc, ::VSR
 		"full:int:opt;"
 		"csp:int:opt;"
 		"bits:int:opt;"
+		"cpuopt:int:opt;"
 		, &vsutl::Redirect <fmtc::Matrix2020CL>::create, 0, plugin_ptr
 	);
 
@@ -524,6 +545,7 @@ VS_EXTERNAL_API (void) VapourSynthPluginInit (::VSConfigPlugin config_fnc, ::VSR
 		"ampn:float:opt;"
 		"dyn:int:opt;"
 		"staticnoise:int:opt;"
+		"cpuopt:int:opt;"
 		, &vsutl::Redirect <fmtc::Bitdepth>::create, 0, plugin_ptr
 	);
 
@@ -537,6 +559,7 @@ VS_EXTERNAL_API (void) VapourSynthPluginInit (::VSConfigPlugin config_fnc, ::VSR
 		"flt:int:opt;"
 		"fulls:int:opt;"
 		"fulld:int:opt;"
+		"cpuopt:int:opt;"
 		, &vsutl::Redirect <fmtc::Transfer>::create, 0, plugin_ptr
 	);
 
@@ -602,6 +625,8 @@ VS_EXTERNAL_API (void) VapourSynthPluginInit (::VSConfigPlugin config_fnc, ::VSR
 		"transs:data[]:opt;"
 		"transd:data[]:opt;"
 		"gcor:float:opt;"
+		"cont:float:opt;"
+		"cpuopt:int:opt;"
 		, &vsutl::Redirect <fmtc::Convert>::create, 0, plugin_ptr
 	);
 #endif
@@ -617,22 +642,28 @@ VS_EXTERNAL_API (void) VapourSynthPluginInit (::VSConfigPlugin config_fnc, ::VSR
 	);
 
 //### TEMPORARY ##############################################################
+#if defined (main_HISTLUMA)
 	register_fnc ("histluma",
 		"clip:clip;"
 		"full:int:opt;"
 		"amp:int:opt;"
 		, &vsutl::Redirect <TmpHistLuma>::create, 0, plugin_ptr
 	);
+#endif
+#if defined (main_INT16TOFLOAT)
 	register_fnc ("int16tofloat",
 		"clip:clip;"
 		"full:int:opt;"
 		, &vsutl::Redirect <TmpInt16ToFloat>::create, 0, plugin_ptr
 	);
+#endif
+#if defined (main_FLOATTOINT16)
 	register_fnc ("floattoint16",
 		"clip:clip;"
 		"full:int:opt;"
 		, &vsutl::Redirect <TmpFloatToInt16>::create, 0, plugin_ptr
 	);
+#endif
 //### END OF TEMPORARY #######################################################
 }
 

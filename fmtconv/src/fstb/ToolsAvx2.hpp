@@ -22,6 +22,8 @@ http://sam.zoy.org/wtfpl/COPYING for more details.
 
 /*\\\ INCLUDE FILES \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\*/
 
+#include "fstb/ToolsSse2.h"
+
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -89,6 +91,56 @@ __m256i	ToolsAvx2::load_16_16l (const void *lsb_ptr)
 	));
 
 	return (val_lsb);
+}
+
+
+
+__m256i	ToolsAvx2::load_16_16ml_partial (const void *msb_ptr, const void *lsb_ptr, int len)
+{
+	assert (msb_ptr != 0);
+	assert (lsb_ptr != 0);
+	assert (len >= 0);
+	assert (len < 16);
+
+	const __m256i  val_msb =
+		_mm256_cvtepu8_epi16 (ToolsSse2::load_si128_partial (msb_ptr, len));
+	const __m256i  val_lsb =
+		_mm256_cvtepu8_epi16 (ToolsSse2::load_si128_partial (lsb_ptr, len));
+	const __m256i  val = _mm256_or_si256 (
+		_mm256_slli_epi16 (val_msb, 8),
+		val_lsb
+	);
+
+	return (val);
+}
+
+
+
+__m256i	ToolsAvx2::load_16_16m_partial (const void *msb_ptr, int len)
+{
+	assert (msb_ptr != 0);
+	assert (len >= 0);
+	assert (len < 16);
+
+	const __m256i  val_msb =
+		_mm256_cvtepu8_epi16 (ToolsSse2::load_si128_partial (msb_ptr, len));
+	const __m256i  val = _mm256_slli_epi16 (val_msb, 8);
+
+	return (val);
+}
+
+
+
+__m256i	ToolsAvx2::load_16_16l_partial (const void *lsb_ptr, int len)
+{
+	assert (lsb_ptr != 0);
+	assert (len >= 0);
+	assert (len < 16);
+
+	const __m256i  val =
+		_mm256_cvtepu8_epi16 (ToolsSse2::load_si128_partial (lsb_ptr, len));
+
+	return (val);
 }
 
 
@@ -178,11 +230,13 @@ void	ToolsAvx2::store_16_16l (void *lsb_ptr, __m256i val, __m256i mask_lsb)
 
 
 
-void	ToolsAvx2::store_16_16ml_partial (void *msb_ptr, void *lsb_ptr, __m256i val, __m256i mask_lsb, __m256i mask_store)
+void	ToolsAvx2::store_16_16ml_partial (void *msb_ptr, void *lsb_ptr, __m256i val, __m256i mask_lsb, int len)
 {
 	assert (msb_ptr != 0);
 	assert (lsb_ptr != 0);
 	assert (lsb_ptr != msb_ptr);
+	assert (len >= 0);
+	assert (len < 16);
 	
 	const __m256i	lsb = _mm256_and_si256 (mask_lsb, val);
 	__m256i			msb = _mm256_andnot_si256 (mask_lsb, val);
@@ -193,20 +247,21 @@ void	ToolsAvx2::store_16_16ml_partial (void *msb_ptr, void *lsb_ptr, __m256i val
 
 	const __m128i  lsb128 = _mm256_castsi256_si128 (lsbmsb);
 	const __m128i  msb128 = _mm256_extractf128_si256 (lsbmsb, 1);
-	const __m128i  msk128 = _mm256_castsi256_si128 (mask_store);
 
-	_mm_maskmoveu_si128 (msb128, msk128, reinterpret_cast <char *> (msb_ptr));
-	_mm_maskmoveu_si128 (lsb128, msk128, reinterpret_cast <char *> (lsb_ptr));
+	ToolsSse2::store_si128_partial (msb_ptr, msb128, len);
+	ToolsSse2::store_si128_partial (lsb_ptr, lsb128, len);
 }
 
 
 
-void	ToolsAvx2::store_16_16ml_perm_partial (void *msb_ptr, void *lsb_ptr, __m256i val, __m256i mask_lsb, __m256i permute, const __m256i &mask_store)
+void	ToolsAvx2::store_16_16ml_perm_partial (void *msb_ptr, void *lsb_ptr, __m256i val, __m256i mask_lsb, __m256i permute, int len)
 {
 	assert (msb_ptr != 0);
 	assert (lsb_ptr != 0);
 	assert (lsb_ptr != msb_ptr);
-	
+	assert (len >= 0);
+	assert (len < 16);
+
 	const __m256i	lsb = _mm256_and_si256 (mask_lsb, val);
 	__m256i			msb = _mm256_andnot_si256 (mask_lsb, val);
 	msb = _mm256_srli_si256 (msb, 1);
@@ -216,110 +271,152 @@ void	ToolsAvx2::store_16_16ml_perm_partial (void *msb_ptr, void *lsb_ptr, __m256
 
 	const __m128i  lsb128 = _mm256_castsi256_si128 (lsbmsb);
 	const __m128i  msb128 = _mm256_extractf128_si256 (lsbmsb, 1);
-	const __m128i  msk128 = _mm256_castsi256_si128 (mask_store);
 
-	_mm_maskmoveu_si128 (msb128, msk128, reinterpret_cast <char *> (msb_ptr));
-	_mm_maskmoveu_si128 (lsb128, msk128, reinterpret_cast <char *> (lsb_ptr));
+	ToolsSse2::store_si128_partial (msb_ptr, msb128, len);
+	ToolsSse2::store_si128_partial (lsb_ptr, lsb128, len);
 }
 
 
 
-void	ToolsAvx2::store_16_16m_partial (void *msb_ptr, __m256i val, __m256i mask_lsb, __m256i mask_store)
+void	ToolsAvx2::store_16_16m_partial (void *msb_ptr, __m256i val, __m256i mask_lsb, int len)
 {
 	assert (msb_ptr != 0);
+	assert (len >= 0);
+	assert (len < 16);
 
 	__m256i        msb = _mm256_andnot_si256 (mask_lsb, val);
 	msb = _mm256_srli_si256 (msb, 1);
 	msb = _mm256_packus_epi16 (msb, msb);
 	msb = _mm256_permute4x64_epi64 (msb, (0<<0) + (2<<2));
-	_mm_maskmoveu_si128 (
-		_mm256_castsi256_si128 (msb),
-		_mm256_castsi256_si128 (mask_store),
-		reinterpret_cast <char *> (msb_ptr)
-	);
+	const __m128i  msb128 = _mm256_castsi256_si128 (msb);
+	ToolsSse2::store_si128_partial (msb_ptr, msb128, len);
 }
 
 
 
-void	ToolsAvx2::store_16_16l_partial (void *lsb_ptr, __m256i val, __m256i mask_lsb, __m256i mask_store)
+void	ToolsAvx2::store_16_16l_partial (void *lsb_ptr, __m256i val, __m256i mask_lsb, int len)
 {
 	assert (lsb_ptr != 0);
+	assert (len >= 0);
+	assert (len < 16);
 
 	__m256i        lsb = _mm256_and_si256 (mask_lsb, val);
 	lsb = _mm256_packus_epi16 (lsb, lsb);
 	lsb = _mm256_permute4x64_epi64 (lsb, (0<<0) + (2<<2));
-	_mm_maskmoveu_si128 (
-		_mm256_castsi256_si128 (lsb),
-		_mm256_castsi256_si128 (mask_store),
-		reinterpret_cast <char *> (lsb_ptr)
-	);
+	const __m128i  lsb128 = _mm256_castsi256_si128 (lsb);
+	ToolsSse2::store_si128_partial (lsb_ptr, lsb128, len);
 }
 
 
 
-void	ToolsAvx2::store_partial (void *ptr, __m256i val, __m256i mask_store)
+__m256	ToolsAvx2::load_ps_partial (const void *ptr, int len)
 {
 	assert (ptr != 0);
+	assert (len >= 0);
+	assert (len < 8);
+
+	__m256         val;
+	if (len >= 4)
+	{
+		const __m128   src_0 =
+			_mm_loadu_ps (reinterpret_cast <const float *> (ptr));
+		const __m128   src_1 = ToolsSse2::load_ps_partial (
+			reinterpret_cast <const char *> (ptr) + sizeof (src_0),
+			len - 4
+		);
+		val = _mm256_insertf128_ps (
+			_mm256_castps128_ps256 (src_0), src_1, 1
+		);
+	}
+	else
+	{
+		const __m128   src_0 = ToolsSse2::load_ps_partial (ptr, len);
+		val = _mm256_insertf128_ps (
+			_mm256_castps128_ps256 (src_0), _mm_setzero_ps (), 1
+		);
+	}
+
+	return (val);
+}
+
+
+
+__m256i	ToolsAvx2::load_si256_partial (const void *ptr, int len)
+{
+	assert (ptr != 0);
+	assert (len >= 0);
+	assert (len < 32);
+
+	__m256i        val;
+	if (len >= 16)
+	{
+		const __m128i  src_0 =
+			_mm_loadu_si128 (reinterpret_cast <const __m128i *> (ptr));
+		const __m128i  src_1 = ToolsSse2::load_si128_partial (
+			reinterpret_cast <const char *> (ptr) + sizeof (src_0),
+			len - 16
+		);
+		val = _mm256_insertf128_si256 (
+			_mm256_castsi128_si256 (src_0), src_1, 1
+		);
+	}
+	else
+	{
+		const __m128i  src_0 = ToolsSse2::load_si128_partial (ptr, len);
+		val = _mm256_insertf128_si256 (
+			_mm256_castsi128_si256 (src_0), _mm_setzero_si128 (), 1
+		);
+	}
+
+	return (val);
+}
+
+
+
+void	ToolsAvx2::store_ps_partial (void *ptr, __m256 val, int len)
+{
+	assert (ptr != 0);
+	assert (len >= 0);
+	assert (len < 8);
+
+	const __m128   val_0 = _mm256_castps256_ps128 (val);
+	if (len >= 4)
+	{
+		_mm_storeu_ps (reinterpret_cast <float *> (ptr), val_0);
+		const __m128   val_1 = _mm256_extractf128_ps (val, 1);
+		ToolsSse2::store_ps_partial (
+			reinterpret_cast <char *> (ptr) + sizeof (val_0), val_1, len - 4
+		);
+	}
+	else
+	{
+		ToolsSse2::store_ps_partial (
+			reinterpret_cast <char *> (ptr)                 , val_0, len
+		);
+	}
+}
+
+
+
+void	ToolsAvx2::store_si256_partial (void *ptr, __m256i val, int len)
+{
+	assert (ptr != 0);
+	assert (len >= 0);
+	assert (len < 32);
 
 	const __m128i  val_0 = _mm256_castsi256_si128 (val);
-	const __m128i  val_1 = _mm256_extractf128_si256 (val, 1);
-	const __m128i  msk_0 = _mm256_castsi256_si128 (mask_store);
-	const __m128i  msk_1 = _mm256_extractf128_si256 (mask_store, 1);
-
-	_mm_maskmoveu_si128 (val_0, msk_0, reinterpret_cast <char *> (ptr)                 );
-	_mm_maskmoveu_si128 (val_1, msk_1, reinterpret_cast <char *> (ptr) + sizeof (val_0));
-}
-
-
-
-// Shouldn't be actually used.
-// Defined just to avoid the assert.
-template <>
-inline __m256i	ToolsAvx2::create_store_mask <float> (int nbr_pix)
-{
-	return (_mm256_setzero_si256 ());
-}
-
-template <>
-inline __m256i	ToolsAvx2::create_store_mask <uint16_t> (int nbr_pix)
-{
-	assert (nbr_pix >= 0);
-	assert (nbr_pix < 16);
-
-	static const uint16_t   v [16+16] =
+	if (len >= 16)
 	{
-		0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
-		0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
-		0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
-		0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000
-	};
-
-	const __m256i	mask_store = _mm256_loadu_si256 (
-		reinterpret_cast <const __m256i *> (&v [16 - nbr_pix])
-	);
-
-	return (mask_store);
-}
-
-template <>
-inline __m256i	ToolsAvx2::create_store_mask <uint8_t> (int nbr_pix)
-{
-	assert (nbr_pix >= 0);
-	assert (nbr_pix < 16);
-
-	const int64_t  ma = (int64_t (1) << 56) - 1; // 0x00FF FFFF FFFF FFFF
-	const int64_t  v0 = (nbr_pix >= 8) ? -1 : ma >> (( 7 - nbr_pix) * 8);
-	const int64_t  v1 = (nbr_pix <  8) ?  0 : ma >> ((15 - nbr_pix) * 8);
-#if defined (_MSC_VER) && ! (defined (_WIN64) || defined (__64BIT__) || defined (__amd64__) || defined (__x86_64__))
-	const __m256i  mask_store = _mm256_set_epi32 (
-		0, 0, 0, 0,
-		int (v1 >> 32), int (v1), int (v0 >> 32), int (v0)
-	);
-#else
-	const __m256i  mask_store = _mm256_set_epi64x (0, 0, v1, v0);
-#endif
-
-	return (mask_store);
+		_mm_storeu_si128 (reinterpret_cast <__m128i *> (ptr), val_0);
+		const __m128i  val_1 = _mm256_extractf128_si256 (val, 1);
+		ToolsSse2::store_si128_partial (
+			reinterpret_cast <char *> (ptr) + sizeof (val_0), val_1, len - 16
+		);
+	}
+	else
+	{
+		ToolsSse2::store_si128_partial (reinterpret_cast <char *> (ptr)                 , val_0, len     );
+	}
 }
 
 

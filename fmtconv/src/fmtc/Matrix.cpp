@@ -5,8 +5,6 @@
 
 TO DO:
 	- Make the SSE2 code use aligned read/write.
-	- In the SSE2 code, swap the plane and the row loops for a more efficient
-		cache use.
 	- Make a special case for kRkGkB matrix conversions, where the luma plane
 		is not used to compute the chroma planes.
 
@@ -35,10 +33,10 @@ http://sam.zoy.org/wtfpl/COPYING for more details.
 #include "conc/Array.h"
 #include "fmtc/Matrix.h"
 #if (fstb_ARCHI == fstb_ARCHI_X86)
-	#include "fmtcl/ProxyRwSse.h"
+	#include "fmtcl/ProxyRwSse2.h"
 #endif
-#include "fstb/CpuId.h"
 #include "fstb/fnc.h"
+#include "vsutl/CpuOpt.h"
 #include "vsutl/fnc.h"
 #include "vsutl/FrameRefSPtr.h"
 
@@ -86,11 +84,11 @@ Matrix::Matrix (const ::VSMap &in, ::VSMap &out, void * /*user_data_ptr*/, ::VSC
 	assert (&core != 0);
 	assert (&vsapi != 0);
 
-	fstb::CpuId    cid;
-	_sse_flag  = cid._sse_flag;
-	_sse2_flag = cid._sse2_flag;
-	_avx_flag  = cid._avx_flag;
-	_avx2_flag = cid._avx2_flag;
+	vsutl::CpuOpt  cpu_opt (*this, in, out);
+	_sse_flag  = cpu_opt.has_sse ();
+	_sse2_flag = cpu_opt.has_sse2 ();
+	_avx_flag  = cpu_opt.has_avx ();
+	_avx2_flag = cpu_opt.has_avx2 ();
 
 	// Checks the input clip
 	if (_vi_in.format == 0)
@@ -242,10 +240,10 @@ Matrix::Matrix (const ::VSMap &in, ::VSMap &out, void * /*user_data_ptr*/, ::VSC
 		{
 			for (int x = 0; x < NBR_PLANES + 1; ++x)
 			{
-				_mat_main [y] [x] = (x == y && x < NBR_PLANES) ? 1 : 0;
+				_mat_main [y] [x] = (x == y) ? 1 : 0;
 
-				if (   x < fmt_src.numPlanes
-				    && y < fmt_dst.numPlanes)
+				if (   (x < fmt_src.numPlanes || x == NBR_PLANES)
+				    &&  y < fmt_dst.numPlanes)
 				{
 					int            err = 0;
 					const int      index = y * (fmt_src.numPlanes + 1) + x;
@@ -258,7 +256,6 @@ Matrix::Matrix (const ::VSMap &in, ::VSMap &out, void * /*user_data_ptr*/, ::VSC
 				}
 			}
 		}
-
 
 		mat_init_flag = true;
 	}
@@ -373,15 +370,15 @@ Matrix::Matrix (const ::VSMap &in, ::VSMap &out, void * /*user_data_ptr*/, ::VSC
 #define Matrix_CASE_SSE2(DST, DB, SRC, SB) \
 			case	(DB << 8) + (SB << 1) + 0: \
 				_apply_matrix_ptr = &ThisType::apply_matrix_n_sse2_int < \
-					fmtcl::ProxyRwSse <fmtcl::SplFmt_##DST>, DB, \
-					fmtcl::ProxyRwSse <fmtcl::SplFmt_##SRC>, SB, \
+					fmtcl::ProxyRwSse2 <fmtcl::SplFmt_##DST>, DB, \
+					fmtcl::ProxyRwSse2 <fmtcl::SplFmt_##SRC>, SB, \
 					3 \
 				>; \
 				break; \
 			case	(DB << 8) + (SB << 1) + 1: \
 				_apply_matrix_ptr = &ThisType::apply_matrix_n_sse2_int < \
-					fmtcl::ProxyRwSse <fmtcl::SplFmt_##DST>, DB, \
-					fmtcl::ProxyRwSse <fmtcl::SplFmt_##SRC>, SB, \
+					fmtcl::ProxyRwSse2 <fmtcl::SplFmt_##DST>, DB, \
+					fmtcl::ProxyRwSse2 <fmtcl::SplFmt_##SRC>, SB, \
 					1 \
 				>; \
 				break;
@@ -787,7 +784,7 @@ void	Matrix::apply_matrix_1_cpp_int (::VSFrameRef &dst, const ::VSFrameRef &src,
 
 #if (fstb_ARCHI == fstb_ARCHI_X86)
 
-// DST and SRC are ProxyRwSse classes
+// DST and SRC are ProxyRwSse2 classes
 template <class DST, int DB, class SRC, int SB, int NP>
 void	Matrix::apply_matrix_n_sse2_int (::VSFrameRef &dst, const ::VSFrameRef &src, int w, int h)
 {
@@ -815,25 +812,24 @@ void	Matrix::apply_matrix_n_sse2_int (::VSFrameRef &dst, const ::VSFrameRef &src
 		_coef_simd_arr.use_vect_sse2 (0)
 	);
 
-	// Would it be faster to loop over lines then over planes? At least
-	// we would have more chance to keep the input line in the L1 cache.
+	// Loop over lines then over planes helps keeping input data
+	// in the cache.
 	const int      nbr_planes = std::min (_vi_out.format->numPlanes, NP);
-	for (int plane_index = 0; plane_index < nbr_planes; ++ plane_index)
+	const int      src_0_str = _vsapi.getStride (&src, 0);
+	const int      src_1_str = _vsapi.getStride (&src, 1);
+	const int      src_2_str = _vsapi.getStride (&src, 2);
+
+	for (int y = 0; y < h; ++y)
 	{
-		const uint8_t* src_0_ptr = _vsapi.getReadPtr (&src, 0);
-		const uint8_t* src_1_ptr = _vsapi.getReadPtr (&src, 1);
-		const uint8_t* src_2_ptr = _vsapi.getReadPtr (&src, 2);
-		const int      src_0_str = _vsapi.getStride (&src, 0);
-		const int      src_1_str = _vsapi.getStride (&src, 1);
-		const int      src_2_str = _vsapi.getStride (&src, 2);
-
-		uint8_t *      dst_ptr   = _vsapi.getWritePtr (&dst, plane_index);
-		const int      dst_str   = _vsapi.getStride (&dst, plane_index);
-
-		const int      cind = plane_index * (NBR_PLANES + 1);
-
-		for (int y = 0; y < h; ++y)
+		for (int plane_index = 0; plane_index < nbr_planes; ++ plane_index)
 		{
+			const uint8_t* src_0_ptr = _vsapi.getReadPtr (&src, 0) + y * src_0_str;
+			const uint8_t* src_1_ptr = _vsapi.getReadPtr (&src, 1) + y * src_1_str;
+			const uint8_t* src_2_ptr = _vsapi.getReadPtr (&src, 2) + y * src_2_str;
+			const int      dst_str   = _vsapi.getStride (&dst, plane_index);
+			uint8_t *      dst_ptr   = _vsapi.getWritePtr (&dst, plane_index) + y * dst_str;
+			const int      cind      = plane_index * (NBR_PLANES + 1);
+
 			for (int x = 0; x < w; x += 8)
 			{
 				typedef typename SRC::template S16 <false     , (SB == 16)> SrcS16R;
@@ -883,12 +879,6 @@ void	Matrix::apply_matrix_n_sse2_int (::VSFrameRef &dst, const ::VSFrameRef &src
 					sign_bit
 				);
 			}
-
-			src_0_ptr += src_0_str;
-			src_1_ptr += src_1_str;
-			src_2_ptr += src_2_str;
-
-			dst_ptr   += dst_str;
 		}
 	}
 }
@@ -1277,7 +1267,7 @@ void	Matrix::prepare_coef_flt (const ::VSFormat &fmt_dst, const ::VSFormat &fmt_
 		{ 1, 0, 0, 0 },
 		{ 0, 1, 0, 0 },
 		{ 0, 0, 1, 0 },
-		{ 0, 0, 0, 0 }
+		{ 0, 0, 0, 1 }
 	};
 
 	::VSFormat     fmt_dst2 = fmt_dst;
@@ -1533,11 +1523,11 @@ Y =                  R * Kr        + G * Kg        + B * Kb
 U = (B-Y)/(1-Kb) = - R * Kr/(1-Kb) - G * Kg/(1-Kb) + B
 V = (R-Y)/(1-Kr) =   R             - G * Kg/(1-Kr) - B * Kb/(1-Kr)
 
-R, G, B, Y range : [0 ; 1]
-U, V range : [-0.5 ; 0.5]
-
 The given equations work for R, G, B in range [0 ; 1] and U and V in range
 [-1 ; 1]. Scaling must be applied to match the required range for U and V.
+
+R, G, B, Y range : [0 ; 1]
+U, V range : [-0.5 ; 0.5]
 */
 
 void	Matrix::make_mat_yuv (Mat4 &m, double kr, double kg, double kb, bool to_rgb_flag)
@@ -1583,7 +1573,7 @@ R, G, B, Y range : [0 ; 1]
 Cg, Co range : [-0.5 ; 0.5]
 
 Note: this implementation is not exactly the same as specified because the
-standard specifies specific steps to apply the RGB to YCgCo matrix, leading
+standard specifies specific steps to apply the RGB-to-YCgCo matrix, leading
 to different roundings.
 */
 

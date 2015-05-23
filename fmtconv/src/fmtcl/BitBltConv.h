@@ -54,7 +54,6 @@ public:
 		double         _add_cst;
 	};
 
-	               BitBltConv ();
 	explicit       BitBltConv (bool sse2_flag, bool avx2_flag);
 	               BitBltConv (const BitBltConv &other);
 	virtual        ~BitBltConv () {}
@@ -92,7 +91,7 @@ private:
 	static void    bitblt_int_to_flt_cpp (uint8_t *dst_ptr, int dst_stride, typename SRC::PtrConst::Type src_ptr, int src_stride, int w, int h, const ScaleInfo *scale_info_ptr);
 #if (fstb_ARCHI == fstb_ARCHI_X86)
 	template <bool SF, class SRC, int SBD>
-	static void    bitblt_int_to_flt_sse (uint8_t *dst_ptr, int dst_stride, typename SRC::PtrConst::Type src_ptr, int src_stride, int w, int h, const ScaleInfo *scale_info_ptr);
+	static void    bitblt_int_to_flt_sse2 (uint8_t *dst_ptr, int dst_stride, typename SRC::PtrConst::Type src_ptr, int src_stride, int w, int h, const ScaleInfo *scale_info_ptr);
 	template <bool SF, class SRC, int SBD>
 	static void    bitblt_int_to_flt_avx2 (uint8_t *dst_ptr, int dst_stride, typename SRC::PtrConst::Type src_ptr, int src_stride, int w, int h, const ScaleInfo *scale_info_ptr);
 #endif
@@ -101,7 +100,7 @@ private:
 	static void    bitblt_flt_to_int_cpp (typename DST::Ptr::Type dst_ptr, int dst_stride, const uint8_t *src_ptr, int src_stride, int w, int h, const ScaleInfo *scale_info_ptr);
 #if (fstb_ARCHI == fstb_ARCHI_X86)
 	template <bool SF, class DST>
-	static void    bitblt_flt_to_int_sse (typename DST::Ptr::Type dst_ptr, int dst_stride, const uint8_t *src_ptr, int src_stride, int w, int h, const ScaleInfo *scale_info_ptr);
+	static void    bitblt_flt_to_int_sse2 (typename DST::Ptr::Type dst_ptr, int dst_stride, const uint8_t *src_ptr, int src_stride, int w, int h, const ScaleInfo *scale_info_ptr);
 	template <bool SF, class DST>
 	static void    bitblt_flt_to_int_avx2 (typename DST::Ptr::Type dst_ptr, int dst_stride, const uint8_t *src_ptr, int src_stride, int w, int h, const ScaleInfo *scale_info_ptr);
 #endif
@@ -110,7 +109,7 @@ private:
 	static void    bitblt_ixx_to_x16_cpp (typename DST::Ptr::Type dst_ptr, int dst_stride, typename SRC::PtrConst::Type src_ptr, int src_stride, int w, int h);
 #if (fstb_ARCHI == fstb_ARCHI_X86)
 	template <class DST, class SRC, int DBD, int SBD>
-	static void    bitblt_ixx_to_x16_sse (typename DST::Ptr::Type dst_ptr, int dst_stride, typename SRC::PtrConst::Type src_ptr, int src_stride, int w, int h);
+	static void    bitblt_ixx_to_x16_sse2 (typename DST::Ptr::Type dst_ptr, int dst_stride, typename SRC::PtrConst::Type src_ptr, int src_stride, int w, int h);
 	template <class DST, class SRC, int DBD, int SBD>
 	static void    bitblt_ixx_to_x16_avx2 (typename DST::Ptr::Type dst_ptr, int dst_stride, typename SRC::PtrConst::Type src_ptr, int src_stride, int w, int h);
 #endif
@@ -124,6 +123,7 @@ private:
 
 private:
 
+	               BitBltConv ();
 	bool           operator == (const BitBltConv &other) const;
 	bool           operator != (const BitBltConv &other) const;
 
