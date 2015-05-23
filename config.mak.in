@@ -23,19 +23,49 @@ man1dir = $(mandir)/man1
 includedir = @includedir@
 oldincludedir = /usr/include
 
+
+# imagereader
 HAVE_NASM = @HAVE_NASM@
+
+# fluxsmooth, imagereader, mvtools, nnedi3
 HAVE_YASM = @HAVE_YASM@
+
+# imagereader
 HAVE_JPEG = @HAVE_JPEG@
+
+# imagereader
 HAVE_PNG = @HAVE_PNG@
+
+# ffms2, imagereader
 HAVE_ZLIB = @HAVE_ZLIB@
+
+# d2vsource, ffms2
 HAVE_AVCODEC = @HAVE_AVCODEC@
+
+# d2vsource, ffms2
 HAVE_AVFORMAT = @HAVE_AVFORMAT@
+
+# ffms2
 HAVE_AVRESAMPLE = @HAVE_AVRESAMPLE@
+
+# d2vsource, ffms2
 HAVE_AVUTIL = @HAVE_AVUTIL@
+
+# ffms2
 HAVE_SWSCALE = @HAVE_SWSCALE@
+
+# damb
 HAVE_SNDFILE = @HAVE_SNDFILE@
+
+# bm3d, dfttest, mvtools
 HAVE_FFTW3F = @HAVE_FFTW3F@
+
+# bm3d
+HAVE_FFTW3F_NEWER = @HAVE_FFTW3F_NEWER@
+
+# scxvid
 HAVE_XVID = @HAVE_XVID@
+
 
 CC = @CC@
 CXX = @CXX@
