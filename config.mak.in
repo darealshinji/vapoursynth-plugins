@@ -1,4 +1,6 @@
 
+PACKAGE_TARNAME = @PACKAGE_TARNAME@
+
 shell = @SHELL@
 
 srcdir = @srcdir@

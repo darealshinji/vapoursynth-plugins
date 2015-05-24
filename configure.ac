@@ -2,7 +2,7 @@ m4_include([ac/ax_cxx_compile_stdcxx_11.m4])
 m4_include([ac/ax_prog_nasm.m4])
 m4_include([ac/ax_prog_yasm.m4])
 
-AC_INIT([vapoursynth-plugins], [0], [https://github.com/darealshinji/vapoursynth-plugins])
+AC_INIT([vapoursynth-extra-plugins], [0], [https://github.com/darealshinji/vapoursynth-plugins])
 
 # programs
 AC_PROG_CXX
