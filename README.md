@@ -28,9 +28,7 @@ zlib1g-dev
 ```
 git clone https://github.com/darealshinji/vapoursynth-plugins.git
 cd vapoursynth-plugins
-git submodule init
-git submodule update
-
+./autogen.sh
 ./configure
 make
 make install
@@ -42,7 +40,7 @@ make install
 [adjust git20150322](https://github.com/dubhater/vapoursynth-adjust)<br>
 [bifrost 2.2](https://github.com/dubhater/vapoursynth-bifrost)<br>
 [bilateral r3](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Bilateral)<br>
-[bm3d git20150522](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-BM3D)<br>
+[bm3d r2](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-BM3D)<br>
 [combmask 0.0.1](https://github.com/chikuzen/CombMask)<br>
 [convo2d 0.2.0](https://github.com/chikuzen/convo2d)<br>
 [ctmf r2](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-CTMF)<br>
