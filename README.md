@@ -65,7 +65,7 @@ make install
 [it 1.2](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-IT)<br>
 [maskdetail git20141221](https://github.com/MonoS/VS-MaskDetail)<br>
 [msmoosh 1.1](https://github.com/dubhater/vapoursynth-msmoosh)<br>
-[mvtools 8](https://github.com/dubhater/vapoursynth-mvtools)<br>
+[mvtools 9](https://github.com/dubhater/vapoursynth-mvtools)<br>
 [nnedi3 5+git20150422](https://github.com/dubhater/vapoursynth-nnedi3)<br>
 [rawsource git20130731](https://github.com/chikuzen/vsrawsource)<br>
 [retinex r3](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Retinex)<br>
