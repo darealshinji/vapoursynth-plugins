@@ -17,7 +17,7 @@ Build-Depends:
  nasm,
  yasm,
  zlib1g-dev
-Standards-Version: 3.9.5
+Standards-Version: 3.9.6
 Homepage: https://github.com/darealshinji/vapoursynth-plugins
 Vcs-Git: https://github.com/darealshinji/vapoursynth-plugins.git
 Vcs-Browser: https://github.com/darealshinji/vapoursynth-plugins
