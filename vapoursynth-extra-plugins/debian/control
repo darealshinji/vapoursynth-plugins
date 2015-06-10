@@ -4,8 +4,6 @@ Priority: optional
 Maintainer: Marshall Banana <djcj@gmx.de>
 Build-Depends:
  debhelper (>= 9),
- pkg-config,
- libvapoursynth-dev,
  libavcodec-dev,
  libavformat-dev,
  libavresample-dev,
