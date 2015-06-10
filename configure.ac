@@ -1,6 +1,6 @@
-m4_include([ac/ax_cxx_compile_stdcxx_11.m4])
-m4_include([ac/ax_prog_nasm.m4])
-m4_include([ac/ax_prog_yasm.m4])
+m4_include([include/ac/ax_cxx_compile_stdcxx_11.m4])
+m4_include([include/ac/ax_prog_nasm.m4])
+m4_include([include/ac/ax_prog_yasm.m4])
 
 AC_INIT([vapoursynth-extra-plugins], [0], [https://github.com/darealshinji/vapoursynth-plugins])
 
@@ -13,6 +13,13 @@ AX_PROG_NASM([nasm_avail="no"])
 AX_PROG_YASM([yasm_avail="no"])
 
 AX_CXX_COMPILE_STDCXX_11([noext],[mandatory])
+
+# VapourSynth header files
+ac_save_CPPFLAGS="${CPPFLAGS} -I/usr/include/vapoursynth -I../include -I../include/vapoursynth"
+CPPFLAGS="${CPPFLAGS} -I/usr/include/vapoursynth -Iinclude"
+AC_CHECK_HEADER([vapoursynth/VapourSynth.h], , [exit 1])
+AC_CHECK_HEADER([vapoursynth/VSHelper.h], , [exit 1])
+CPPFLAGS="$ac_save_CPPFLAGS"
 
 # libraries
 AC_CHECK_LIB([m], [sqrt], , [exit 1])
@@ -30,7 +37,7 @@ AC_CHECK_LIB([fftw3f], [fftwf_destroy_plan], , [fftw3f_avail="no"])
 AS_IF([test "x$fftw3f_avail" != "xno"], [
   fftw3_minimal="3.3.4"
   printf "checking for fftw >= ${fftw3_minimal}... "
-  AS_IF([test `ac/check-fftw3-version.sh ${fftw3_minimal}` -eq 0], [fftw3f_newer_avail="yes"], [fftw3f_newer_avail="no"])
+  AS_IF([test `include/ac/check-fftw3-version.sh ${fftw3_minimal}` -eq 0], [fftw3f_newer_avail="yes"], [fftw3f_newer_avail="no"])
   printf "$fftw3f_newer_avail\n"
 ])
 

@@ -49,6 +49,7 @@ SUBDIRS = \
 	zimg
 
 plugins = $(libdir)/vapoursynth/
+dist-packages := $(prefix)/lib/python3/dist-packages/vapoursynth-scripts
 
 ifeq ($(V), 1)
 MAKE = make V=1
@@ -70,9 +71,10 @@ install:
 	$(INSTALL) -d $(DESTDIR)$(plugins)
 	$(INSTALL) -d $(DESTDIR)$(docdir)
 	$(INSTALL) -d $(DESTDIR)$(prefix)/share/nnedi3
+	$(INSTALL) -d $(DESTDIR)$(dist-packages)
 
 	$(foreach LIB,$(shell ls */*.so),$(INSTALL_DATA) $(LIB) $(DESTDIR)$(plugins) $(NL))
-	$(foreach SCRIPT,$(shell ls */*.py),$(INSTALL_DATA) $(SCRIPT) $(DESTDIR)$(plugins) $(NL))
+	$(foreach SCRIPT,$(shell ls */*.py),$(INSTALL_DATA) $(SCRIPT) $(DESTDIR)$(dist-packages) $(NL))
 
 	$(INSTALL_DATA) README.md $(DESTDIR)$(docdir)
 	$(INSTALL_DATA) rawsource/format_list.txt $(DESTDIR)$(docdir)/rawsource_format_list
