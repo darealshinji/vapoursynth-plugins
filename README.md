@@ -36,7 +36,7 @@ make install
 
 
 **Plugins**:<br>
-[addgrain r4](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-AddGrain)<br>
+[addgrain r5](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-AddGrain)<br>
 [adjust git20150322](https://github.com/dubhater/vapoursynth-adjust)<br>
 [bifrost 2.2](https://github.com/dubhater/vapoursynth-bifrost)<br>
 [bilateral r3](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Bilateral)<br>
