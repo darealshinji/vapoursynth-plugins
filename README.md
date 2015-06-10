@@ -81,7 +81,7 @@ make install
 [templinearapproximate r3+git20141209](https://bitbucket.org/mystery_keeper/templinearapproximate-vapoursynth)<br>
 [temporalsoften 1.0](https://github.com/dubhater/vapoursynth-temporalsoften)<br>
 [temporalsoften2 0.1.1](http://forum.doom9.org/showthread.php?t=166769)<br>
-[vaguedenoiser r1+20150312](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-VagueDenoiser)<br>
+[vaguedenoiser r2](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-VagueDenoiser)<br>
 [vapoursynth-modules git20131225](https://github.com/4re/vapoursynth-modules/)<br>
 [vautodeint git20130608](https://github.com/gnaggnoyil/VAutoDeint)<br>
 [videoscope 1.0](https://github.com/dubhater/vapoursynth-videoscope)<br>
