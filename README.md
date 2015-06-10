@@ -47,7 +47,7 @@ make install
 [d2vsource beta7+git20140717](https://github.com/dwbuiten/d2vsource)<br>
 [damb r3](https://github.com/dubhater/vapoursynth-damb)<br>
 [dctfilter r2](https://bitbucket.org/mystery_keeper/vapoursynth-dctfilter)<br>
-[deblock r3](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Deblock)<br>
+[deblock r4](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Deblock)<br>
 [delogo 0.3+git20150415](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-DeLogo)<br>
 [dfttest r2](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-DFTTest)<br>
 [eedi2 r6](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-EEDI2)<br>

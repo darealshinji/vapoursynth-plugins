@@ -9,12 +9,12 @@ Usage
 
     deblock.Deblock(clip clip[, int quant=25, int aoffset=0, int boffset=0, int[] planes])
 
-- quant: the higher the quant, the stronger the deblocking. It can range from 0 to 60.
+* quant: The higher the quant, the stronger the deblocking. It can range from 0 to 60.
 
-- aoffset: quant modifier to the blocking detector threshold. Setting it higher means than more edges will deblocked.
+* aoffset: Quant modifier to the blocking detector threshold. Setting it higher means than more edges will deblocked.
 
-- boffset: another quant modifier, for block detecting and for deblocking's strength. There again, the higher, the stronger.
+* boffset: Another quant modifier, for block detecting and for deblocking's strength. There again, the higher, the stronger.
 
-- planes: a list of the planes to process. By default all planes are processed.
+* planes: A list of the planes to process. By default all planes are processed.
 
-If quant + aoffset is inferior to 16, the filter does nothing at all. The same goes for quant + boffset.
+If `quant` + `aoffset` is inferior to 16, the filter does nothing at all. The same goes for `quant` + `boffset`.
