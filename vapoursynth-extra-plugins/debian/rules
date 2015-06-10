@@ -1,8 +1,18 @@
 #!/usr/bin/make -f
 
+export V=1
+
 
 %:
-	dh ${@} --parallel
+	dh ${@} --parallel --with autoreconf
+
+override_dh_autoreconf:
+	dh_autoreconf ./autogen.sh
+
+override_dh_auto_clean:
+	touch config.mak
+	dh_auto_clean
+	rm -f nnedi3/src/nnedi3_weights.bin
 
 override_dh_auto_install:
 	touch nnedi3/src/nnedi3_weights.bin
