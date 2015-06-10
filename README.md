@@ -86,5 +86,5 @@ make install
 [vautodeint git20130608](https://github.com/gnaggnoyil/VAutoDeint)<br>
 [videoscope 1.0](https://github.com/dubhater/vapoursynth-videoscope)<br>
 [wwxd 1.0](https://github.com/dubhater/vapoursynth-wwxd)<br>
-[yadifmod r7](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Yadifmod)<br>
+[yadifmod r8](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Yadifmod)<br>
 [zimg git20141102](https://github.com/dubhater/zimg)
