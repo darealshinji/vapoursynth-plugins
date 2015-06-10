@@ -24,6 +24,7 @@
 
 #define _USE_MATH_DEFINES
 #include <algorithm>
+#include <cmath>
 #include <string>
 #include <fftw3.h>
 #include <vapoursynth/VapourSynth.h>
@@ -41,15 +42,18 @@ struct DFTTestData {
     float sigma, sigma2, pmin, pmax, sbeta, tbeta, f0beta;
     bool zmean, process[3];
     const char * nstring, * sstring, * ssx, * ssy, * sst;
-    int barea, bvolume, ccnt, type;
+    float divisor, multiplier;
+    int peak;
+    float lower[3], upper[3];
     const VSFormat * padFormat;
     int padWidth[3], padHeight[3], eheight[3];
+    int barea, bvolume, ccnt, type;
     float * hw, * sigmas, * sigmas2, * pmins, * pmaxs;
     fftwf_complex * dftgc;
     fftwf_plan ft, fti;
-    void (*proc0)(const uint8_t * s0, const float * s1, float * d, const int p0, const int p1, const int bitsPerSample);
+    void (*proc0)(const uint8_t * s0, const float * s1, float * d, const int p0, const int p1, const float divisor);
+    void (*cast)(const float * ebp, uint8_t * dstp, const int dstWidth, const int dstHeight, const int dstStride, const int width, const int plane, const DFTTestData * d);
     void (*filterCoeffs)(float * dftc, const float * sigmas, const int ccnt, const float * pmin, const float * pmax, const float * sigmas2);
-    void (*intcast)(const float * ebp, uint8_t * dstp, const int dstWidth, const int dstHeight, const int dstStride, const int width, const int bitsPerSample);
 };
 
 struct NPInfo {
@@ -66,7 +70,7 @@ static double besselI0(double p) {
         d *= k;
         v = n / d;
         t += v * v;
-    } while (++k < 15 && v > 1.0e-8);
+    } while (++k < 15 && v > 1e-8);
     return t;
 }
 
@@ -98,7 +102,7 @@ static double getWinValue(const double n, const double size, const int win, cons
     case 7: // rectangular
         return 1.;
     case 8: // Bartlett
-        return 2. / size * (size / 2. - std::fabs(n - size / 2.));
+        return 2. / size * (size / 2. - std::abs(n - size / 2.));
     case 9: // Bartlett-Hann
         return 0.62 - 0.48 * (n / size - 0.5) - 0.38 * std::cos(2. * M_PI * n / size);
     case 10: // Nuttall
@@ -163,7 +167,7 @@ static float * parseString(const char * s, int & poscnt, const float sigma, cons
                 return parray;
             }
             if (pos < 0.f || pos > 1.f) {
-                vsapi->setError(out, ("DFTTest: sigma string - invalid pos (" + std::to_string(pos) + ")").c_str());
+                vsapi->setError(out, std::string("DFTTest: sigma string - invalid pos (").append(std::to_string(pos)).append(")").c_str());
                 return parray;
             }
             if (pos == 0.f)
@@ -206,7 +210,7 @@ static float * parseString(const char * s, int & poscnt, const float sigma, cons
     return parray;
 }
 
-static float interp(const float pf, const float * VS_RESTRICT pv, const int cnt) {
+static float interp(const float pf, const float * pv, const int cnt) {
     int lidx = 0;
     for (int i = cnt - 1; i >= 0; i--) {
         if (pv[i * 2] <= pf) {
@@ -231,7 +235,7 @@ static float interp(const float pf, const float * VS_RESTRICT pv, const int cnt)
     return pv[lidx * 2 + 1] * (1.f - tf) + pv[hidx * 2 + 1] * tf;
 }
 
-static float getSVal(const int pos, const int len, const float * VS_RESTRICT pv, const int cnt, float & pf) {
+static float getSVal(const int pos, const int len, const float * pv, const int cnt, float & pf) {
     if (len == 1) {
         pf = 0.f;
         return 1.f;
@@ -245,7 +249,7 @@ static float getSVal(const int pos, const int len, const float * VS_RESTRICT pv,
 }
 
 #ifdef VS_TARGET_CPU_X86
-static void proc0_8(const uint8_t * _s0, const float * _s1, float * VS_RESTRICT d, const int p0, const int p1, const int bitsPerSample) {
+static void proc0_8(const uint8_t * _s0, const float * _s1, float * d, const int p0, const int p1, const float divisor) {
     for (int u = 0; u < p1; u++) {
         for (int v = 0; v < p1; v += 8) {
             const Vec16uc s016uc = Vec16uc().load(_s0 + v);
@@ -265,16 +269,17 @@ static void proc0_8(const uint8_t * _s0, const float * _s1, float * VS_RESTRICT 
     }
 }
 
-static void proc0_16(const uint8_t * _s0_, const float * _s1, float * VS_RESTRICT d, const int p0, const int p1, const int bitsPerSample) {
-    const uint16_t * _s0 = reinterpret_cast<const uint16_t *>(_s0_);
-    const Vec8f divisor(1.f / (1 << (bitsPerSample - 8)));
+static void proc0_16(const uint8_t * __s0, const float * _s1, float * d, const int p0, const int p1, const float _divisor) {
+    const uint16_t * _s0 = reinterpret_cast<const uint16_t *>(__s0);
+    const Vec8f divisor(_divisor);
+
     for (int u = 0; u < p1; u++) {
         for (int v = 0; v < p1; v += 8) {
             const Vec8us s08us = Vec8us().load(_s0 + v);
             const Vec8i s08i = Vec8i(extend_low(s08us), extend_high(s08us));
             Vec8f s0 = to_float(s08i);
             const Vec8f s1 = Vec8f().load(_s1 + v);
-            s0 *= s1 * divisor;
+            s0 *= divisor * s1;
             if (p1 - v >= 8)
                 s0.store(d + v);
             else
@@ -286,7 +291,27 @@ static void proc0_16(const uint8_t * _s0_, const float * _s1, float * VS_RESTRIC
     }
 }
 
-static void proc1(const float * _s0, const float * _s1, float * VS_RESTRICT _d, const int p0, const int p1) {
+static void proc0_32(const uint8_t * __s0, const float * _s1, float * d, const int p0, const int p1, const float divisor) {
+    const float * _s0 = reinterpret_cast<const float *>(__s0);
+    const Vec8f multiplier(255.f);
+
+    for (int u = 0; u < p1; u++) {
+        for (int v = 0; v < p1; v += 8) {
+            Vec8f s0 = Vec8f().load(_s0 + v);
+            const Vec8f s1 = Vec8f().load(_s1 + v);
+            s0 *= multiplier * s1;
+            if (p1 - v >= 8)
+                s0.store(d + v);
+            else
+                s0.store_partial(p1 - v, d + v);
+        }
+        _s0 += p0;
+        _s1 += p1;
+        d += p1;
+    }
+}
+
+static void proc1(const float * _s0, const float * _s1, float * _d, const int p0, const int p1) {
     for (int u = 0; u < p0; u++) {
         for (int v = 0; v < p0; v += 8) {
             Vec8f s0 = Vec8f().load(_s0 + v);
@@ -304,12 +329,12 @@ static void proc1(const float * _s0, const float * _s1, float * VS_RESTRICT _d, 
     }
 }
 
-static void removeMean(float * VS_RESTRICT _dftc, const float * _dftgc, const int ccnt, float * VS_RESTRICT _dftc2) {
+static void removeMean(float * _dftc, const float * _dftgc, const int ccnt, float * _dftc2) {
     const Vec8f gf(_dftc[0] / _dftgc[0]);
     for (int h = 0; h < ccnt; h += 8) {
+        Vec8f dftc = Vec8f().load_a(_dftc + h);
         const Vec8f dftgc = Vec8f().load_a(_dftgc + h);
         const Vec8f dftc2 = gf * dftgc;
-        Vec8f dftc = Vec8f().load_a(_dftc + h);
         dftc -= dftc2;
         if (ccnt - h >= 8) {
             dftc2.store_a(_dftc2 + h);
@@ -321,7 +346,7 @@ static void removeMean(float * VS_RESTRICT _dftc, const float * _dftgc, const in
     }
 }
 
-static void addMean(float * VS_RESTRICT _dftc, const int ccnt, const float * _dftc2) {
+static void addMean(float * _dftc, const int ccnt, const float * _dftc2) {
     for (int h = 0; h < ccnt; h += 8) {
         Vec8f dftc = Vec8f().load_a(_dftc + h);
         const Vec8f dftc2 = Vec8f().load_a(_dftc2 + h);
@@ -333,9 +358,10 @@ static void addMean(float * VS_RESTRICT _dftc, const int ccnt, const float * _df
     }
 }
 
-static void filter_0(float * VS_RESTRICT _dftc, const float * _sigmas, const int ccnt, const float * pmin, const float * pmax, const float * sigmas2) {
+static void filter_0(float * _dftc, const float * _sigmas, const int ccnt, const float * pmin, const float * pmax, const float * sigmas2) {
     const Vec4f epsilon(1e-15f);
     const Vec4f zero(0.f);
+
     for (int h = 0; h < ccnt; h += 8) {
         Vec4f dftcLow = Vec4f().load_a(_dftc + h);
         Vec4f dftcHigh = Vec4f().load_a(_dftc + h + 4);
@@ -358,8 +384,9 @@ static void filter_0(float * VS_RESTRICT _dftc, const float * _sigmas, const int
     }
 }
 
-static void filter_1(float * VS_RESTRICT _dftc, const float * _sigmas, const int ccnt, const float * pmin, const float * pmax, const float * sigmas2) {
+static void filter_1(float * _dftc, const float * _sigmas, const int ccnt, const float * pmin, const float * pmax, const float * sigmas2) {
     const Vec4f zero(0.f);
+
     for (int h = 0; h < ccnt; h += 8) {
         Vec4f dftcLow = Vec4f().load_a(_dftc + h);
         Vec4f dftcHigh = Vec4f().load_a(_dftc + h + 4);
@@ -381,7 +408,7 @@ static void filter_1(float * VS_RESTRICT _dftc, const float * _sigmas, const int
     }
 }
 
-static void filter_2(float * VS_RESTRICT _dftc, const float * _sigmas, const int ccnt, const float * pmin, const float * pmax, const float * sigmas2) {
+static void filter_2(float * _dftc, const float * _sigmas, const int ccnt, const float * pmin, const float * pmax, const float * sigmas2) {
     for (int h = 0; h < ccnt; h += 8) {
         Vec8f dftc = Vec8f().load_a(_dftc + h);
         const Vec8f sigmas = Vec8f().load_a(_sigmas + h);
@@ -393,7 +420,7 @@ static void filter_2(float * VS_RESTRICT _dftc, const float * _sigmas, const int
     }
 }
 
-static void filter_3(float * VS_RESTRICT _dftc, const float * _sigmas, const int ccnt, const float * _pmin, const float * _pmax, const float * _sigmas2) {
+static void filter_3(float * _dftc, const float * _sigmas, const int ccnt, const float * _pmin, const float * _pmax, const float * _sigmas2) {
     for (int h = 0; h < ccnt; h += 8) {
         Vec4f dftcLow = Vec4f().load_a(_dftc + h);
         Vec4f dftcHigh = Vec4f().load_a(_dftc + h + 4);
@@ -424,8 +451,9 @@ static void filter_3(float * VS_RESTRICT _dftc, const float * _sigmas, const int
     }
 }
 
-static void filter_4(float * VS_RESTRICT _dftc, const float * _sigmas, const int ccnt, const float * _pmin, const float * _pmax, const float * sigmas2) {
+static void filter_4(float * _dftc, const float * _sigmas, const int ccnt, const float * _pmin, const float * _pmax, const float * sigmas2) {
     const Vec4f epsilon(1e-15f);
+
     for (int h = 0; h < ccnt; h += 8) {
         Vec4f dftcLow = Vec4f().load_a(_dftc + h);
         Vec4f dftcHigh = Vec4f().load_a(_dftc + h + 4);
@@ -454,9 +482,11 @@ static void filter_4(float * VS_RESTRICT _dftc, const float * _sigmas, const int
     }
 }
 
-static void filter_5(float * VS_RESTRICT _dftc, const float * _sigmas, const int ccnt, const float * pmin, const float * pmax, const float * sigmas2) {
+static void filter_5(float * _dftc, const float * _sigmas, const int ccnt, const float * pmin, const float * pmax, const float * sigmas2) {
     const Vec4f epsilon(1e-15f);
     const Vec4f zero(0.f);
+
+    const float beta = pmin[0];
     for (int h = 0; h < ccnt; h += 8) {
         Vec4f dftcLow = Vec4f().load_a(_dftc + h);
         Vec4f dftcHigh = Vec4f().load_a(_dftc + h + 4);
@@ -466,7 +496,7 @@ static void filter_5(float * VS_RESTRICT _dftc, const float * _sigmas, const int
         const Vec4f sigmasLow = Vec4f().load_a(_sigmas + h);
         const Vec4f sigmasHigh = Vec4f().load_a(_sigmas + h + 4);
         const Vec4f sigmas = blend4f<0, 2, 4, 6>(sigmasLow, sigmasHigh);
-        const Vec4f coeff = pow(max((psd - sigmas) * approx_recipr(psd + epsilon), zero), pmin[0]);
+        const Vec4f coeff = pow(max((psd - sigmas) * approx_recipr(psd + epsilon), zero), beta);
         real *= coeff;
         imag *= coeff;
         dftcLow = blend4f<0, 4, 1, 5>(real, imag);
@@ -479,9 +509,10 @@ static void filter_5(float * VS_RESTRICT _dftc, const float * _sigmas, const int
     }
 }
 
-static void filter_6(float * VS_RESTRICT _dftc, const float * _sigmas, const int ccnt, const float * pmin, const float * pmax, const float * sigmas2) {
+static void filter_6(float * _dftc, const float * _sigmas, const int ccnt, const float * pmin, const float * pmax, const float * sigmas2) {
     const Vec4f epsilon(1e-15f);
     const Vec4f zero(0.f);
+
     for (int h = 0; h < ccnt; h += 8) {
         Vec4f dftcLow = Vec4f().load_a(_dftc + h);
         Vec4f dftcHigh = Vec4f().load_a(_dftc + h + 4);
@@ -504,16 +535,17 @@ static void filter_6(float * VS_RESTRICT _dftc, const float * _sigmas, const int
     }
 }
 
-static void intcast_8(const float * _ebp, uint8_t * VS_RESTRICT dstp, const int dstWidth, const int dstHeight, const int dstStride, const int width, const int bitsPerSample) {
+static void cast_8(const float * _ebp, uint8_t * dstp, const int dstWidth, const int dstHeight, const int dstStride, const int width, const int plane, const DFTTestData * d) {
     const Vec8f pointFive(0.5f);
     const Vec16s zero(0);
     const Vec16s peak(255);
+
     for (int y = 0; y < dstHeight; y++) {
         for (int x = 0; x < dstWidth; x += 16) {
-            Vec8f ebp8f = Vec8f().load(_ebp + x);
-            const Vec8i ebp8iLow = truncate_to_int(ebp8f + pointFive);
-            ebp8f = Vec8f().load(_ebp + x + 8);
-            const Vec8i ebp8iHigh = truncate_to_int(ebp8f + pointFive);
+            const Vec8f ebp8fLow = Vec8f().load(_ebp + x);
+            const Vec8f ebp8fHigh = Vec8f().load(_ebp + x + 8);
+            const Vec8i ebp8iLow = truncate_to_int(ebp8fLow + pointFive);
+            const Vec8i ebp8iHigh = truncate_to_int(ebp8fHigh + pointFive);
             const Vec16s ebp16s = min(max(compress_saturated(ebp8iLow, ebp8iHigh), zero), peak);
             const Vec16uc ebp = Vec16uc(compress(ebp16s.get_low(), ebp16s.get_high()));
             ebp.store_a(dstp + x);
@@ -523,12 +555,13 @@ static void intcast_8(const float * _ebp, uint8_t * VS_RESTRICT dstp, const int 
     }
 }
 
-static void intcast_16(const float * _ebp, uint8_t * VS_RESTRICT _dstp, const int dstWidth, const int dstHeight, const int dstStride, const int width, const int bitsPerSample) {
-    uint16_t * VS_RESTRICT dstp = reinterpret_cast<uint16_t *>(_dstp);
-    const Vec8f multiplier(static_cast<float>(1 << (bitsPerSample - 8)));
+static void cast_16(const float * _ebp, uint8_t * _dstp, const int dstWidth, const int dstHeight, const int dstStride, const int width, const int plane, const DFTTestData * d) {
+    uint16_t * dstp = reinterpret_cast<uint16_t *>(_dstp);
+    const Vec8f multiplier(d->multiplier);
     const Vec8f pointFive(0.5f);
     const Vec8i zero(0);
-    const Vec8i peak((1 << bitsPerSample) - 1);
+    const Vec8i peak(d->peak);
+
     for (int y = 0; y < dstHeight; y++) {
         for (int x = 0; x < dstWidth; x += 8) {
             const Vec8f ebp8f = Vec8f().load(_ebp + x);
@@ -540,8 +573,25 @@ static void intcast_16(const float * _ebp, uint8_t * VS_RESTRICT _dstp, const in
         dstp += dstStride;
     }
 }
+
+static void cast_32(const float * _ebp, uint8_t * _dstp, const int dstWidth, const int dstHeight, const int dstStride, const int width, const int plane, const DFTTestData * d) {
+    float * dstp = reinterpret_cast<float *>(_dstp);
+    const Vec8f divisor(1.f / 255.f);
+    const Vec8f lower(d->lower[plane]);
+    const Vec8f upper(d->upper[plane]);
+
+    for (int y = 0; y < dstHeight; y++) {
+        for (int x = 0; x < dstWidth; x += 8) {
+            Vec8f ebp = Vec8f().load(_ebp + x);
+            ebp = min(max(ebp * divisor, lower), upper);
+            ebp.store_a(dstp + x);
+        }
+        _ebp += width;
+        dstp += dstStride;
+    }
+}
 #else
-static void proc0_8(const uint8_t * s0, const float * s1, float * VS_RESTRICT d, const int p0, const int p1, const int bitsPerSample) {
+static void proc0_8(const uint8_t * s0, const float * s1, float * VS_RESTRICT d, const int p0, const int p1, const float divisor) {
     for (int u = 0; u < p1; u++) {
         for (int v = 0; v < p1; v++)
             d[v] = s0[v] * s1[v];
@@ -551,12 +601,24 @@ static void proc0_8(const uint8_t * s0, const float * s1, float * VS_RESTRICT d,
     }
 }
 
-static void proc0_16(const uint8_t * _s0, const float * s1, float * VS_RESTRICT d, const int p0, const int p1, const int bitsPerSample) {
+static void proc0_16(const uint8_t * _s0, const float * s1, float * VS_RESTRICT d, const int p0, const int p1, const float divisor) {
     const uint16_t * s0 = reinterpret_cast<const uint16_t *>(_s0);
-    const float divisor = 1.f / (1 << (bitsPerSample - 8));
+
     for (int u = 0; u < p1; u++) {
         for (int v = 0; v < p1; v++)
-            d[v] = s0[v] * s1[v] * divisor;
+            d[v] = s0[v] * divisor * s1[v];
+        s0 += p0;
+        s1 += p1;
+        d += p1;
+    }
+}
+
+static void proc0_32(const uint8_t * _s0, const float * s1, float * VS_RESTRICT d, const int p0, const int p1, const float divisor) {
+    const float * s0 = reinterpret_cast<const float *>(_s0);
+
+    for (int u = 0; u < p1; u++) {
+        for (int v = 0; v < p1; v++)
+            d[v] = s0[v] * 255.f * s1[v];
         s0 += p0;
         s1 += p1;
         d += p1;
@@ -649,7 +711,7 @@ static void filter_6(float * VS_RESTRICT dftc, const float * sigmas, const int c
     }
 }
 
-static void intcast_8(const float * ebp, uint8_t * VS_RESTRICT dstp, const int dstWidth, const int dstHeight, const int dstStride, const int width, const int bitsPerSample) {
+static void cast_8(const float * ebp, uint8_t * VS_RESTRICT dstp, const int dstWidth, const int dstHeight, const int dstStride, const int width, const int plane, const DFTTestData * d) {
     for (int y = 0; y < dstHeight; y++) {
         for (int x = 0; x < dstWidth; x++)
             dstp[x] = std::min(std::max(static_cast<int>(ebp[x] + 0.5f), 0), 255);
@@ -658,13 +720,27 @@ static void intcast_8(const float * ebp, uint8_t * VS_RESTRICT dstp, const int d
     }
 }
 
-static void intcast_16(const float * ebp, uint8_t * VS_RESTRICT _dstp, const int dstWidth, const int dstHeight, const int dstStride, const int width, const int bitsPerSample) {
+static void cast_16(const float * ebp, uint8_t * VS_RESTRICT _dstp, const int dstWidth, const int dstHeight, const int dstStride, const int width, const int plane, const DFTTestData * d) {
     uint16_t * VS_RESTRICT dstp = reinterpret_cast<uint16_t *>(_dstp);
-    const float multiplier = static_cast<float>(1 << (bitsPerSample - 8));
-    const int peak = (1 << bitsPerSample) - 1;
+    const float multiplier = d->multiplier;
+    const int peak = d->peak;
+
     for (int y = 0; y < dstHeight; y++) {
         for (int x = 0; x < dstWidth; x++)
             dstp[x] = std::min(std::max(static_cast<int>(ebp[x] * multiplier + 0.5f), 0), peak);
+        ebp += width;
+        dstp += dstStride;
+    }
+}
+
+static void cast_32(const float * ebp, uint8_t * VS_RESTRICT _dstp, const int dstWidth, const int dstHeight, const int dstStride, const int width, const int plane, const DFTTestData * d) {
+    float * VS_RESTRICT dstp = reinterpret_cast<float *>(_dstp);
+    const float lower = d->lower[plane];
+    const float upper = d->upper[plane];
+
+    for (int y = 0; y < dstHeight; y++) {
+        for (int x = 0; x < dstWidth; x++)
+            dstp[x] = std::min(std::max(ebp[x] * (1.f / 255.f), lower), upper);
         ebp += width;
         dstp += dstStride;
     }
@@ -679,12 +755,13 @@ static void copyPad(const VSFrameRef * src, VSFrameRef * dst[3], const DFTTestDa
             const int srcHeight = vsapi->getFrameHeight(src, plane);
             const int dstWidth = vsapi->getFrameWidth(dst[plane], 0);
             const int dstHeight = vsapi->getFrameHeight(dst[plane], 0);
-            const int dstStride = vsapi->getStride(dst[plane], 0) / d->vi->format->bytesPerSample;
+            const int dstStride = vsapi->getStride(dst[plane], 0) / sizeof(T);
             const int offy = (dstHeight - srcHeight) / 2;
             const int offx = (dstWidth - srcWidth) / 2;
-            vs_bitblt(vsapi->getWritePtr(dst[plane], 0) + vsapi->getStride(dst[plane], 0) * offy + offx * d->vi->format->bytesPerSample, vsapi->getStride(dst[plane], 0),
-                      vsapi->getReadPtr(src, plane), vsapi->getStride(src, plane), srcWidth * d->vi->format->bytesPerSample, srcHeight);
-            T * dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst[plane], 0)) + dstStride * offy;
+            vs_bitblt(vsapi->getWritePtr(dst[plane], 0) + vsapi->getStride(dst[plane], 0) * offy + offx * sizeof(T), vsapi->getStride(dst[plane], 0),
+                      vsapi->getReadPtr(src, plane), vsapi->getStride(src, plane), srcWidth * sizeof(T), srcHeight);
+            T * VS_RESTRICT dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst[plane], 0)) + dstStride * offy;
+
             for (int y = offy; y < srcHeight + offy; y++) {
                 int w = offx * 2;
                 for (int x = 0; x < offx; x++, w--)
@@ -694,14 +771,15 @@ static void copyPad(const VSFrameRef * src, VSFrameRef * dst[3], const DFTTestDa
                     dstp[x] = dstp[w];
                 dstp += dstStride;
             }
+
             int w = offy * 2;
             for (int y = 0; y < offy; y++, w--)
                 vs_bitblt(vsapi->getWritePtr(dst[plane], 0) + vsapi->getStride(dst[plane], 0) * y, vsapi->getStride(dst[plane], 0),
-                          vsapi->getWritePtr(dst[plane], 0) + vsapi->getStride(dst[plane], 0) * w, vsapi->getStride(dst[plane], 0), dstWidth * d->vi->format->bytesPerSample, 1);
+                          vsapi->getWritePtr(dst[plane], 0) + vsapi->getStride(dst[plane], 0) * w, vsapi->getStride(dst[plane], 0), dstWidth * sizeof(T), 1);
             w = offy + srcHeight - 2;
             for (int y = offy + srcHeight; y < dstHeight; y++, w--)
                 vs_bitblt(vsapi->getWritePtr(dst[plane], 0) + vsapi->getStride(dst[plane], 0) * y, vsapi->getStride(dst[plane], 0),
-                          vsapi->getWritePtr(dst[plane], 0) + vsapi->getStride(dst[plane], 0) * w, vsapi->getStride(dst[plane], 0), dstWidth * d->vi->format->bytesPerSample, 1);
+                          vsapi->getWritePtr(dst[plane], 0) + vsapi->getStride(dst[plane], 0) * w, vsapi->getStride(dst[plane], 0), dstWidth * sizeof(T), 1);
         }
     }
 }
@@ -714,16 +792,18 @@ static void func_0(VSFrameRef * src[3], VSFrameRef * dst, float * ebuff[3], floa
             const int width = d->padWidth[plane];
             const int height = d->padHeight[plane];
             const int eheight = d->eheight[plane];
-            const int stride = vsapi->getStride(src[plane], 0) / d->vi->format->bytesPerSample;
+            const int stride = vsapi->getStride(src[plane], 0) / sizeof(T);
             const T * srcp = reinterpret_cast<const T *>(vsapi->getReadPtr(src[plane], 0));
             float * ebpSaved = ebuff[plane];
+
             const int sbd1 = d->sbsize / 2;
             const int ccnt = d->ccnt * 2;
-            const bool uf0b = std::fabs(d->f0beta - 1.f) < 0.00005f ? false : true;
+            const bool uf0b = std::abs(d->f0beta - 1.f) < 0.00005f ? false : true;
             const int inc = (d->type & 1) ? d->sbsize - d->sosize : 1;
+
             for (int y = 0; y < eheight; y += inc) {
                 for (int x = 0; x <= width - d->sbsize; x += inc) {
-                    d->proc0(reinterpret_cast<const uint8_t *>(srcp + x), d->hw, dftr, stride, d->sbsize, d->vi->format->bitsPerSample);
+                    d->proc0(reinterpret_cast<const uint8_t *>(srcp + x), d->hw, dftr, stride, d->sbsize, d->divisor);
                     fftwf_execute_dft_r2c(d->ft, dftr, dftc);
                     if (d->zmean)
                         removeMean(reinterpret_cast<float *>(dftc), reinterpret_cast<const float *>(d->dftgc), ccnt, reinterpret_cast<float *>(dftc2));
@@ -739,12 +819,13 @@ static void func_0(VSFrameRef * src[3], VSFrameRef * dst, float * ebuff[3], floa
                 srcp += stride * inc;
                 ebpSaved += width * inc;
             }
+
             const int dstWidth = vsapi->getFrameWidth(dst, plane);
             const int dstHeight = vsapi->getFrameHeight(dst, plane);
-            const int dstStride = vsapi->getStride(dst, plane) / d->vi->format->bytesPerSample;
+            const int dstStride = vsapi->getStride(dst, plane) / sizeof(T);
             uint8_t * dstp = vsapi->getWritePtr(dst, plane);
             float * ebp = ebuff[plane] + width * ((height - dstHeight) / 2) + (width - dstWidth) / 2;
-            d->intcast(ebp, dstp, dstWidth, dstHeight, dstStride, width, d->vi->format->bitsPerSample);
+            d->cast(ebp, dstp, dstWidth, dstHeight, dstStride, width, plane, d);
         }
     }
 }
@@ -757,19 +838,20 @@ static void func_1(VSFrameRef * src[15][3], VSFrameRef * dst, float * ebuff[3], 
             const int width = d->padWidth[plane];
             const int height = d->padHeight[plane];
             const int eheight = d->eheight[plane];
-            const int stride = vsapi->getStride(src[0][plane], 0) / d->vi->format->bytesPerSample;
+            const int stride = vsapi->getStride(src[0][plane], 0) / sizeof(T);
             const T * srcp[15];
             for (int i = 0; i < d->tbsize; i++)
                 srcp[i] = reinterpret_cast<const T *>(vsapi->getReadPtr(src[i][plane], 0));
+
             const int sbd1 = d->sbsize / 2;
             const int ccnt = d->ccnt * 2;
-            const bool uf0b = std::fabs(d->f0beta - 1.f) < 0.00005f ? false : true;
+            const bool uf0b = std::abs(d->f0beta - 1.f) < 0.00005f ? false : true;
             const int inc = (d->type & 1) ? d->sbsize - d->sosize : 1;
+
             for (int y = 0; y < eheight; y += inc) {
                 for (int x = 0; x <= width - d->sbsize; x += inc) {
                     for (int z = 0; z < d->tbsize; z++)
-                        d->proc0(reinterpret_cast<const uint8_t *>(srcp[z] + x), d->hw + d->sbsize * d->sbsize * z, dftr + d->sbsize * d->sbsize * z,
-                                 stride, d->sbsize, d->vi->format->bitsPerSample);
+                        d->proc0(reinterpret_cast<const uint8_t *>(srcp[z] + x), d->hw + d->sbsize * d->sbsize * z, dftr + d->sbsize * d->sbsize * z, stride, d->sbsize, d->divisor);
                     fftwf_execute_dft_r2c(d->ft, dftr, dftc);
                     if (d->zmean)
                         removeMean(reinterpret_cast<float *>(dftc), reinterpret_cast<const float *>(d->dftgc), ccnt, reinterpret_cast<float *>(dftc2));
@@ -781,7 +863,7 @@ static void func_1(VSFrameRef * src[15][3], VSFrameRef * dst, float * ebuff[3], 
                         // FIXME: tmode 1 is not implemented so just skip the if-else check
                         //if (d->type & 4) { // temporal overlapping
                         //    for (int z = 0; z < d->tbsize; z++)
-                        //        proc1_C(dftr + z * d->barea, d->hw + z * d->barea, ebuff[z * 3 + plane] + y * width + x, d->sbsize, width);
+                        //        proc1(dftr + z * d->barea, d->hw + z * d->barea, ebuff[z * 3 + plane] + y * width + x, d->sbsize, width);
                         //} else {
                             proc1(dftr + pos * d->barea, d->hw + pos * d->barea, ebuff[plane] + y * width + x, d->sbsize, width);
                         //}
@@ -798,12 +880,13 @@ static void func_1(VSFrameRef * src[15][3], VSFrameRef * dst, float * ebuff[3], 
                 for (int q = 0; q < d->tbsize; q++)
                     srcp[q] += stride * inc;
             }
+
             const int dstWidth = vsapi->getFrameWidth(dst, plane);
             const int dstHeight = vsapi->getFrameHeight(dst, plane);
-            const int dstStride = vsapi->getStride(dst, plane) / d->vi->format->bytesPerSample;
+            const int dstStride = vsapi->getStride(dst, plane) / sizeof(T);
             uint8_t * dstp = vsapi->getWritePtr(dst, plane);
             float * ebp = ebuff[plane] + width * ((height - dstHeight) / 2) + (width - dstWidth) / 2;
-            d->intcast(ebp, dstp, dstWidth, dstHeight, dstStride, width, d->vi->format->bitsPerSample);
+            d->cast(ebp, dstp, dstWidth, dstHeight, dstStride, width, plane, d);
         }
     }
 }
@@ -854,22 +937,30 @@ static const VSFrameRef *VS_CC dfttestGetFrame(int n, int activationReason, void
         const VSFrameRef * fr[] = { d->process[0] ? nullptr : src0, d->process[1] ? nullptr : src0, d->process[2] ? nullptr : src0 };
         const int pl[] = { 0, 1, 2 };
         VSFrameRef * dst = vsapi->newVideoFrame2(d->vi->format, d->vi->width, d->vi->height, fr, pl, src0, core);
+        vsapi->freeFrame(src0);
 
         if (d->tbsize == 1) {
+            const VSFrameRef * src = vsapi->getFrameFilter(n, d->node, frameCtx);
             VSFrameRef * pad[3];
             for (int plane = 0; plane < d->vi->format->numPlanes; plane++) {
                 if (d->process[plane])
                     pad[plane] = vsapi->newVideoFrame(d->padFormat, d->padWidth[plane], d->padHeight[plane], nullptr, core);
             }
 
-            if (d->vi->format->bitsPerSample == 8) {
-                copyPad<uint8_t>(src0, pad, d, vsapi);
-                func_0<uint8_t>(pad, dst, ebuff, dftr, dftc, dftc2, d, vsapi);
+            if (d->vi->format->sampleType == stInteger) {
+                if (d->vi->format->bitsPerSample == 8) {
+                    copyPad<uint8_t>(src, pad, d, vsapi);
+                    func_0<uint8_t>(pad, dst, ebuff, dftr, dftc, dftc2, d, vsapi);
+                } else {
+                    copyPad<uint16_t>(src, pad, d, vsapi);
+                    func_0<uint16_t>(pad, dst, ebuff, dftr, dftc, dftc2, d, vsapi);
+                }
             } else {
-                copyPad<uint16_t>(src0, pad, d, vsapi);
-                func_0<uint16_t>(pad, dst, ebuff, dftr, dftc, dftc2, d, vsapi);
+                copyPad<float>(src, pad, d, vsapi);
+                func_0<float>(pad, dst, ebuff, dftr, dftc, dftc2, d, vsapi);
             }
 
+            vsapi->freeFrame(src);
             for (int plane = 0; plane < d->vi->format->numPlanes; plane++) {
                 if (d->process[plane])
                     vsapi->freeFrame(pad[plane]);
@@ -887,16 +978,24 @@ static const VSFrameRef *VS_CC dfttestGetFrame(int n, int activationReason, void
                         pad[i - n + pos][plane] = vsapi->newVideoFrame(d->padFormat, d->padWidth[plane], d->padHeight[plane], nullptr, core);
                 }
 
-                if (d->vi->format->bitsPerSample == 8)
-                    copyPad<uint8_t>(src[i - n + pos], pad[i - n + pos], d, vsapi);
-                else
-                    copyPad<uint16_t>(src[i - n + pos], pad[i - n + pos], d, vsapi);
+                if (d->vi->format->sampleType == stInteger) {
+                    if (d->vi->format->bitsPerSample == 8)
+                        copyPad<uint8_t>(src[i - n + pos], pad[i - n + pos], d, vsapi);
+                    else
+                        copyPad<uint16_t>(src[i - n + pos], pad[i - n + pos], d, vsapi);
+                } else {
+                    copyPad<float>(src[i - n + pos], pad[i - n + pos], d, vsapi);
+                }
             }
 
-            if (d->vi->format->bitsPerSample == 8)
-                func_1<uint8_t>(pad, dst, ebuff, dftr, dftc, dftc2, pos, d, vsapi);
-            else
-                func_1<uint16_t>(pad, dst, ebuff, dftr, dftc, dftc2, pos, d, vsapi);
+            if (d->vi->format->sampleType == stInteger) {
+                if (d->vi->format->bitsPerSample == 8)
+                    func_1<uint8_t>(pad, dst, ebuff, dftr, dftc, dftc2, pos, d, vsapi);
+                else
+                    func_1<uint16_t>(pad, dst, ebuff, dftr, dftc, dftc2, pos, d, vsapi);
+            } else {
+                func_1<float>(pad, dst, ebuff, dftr, dftc, dftc2, pos, d, vsapi);
+            }
 
             for (int i = n - pos; i <= n + pos; i++) {
                 vsapi->freeFrame(src[i - n + pos]);
@@ -914,7 +1013,6 @@ static const VSFrameRef *VS_CC dfttestGetFrame(int n, int activationReason, void
         vs_aligned_free(dftr);
         vs_aligned_free(dftc);
         vs_aligned_free(dftc2);
-        vsapi->freeFrame(src0);
         return dst;
     }
 
@@ -1021,7 +1119,7 @@ static void VS_CC dfttestCreate(const VSMap *in, VSMap *out, void *userData, VSC
     if (d.smode == 0)
         d.sosize = 0;
     if (d.sosize < 0 || d.sosize >= d.sbsize) {
-        vsapi->setError(out, "DFTTest: sosize must be between 0 and sbsize-1 inclusive");
+        vsapi->setError(out, "DFTTest: sosize must be between 0 and sbsize-1 (inclusive)");
         return;
     }
     if (d.sosize > d.sbsize / 2 && d.sbsize % (d.sbsize - d.sosize) != 0) {
@@ -1029,7 +1127,7 @@ static void VS_CC dfttestCreate(const VSMap *in, VSMap *out, void *userData, VSC
         return;
     }
     if (d.tbsize < 1 || d.tbsize > 15) {
-        vsapi->setError(out, "DFTTest: tbsize must be between 1 and 15 inclusive");
+        vsapi->setError(out, "DFTTest: tbsize must be between 1 and 15 (inclusive)");
         return;
     }
     if (d.tmode != 0) {
@@ -1043,7 +1141,7 @@ static void VS_CC dfttestCreate(const VSMap *in, VSMap *out, void *userData, VSC
     if (d.tmode == 0)
         d.tosize = 0;
     if (d.tosize < 0 || d.tosize >= d.tbsize) {
-        vsapi->setError(out, "DFTTest: tosize must be between 0 and tbsize-1 inclusive");
+        vsapi->setError(out, "DFTTest: tosize must be between 0 and tbsize-1 (inclusive)");
         return;
     }
     if (d.tosize > d.tbsize / 2 && d.tbsize % (d.tbsize - d.tosize) != 0) {
@@ -1051,30 +1149,25 @@ static void VS_CC dfttestCreate(const VSMap *in, VSMap *out, void *userData, VSC
         return;
     }
     if (d.swin < 0 || d.swin > 11) {
-        vsapi->setError(out, "DFTTest: swin must be between 0 and 11 inclusive");
+        vsapi->setError(out, "DFTTest: swin must be between 0 and 11 (inclusive)");
         return;
     }
     if (d.twin < 0 || d.twin > 11) {
-        vsapi->setError(out, "DFTTest: twin must be between 0 and 11 inclusive");
+        vsapi->setError(out, "DFTTest: twin must be between 0 and 11 (inclusive)");
         return;
     }
 
     d.node = vsapi->propGetNode(in, "clip", 0, nullptr);
     d.vi = vsapi->getVideoInfo(d.node);
 
-    if (!isConstantFormat(d.vi) || d.vi->format->sampleType != stInteger || d.vi->format->bitsPerSample > 16) {
-        vsapi->setError(out, "DFTTest: only constant format 8-16 bits integer input supported");
+    if (!isConstantFormat(d.vi) || (d.vi->format->sampleType == stInteger && d.vi->format->bitsPerSample > 16) ||
+        (d.vi->format->sampleType == stFloat && d.vi->format->bitsPerSample != 32)) {
+        vsapi->setError(out, "DFTTest: only constant format 8-16 bits integer and 32 bits float input supported");
         vsapi->freeNode(d.node);
         return;
     }
 
-    if ((d.tbsize > 1 || d.nstring[0]) && !d.vi->numFrames) {
-        vsapi->setError(out, "DFTTest: the clip's length must not be unknown when using tbsize>1 or nstring");
-        vsapi->freeNode(d.node);
-        return;
-    }
-
-    if (d.tbsize > 1 && d.tbsize > d.vi->numFrames) {
+    if (d.tbsize > d.vi->numFrames) {
         vsapi->setError(out, "DFTTest: tbsize must be less than or equal to the number of frames in the clip");
         vsapi->freeNode(d.node);
         return;
@@ -1103,10 +1196,22 @@ static void VS_CC dfttestCreate(const VSMap *in, VSMap *out, void *userData, VSC
         d.process[n] = true;
     }
 
-    d.barea = d.sbsize * d.sbsize;
-    d.bvolume = d.barea * d.tbsize;
-    d.ccnt = (d.sbsize / 2 + 1) * d.sbsize * d.tbsize;
-    d.type = d.tmode * 4 + (d.tbsize > 1 ? 2 : 0) + d.smode;
+    if (d.vi->format->sampleType == stInteger) {
+        d.multiplier = static_cast<float>(1 << (d.vi->format->bitsPerSample - 8));
+        d.divisor = 1.f / d.multiplier;
+        d.peak = (1 << d.vi->format->bitsPerSample) - 1;
+
+        if (d.vi->format->bitsPerSample == 8) {
+            d.proc0 = proc0_8;
+            d.cast = cast_8;
+        } else {
+            d.proc0 = proc0_16;
+            d.cast = cast_16;
+        }
+    } else {
+        d.proc0 = proc0_32;
+        d.cast = cast_32;
+    }
 
     d.padFormat = vsapi->registerFormat(cmGray, stInteger, d.vi->format->bitsPerSample, 0, 0, core);
     for (int plane = 0; plane < d.vi->format->numPlanes; plane++) {
@@ -1125,8 +1230,21 @@ static void VS_CC dfttestCreate(const VSMap *in, VSMap *out, void *userData, VSC
                 d.padHeight[plane] = height + EXTRA(height, d.sbsize) + ae;
                 d.eheight[plane] = ((d.padHeight[plane] - d.sosize) / (d.sbsize - d.sosize)) * (d.sbsize - d.sosize);
             }
+
+            if (plane == 0 || d.vi->format->colorFamily == cmRGB) {
+                d.lower[plane] = 0.f;
+                d.upper[plane] = 1.f;
+            } else {
+                d.lower[plane] = -0.5f;
+                d.upper[plane] = 0.5f;
+            }
         }
     }
+
+    d.barea = d.sbsize * d.sbsize;
+    d.bvolume = d.barea * d.tbsize;
+    d.ccnt = (d.sbsize / 2 + 1) * d.sbsize * d.tbsize;
+    d.type = d.tmode * 4 + (d.tbsize > 1 ? 2 : 0) + d.smode;
 
     d.hw = vs_aligned_malloc<float>(d.bvolume * sizeof(float), 32);
     if (!d.hw) {
@@ -1275,18 +1393,10 @@ static void VS_CC dfttestCreate(const VSMap *in, VSMap *out, void *userData, VSC
     vs_aligned_free(dftgr);
     vs_aligned_free(ta);
 
-    if (d.vi->format->bitsPerSample == 8) {
-        d.proc0 = proc0_8;
-        d.intcast = intcast_8;
-    } else {
-        d.proc0 = proc0_16;
-        d.intcast = intcast_16;
-    }
-
     if (d.ftype == 0) {
-        if (std::fabs(d.f0beta - 1.f) < 0.00005f)
+        if (std::abs(d.f0beta - 1.f) < 0.00005f)
             d.filterCoeffs = filter_0;
-        else if (std::fabs(d.f0beta - 0.5f) < 0.00005f)
+        else if (std::abs(d.f0beta - 0.5f) < 0.00005f)
             d.filterCoeffs = filter_6;
         else
             d.filterCoeffs = filter_5;
@@ -1358,24 +1468,24 @@ static void VS_CC dfttestCreate(const VSMap *in, VSMap *out, void *userData, VSC
             if (q[0] == 0 || std::sscanf(q, "%d,%d,%d,%d", &fn, &b, &y, &x) != 4)
                 break;
             if (fn < 0 || fn > d.vi->numFrames - d.tbsize) {
-                vsapi->setError(out, ("DFTTest: invalid frame number in nstring (" + std::to_string(fn) + ")").c_str());
+                vsapi->setError(out, std::string("DFTTest: invalid frame number in nstring (").append(std::to_string(fn)).append(")").c_str());
                 vsapi->freeNode(d.node);
                 return;
             }
             if (b < 0 || b >= d.vi->format->numPlanes) {
-                vsapi->setError(out, ("DFTTest: invalid plane number in nstring (" + std::to_string(b) + ")").c_str());
+                vsapi->setError(out, std::string("DFTTest: invalid plane number in nstring (").append(std::to_string(b)).append(")").c_str());
                 vsapi->freeNode(d.node);
                 return;
             }
             const int height = d.vi->height >> (b ? d.vi->format->subSamplingH : 0);
             if (y < 0 || y > height - d.sbsize) {
-                vsapi->setError(out, ("DFTTest: invalid y pos in nstring (" + std::to_string(y) + ")").c_str());
+                vsapi->setError(out, std::string("DFTTest: invalid y pos in nstring (").append(std::to_string(y)).append(")").c_str());
                 vsapi->freeNode(d.node);
                 return;
             }
             const int width = d.vi->width >> (b ? d.vi->format->subSamplingW : 0);
             if (x < 0 || x > width - d.sbsize) {
-                vsapi->setError(out, ("DFTTest: invalid x pos in nstring (" + std::to_string(x) + ")").c_str());
+                vsapi->setError(out, std::string("DFTTest: invalid x pos in nstring (").append(std::to_string(x)).append(")").c_str());
                 vsapi->freeNode(d.node);
                 return;
             }
@@ -1403,12 +1513,17 @@ static void VS_CC dfttestCreate(const VSMap *in, VSMap *out, void *userData, VSC
             for (int z = 0; z < d.tbsize; z++) {
                 const VSFrameRef * src = vsapi->getFrame(npts[ct].fn + z, d.node, nullptr, 0);
                 const int stride = vsapi->getStride(src, npts[ct].b) / d.vi->format->bytesPerSample;
-                if (d.vi->format->bitsPerSample == 8) {
-                    const uint8_t * srcp = vsapi->getReadPtr(src, npts[ct].b) + stride * npts[ct].y + npts[ct].x;
-                    d.proc0(srcp, hw2 + d.sbsize * d.sbsize * z, dftr + d.sbsize * d.sbsize * z, stride, d.sbsize, d.vi->format->bitsPerSample);
+                if (d.vi->format->sampleType == stInteger) {
+                    if (d.vi->format->bitsPerSample == 8) {
+                        const uint8_t * srcp = vsapi->getReadPtr(src, npts[ct].b) + stride * npts[ct].y + npts[ct].x;
+                        d.proc0(srcp, hw2 + d.sbsize * d.sbsize * z, dftr + d.sbsize * d.sbsize * z, stride, d.sbsize, d.divisor);
+                    } else {
+                        const uint16_t * srcp = reinterpret_cast<const uint16_t *>(vsapi->getReadPtr(src, npts[ct].b)) + stride * npts[ct].y + npts[ct].x;
+                        d.proc0(reinterpret_cast<const uint8_t *>(srcp), hw2 + d.sbsize * d.sbsize * z, dftr + d.sbsize * d.sbsize * z, stride, d.sbsize, d.divisor);
+                    }
                 } else {
-                    const uint16_t * srcp = reinterpret_cast<const uint16_t *>(vsapi->getReadPtr(src, npts[ct].b)) + stride * npts[ct].y + npts[ct].x;
-                    d.proc0(reinterpret_cast<const uint8_t *>(srcp), hw2 + d.sbsize * d.sbsize * z, dftr + d.sbsize * d.sbsize * z, stride, d.sbsize, d.vi->format->bitsPerSample);
+                    const float * srcp = reinterpret_cast<const float *>(vsapi->getReadPtr(src, npts[ct].b)) + stride * npts[ct].y + npts[ct].x;
+                    d.proc0(reinterpret_cast<const uint8_t *>(srcp), hw2 + d.sbsize * d.sbsize * z, dftr + d.sbsize * d.sbsize * z, stride, d.sbsize, d.divisor);
                 }
                 vsapi->freeFrame(src);
             }
