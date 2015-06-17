@@ -49,7 +49,7 @@ SUBDIRS = \
 	zimg
 
 plugins = $(libdir)/vapoursynth/
-dist-packages := $(prefix)/lib/python3/dist-packages/vapoursynth-scripts
+dist-packages := $(prefix)/lib/python3/dist-packages
 
 ifeq ($(V), 1)
 MAKE = make V=1
