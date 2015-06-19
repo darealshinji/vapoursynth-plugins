@@ -5,6 +5,7 @@
 *~
 
 .deps
+.dirstamp
 .libs/
 autom4te.cache/
 build-aux/
@@ -26,6 +27,9 @@ Makefile.in
 libjpeg.map
 jconfig.h
 tjbenchtest
+
+fmtconv/build/unix/Makefile
+fmtconv/build/unix/m4/
 
 imagereader/libjpeg-turbo/Makefile
 imagereader/libjpeg-turbo/config.h
