@@ -65,6 +65,7 @@ make install
 [it 1.2](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-IT)<br>
 [maskdetail git20141221](https://github.com/MonoS/VS-MaskDetail)<br>
 [msmoosh 1.1](https://github.com/dubhater/vapoursynth-msmoosh)<br>
+[mvsfunc 2015.06](https://github.com/HomeOfVapourSynthEvolution/mvsfunc)<br>
 [mvtools 9](https://github.com/dubhater/vapoursynth-mvtools)<br>
 [nnedi3 5+git20150528](https://github.com/dubhater/vapoursynth-nnedi3)<br>
 [rawsource git20130731](https://github.com/chikuzen/vsrawsource)<br>
