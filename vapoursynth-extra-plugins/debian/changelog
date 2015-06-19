@@ -1,3 +1,12 @@
+vapoursynth-extra-plugins (20150619-1~trusty) trusty; urgency=low
+
+  * Updates: fieldhint, fmtconv
+  * New script: mvsfunc
+  * Use the upstream buildsystem for fmtconv
+  * Don't install scripts in dist-packages subdirectory
+
+ -- Marshall Banana <djcj@gmx.de>  Fri, 19 Jun 2015 17:19:08 +0200
+
 vapoursynth-extra-plugins (20150610-1~trusty) trusty; urgency=low
 
   * Updates: AddGrain, Deblock, DFTTest, VagueDenoiser, YadifMod
