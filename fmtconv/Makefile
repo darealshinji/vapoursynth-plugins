@@ -20,7 +20,7 @@ build/unix/.libs/$(LIB): build/unix/Makefile
 # -fabi-version=6 is needed to enable debug builds
 build/unix/Makefile: build/unix/configure
 	cd build/unix && \
-	CXXFLAGS="$(CXXFLAGS) -fabi-version=6 -march=native $(CPPFLAGS)" \
+	CXXFLAGS="$(CXXFLAGS) -fabi-version=6 $(CPPFLAGS)" \
 	LDFLAGS="-Wl,-z,defs -Wl,-z,noexecstack -Wl,--as-needed $(LDFLAGS)" \
 	./configure
 
