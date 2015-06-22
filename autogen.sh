@@ -7,9 +7,6 @@ type autoreconf >/dev/null 2>&1 || { echo >&2 "Cannot find \`autoreconf'.  Abort
 echo "autoconf"; autoconf 2>/dev/null >/dev/null
 echo "automake --add-missing --copy"; automake --add-missing --copy 2>/dev/null >/dev/null
 
-echo "autoreconf --install fmtconv"
-autoreconf --install fmtconv 2>/dev/null >/dev/null
-
 echo "autoreconf --install imagereader/libjpeg-turbo"
 autoreconf --install imagereader/libjpeg-turbo 2>/dev/null >/dev/null
 

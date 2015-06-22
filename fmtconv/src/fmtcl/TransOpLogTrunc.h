@@ -1,10 +1,7 @@
 /*****************************************************************************
 
-        AvstpFinder.h
-        Author: Laurent de Soras, 2012
-
-Private class used by AvstpWrapper on Windows.
-Handles library publication and discovery.
+        TransOpLogTrunc.h
+        Author: Laurent de Soras, 2015
 
 --- Legal stuff ---
 
@@ -18,11 +15,11 @@ http://sam.zoy.org/wtfpl/COPYING for more details.
 
 
 
-#if ! defined (AvstpFinder_HEADER_INCLUDED)
-#define	AvstpFinder_HEADER_INCLUDED
+#pragma once
+#if ! defined (fmtcl_TransOpLogTrunc_HEADER_INCLUDED)
+#define	fmtcl_TransOpLogTrunc_HEADER_INCLUDED
 
 #if defined (_MSC_VER)
-	#pragma once
 	#pragma warning (4 : 4250)
 #endif
 
@@ -30,25 +27,29 @@ http://sam.zoy.org/wtfpl/COPYING for more details.
 
 /*\\\ INCLUDE FILES \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\*/
 
-#define NOMINMAX
-
-#include <Windows.h>
+#include "fmtcl/TransOpInterface.h"
 
 
 
-class AvstpFinder
+namespace fmtcl
+{
+
+
+
+class TransOpLogTrunc
+:	public TransOpInterface
 {
 
 /*\\\ PUBLIC \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\*/
 
 public:
 
-	static void    publish_lib (::HMODULE hinst);
-	static ::HMODULE
-	               find_lib ();
+	explicit       TransOpLogTrunc (bool inv_flag, double alpha, double beta);
+	virtual        ~TransOpLogTrunc () {}
 
-	static const wchar_t
-	               _lib_name_0 [];
+	// TransOpInterface
+	virtual double operator () (double x) const;
+	virtual double get_max () const { return (1.0); }
 
 
 
@@ -62,11 +63,9 @@ protected:
 
 private:
 
-	enum {         BUFFER_LEN = 32767+1 }; // Characters
-
-	static void    compose_mapped_filename (wchar_t mf_name_0 [], wchar_t mu_name_0 []);
-	static ::HMODULE
-	               get_code_module ();
+	const bool     _inv_flag;
+	const double   _alpha;
+	const double   _beta;
 
 
 
@@ -74,22 +73,26 @@ private:
 
 private:
 
-	               AvstpFinder ();
-	               AvstpFinder (const AvstpFinder &other);
-	virtual        ~AvstpFinder () {}
-	AvstpFinder &  operator = (const AvstpFinder &other);
-	bool           operator == (const AvstpFinder &other) const;
-	bool           operator != (const AvstpFinder &other) const;
+	               TransOpLogTrunc ();
+	               TransOpLogTrunc (const TransOpLogTrunc &other);
+	TransOpLogTrunc &
+	               operator = (const TransOpLogTrunc &other);
+	bool           operator == (const TransOpLogTrunc &other) const;
+	bool           operator != (const TransOpLogTrunc &other) const;
 
-};	// class AvstpFinder
-
-
-
-//#include "AvstpFinder.hpp"
+};	// class TransOpLogTrunc
 
 
 
-#endif	// AvstpFinder_HEADER_INCLUDED
+}	// namespace fmtcl
+
+
+
+//#include "fmtcl/TransOpLogTrunc.hpp"
+
+
+
+#endif	// fmtcl_TransOpLogTrunc_HEADER_INCLUDED
 
 
 

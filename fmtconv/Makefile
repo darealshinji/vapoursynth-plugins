@@ -1,38 +1,87 @@
-ifeq ($(V), 1)
-MAKE = make V=1
-AUTORECONF = autoreconf -iv
-else
-MAKE = make V=0
-AUTORECONF = autoreconf -i
-endif
 
 LIB = libfmtconv.so
 
+local_CXXFLAGS = -mfpmath=sse -msse2
+ifeq ($(shell uname -p),x86_64)
+local_CXXFLAGS += -mcx16
+endif
 
-all: $(LIB)
+include ../global.inc
 
-$(LIB): build/unix/.libs/$(LIB)
-	cp $< .
+CXXSRCS = src/AvstpWrapper.cpp \
+        src/main.cpp \
+        src/fmtc/Bitdepth.cpp \
+        src/fmtc/Convert.cpp \
+        src/fmtc/ConvStep.cpp \
+        src/fmtc/Matrix2020CL.cpp \
+        src/fmtc/Matrix.cpp \
+        src/fmtc/NativeToStack16.cpp \
+        src/fmtc/Resample.cpp \
+        src/fmtc/Stack16ToNative.cpp \
+        src/fmtc/Transfer_avx2.cpp \
+        src/fmtc/Transfer.cpp \
+        src/fmtcl/ArrayMultiType.cpp \
+        src/fmtcl/BitBltConv_avx2.cpp \
+        src/fmtcl/BitBltConv.cpp \
+        src/fmtcl/ChromaPlacement.cpp \
+        src/fmtcl/CoefArrInt.cpp \
+        src/fmtcl/ContFirBlackman.cpp \
+        src/fmtcl/ContFirBlackmanMinLobe.cpp \
+        src/fmtcl/ContFirCubic.cpp \
+        src/fmtcl/ContFirFromDiscrete.cpp \
+        src/fmtcl/ContFirGauss.cpp \
+        src/fmtcl/ContFirInterface.cpp \
+        src/fmtcl/ContFirLanczos.cpp \
+        src/fmtcl/ContFirLinear.cpp \
+        src/fmtcl/ContFirRect.cpp \
+        src/fmtcl/ContFirSinc.cpp \
+        src/fmtcl/ContFirSnh.cpp \
+        src/fmtcl/ContFirSpline16.cpp \
+        src/fmtcl/ContFirSpline36.cpp \
+        src/fmtcl/ContFirSpline64.cpp \
+        src/fmtcl/ContFirSpline.cpp \
+        src/fmtcl/DiscreteFirCustom.cpp \
+        src/fmtcl/DiscreteFirInterface.cpp \
+        src/fmtcl/ErrDifBuf.cpp \
+        src/fmtcl/ErrDifBufFactory.cpp \
+        src/fmtcl/FilterResize.cpp \
+        src/fmtcl/KernelData.cpp \
+        src/fmtcl/MatrixProc_avx2.cpp \
+        src/fmtcl/MatrixProc_avx.cpp \
+        src/fmtcl/MatrixProc.cpp \
+        src/fmtcl/ResampleSpecPlane.cpp \
+        src/fmtcl/ResizeData.cpp \
+        src/fmtcl/ResizeDataFactory.cpp \
+        src/fmtcl/Scaler_avx2.cpp \
+        src/fmtcl/Scaler.cpp \
+        src/fmtcl/TransOp2084.cpp \
+        src/fmtcl/TransOpAffine.cpp \
+        src/fmtcl/TransOpCanonLog.cpp \
+        src/fmtcl/TransOpFilmStream.cpp \
+        src/fmtcl/TransOpLinPow.cpp \
+        src/fmtcl/TransOpLogC.cpp \
+        src/fmtcl/TransOpLogTrunc.cpp \
+        src/fmtcl/TransOpPow.cpp \
+        src/fmtcl/TransOpSLog.cpp \
+        src/fstb/CpuId.cpp \
+        src/fstb/fnc.cpp \
+        src/fstb/ToolsAvx2.cpp \
+        src/fstb/ToolsSse2.cpp \
+        src/vsutl/CpuOpt.cpp \
+        src/vsutl/FilterBase.cpp \
+        src/vsutl/fnc.cpp \
+        src/vsutl/PlaneProcCbInterface.cpp \
+        src/vsutl/PlaneProcessor.cpp
 
-build/unix/.libs/$(LIB): build/unix/Makefile
-	$(MAKE) -C build/unix
+%avx.o: %avx.cpp
+	$(CXX_silent)$(CXX) $(VSCXXFLAGS) -mavx -o $@ $^
 
-# -fabi-version=6 is needed to enable debug builds
-build/unix/Makefile: build/unix/configure
-	cd build/unix && \
-	CXXFLAGS="$(CXXFLAGS) -fabi-version=6 $(CPPFLAGS)" \
-	LDFLAGS="-Wl,-z,defs -Wl,-z,noexecstack -Wl,--as-needed $(LDFLAGS)" \
-	./configure
+%vx2.o: %vx2.cpp
+	$(CXX_silent)$(CXX) $(VSCXXFLAGS) -mavx2 -o $@ $^
 
-build/unix/configure:
-	mkdir -p build/unix/m4
-	$(AUTORECONF) build/unix
+%.o: %.cpp
+	$(CXX_silent)$(CXX) $(VSCXXFLAGS) -o $@ $^
 
-clean:
-	make -C build/unix $@
-	rm -f $(LIB)
-
-distclean:
-	make -C build/unix $@
-	rm -f $(LIB)
+$(LIB): $(CXXOBJS)
+	$(CXXLD_silent)$(CXX) $(VSLDFLAGS) -o $@ $(CXXOBJS) $(LIBS)
 
