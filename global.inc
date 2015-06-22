@@ -10,7 +10,7 @@ CC_silent    = @ echo '  CC       '$@;
 YASM_silent  = @ echo '  YASM     '$@;
 endif
 
-commonflags = -c -fPIC -Wall -Wextra -Wno-unused-parameter -Wno-unused-result -Isrc
+commonflags = -c -fPIC -Wall -Wextra -Wno-unused-parameter -Wno-unused-result -Isrc -I../include -I../include/vapoursynth
 
 VSCFLAGS = $(commonflags) $(local_CFLAGS) $(CFLAGS) $(CPPFLAGS)
 VSCXXFLAGS = $(commonflags) $(local_CXXFLAGS) $(CXXFLAGS) $(CPPFLAGS)

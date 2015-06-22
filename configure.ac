@@ -4,6 +4,9 @@ m4_include([include/ac/ax_prog_yasm.m4])
 
 AC_INIT([vapoursynth-extra-plugins], [0], [https://github.com/darealshinji/vapoursynth-plugins])
 
+: ${CFLAGS="-O3"}
+: ${CXXFLAGS="-O3"}
+
 # programs
 AC_PROG_CXX
 AC_PROG_CC
@@ -13,13 +16,6 @@ AX_PROG_NASM([nasm_avail="no"])
 AX_PROG_YASM([yasm_avail="no"])
 
 AX_CXX_COMPILE_STDCXX_11([noext],[mandatory])
-
-# VapourSynth header files
-ac_save_CPPFLAGS="${CPPFLAGS} -I/usr/include/vapoursynth -I../include -I../include/vapoursynth"
-CPPFLAGS="${CPPFLAGS} -I/usr/include/vapoursynth -Iinclude"
-AC_CHECK_HEADER([vapoursynth/VapourSynth.h], , [exit 1])
-AC_CHECK_HEADER([vapoursynth/VSHelper.h], , [exit 1])
-CPPFLAGS="$ac_save_CPPFLAGS"
 
 # libraries
 AC_CHECK_LIB([m], [sqrt], , [exit 1])
