@@ -1,3 +1,10 @@
+vapoursynth-extra-plugins (20150623-1~trusty) trusty; urgency=low
+
+  * Updates: fmtconv, HAvsFunc
+  * Don't use the upstream buildsystem for fmtconv anymore
+
+ -- Marshall Banana <djcj@gmx.de>  Tue, 23 Jun 2015 14:23:55 +0200
+
 vapoursynth-extra-plugins (20150619-1~trusty) trusty; urgency=low
 
   * Updates: fieldhint, fmtconv

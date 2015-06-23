@@ -1,6 +1,8 @@
 #!/usr/bin/make -f
 
 export V=1
+export CFLAGS=-O3 $(filter-out -O2,$(shell dpkg-buildflags --get CFLAGS))
+export CXXFLAGS=-O3 $(filter-out -O2,$(shell dpkg-buildflags --get CXXFLAGS))
 
 
 %:
@@ -12,7 +14,7 @@ override_dh_autoreconf:
 override_dh_auto_clean:
 	touch config.mak
 	dh_auto_clean
-	rm -f nnedi3/src/nnedi3_weights.bin
+	rm -f nnedi3/src/nnedi3_weights.bin config.mak
 
 override_dh_auto_install:
 	touch nnedi3/src/nnedi3_weights.bin
