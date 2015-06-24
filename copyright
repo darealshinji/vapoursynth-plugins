@@ -163,6 +163,7 @@ Copyright: 1991-2, RSA Data Security, Inc.
 License: other-1
 
 Files: debian/*
+       *
 Copyright: 2014-2015 djcj <djcj@gmx.de>
 License: MIT
 
