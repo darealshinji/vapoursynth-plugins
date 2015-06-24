@@ -59,6 +59,12 @@ Files: flash3kyuu_deband/*
 Copyright: 2011-2014 Joe Hu <i@sapika.ch>
 License: GPL-3+
 
+Files: fluxsmooth/*
+Copyright: none
+License: public-domain
+ The original FluxSmooth author said: "There is no copyright on this code, and
+ there are no conditions on its distribution or use. Do with it what you will."
+
 Files: fmtconv/*
 Copyright: 2012-2015 cretindesalpes
 License: WTFPL
@@ -95,7 +101,7 @@ Files: sangnommod/*
 Copyright: 2014 msg7086
 License: GPL-2+
 
-Files: damb/* scrawl/* videoscope/*
+Files: damb/* fillborsers/* scrawl/* videoscope/*
 Copyright: 2013-2014 dubhater
 License: WTFPL
 
@@ -142,10 +148,6 @@ Copyright: 2007 Kevin Stone
            2014-2015 HolyWu
 License: GPL-2+
 
-Files: yadifmod/src/vectorclass/*
-Copyright: 2012-2014 Agner Fog
-License: GPL-3+
-
 Files: imagereader/libjpeg-turbo/*
 Copyright: 1999-2006 MIYASAKA Masaru
            2004 Landmark Graphics Corporation
@@ -160,12 +162,40 @@ License: JPEG
 
 Files: imagereader/libjpeg-turbo/md5/md5.*
 Copyright: 1991-2, RSA Data Security, Inc.
-License: other-1
+License: rsa-md5
 
 Files: debian/*
        *
 Copyright: 2014-2015 djcj <djcj@gmx.de>
 License: MIT
+
+Files: include/ac/ax_prog_*asm.m4
+Copyright: 2007,2009 Bogdan Drozdowski <bogdandr@op.pl>
+License: LGPL-3.0 with autoconf exception
+
+Files: include/ac/ax_cxx_compile_stdcxx_11.m4
+Copyright: 2008 Benjamin Kosnik <bkoz@redhat.com>
+           2012 Zack Weinberg <zackw@panix.com>
+           2013 Roy Stogner <roystgnr@ices.utexas.edu>
+           2014, 2015 Google Inc.; contributed by Alexey Sokolov <sokolov@google.com>
+License:
+ Copying and distribution of this file, with or without modification, are
+ permitted in any medium without royalty provided the copyright notice
+ and this notice are preserved. This file is offered as-is, without any
+ warranty.
+
+Files: include/vapoursynth/VapourSynth.h
+       include/vapoursynth/VSScript.h
+Copyright: 2012-2015 Fredrik Mellbin
+License: LGPL-2.1
+
+Files: include/vapoursynth/VSHelper.h
+Copyright: 2012-2015 Fredrik Mellbin
+License: MIT
+
+Files: include/vectorclass/*
+Copyright: 2012-2014 Agner Fog
+License: GPL-3+
 
 
 License: LGPL-2.1
@@ -218,6 +248,33 @@ License: GPL-3+
  .
  On Debian systems, the complete text of the GNU General
  Public License version 3 can be found in "/usr/share/common-licenses/GPL-3".
+
+License: LGPL-3.0 with autoconf exception
+ This program is free software: you can redistribute it and/or modify it
+ under the terms of the GNU Lesser General Public License as published by
+ the Free Software Foundation, either version 3 of the License, or (at
+ your option) any later version.
+ .
+ This program is distributed in the hope that it will be useful, but
+ WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser
+ General Public License for more details.
+ .
+ You should have received a copy of the GNU Lesser General Public License
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
+ .
+ As a special exception, the respective Autoconf Macro's copyright owner
+ gives unlimited permission to copy, distribute and modify the configure
+ scripts that are the output of Autoconf when processing the Macro. You
+ need not follow the terms of the GNU General Public License when using
+ or distributing such scripts, even though portions of the text of the
+ Macro appear in them. The GNU General Public License (GPL) does govern
+ all other use of the material that constitutes the Autoconf Macro.
+ .
+ This special exception to the GPL applies to versions of the Autoconf
+ Macro released by the Autoconf Archive. When you make and distribute a
+ modified version of the Autoconf Macro, you may extend this special
+ exception to the GPL to apply to your modified version as well.
 
 License: MIT
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -456,7 +513,7 @@ License: JPEG
     CompuServe Incorporated.  GIF(sm) is a Service Mark property of
     CompuServe Incorporated."
 
-License: other-1
+License: rsa-md5
  License to copy and use this software is granted provided that it
  is identified as the "RSA Data Security, Inc. MD5 Message-Digest
  Algorithm" in all material mentioning or referencing this software
