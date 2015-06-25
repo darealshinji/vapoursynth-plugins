@@ -1,0 +1,25 @@
+
+Betreff:
+Re: nnedi3 model weights binary file
+Von:
+"Stone, Kevin Eliot (MU-Student)" <kes25c@mail.missouri.edu>
+Datum:
+24.06.2015 19:30
+An:
+djcj <djcj@gmx.de>
+
+The model file contains the network weights (a bunch 32-bit floating point values stored in binary format) that are a result of training on my image set. I could have included those values in tables in a big source file, but storing them in binary file was easier to me. The model file isn't under any license, you can do whatever you want with it. I never released the training program for learning the weights. I planned to, but never got around to it.
+
+- Kevin
+________________________________________
+From: djcj <djcj@gmx.de>
+Sent: Wednesday, June 24, 2015 11:26 AM
+To: kes25c@mizzou.edu
+Subject: nnedi3 model weights binary file
+
+Hi!
+You needi3 avisynth plugin was released under GPL-2.
+I assume that the nnedi3 model weights binary file is GPL-2 too.
+However, I cannot find any kind of source file or documentation on how
+to create or modify
+this binary file, since the GPL would require the source to be available.
