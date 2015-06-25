@@ -85,9 +85,17 @@ Copyright: 2012-2015 dubhater
 License: GPL-2+
 
 Files: nnedi3/src/nnedi3.c
-Copyright: 2010-2011 Kevin Stone
+Copyright: 2010-2011 Kevin Eliot Stone
            2014 dubhater
 License: GPL-2+
+
+Files: nnedi3/src/nnedi3_weights.bin
+Copyright: none
+License: public-domain
+ This file isn't under any license, you can do whatever you want with it.
+Comment:
+ This file was created by Kevin Eliot Stone <kes25c@mail.missouri.edu>.
+ He doesn't claim any copyright.
 
 Files: nnedi3/src/asm/include/x86inc.asm
 Copyright: 2005-2012 x264 project
