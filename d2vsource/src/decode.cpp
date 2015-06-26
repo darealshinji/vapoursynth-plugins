@@ -112,7 +112,7 @@ static int read_packet(void *opaque, uint8_t *buf, int size)
      * on the next file.
      */
     ret = fread(buf, 1, size, ctx->files[ctx->cur_file]);
-    if (ret < size && ctx->cur_file != ctx->files.size() - 1) {
+    if (ret < (size_t) size && ctx->cur_file != ctx->files.size() - 1) {
         ctx->cur_file++;
         fseeko(ctx->files[ctx->cur_file], 0, SEEK_SET);
         ret += fread(buf + ret, 1, size - ret, ctx->files[ctx->cur_file]);
