@@ -22,6 +22,7 @@
 
 #include <algorithm>
 #include <cfloat>
+#include <cmath>
 #include <vapoursynth/VapourSynth.h>
 #include <vapoursynth/VSHelper.h>
 
@@ -33,8 +34,10 @@ struct TCannyData {
     float sigma, t_h, t_l, gmmax;
     int nms, mode, op;
     bool process[3];
-    int grad;
+    int grad, bins;
     float * weights;
+    float magnitude;
+    int peak;
 };
 
 struct Stack {
@@ -70,8 +73,7 @@ static float * gaussianWeights(const float sigma, int & rad) {
 }
 
 template<typename T>
-static void genConvV(const T * srcp, float * VS_RESTRICT dstp, const int width, const int height, const int stride, const int rad, const float * weights, const int bitsPerSample) {
-    const float divisor = 1.f / (1 << (bitsPerSample - 8));
+static void genConvV(const T * srcp, float * VS_RESTRICT dstp, const int width, const int height, const int stride, const int rad, const float * weights) {
     weights += rad;
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
@@ -82,7 +84,7 @@ static void genConvV(const T * srcp, float * VS_RESTRICT dstp, const int width, 
                     yc = -yc;
                 else if (yc >= height)
                     yc = 2 * (height - 1) - yc;
-                sum += srcp[yc * stride + x] * divisor * weights[v];
+                sum += srcp[x + yc * stride] * weights[v];
             }
             dstp[x] = sum;
         }
@@ -162,8 +164,8 @@ static void gmDirImages(float * VS_RESTRICT srcp, float * VS_RESTRICT gimg, floa
                     continue;
             }
             if (nms & 2) {
-                float val1, val2;
                 const int c = static_cast<int>(dir * (4.f / M_PIF));
+                float val1, val2;
                 if (c == 0 || c >= 4) {
                     const float h = std::tan(dir);
                     val1 = (1.f - h) * gmnT[x + 1] + h * gmnT[x - stride + 1];
@@ -186,9 +188,9 @@ static void gmDirImages(float * VS_RESTRICT srcp, float * VS_RESTRICT gimg, floa
             }
             srcpT[x] = -FLT_MAX;
         }
+        srcpT += stride;
         gmnT += stride;
         dirT += stride;
-        srcpT += stride;
     }
 }
 
@@ -223,8 +225,17 @@ static void hystersis(float * VS_RESTRICT srcp, Stack & VS_RESTRICT stack, const
 }
 
 template<typename T>
-static void binarizeCE(const float * srcp, T * VS_RESTRICT dstp, const int width, const int height, const int stride, const float t_h, const int bitsPerSample) {
-    const T peak = (1 << bitsPerSample) - 1;
+static void outputGB(const float * srcp, T * VS_RESTRICT dstp, const int width, const int height, const int stride, const int peak) {
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++)
+            dstp[x] = std::min(std::max(static_cast<int>(srcp[x] + 0.5f), 0), peak);
+        srcp += stride;
+        dstp += stride;
+    }
+}
+
+template<typename T>
+static void binarizeCE(const float * srcp, T * VS_RESTRICT dstp, const int width, const int height, const int stride, const float t_h, const T peak) {
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++)
             dstp[x] = (srcp[x] >= t_h) ? peak : 0;
@@ -234,23 +245,20 @@ static void binarizeCE(const float * srcp, T * VS_RESTRICT dstp, const int width
 }
 
 template<typename T>
-static void discretizeGM(const float * gimg, T * VS_RESTRICT dstp, const int width, const int height, const int stride, const float scale, const int bitsPerSample) {
-    const float multiplier = static_cast<float>(1 << (bitsPerSample - 8));
-    const int peak = (1 << bitsPerSample) - 1;
+static void discretizeGM(const float * gimg, T * VS_RESTRICT dstp, const int width, const int height, const int stride, const float magnitude, const int peak) {
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++)
-            dstp[x] = std::min(static_cast<int>(gimg[x] * multiplier * scale + 0.5f), peak);
+            dstp[x] = std::min(static_cast<int>(gimg[x] * magnitude + 0.5f), peak);
         gimg += stride;
         dstp += stride;
     }
 }
 
 template<typename T>
-static void discretizeDM_T(const float * srcp, const float * dimg, T * VS_RESTRICT dstp, const int width, const int height, const int stride, const float t_h, const int bitsPerSample) {
-    const int n = 1 << bitsPerSample;
+static void discretizeDM_T(const float * srcp, const float * dimg, T * VS_RESTRICT dstp, const int width, const int height, const int stride, const float t_h, const int bins) {
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++)
-            dstp[x] = (srcp[x] >= t_h) ? getBin(dimg[x], n) : 0;
+            dstp[x] = (srcp[x] >= t_h) ? getBin(dimg[x], bins) : 0;
         srcp += stride;
         dimg += stride;
         dstp += stride;
@@ -258,11 +266,10 @@ static void discretizeDM_T(const float * srcp, const float * dimg, T * VS_RESTRI
 }
 
 template<typename T>
-static void discretizeDM(const float * dimg, T * VS_RESTRICT dstp, const int width, const int height, const int stride, const int bitsPerSample) {
-    const int n = 1 << bitsPerSample;
+static void discretizeDM(const float * dimg, T * VS_RESTRICT dstp, const int width, const int height, const int stride, const int bins) {
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++)
-            dstp[x] = getBin(dimg[x], n);
+            dstp[x] = getBin(dimg[x], bins);
         dimg += stride;
         dstp += stride;
     }
@@ -277,19 +284,26 @@ static void TCanny(const VSFrameRef * src, VSFrameRef * dst, float * VS_RESTRICT
             const int stride = vsapi->getStride(src, plane) / sizeof(T);
             const T * srcp = reinterpret_cast<const T *>(vsapi->getReadPtr(src, plane));
             T * VS_RESTRICT dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
-            genConvV(srcp, fa[1], width, height, stride, d->grad, d->weights, d->vi->format->bitsPerSample);
+
+            genConvV<T>(srcp, fa[1], width, height, stride, d->grad, d->weights);
             genConvH(fa[1], fa[0], width, height, stride, d->grad, d->weights);
-            gmDirImages(fa[0], fa[1], fa[2], width, height, stride, d->nms, d->mode, d->op);
+
+            if (d->mode != -1)
+                gmDirImages(fa[0], fa[1], fa[2], width, height, stride, d->nms, d->mode, d->op);
+
             if (!(d->mode & 1))
                 hystersis(fa[0], stack, width, height, stride, d->t_h, d->t_l);
-            if (d->mode == 0)
-                binarizeCE(fa[0], dstp, width, height, stride, d->t_h, d->vi->format->bitsPerSample);
+
+            if (d->mode == -1)
+                outputGB<T>(fa[0], dstp, width, height, stride, d->peak);
+            else if (d->mode == 0)
+                binarizeCE<T>(fa[0], dstp, width, height, stride, d->t_h, d->peak);
             else if (d->mode == 1)
-                discretizeGM(fa[1], dstp, width, height, stride, 255.f / d->gmmax, d->vi->format->bitsPerSample);
+                discretizeGM<T>(fa[1], dstp, width, height, stride, d->magnitude, d->peak);
             else if (d->mode == 2)
-                discretizeDM_T(fa[0], fa[2], dstp, width, height, stride, d->t_h, d->vi->format->bitsPerSample);
+                discretizeDM_T<T>(fa[0], fa[2], dstp, width, height, stride, d->t_h, d->bins);
             else
-                discretizeDM(fa[2], dstp, width, height, stride, d->vi->format->bitsPerSample);
+                discretizeDM<T>(fa[2], dstp, width, height, stride, d->bins);
         }
     }
 }
@@ -388,8 +402,8 @@ static void VS_CC tcannyCreate(const VSMap *in, VSMap *out, void *userData, VSCo
         vsapi->setError(out, "TCanny: nms must be set to 0, 1, 2 or 3");
         return;
     }
-    if (d.mode < 0 || d.mode > 3) {
-        vsapi->setError(out, "TCanny: mode must be set to 0, 1, 2 or 3");
+    if (d.mode < -1 || d.mode > 3) {
+        vsapi->setError(out, "TCanny: mode must be set to -1, 0, 1, 2 or 3");
         return;
     }
     if (d.op < 0 || d.op > 2) {
@@ -432,6 +446,13 @@ static void VS_CC tcannyCreate(const VSMap *in, VSMap *out, void *userData, VSCo
 
         d.process[n] = true;
     }
+
+    const float scale = static_cast<float>(1 << (d.vi->format->bitsPerSample - 8));
+    d.t_h *= scale;
+    d.t_l *= scale;
+    d.magnitude = 255.f / d.gmmax;
+    d.bins = 1 << d.vi->format->bitsPerSample;
+    d.peak = d.bins - 1;
 
     d.weights = gaussianWeights(d.sigma, d.grad);
     if (!d.weights) {
