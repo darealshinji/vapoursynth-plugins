@@ -8,7 +8,6 @@ So don't expect this build system to work on anything else than Linux on x86 arc
 `git
 libtool
 pkg-config
-libvapoursynth-dev
 libavformat-dev
 libavcodec-dev
 libavresample-dev
