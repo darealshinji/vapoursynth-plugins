@@ -13,7 +13,14 @@ Files: adjust/*
 Copyright: 2015 dubhater
 License: WTFPL
 
-Files: bilateral/* bm3d/* retinex/*
+Files: bifrost/*
+Copyright: 2013-2014 dubhater
+           2007 Fredrik Mellbin
+License: WTFPL
+
+Files: bilateral/*
+       bm3d/*
+       retinex/*
 Copyright: 2014-2015 mawen1250
 License: GPL-3+
 
@@ -22,8 +29,12 @@ Copyright: 2006 Simon Perreault
            2014 HolyWu
 License: GPL-2+
 
-Files: combmask/* convo2d/* imagereader/*
-       rawsource/* scenechange/* temporalsoften2/*
+Files: combmask/*
+       convo2d/*
+       imagereader/*
+       rawsource/*
+       scenechange/*
+       temporalsoften2/*
 Copyright: 2012-2013, 2015 Oka Motofumi
 License: LGPL-2.1
 
@@ -55,9 +66,20 @@ Files: ffms2/*
 Copyright: 2007-2015 Fredrik Mellbin
 License: MIT
 
+Files: fieldhint/*
+Copyright: 2004 Loren Merritt
+           2013-2015 dubhater
+License: GPL-2+
+
 Files: flash3kyuu_deband/*
 Copyright: 2011-2014 Joe Hu <i@sapika.ch>
 License: GPL-3+
+
+Files: fluxsmooth/*
+Copyright: none
+License: public-domain
+ The original FluxSmooth author said: "There is no copyright on this code, and
+ there are no conditions on its distribution or use. Do with it what you will."
 
 Files: fmtconv/*
 Copyright: 2012-2015 cretindesalpes
@@ -74,14 +96,27 @@ Copyright: 2002 thejam79
            2014 msg7086
 License: GPL-2+
 
-Files: histogram/* msmoosh/* mvtools/* nnedi3/* tcomb/* wwxd/*
+Files: histogram/*
+       msmoosh/*
+       mvtools/*
+       nnedi3/*
+       tcomb/*
+       wwxd/*
 Copyright: 2012-2015 dubhater
 License: GPL-2+
 
 Files: nnedi3/src/nnedi3.c
-Copyright: 2010-2011 Kevin Stone
+Copyright: 2010-2011 Kevin Eliot Stone
            2014 dubhater
 License: GPL-2+
+
+Files: nnedi3/src/nnedi3_weights.bin
+Copyright: none
+License: public-domain
+ This file isn't under any license, you can do whatever you want with it.
+Comment:
+ This file was created by Kevin Eliot Stone <kes25c@mail.missouri.edu>.
+ He doesn't claim any copyright.
 
 Files: nnedi3/src/asm/include/x86inc.asm
 Copyright: 2005-2012 x264 project
@@ -95,18 +130,28 @@ Files: sangnommod/*
 Copyright: 2014 msg7086
 License: GPL-2+
 
-Files: damb/* scrawl/* videoscope/*
+Files: damb/*
+       fillborsers/*
+       scrawl/*
+       videoscope/*
 Copyright: 2013-2014 dubhater
-License: WTFPL
-
-Files: zimg/*
-Copyright: 2013-2014 dubhater
-           2013-2014 Stephen R. Savage
 License: WTFPL
 
 Files: scrawl/src/ter-116n.h
 Copyright: 2012 Dimitar Toshkov Zhekov
 License: OFL
+
+Files: scxvid/*
+Copyright: Fredrik Mellbin
+           2012-2014 dubhater
+License: GPL-2+
+
+Files: ssiq/*
+Copyright: 1999-2000 Donald A. Graft
+           2002 Tim Park
+           2007 Fredrik Mellbin
+           2013 dubhater
+License: GPL-2+
 
 Files: tc2cfr/*
 Copyright: 2013 Li Yonggang <gnaggnoyil@gmail.com>
@@ -122,7 +167,13 @@ Copyright: 2004-2007 Kevin Stone
            2014-2015 HolyWu
 License: GPL-2+
 
-Files: dctfilter/* templinearapproximate/*
+Files: temporalsoften/*
+Copyright: 2002 Ben Rudiak-Gould et al.
+           2012-2013 dubhater
+License: GPL-2+ with linking exception
+
+Files: dctfilter/*
+       templinearapproximate/*
 Copyright: 2014 Aleksey Lyashin <mystkeeper@gmail.com>
 License: MIT
 
@@ -130,7 +181,7 @@ Files: vaguedenoiser/*
 Copyright: 2015 HolyWu
 License: GPL-2+
 
-Files: vautodeint
+Files: vautodeint/*
 Copyright: 2013 Acfun
            2013 Li Yonggang <gnaggnoyil@gmail.com>
 License: GPL-3+
@@ -142,9 +193,10 @@ Copyright: 2007 Kevin Stone
            2014-2015 HolyWu
 License: GPL-2+
 
-Files: yadifmod/src/vectorclass/*
-Copyright: 2012-2014 Agner Fog
-License: GPL-3+
+Files: zimg/*
+Copyright: 2013-2014 dubhater
+           2013-2014 Stephen R. Savage
+License: WTFPL
 
 Files: imagereader/libjpeg-turbo/*
 Copyright: 1999-2006 MIYASAKA Masaru
@@ -160,12 +212,40 @@ License: JPEG
 
 Files: imagereader/libjpeg-turbo/md5/md5.*
 Copyright: 1991-2, RSA Data Security, Inc.
-License: other-1
+License: rsa-md5
 
 Files: debian/*
        *
 Copyright: 2014-2015 djcj <djcj@gmx.de>
 License: MIT
+
+Files: include/ac/ax_prog_*asm.m4
+Copyright: 2007,2009 Bogdan Drozdowski <bogdandr@op.pl>
+License: LGPL-3.0 with autoconf exception
+
+Files: include/ac/ax_cxx_compile_stdcxx_11.m4
+Copyright: 2008 Benjamin Kosnik <bkoz@redhat.com>
+           2012 Zack Weinberg <zackw@panix.com>
+           2013 Roy Stogner <roystgnr@ices.utexas.edu>
+           2014, 2015 Google Inc.; contributed by Alexey Sokolov <sokolov@google.com>
+License:
+ Copying and distribution of this file, with or without modification, are
+ permitted in any medium without royalty provided the copyright notice
+ and this notice are preserved. This file is offered as-is, without any
+ warranty.
+
+Files: include/vapoursynth/VapourSynth.h
+       include/vapoursynth/VSScript.h
+Copyright: 2012-2015 Fredrik Mellbin
+License: LGPL-2.1
+
+Files: include/vapoursynth/VSHelper.h
+Copyright: 2012-2015 Fredrik Mellbin
+License: MIT
+
+Files: include/vectorclass/*
+Copyright: 2012-2014 Agner Fog
+License: GPL-3+
 
 
 License: LGPL-2.1
@@ -202,6 +282,38 @@ License: GPL-2+
  On Debian systems, the complete text of the GNU General
  Public License version 2 can be found in "/usr/share/common-licenses/GPL-2".
 
+License: GPL-2+ with linking exception
+ This program is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation; either version 2 of the License, or
+ (at your option) any later version.
+ .
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+ .
+ You should have received a copy of the GNU General Public License
+ along with this program; if not, write to the Free Software
+ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA, or visit
+ http://www.gnu.org/copyleft/gpl.html .
+ .
+ Linking Avisynth statically or dynamically with other modules is making a
+ combined work based on Avisynth.  Thus, the terms and conditions of the GNU
+ General Public License cover the whole combination.
+ .
+ As a special exception, the copyright holders of Avisynth give you
+ permission to link Avisynth with independent modules that communicate with
+ Avisynth solely through the interfaces defined in avisynth.h, regardless of the license
+ terms of these independent modules, and to copy and distribute the
+ resulting combined work under terms of your choice, provided that
+ every copy of the combined work is accompanied by a complete copy of
+ the source code of Avisynth (the version of Avisynth used to produce the
+ combined work), being distributed under the terms of the GNU General
+ Public License plus this exception.  An independent module is a module
+ which is not derived from or based on Avisynth, such as 3rd-party filters,
+ import and export plugins, or graphical user interfaces.
+
 License: GPL-3+
  This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
@@ -218,6 +330,33 @@ License: GPL-3+
  .
  On Debian systems, the complete text of the GNU General
  Public License version 3 can be found in "/usr/share/common-licenses/GPL-3".
+
+License: LGPL-3.0 with autoconf exception
+ This program is free software: you can redistribute it and/or modify it
+ under the terms of the GNU Lesser General Public License as published by
+ the Free Software Foundation, either version 3 of the License, or (at
+ your option) any later version.
+ .
+ This program is distributed in the hope that it will be useful, but
+ WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser
+ General Public License for more details.
+ .
+ You should have received a copy of the GNU Lesser General Public License
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
+ .
+ As a special exception, the respective Autoconf Macro's copyright owner
+ gives unlimited permission to copy, distribute and modify the configure
+ scripts that are the output of Autoconf when processing the Macro. You
+ need not follow the terms of the GNU General Public License when using
+ or distributing such scripts, even though portions of the text of the
+ Macro appear in them. The GNU General Public License (GPL) does govern
+ all other use of the material that constitutes the Autoconf Macro.
+ .
+ This special exception to the GPL applies to versions of the Autoconf
+ Macro released by the Autoconf Archive. When you make and distribute a
+ modified version of the Autoconf Macro, you may extend this special
+ exception to the GPL to apply to your modified version as well.
 
 License: MIT
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -456,7 +595,7 @@ License: JPEG
     CompuServe Incorporated.  GIF(sm) is a Service Mark property of
     CompuServe Incorporated."
 
-License: other-1
+License: rsa-md5
  License to copy and use this software is granted provided that it
  is identified as the "RSA Data Security, Inc. MD5 Message-Digest
  Algorithm" in all material mentioning or referencing this software
