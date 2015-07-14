@@ -48,7 +48,8 @@ void Waifu2x_Process_Base::process_core()
 template < typename _Ty >
 void Waifu2x_Process_Base::process_core_gray()
 {
-    FLType *dstYd = nullptr, *srcYd = nullptr, *refYd = nullptr;
+    FLType *dstYd = nullptr, *srcYd = nullptr;
+    //FLType *refYd = nullptr;
 
     // Get write/read pointer
     auto dstY = reinterpret_cast<_Ty *>(vsapi->getWritePtr(dst, 0));
