@@ -36,7 +36,6 @@ make install
 
 **Plugins**:<br>
 [addgrain r5](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-AddGrain)<br>
-[adjust git20150322](https://github.com/dubhater/vapoursynth-adjust)<br>
 [bifrost 2.2](https://github.com/dubhater/vapoursynth-bifrost)<br>
 [bilateral r3](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Bilateral)<br>
 [bm3d r3+git20150528](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-BM3D)<br>
@@ -53,18 +52,14 @@ make install
 [ffms2](https://github.com/FFMS/ffms2)<br>
 [fieldhint r2+git20150711](https://github.com/dubhater/vapoursynth-fieldhint)<br>
 [fillborders 1.0](https://github.com/dubhater/vapoursynth-fillborders)<br>
-[finesharp 2015-01-16](https://gist.github.com/4re/8676fd350d4b5b223ab9)<br>
 [flash3kyuu_deband 1.5.1+git20150509](https://github.com/SAPikachu/flash3kyuu_deband)<br>
 [fluxsmooth 1.0+git20141002](https://github.com/dubhater/vapoursynth-fluxsmooth)<br>
 [fmtconv r17](https://github.com/EleonoreMizo/fmtconv)<br>
 [genericfilters 1.0.0+git20150505](https://github.com/myrsloik/GenericFilters)<br>
-[havsfunc r18](http://forum.doom9.org/showthread.php?t=166582)<br>
 [histogram 1.0+git20141212](https://github.com/dubhater/vapoursynth-histogram)<br>
 [imagereader 0.2.1](https://github.com/chikuzen/vsimagereader)<br>
 [it 1.2](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-IT)<br>
-[maskdetail git20141221](https://github.com/MonoS/VS-MaskDetail)<br>
 [msmoosh 1.1](https://github.com/dubhater/vapoursynth-msmoosh)<br>
-[mvsfunc 2015.06](https://github.com/HomeOfVapourSynthEvolution/mvsfunc)<br>
 [mvtools 9](https://github.com/dubhater/vapoursynth-mvtools)<br>
 [nnedi3 5+git20150528](https://github.com/dubhater/vapoursynth-nnedi3)<br>
 [rawsource git20130731](https://github.com/chikuzen/vsrawsource)<br>
@@ -82,10 +77,18 @@ make install
 [temporalsoften 1.0](https://github.com/dubhater/vapoursynth-temporalsoften)<br>
 [temporalsoften2 0.1.1](http://forum.doom9.org/showthread.php?t=166769)<br>
 [vaguedenoiser r2](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-VagueDenoiser)<br>
-[vapoursynth-modules git20131225](https://github.com/4re/vapoursynth-modules/)<br>
 [vautodeint git20130608](https://github.com/gnaggnoyil/VAutoDeint)<br>
 [videoscope 1.0](https://github.com/dubhater/vapoursynth-videoscope)<br>
 [waifu2x r1](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-waifu2x-opt)<br>
 [wwxd 1.0](https://github.com/dubhater/vapoursynth-wwxd)<br>
 [yadifmod r8](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Yadifmod)<br>
 [zimg git20141102](https://github.com/dubhater/zimg)
+
+**Scripts:**<br>
+[adjust git20150322](https://github.com/dubhater/vapoursynth-adjust)<br>
+[finesharp 2015-01-16](https://gist.github.com/4re/8676fd350d4b5b223ab9)<br>
+[havsfunc r18](http://forum.doom9.org/showthread.php?t=166582)<br>
+[maskdetail git20141221](https://github.com/MonoS/VS-MaskDetail)<br>
+[mvsfunc 2015.06](https://github.com/HomeOfVapourSynthEvolution/mvsfunc)<br>
+[vapoursynth-modules git20131225](https://github.com/4re/vapoursynth-modules)<br>
+
