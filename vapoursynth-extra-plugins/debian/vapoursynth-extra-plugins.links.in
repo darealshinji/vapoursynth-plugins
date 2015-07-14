@@ -1,0 +1,3 @@
+/usr/share/vapoursynth-waifu2x-models/noise1_model.json      /usr/lib/@DEB_HOST_MULTIARCH@/vapoursynth/noise1_model.json
+/usr/share/vapoursynth-waifu2x-models/noise2_model.json      /usr/lib/@DEB_HOST_MULTIARCH@/vapoursynth/noise2_model.json
+/usr/share/vapoursynth-waifu2x-models/scale2.0x_model.json   /usr/lib/@DEB_HOST_MULTIARCH@/vapoursynth/scale2.0x_model.json

@@ -1,3 +1,9 @@
+vapoursynth-extra-plugins (20150714-1~trusty) trusty; urgency=low
+
+  * New plugin: waifu2x
+
+ -- Marshall Banana <djcj@gmx.de>  Tue, 14 Jul 2015 08:50:19 +0200
+
 vapoursynth-extra-plugins (20150623-1~trusty) trusty; urgency=low
 
   * Updates: fmtconv, HAvsFunc

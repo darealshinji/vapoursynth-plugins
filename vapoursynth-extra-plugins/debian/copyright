@@ -21,6 +21,7 @@ License: WTFPL
 Files: bilateral/*
        bm3d/*
        retinex/*
+       waifu2x/*
 Copyright: 2014-2015 mawen1250
 License: GPL-3+
 
@@ -186,6 +187,16 @@ Copyright: 2013 Acfun
            2013 Li Yonggang <gnaggnoyil@gmail.com>
 License: GPL-3+
 
+Files: waifu2x/waifu2x-opt/*
+Copyright: 2015 nagadomi <nagadomi@nurs.or.jp>
+           2015 Takaaki Hiragushi
+License: MIT
+
+Files: waifu2x/waifu2x-opt/common/picojson.h
+Copyright: 2009-2010 Cybozu Labs, Inc.
+           2011-2014 Kazuho Oku
+License: BSD-2-clause
+
 Files: yadifmod/*
 Copyright: 2007 Kevin Stone
            2007 Alexander G. Balakhnin
@@ -228,7 +239,7 @@ Copyright: 2008 Benjamin Kosnik <bkoz@redhat.com>
            2012 Zack Weinberg <zackw@panix.com>
            2013 Roy Stogner <roystgnr@ices.utexas.edu>
            2014, 2015 Google Inc.; contributed by Alexey Sokolov <sokolov@google.com>
-License:
+License: other-1
  Copying and distribution of this file, with or without modification, are
  permitted in any medium without royalty provided the copyright notice
  and this notice are preserved. This file is offered as-is, without any
@@ -294,9 +305,7 @@ License: GPL-2+ with linking exception
  GNU General Public License for more details.
  .
  You should have received a copy of the GNU General Public License
- along with this program; if not, write to the Free Software
- Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA, or visit
- http://www.gnu.org/copyleft/gpl.html .
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
  .
  Linking Avisynth statically or dynamically with other modules is making a
  combined work based on Avisynth.  Thus, the terms and conditions of the GNU
