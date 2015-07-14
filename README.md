@@ -51,7 +51,7 @@ make install
 [dfttest r3](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-DFTTest)<br>
 [eedi2 r6](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-EEDI2)<br>
 [ffms2](https://github.com/FFMS/ffms2)<br>
-[fieldhint 1.0+git20150611](https://github.com/dubhater/vapoursynth-fieldhint)<br>
+[fieldhint 2+git20150711](https://github.com/dubhater/vapoursynth-fieldhint)<br>
 [fillborders 1.0](https://github.com/dubhater/vapoursynth-fillborders)<br>
 [finesharp 2015-01-16](https://gist.github.com/4re/8676fd350d4b5b223ab9)<br>
 [flash3kyuu_deband 1.5.1+git20150509](https://github.com/SAPikachu/flash3kyuu_deband)<br>

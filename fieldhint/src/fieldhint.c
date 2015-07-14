@@ -58,10 +58,10 @@ static const VSFrameRef *VS_CC fieldhintGetFrame(int n, int activationReason, vo
         } else if (match == 'u') {
             tf = n + !tff;
             bf = n + tff;
-        } else if (match == 'p') {
+        } else if (match == 'b') {
             tf = n - !tff;
             bf = n - tff;
-        } else if (match == 'b') {
+        } else if (match == 'p') {
             tf = n - tff;
             bf = n - !tff;
         } else { // 'c' and any invalid characters.
