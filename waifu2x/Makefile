@@ -5,7 +5,7 @@ W2X  = waifu2x-opt/libwaifu2x.a
 
 $(LIB): $(W2X) $(ZIMG)
 
-local_CXXFLAGS = -Wno-unused-variable -Wno-unused-local-typedefs -Wno-return-type -Iwaifu2x-opt/include -I../zimg/src/API
+local_CXXFLAGS = -Wno-unused-local-typedefs -Wno-return-type -Iwaifu2x-opt/include -I../zimg/src/API
 local_LDFLAGS  = -fopenmp
 LIBS = $(W2X) $(ZIMG)
 
@@ -15,7 +15,7 @@ clean-local:
 	rm -rf $(W2X) $(ZIMG)
 
 $(W2X):
-	$(MAKE) -C waifu2x-opt
+	$(MAKE) -C waifu2x-opt CXXFLAGS='$(CXXFLAGS)' CPPFLAGS='$(CPPFLAGS)' LDFLAGS='$(LDFLAGS)'
 
 $(ZIMG):
 	$(MAKE) -C ../zimg
