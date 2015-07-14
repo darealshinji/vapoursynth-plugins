@@ -15,7 +15,7 @@
 
 <table class="n">
 <tr><td class="n"><b>Authors:     </b></td><td class="n">&nbsp;</td><td class="n">Firesledge (aka Cretindesalpes)</td></tr>
-<tr><td class="n"><b>Version:     </b></td><td class="n">&nbsp;</td><td class="n">r15</td></tr>
+<tr><td class="n"><b>Version:     </b></td><td class="n">&nbsp;</td><td class="n">r17</td></tr>
 <tr><td class="n"><b>Download:    </b></td><td class="n">&nbsp;</td><td class="n"><a href="http://ldesoras.free.fr/prod.html#src_fmtconv">http://ldesoras.free.fr/prod.html</a></td></tr>
 <tr><td class="n"><b>Category:    </b></td><td class="n">&nbsp;</td><td class="n">Format tools</td></tr>
 <tr><td class="n"><b>Requirements:</b></td><td class="n">&nbsp;</td><td class="n"><a href="http://www.vapoursynth.com/">Vapoursynth</a></td></tr>
@@ -64,7 +64,7 @@ It does:</p>
 
 <p>It supports:</p>
 <ul>
-<li>Pixel data types: 8-, 9-, 10-, 12- and 16-bit integer, 32-bit float.</li>
+<li>Pixel data types: 8-&ndash;12-, 14- and 16-bit integer, 32-bit float.</li>
 <li>Colorspaces: RGB, Y, YUV in 4:4:4, 4:2:2, 4:2:0, 4:1:1 and YCgCo with the same chroma subsampling factors.</li>
 <li>Progressive and interlaced content.</li>
 </ul>
@@ -260,7 +260,9 @@ contains autotools settings.</p>
 	ampn       : float: opt; (0)
 	dyn        : int  : opt; (False)
 	staticnoise: int  : opt; (False)
-)	cpuopt     : int  : opt; (-1)
+	cpuopt     : int  : opt; (-1)
+	patsize    : int  : opt; (32)
+)
 </pre>
 
 <p>Bitdepth conversion with optional dithering.</p>
@@ -292,7 +294,7 @@ floating point or a range conversion is detected.</p>
 <p>The input clip. Mandatory.
 Supported input formats:</p>
 <ul>
-<li>8-, 9-, 10-, 12- and 16-bit integer.</li>
+<li>8-&ndash;12-, 14- and 16-bit integer.</li>
 <li>32-bit floating point.</li>
 <li>Any planar colorspace.</li>
 </ul>
@@ -346,6 +348,7 @@ formats.</p>
 <tr><td><b>5</b></td><td>Atkinson error diffusion. Generates distinct patterns but keeps clean the flat areas.</td></tr>
 <tr><td><b>6</b></td><td>Floyd-Steinberg error diffusion. Classic.</td></tr>
 <tr><td><b>7</b></td><td><a href="http://www.iro.umontreal.ca/~ostrom/publications/publications_abstracts.html#SIGGRAPH01_VarcoeffED">Ostromoukhov error diffusion</a>. Slow, available only for integer input at the moment. Avoids usual F-S artefacts.</td></tr>
+<tr><td><b>8</b></td><td>Void and cluster halftone dithering. Better visual aspect than ordered dithering.</td></tr>
 </table>
 
 <p>When using error-diffusion dithering on interlaced content, you should
@@ -381,6 +384,10 @@ and remains the same every frame.</p>
 0: default instruction set only (depends on the compilation settings),
 1: limit to SSE2,
 10: limit to AVX2.</p>
+
+<p class="var">patsize</p>
+<p>Width of the pattern used in the Void and cluster algorithm.
+The only valid values are 4, 8, 16 and 32.</p>
 
 
 
@@ -1357,8 +1364,20 @@ and 16-bit integer for <code>nativetostack16</code>.</p>
 
 <h2><a id="changelog"></a>V) Changelog</h2>
 
-<p><b>r16, 2015.xx.xx</b></p>
+<p><b>r17, 2015.07.08</b></p>
 <ul>
+<li><code>bitdepth</code>: added “Void and cluster” dithering method and its <var>patsize</var> parameter.</li>
+<li><code>bitdepth</code>: added floating point implementation for the Ostromoukhov dithering</li>
+<li><code>bitdepth</code>: added SSE2 optimizations for halftone modes (0, 1 and 8).</li>
+<li><code>bitdepth</code>: fixed incorrect conversion from float to 8-bit integer using the “fast” modes with SSE2 instruction set.</li>
+</ul>
+
+<p><b>r16, 2015.07.01</b></p>
+<ul>
+<li><code>bitdepth</code>: added support for 11-bit and 14-bit integer input.</li>
+<li><code>bitdepth</code>: fixed a slight plane inconsistency when dithering grey multi-plane pictures using an error diffusion algorithm.</li>
+<li><code>matrix2020cl</code>: added SSE2 optimisations for the floating point path.</li>
+<li><code>resample</code>: <var>sx</var>, <var>sy</var>, <var>sw</var> and <var>sh</var> parameters passed as arrays are now correctly taken into account. Thanks to mawen1250 for the bug report.</li>
 <li><code>transfer</code>: added the <var>blacklvl</var> parameter.</li>
 </ul>
 

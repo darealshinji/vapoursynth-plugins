@@ -3,10 +3,6 @@
         Bitdepth.cpp
         Author: Laurent de Soras, 2012
 
-To do:
-- SSE2 for ordered dithering
-- Ostromoukhov in float
-
 --- Legal stuff ---
 
 This program is free software. It comes without any warranty, to
@@ -34,6 +30,7 @@ http://sam.zoy.org/wtfpl/COPYING for more details.
 #if (fstb_ARCHI == fstb_ARCHI_X86)
 	#include "fmtcl/ProxyRwSse2.h"
 #endif
+#include "fmtcl/VoidAndCluster.h"
 #include "fstb/fnc.h"
 #include "vsutl/CpuOpt.h"
 #include "vsutl/fnc.h"
@@ -72,6 +69,7 @@ Bitdepth::Bitdepth (const ::VSMap &in, ::VSMap &out, void *user_data_ptr, ::VSCo
 ,	_ampn (get_arg_flt (in, out, "ampn", 0.0))
 ,	_dyn_flag (get_arg_int (in, out, "dyn", 0) != 0)
 ,	_static_noise_flag (get_arg_int (in, out, "staticnoise", 0) != 0)
+,	_pat_size (get_arg_int (in, out, "patsize", PAT_WIDTH))
 ,	_ampo_i (0)
 ,	_ampn_i (0)
 ,	_ampe_i (0)
@@ -80,12 +78,8 @@ Bitdepth::Bitdepth (const ::VSMap &in, ::VSMap &out, void *user_data_ptr, ::VSCo
 ,	_errdif_flag (false)
 ,	_dither_pat_arr ()
 ,	_buf_factory_uptr ()
-,	_process_seg_fast_int_int_ptr (0)
-,	_process_seg_fast_flt_int_ptr (0)
-,	_process_seg_ord_int_int_ptr (0)
-,	_process_seg_ord_flt_int_ptr (0)
-,	_process_seg_errdif_int_int_ptr (0)
-,	_process_seg_errdif_flt_int_ptr (0)
+,	_process_seg_int_int_ptr (0)
+,	_process_seg_flt_int_ptr (0)
 {
 	assert (&in != 0);
 	assert (&out != 0);
@@ -110,9 +104,9 @@ Bitdepth::Bitdepth (const ::VSMap &in, ::VSMap &out, void *user_data_ptr, ::VSCo
 		const int            bps = fmt_src.bytesPerSample;
 		const int            res = fmt_src.bitsPerSample;
 		if (! (   (st == ::stInteger && bps == 1 &&     res ==  8 )
-		       || (st == ::stInteger && bps == 2 && (   res ==  9
-		                                             || res == 10
-		                                             || res == 12
+		       || (st == ::stInteger && bps == 2 && (   (   res >=  9
+		                                                 && res <= 12)
+		                                             || res == 14
 		                                             || res == 16))
 		       || (st == ::stFloat   && bps == 4 &&     res == 32 )))
 		{
@@ -218,6 +212,11 @@ Bitdepth::Bitdepth (const ::VSMap &in, ::VSMap &out, void *user_data_ptr, ::VSCo
 	if (_ampn < 0)
 	{
 		throw_inval_arg ("ampn cannot be negative.");
+	}
+
+	if (_pat_size < 4 || PAT_WIDTH % _pat_size != 0)
+	{
+		throw_inval_arg ("Wrong value for patsize.");
 	}
 
 	int            w = _vi_in.width;
@@ -526,6 +525,10 @@ void	Bitdepth::build_dither_pat ()
 	default:
 		build_dither_pat_round ();
 		break;
+
+	case	DMode_VOIDCLUST:
+		build_dither_pat_void_and_cluster (_pat_size);
+		break;
 	}
 }
 
@@ -533,7 +536,7 @@ void	Bitdepth::build_dither_pat ()
 
 void	Bitdepth::build_dither_pat_round ()
 {
-	PatData &		pat_data = _dither_pat_arr [0];
+	PatData &      pat_data = _dither_pat_arr [0];
 	for (int y = 0; y < PAT_WIDTH; ++y)
 	{
 		for (int x = 0; x < PAT_WIDTH; ++x)
@@ -551,7 +554,7 @@ void	Bitdepth::build_dither_pat_bayer ()
 {
 	assert (fstb::is_pow_2 (int (PAT_WIDTH)));
 
-	PatData &		pat_data = _dither_pat_arr [0];
+	PatData &      pat_data = _dither_pat_arr [0];
 	for (int y = 0; y < PAT_WIDTH; ++y)
 	{
 		for (int x = 0; x < PAT_WIDTH; ++x)
@@ -566,9 +569,9 @@ void	Bitdepth::build_dither_pat_bayer ()
 		{
 			for (int x = 0; x < PAT_WIDTH; x += 2)
 			{
-				const int		xx = (x >> 1) + (PAT_WIDTH >> 1);
-				const int		yy = (y >> 1) + (PAT_WIDTH >> 1);
-				const int		val = (pat_data [yy] [xx] + 128) >> 2;
+				const int      xx = (x >> 1) + (PAT_WIDTH >> 1);
+				const int      yy = (y >> 1) + (PAT_WIDTH >> 1);
+				const int      val = (pat_data [yy] [xx] + 128) >> 2;
 				pat_data [y    ] [x    ] = int16_t (val +   0-128);
 				pat_data [y    ] [x + 1] = int16_t (val + 128-128);
 				pat_data [y + 1] [x    ] = int16_t (val + 192-128);
@@ -582,11 +585,33 @@ void	Bitdepth::build_dither_pat_bayer ()
 
 
 
+void	Bitdepth::build_dither_pat_void_and_cluster (int w)
+{
+	assert (PAT_WIDTH % w == 0);
+	fmtcl::VoidAndCluster   vc_gen;
+	fmtcl::MatrixWrap <uint16_t> pat_raw (w, w);
+	vc_gen.create_matrix (pat_raw);
+
+	PatData &      pat_data = _dither_pat_arr [0];
+	const int      area = w * w;
+	for (int y = 0; y < PAT_WIDTH; ++y)
+	{
+		for (int x = 0; x < PAT_WIDTH; ++x)
+		{
+			pat_data [y] [x] = int16_t (pat_raw (x, y) * 256 / area - 128);
+		}
+	}
+
+	build_next_dither_pat ();
+}
+
+
+
 void	Bitdepth::build_next_dither_pat ()
 {
 	for (int seq = 1; seq < PAT_PERIOD; ++seq)
 	{
-		const int		angle = (_dyn_flag) ? seq & 3 : 0;
+		const int      angle = (_dyn_flag) ? seq & 3 : 0;
 		copy_dither_pat_rotate (
 			_dither_pat_arr [seq],
 			_dither_pat_arr [0],
@@ -633,13 +658,20 @@ void	Bitdepth::copy_dither_pat_rotate (PatData &dst, const PatData &src, int ang
 	{ \
 	SETP (NAMP, NAMF, fmtcl::SplFmt_INT8 , uint8_t ,  8, fmtcl::SplFmt_INT16, uint16_t,  9) \
 	SETP (NAMP, NAMF, fmtcl::SplFmt_INT8 , uint8_t ,  8, fmtcl::SplFmt_INT16, uint16_t, 10) \
+	SETP (NAMP, NAMF, fmtcl::SplFmt_INT8 , uint8_t ,  8, fmtcl::SplFmt_INT16, uint16_t, 11) \
 	SETP (NAMP, NAMF, fmtcl::SplFmt_INT8 , uint8_t ,  8, fmtcl::SplFmt_INT16, uint16_t, 12) \
+	SETP (NAMP, NAMF, fmtcl::SplFmt_INT8 , uint8_t ,  8, fmtcl::SplFmt_INT16, uint16_t, 14) \
 	SETP (NAMP, NAMF, fmtcl::SplFmt_INT8 , uint8_t ,  8, fmtcl::SplFmt_INT16, uint16_t, 16) \
 	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t,  9, fmtcl::SplFmt_INT16, uint16_t, 10) \
+	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t,  9, fmtcl::SplFmt_INT16, uint16_t, 11) \
 	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t,  9, fmtcl::SplFmt_INT16, uint16_t, 12) \
+	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t,  9, fmtcl::SplFmt_INT16, uint16_t, 14) \
 	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t,  9, fmtcl::SplFmt_INT16, uint16_t, 16) \
+	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t, 10, fmtcl::SplFmt_INT16, uint16_t, 11) \
 	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t, 10, fmtcl::SplFmt_INT16, uint16_t, 12) \
+	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t, 10, fmtcl::SplFmt_INT16, uint16_t, 14) \
 	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t, 10, fmtcl::SplFmt_INT16, uint16_t, 16) \
+	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t, 12, fmtcl::SplFmt_INT16, uint16_t, 14) \
 	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t, 12, fmtcl::SplFmt_INT16, uint16_t, 16) \
 	}
 
@@ -652,73 +684,103 @@ void	Bitdepth::copy_dither_pat_rotate (PatData &dst, const PatData &src, int ang
 	SETP (NAMP, NAMF, fmtcl::SplFmt_INT8 , uint8_t ,  8, fmtcl::SplFmt_INT8 , uint8_t ,  8) \
 	SETP (NAMP, NAMF, fmtcl::SplFmt_INT8 , uint8_t ,  8, fmtcl::SplFmt_INT16, uint16_t,  9) \
 	SETP (NAMP, NAMF, fmtcl::SplFmt_INT8 , uint8_t ,  8, fmtcl::SplFmt_INT16, uint16_t, 10) \
+	SETP (NAMP, NAMF, fmtcl::SplFmt_INT8 , uint8_t ,  8, fmtcl::SplFmt_INT16, uint16_t, 11) \
 	SETP (NAMP, NAMF, fmtcl::SplFmt_INT8 , uint8_t ,  8, fmtcl::SplFmt_INT16, uint16_t, 12) \
+	SETP (NAMP, NAMF, fmtcl::SplFmt_INT8 , uint8_t ,  8, fmtcl::SplFmt_INT16, uint16_t, 14) \
 	SETP (NAMP, NAMF, fmtcl::SplFmt_INT8 , uint8_t ,  8, fmtcl::SplFmt_INT16, uint16_t, 16) \
 	SETP (NAMP, NAMF, fmtcl::SplFmt_INT8 , uint8_t ,  8, fmtcl::SplFmt_FLOAT, float   , 32) \
 	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t,  9, fmtcl::SplFmt_INT8 , uint8_t ,  8) \
 	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t,  9, fmtcl::SplFmt_INT16, uint16_t,  9) \
 	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t,  9, fmtcl::SplFmt_INT16, uint16_t, 10) \
+	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t,  9, fmtcl::SplFmt_INT16, uint16_t, 11) \
 	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t,  9, fmtcl::SplFmt_INT16, uint16_t, 12) \
+	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t,  9, fmtcl::SplFmt_INT16, uint16_t, 14) \
 	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t,  9, fmtcl::SplFmt_INT16, uint16_t, 16) \
 	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t,  9, fmtcl::SplFmt_FLOAT, float   , 32) \
 	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t, 10, fmtcl::SplFmt_INT8 , uint8_t ,  8) \
 	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t, 10, fmtcl::SplFmt_INT16, uint16_t,  9) \
 	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t, 10, fmtcl::SplFmt_INT16, uint16_t, 10) \
+	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t, 10, fmtcl::SplFmt_INT16, uint16_t, 11) \
 	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t, 10, fmtcl::SplFmt_INT16, uint16_t, 12) \
+	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t, 10, fmtcl::SplFmt_INT16, uint16_t, 14) \
 	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t, 10, fmtcl::SplFmt_INT16, uint16_t, 16) \
 	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t, 10, fmtcl::SplFmt_FLOAT, float   , 32) \
 	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t, 12, fmtcl::SplFmt_INT8 , uint8_t ,  8) \
 	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t, 12, fmtcl::SplFmt_INT16, uint16_t,  9) \
 	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t, 12, fmtcl::SplFmt_INT16, uint16_t, 10) \
+	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t, 12, fmtcl::SplFmt_INT16, uint16_t, 11) \
 	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t, 12, fmtcl::SplFmt_INT16, uint16_t, 12) \
+	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t, 12, fmtcl::SplFmt_INT16, uint16_t, 14) \
 	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t, 12, fmtcl::SplFmt_INT16, uint16_t, 16) \
 	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t, 12, fmtcl::SplFmt_FLOAT, float   , 32) \
 	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t, 16, fmtcl::SplFmt_INT8 , uint8_t ,  8) \
 	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t, 16, fmtcl::SplFmt_INT16, uint16_t,  9) \
 	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t, 16, fmtcl::SplFmt_INT16, uint16_t, 10) \
+	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t, 16, fmtcl::SplFmt_INT16, uint16_t, 11) \
 	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t, 16, fmtcl::SplFmt_INT16, uint16_t, 12) \
+	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t, 16, fmtcl::SplFmt_INT16, uint16_t, 14) \
 	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t, 16, fmtcl::SplFmt_INT16, uint16_t, 16) \
 	SETP (NAMP, NAMF, fmtcl::SplFmt_INT16, uint16_t, 16, fmtcl::SplFmt_FLOAT, float   , 32) \
 	}
 
 #define fmtc_Bitdepth_SET_FNC_INT(NAMP, NAMF, DF, DT, DP, SF, ST, SP) \
 	case (false << 30) + (DP << 24) + (DF << 16) + (SP << 8) + SF: \
-		_process_seg_##NAMP##_int_int_ptr = \
+		_process_seg_int_int_ptr = \
 			&ThisType::process_seg_##NAMF##_int_int_cpp <false, DT, DP, ST, SP>; \
 		break; \
 	case (true  << 30) + (DP << 24) + (DF << 16) + (SP << 8) + SF: \
-		_process_seg_##NAMP##_int_int_ptr = \
+		_process_seg_int_int_ptr = \
 			&ThisType::process_seg_##NAMF##_int_int_cpp <true, DT, DP, ST, SP>; \
 		break;
 
 #define fmtc_Bitdepth_SET_FNC_FLT(NAMP, NAMF, DF, DT, DP, SF, ST, SP) \
 	case (false << 30) + (DP << 24) + (DF << 16) + (SP << 8) + SF: \
-		_process_seg_##NAMP##_flt_int_ptr = \
+		_process_seg_flt_int_ptr = \
 			&ThisType::process_seg_##NAMF##_flt_int_cpp <false, DT, DP, ST>; \
 		break; \
 	case (true  << 30) + (DP << 24) + (DF << 16) + (SP << 8) + SF: \
-		_process_seg_##NAMP##_flt_int_ptr = \
+		_process_seg_flt_int_ptr = \
 			&ThisType::process_seg_##NAMF##_flt_int_cpp <true, DT, DP, ST>; \
 		break;
 
-#define fmtc_Bitdepth_SET_FNC_INT_SSE(NAMP, NAMF, DF, DT, DP, SF, ST, SP) \
+#define fmtc_Bitdepth_SET_FNC_INT_SSE2(NAMP, NAMF, DF, DT, DP, SF, ST, SP) \
 	case (false << 30) + (DP << 24) + (DF << 16) + (SP << 8) + SF: \
-		_process_seg_##NAMP##_int_int_ptr = \
-			&ThisType::process_seg_##NAMF##_int_int_sse <false, DF, DP, SF, SP>; \
+		_process_seg_int_int_ptr = \
+			&ThisType::process_seg_##NAMF##_int_int_sse2 <false, DF, DP, SF, SP>; \
 		break; \
 	case (true  << 30) + (DP << 24) + (DF << 16) + (SP << 8) + SF: \
-		_process_seg_##NAMP##_int_int_ptr = \
-			&ThisType::process_seg_##NAMF##_int_int_sse <true, DF, DP, SF, SP>; \
+		_process_seg_int_int_ptr = \
+			&ThisType::process_seg_##NAMF##_int_int_sse2 <true, DF, DP, SF, SP>; \
 		break;
 
-#define fmtc_Bitdepth_SET_FNC_FLT_SSE(NAMP, NAMF, DF, DT, DP, SF, ST, SP) \
+#define fmtc_Bitdepth_SET_FNC_FLT_SSE2(NAMP, NAMF, DF, DT, DP, SF, ST, SP) \
 	case (false << 30) + (DP << 24) + (DF << 16) + (SP << 8) + SF: \
-		_process_seg_##NAMP##_flt_int_ptr = \
-			&ThisType::process_seg_##NAMF##_flt_int_sse <false, DF, DP, SF>; \
+		_process_seg_flt_int_ptr = \
+			&ThisType::process_seg_##NAMF##_flt_int_sse2 <false, DF, DP, SF>; \
 		break; \
 	case (true  << 30) + (DP << 24) + (DF << 16) + (SP << 8) + SF: \
-		_process_seg_##NAMP##_flt_int_ptr = \
-			&ThisType::process_seg_##NAMF##_flt_int_sse <true, DF, DP, SF>; \
+		_process_seg_flt_int_ptr = \
+			&ThisType::process_seg_##NAMF##_flt_int_sse2 <true, DF, DP, SF>; \
+		break;
+
+#define fmtc_Bitdepth_SET_FNC_ERRDIF_INT(NAMP, NAMF, DF, DT, DP, SF, ST, SP) \
+	case (false << 30) + (DP << 24) + (DF << 16) + (SP << 8) + SF: \
+		_process_seg_int_int_ptr = \
+			&ThisType::process_seg_errdif_int_int_cpp <false, Diffuse##NAMF <DT, DP, ST, SP> >; \
+		break; \
+	case (true  << 30) + (DP << 24) + (DF << 16) + (SP << 8) + SF: \
+		_process_seg_int_int_ptr = \
+			&ThisType::process_seg_errdif_int_int_cpp <true, Diffuse##NAMF <DT, DP, ST, SP> >; \
+		break;
+
+#define fmtc_Bitdepth_SET_FNC_ERRDIF_FLT(NAMP, NAMF, DF, DT, DP, SF, ST, SP) \
+	case (false << 30) + (DP << 24) + (DF << 16) + (SP << 8) + SF: \
+		_process_seg_flt_int_ptr = \
+			&ThisType::process_seg_errdif_flt_int_cpp <false, Diffuse##NAMF <DT, DP, ST, SP> >; \
+		break; \
+	case (true  << 30) + (DP << 24) + (DF << 16) + (SP << 8) + SF: \
+		_process_seg_flt_int_ptr = \
+			&ThisType::process_seg_errdif_flt_int_cpp <true, Diffuse##NAMF <DT, DP, ST, SP> >; \
 		break;
 
 
@@ -743,11 +805,11 @@ void	Bitdepth::init_fnc_fast ()
 	if (_sse2_flag)
 	{
 		fmtc_Bitdepth_SPAN_INT (
-			fmtc_Bitdepth_SET_FNC_INT_SSE, fast, fast, false,
+			fmtc_Bitdepth_SET_FNC_INT_SSE2, fast, fast, false,
 			dst_res, dst_fmt, src_res, src_fmt
 		)
 		fmtc_Bitdepth_SPAN_FLT (
-			fmtc_Bitdepth_SET_FNC_FLT_SSE, fast, fast, false,
+			fmtc_Bitdepth_SET_FNC_FLT_SSE2, fast, fast, false,
 			dst_res, dst_fmt, src_res, src_fmt
 		)
 	}
@@ -774,6 +836,20 @@ void	Bitdepth::init_fnc_ordered ()
 		fmtc_Bitdepth_SET_FNC_FLT, ord, ord, simple_flag,
 		dst_res, dst_fmt, src_res, src_fmt
 	)
+
+#if (fstb_ARCHI == fstb_ARCHI_X86)
+	if (_sse2_flag)
+	{
+		fmtc_Bitdepth_SPAN_INT (
+			fmtc_Bitdepth_SET_FNC_INT_SSE2, ord, ord, simple_flag,
+			dst_res, dst_fmt, src_res, src_fmt
+		)
+		fmtc_Bitdepth_SPAN_FLT (
+			fmtc_Bitdepth_SET_FNC_FLT_SSE2, ord, ord, simple_flag,
+			dst_res, dst_fmt, src_res, src_fmt
+		)
+	}
+#endif
 }
 
 
@@ -792,55 +868,55 @@ void	Bitdepth::init_fnc_errdiff ()
 	{
 	case	DMode_FILTERLITE:
 		fmtc_Bitdepth_SPAN_INT (
-			fmtc_Bitdepth_SET_FNC_INT, errdif, filterlite, simple_flag,
+			fmtc_Bitdepth_SET_FNC_ERRDIF_INT, errdif, FilterLite, simple_flag,
 			dst_res, dst_fmt, src_res, src_fmt
 		)
 		fmtc_Bitdepth_SPAN_FLT (
-			fmtc_Bitdepth_SET_FNC_FLT, errdif, filterlite, simple_flag,
+			fmtc_Bitdepth_SET_FNC_ERRDIF_FLT, errdif, FilterLite, simple_flag,
 			dst_res, dst_fmt, src_res, src_fmt
 		)
 		break;
 
 	case	DMode_STUCKI:
 		fmtc_Bitdepth_SPAN_INT (
-			fmtc_Bitdepth_SET_FNC_INT, errdif, stucki, simple_flag,
+			fmtc_Bitdepth_SET_FNC_ERRDIF_INT, errdif, Stucki, simple_flag,
 			dst_res, dst_fmt, src_res, src_fmt
 		)
 		fmtc_Bitdepth_SPAN_FLT (
-			fmtc_Bitdepth_SET_FNC_FLT, errdif, stucki, simple_flag,
+			fmtc_Bitdepth_SET_FNC_ERRDIF_FLT, errdif, Stucki, simple_flag,
 			dst_res, dst_fmt, src_res, src_fmt
 		)
 		break;
 
 	case	DMode_ATKINSON:
 		fmtc_Bitdepth_SPAN_INT (
-			fmtc_Bitdepth_SET_FNC_INT, errdif, atkinson, simple_flag,
+			fmtc_Bitdepth_SET_FNC_ERRDIF_INT, errdif, Atkinson, simple_flag,
 			dst_res, dst_fmt, src_res, src_fmt
 		)
 		fmtc_Bitdepth_SPAN_FLT (
-			fmtc_Bitdepth_SET_FNC_FLT, errdif, atkinson, simple_flag,
+			fmtc_Bitdepth_SET_FNC_ERRDIF_FLT, errdif, Atkinson, simple_flag,
 			dst_res, dst_fmt, src_res, src_fmt
 		)
 		break;
 
 	case	DMode_FLOYD:
 		fmtc_Bitdepth_SPAN_INT (
-			fmtc_Bitdepth_SET_FNC_INT, errdif, floydsteinberg, simple_flag,
+			fmtc_Bitdepth_SET_FNC_ERRDIF_INT, errdif, FloydSteinberg, simple_flag,
 			dst_res, dst_fmt, src_res, src_fmt
 		)
 		fmtc_Bitdepth_SPAN_FLT (
-			fmtc_Bitdepth_SET_FNC_FLT, errdif, floydsteinberg, simple_flag,
+			fmtc_Bitdepth_SET_FNC_ERRDIF_FLT, errdif, FloydSteinberg, simple_flag,
 			dst_res, dst_fmt, src_res, src_fmt
 		)
 		break;
 
 	case	DMode_OSTRO:
 		fmtc_Bitdepth_SPAN_INT (
-			fmtc_Bitdepth_SET_FNC_INT, errdif, ostromoukhov, simple_flag,
+			fmtc_Bitdepth_SET_FNC_ERRDIF_INT, errdif, Ostromoukhov, simple_flag,
 			dst_res, dst_fmt, src_res, src_fmt
 		)
 		fmtc_Bitdepth_SPAN_FLT (
-			fmtc_Bitdepth_SET_FNC_FLT, errdif, filterlite, simple_flag,
+			fmtc_Bitdepth_SET_FNC_ERRDIF_FLT, errdif, Ostromoukhov, simple_flag,
 			dst_res, dst_fmt, src_res, src_fmt
 		)
 		break;
@@ -848,6 +924,7 @@ void	Bitdepth::init_fnc_errdiff ()
 	default:
 		break;
 	}
+
 }
 
 
@@ -872,10 +949,20 @@ void	Bitdepth::dither_plane (fmtcl::SplFmt dst_fmt, int dst_res, uint8_t *dst_pt
 	assert (w > 0);
 	assert (h > 0);
 
+	SegContext     ctx;
+	ctx._rnd_state      = rnd_state;
+	ctx._scale_info_ptr = &scale_info;
+
 	const bool     sc_flag =
 		(   src_fmt == fmtcl::SplFmt_FLOAT
 		 || scale_info._gain * ((uint64_t (1)) << (src_res - dst_res)) != 1
 		 || scale_info._add_cst != 0);
+
+	void (ThisType::* process_ptr) (uint8_t *dst_ptr, const uint8_t *src_ptr, int w, SegContext &ctx) const =
+		  (sc_flag)
+		? _process_seg_flt_int_ptr
+		: _process_seg_int_int_ptr;
+	assert (process_ptr != 0);
 
 	fmtcl::ErrDifBuf *   ed_buf_ptr = 0;
 	if (_errdif_flag)
@@ -888,73 +975,37 @@ void	Bitdepth::dither_plane (fmtcl::SplFmt dst_fmt, int dst_res, uint8_t *dst_pt
 		ed_buf_ptr->clear ((sc_flag) ? sizeof (float) : sizeof (int16_t));
 	}
 
+	switch (_dmode)
+	{
+	case	DMode_BAYER:
+	case	DMode_ROUND:
+	case	DMode_VOIDCLUST:
+		ctx._pattern_ptr = &pattern;
+		break;
+
+	case	DMode_FAST:
+		// Nothing
+		break;
+
+	case	DMode_FILTERLITE:
+	case	DMode_STUCKI:
+	case	DMode_ATKINSON:
+	case	DMode_FLOYD:
+	case	DMode_OSTRO:
+		ctx._ed_buf_ptr = ed_buf_ptr;
+		break;
+
+	default:
+		assert (false);
+		throw_logic_err ("unexpected dithering algorithm");
+		break;
+	}
+
 	for (int y = 0; y < h; ++y)
 	{
-		const PatRow & pat = pattern [y & (PAT_WIDTH - 1)];
+		ctx._y = y;
 
-		switch (_dmode)
-		{
-		case	DMode_BAYER:
-		case	DMode_ROUND:
-			if (sc_flag)
-			{
-				assert (_process_seg_ord_flt_int_ptr != 0);
-				(this->*_process_seg_ord_flt_int_ptr) (
-					dst_ptr, src_ptr, w, pat, rnd_state, scale_info
-				);
-			}
-			else
-			{
-				assert (_process_seg_ord_int_int_ptr != 0);
-				(this->*_process_seg_ord_int_int_ptr) (
-					dst_ptr, src_ptr, w, pat, rnd_state
-				);
-			}
-			break;
-
-		case	DMode_FAST:
-			if (sc_flag)
-			{
-				assert (_process_seg_fast_flt_int_ptr != 0);
-				(this->*_process_seg_fast_flt_int_ptr) (
-					dst_ptr, src_ptr, w, scale_info
-				);
-			}
-			else
-			{
-				assert (_process_seg_fast_int_int_ptr != 0);
-				(this->*_process_seg_fast_int_int_ptr) (
-					dst_ptr, src_ptr, w
-				);
-			}
-			break;
-
-		case	DMode_FILTERLITE:
-		case	DMode_STUCKI:
-		case	DMode_ATKINSON:
-		case	DMode_FLOYD:
-		case	DMode_OSTRO:
-			if (sc_flag)
-			{
-				assert (_process_seg_errdif_flt_int_ptr != 0);
-				(this->*_process_seg_errdif_flt_int_ptr) (
-					dst_ptr, src_ptr, w, rnd_state, *ed_buf_ptr, y, scale_info
-				);
-			}
-			else
-			{
-				assert (_process_seg_errdif_int_int_ptr != 0);
-				(this->*_process_seg_errdif_int_int_ptr) (
-					dst_ptr, src_ptr, w, rnd_state, *ed_buf_ptr, y
-				);
-			}
-			break;
-
-		default:
-			assert (false);
-			throw_logic_err ("unexpected dithering algorithm");
-			break;
-		}
+		(this->*process_ptr) (dst_ptr, src_ptr, w, ctx);
 
 		src_ptr += src_stride;
 		dst_ptr += dst_stride;
@@ -970,7 +1021,7 @@ void	Bitdepth::dither_plane (fmtcl::SplFmt dst_fmt, int dst_res, uint8_t *dst_pt
 
 
 template <bool S_FLAG, class DST_TYPE, int DST_BITS, class SRC_TYPE, int SRC_BITS>
-void	Bitdepth::process_seg_fast_int_int_cpp (uint8_t *dst_ptr, const uint8_t *src_ptr, int w) const
+void	Bitdepth::process_seg_fast_int_int_cpp (uint8_t *dst_ptr, const uint8_t *src_ptr, int w, SegContext &/*ctx*/) const
 {
 	assert (dst_ptr != 0);
 	assert (src_ptr != 0);
@@ -992,50 +1043,19 @@ void	Bitdepth::process_seg_fast_int_int_cpp (uint8_t *dst_ptr, const uint8_t *sr
 
 
 
-#if (fstb_ARCHI == fstb_ARCHI_X86)
-
-template <bool S_FLAG, fmtcl::SplFmt DST_FMT, int DST_BITS, fmtcl::SplFmt SRC_FMT, int SRC_BITS>
-void	Bitdepth::process_seg_fast_int_int_sse (uint8_t *dst_ptr, const uint8_t *src_ptr, int w) const
-{
-	assert (dst_ptr != 0);
-	assert (src_ptr != 0);
-	assert (w > 0);
-
-	enum {         DIF_BITS = SRC_BITS - DST_BITS };
-	static_assert (DIF_BITS >= 0, "This function cannot increase bidepth.");
-
-	typedef typename  fmtcl::ProxyRwSse2 <SRC_FMT>::PtrConst::Type SrcPtr;
-	typedef typename  fmtcl::ProxyRwSse2 <DST_FMT>::Ptr::Type      DstPtr;
-	SrcPtr         src_n_ptr = reinterpret_cast <SrcPtr> (src_ptr);
-	DstPtr         dst_n_ptr = reinterpret_cast <DstPtr> (dst_ptr);
-	const __m128i  zero      = _mm_setzero_si128 ();
-
-	for (int pos = 0; pos < w; pos += 8)
-	{
-		const __m128i  s   =
-			fmtcl::ProxyRwSse2 <SRC_FMT>::read_i16 (src_n_ptr + pos, zero);
-		const __m128i  pix = _mm_srli_epi16 (s, DIF_BITS);
-		fmtcl::ProxyRwSse2 <DST_FMT>::write_i16 (dst_n_ptr + pos, pix, zero);
-	}
-}
-
-#endif
-
-
-
 template <bool S_FLAG, class DST_TYPE, int DST_BITS, class SRC_TYPE>
-void	Bitdepth::process_seg_fast_flt_int_cpp (uint8_t *dst_ptr, const uint8_t *src_ptr, int w, const fmtcl::BitBltConv::ScaleInfo &scale_info) const
+void	Bitdepth::process_seg_fast_flt_int_cpp (uint8_t *dst_ptr, const uint8_t *src_ptr, int w, SegContext &ctx) const
 {
 	assert (dst_ptr != 0);
 	assert (src_ptr != 0);
 	assert (w > 0);
-	assert (&scale_info != 0);
+	assert (ctx._scale_info_ptr != 0);
 
 	const SRC_TYPE *  src_n_ptr = reinterpret_cast <const SRC_TYPE *> (src_ptr);
 	DST_TYPE *        dst_n_ptr = reinterpret_cast <      DST_TYPE *> (dst_ptr);
 
-	const float    mul  = float (scale_info._gain);
-	const float    add  = float (scale_info._add_cst);
+	const float    mul  = float (ctx._scale_info_ptr->_gain);
+	const float    add  = float (ctx._scale_info_ptr->_add_cst);
 	const int      vmax = (1 << DST_BITS) - 1;
 
 	for (int pos = 0; pos < w; ++pos)
@@ -1052,21 +1072,51 @@ void	Bitdepth::process_seg_fast_flt_int_cpp (uint8_t *dst_ptr, const uint8_t *sr
 
 #if (fstb_ARCHI == fstb_ARCHI_X86)
 
-template <bool S_FLAG, fmtcl::SplFmt DST_FMT, int DST_BITS, fmtcl::SplFmt SRC_FMT>
-void	Bitdepth::process_seg_fast_flt_int_sse (uint8_t *dst_ptr, const uint8_t *src_ptr, int w, const fmtcl::BitBltConv::ScaleInfo &scale_info) const
+
+
+template <bool S_FLAG, fmtcl::SplFmt DST_FMT, int DST_BITS, fmtcl::SplFmt SRC_FMT, int SRC_BITS>
+void	Bitdepth::process_seg_fast_int_int_sse2 (uint8_t *dst_ptr, const uint8_t *src_ptr, int w, SegContext &/*ctx*/) const
 {
 	assert (dst_ptr != 0);
 	assert (src_ptr != 0);
 	assert (w > 0);
-	assert (&scale_info != 0);
+
+	enum {         DIF_BITS = SRC_BITS - DST_BITS };
+	static_assert (DIF_BITS >= 0, "This function cannot increase bidepth.");
+
+	typedef typename  fmtcl::ProxyRwSse2 <SRC_FMT>::PtrConst::Type SrcPtr;
+	typedef typename  fmtcl::ProxyRwSse2 <DST_FMT>::Ptr::Type      DstPtr;
+	SrcPtr         src_n_ptr = reinterpret_cast <SrcPtr> (src_ptr);
+	DstPtr         dst_n_ptr = reinterpret_cast <DstPtr> (dst_ptr);
+	const __m128i  zero      = _mm_setzero_si128 ();
+	const __m128i  mask_lsb  = _mm_set1_epi16 (0x00FF);
+
+	for (int pos = 0; pos < w; pos += 8)
+	{
+		const __m128i  s   =
+			fmtcl::ProxyRwSse2 <SRC_FMT>::read_i16 (src_n_ptr + pos, zero);
+		const __m128i  pix = _mm_srli_epi16 (s, DIF_BITS);
+		fmtcl::ProxyRwSse2 <DST_FMT>::write_i16 (dst_n_ptr + pos, pix, mask_lsb);
+	}
+}
+
+
+
+template <bool S_FLAG, fmtcl::SplFmt DST_FMT, int DST_BITS, fmtcl::SplFmt SRC_FMT>
+void	Bitdepth::process_seg_fast_flt_int_sse2 (uint8_t *dst_ptr, const uint8_t *src_ptr, int w, SegContext &ctx) const
+{
+	assert (dst_ptr != 0);
+	assert (src_ptr != 0);
+	assert (w > 0);
+	assert (ctx._scale_info_ptr != 0);
 
 	typedef typename  fmtcl::ProxyRwSse2 <SRC_FMT>::PtrConst::Type  SrcPtr;
 	typedef typename  fmtcl::ProxyRwSse2 <DST_FMT>::Ptr::Type       DstPtr;
 	SrcPtr         src_n_ptr = reinterpret_cast <SrcPtr> (src_ptr);
 	DstPtr         dst_n_ptr = reinterpret_cast <DstPtr> (dst_ptr);
 
-	const __m128   mul      = _mm_set1_ps (float (scale_info._gain));
-	const __m128   add      = _mm_set1_ps (float (scale_info._add_cst));
+	const __m128   mul      = _mm_set1_ps (float (ctx._scale_info_ptr->_gain));
+	const __m128   add      = _mm_set1_ps (float (ctx._scale_info_ptr->_add_cst));
 	const __m128   vmax     = _mm_set1_ps (float ((1 << DST_BITS) - 1));
 	const __m128   zero_f   = _mm_setzero_ps ();
 	const __m128i  zero_i   = _mm_setzero_si128 ();
@@ -1091,21 +1141,26 @@ void	Bitdepth::process_seg_fast_flt_int_sse (uint8_t *dst_ptr, const uint8_t *sr
 	}
 }
 
+
+
 #endif
 
 
 
 template <bool S_FLAG, class DST_TYPE, int DST_BITS, class SRC_TYPE, int SRC_BITS>
-void	Bitdepth::process_seg_ord_int_int_cpp (uint8_t *dst_ptr, const uint8_t *src_ptr, int w, const PatRow &pattern, uint32_t &rnd_state) const
+void	Bitdepth::process_seg_ord_int_int_cpp (uint8_t *dst_ptr, const uint8_t *src_ptr, int w, SegContext &ctx) const
 {
 	assert (dst_ptr != 0);
 	assert (src_ptr != 0);
 	assert (w > 0);
-	assert (&pattern != 0);
-	assert (&rnd_state != 0);
+	assert (&ctx != 0);
+	assert (&ctx._pattern_ptr != 0);
 
 	enum {         DIF_BITS = SRC_BITS - DST_BITS };
 	static_assert (DIF_BITS >= 1, "This function must reduce bidepth.");
+
+	const PatRow & pattern   = ctx.extract_pattern_row ();
+	uint32_t &     rnd_state = ctx._rnd_state;
 
 	const SRC_TYPE *  src_n_ptr = reinterpret_cast <const SRC_TYPE *> (src_ptr);
 	DST_TYPE *        dst_n_ptr = reinterpret_cast <      DST_TYPE *> (dst_ptr);
@@ -1154,23 +1209,26 @@ void	Bitdepth::process_seg_ord_int_int_cpp (uint8_t *dst_ptr, const uint8_t *src
 
 
 template <bool S_FLAG, class DST_TYPE, int DST_BITS, class SRC_TYPE>
-void	Bitdepth::process_seg_ord_flt_int_cpp (uint8_t *dst_ptr, const uint8_t *src_ptr, int w, const PatRow &pattern, uint32_t &rnd_state, const fmtcl::BitBltConv::ScaleInfo &scale_info) const
+void	Bitdepth::process_seg_ord_flt_int_cpp (uint8_t *dst_ptr, const uint8_t *src_ptr, int w, SegContext &ctx) const
 {
 	assert (dst_ptr != 0);
 	assert (src_ptr != 0);
 	assert (w > 0);
-	assert (&pattern != 0);
-	assert (&rnd_state != 0);
-	assert (&scale_info != 0);
+	assert (&ctx != 0);
+	assert (&ctx._pattern_ptr != 0);
+	assert (&ctx._scale_info_ptr != 0);
 
 	const SRC_TYPE *  src_n_ptr = reinterpret_cast <const SRC_TYPE *> (src_ptr);
 	DST_TYPE *        dst_n_ptr = reinterpret_cast <      DST_TYPE *> (dst_ptr);
 
+	const PatRow & pattern   = ctx.extract_pattern_row ();
+	uint32_t &     rnd_state = ctx._rnd_state;
+
 	const int      ao = _ampo_i;				// s8
 	const int      an = _ampn_i;				// s8
 
-	const float    mul  = float (scale_info._gain);
-	const float    add  = float (scale_info._add_cst);
+	const float    mul  = float (ctx._scale_info_ptr->_gain);
+	const float    add  = float (ctx._scale_info_ptr->_add_cst);
 	const float    qt   = 1.0f / (1 << ((S_FLAG ? 0 : AMP_BITS) + 8));
 	const int      vmax = (1 << DST_BITS) - 1;
 
@@ -1210,677 +1268,269 @@ void	Bitdepth::process_seg_ord_flt_int_cpp (uint8_t *dst_ptr, const uint8_t *src
 
 
 
-template <bool S_FLAG, class DST_TYPE, int DST_BITS, class SRC_TYPE, int SRC_BITS>
-void	Bitdepth::process_seg_floydsteinberg_int_int_cpp (uint8_t *dst_ptr, const uint8_t *src_ptr, int w, uint32_t &rnd_state, fmtcl::ErrDifBuf &ed_buf, int y) const
+#if (fstb_ARCHI == fstb_ARCHI_X86)
+
+
+
+template <bool S_FLAG, fmtcl::SplFmt DST_FMT, int DST_BITS, fmtcl::SplFmt SRC_FMT, int SRC_BITS>
+void	Bitdepth::process_seg_ord_int_int_sse2 (uint8_t *dst_ptr, const uint8_t *src_ptr, int w, SegContext &ctx) const
 {
 	assert (dst_ptr != 0);
 	assert (src_ptr != 0);
 	assert (w > 0);
-	assert (&rnd_state != 0);
-	assert (&ed_buf != 0);
-
-	const SRC_TYPE *  src_n_ptr = reinterpret_cast <const SRC_TYPE *> (src_ptr);
-	DST_TYPE *        dst_n_ptr = reinterpret_cast <      DST_TYPE *> (dst_ptr);
-
-	const int      ae = _ampe_i;
-
-	int16_t *      err_ptr = ed_buf.get_buf <int16_t> (0);
-
-	int            e1;
-	int            e3;
-	int            e5;
-	int            e7;
-	int            err_nxt = ed_buf.use_mem <int16_t> (0);
-
-	// Forward
-	if ((y & 1) == 0)
-	{
-		for (int x = 0; x < w; ++x)
-		{
-			int            err = err_nxt;
-
-			quantize_pix_int <S_FLAG, DST_TYPE, DST_BITS, SRC_TYPE, SRC_BITS> (
-				dst_n_ptr, src_n_ptr, x, err, rnd_state, ae, _ampn_i
-			);
-			diffuse_floydsteinberg_int (err, e1, e3, e5, e7);
-
-			err_nxt = err_ptr [x + 1];
-			err_ptr [x - 1] += e3;
-			err_ptr [x    ] += e5;
-			err_ptr [x + 1]  = e1;
-			err_nxt         += e7;
-		}
-	}
-
-	// Backward
-	else
-	{
-		for (int x = w - 1; x >= 0; --x)
-		{
-			int            err = err_nxt;
-
-			quantize_pix_int <S_FLAG, DST_TYPE, DST_BITS, SRC_TYPE, SRC_BITS> (
-				dst_n_ptr, src_n_ptr, x, err, rnd_state, ae, _ampn_i
-			);
-			diffuse_floydsteinberg_int (err, e1, e3, e5, e7);
-
-			err_nxt = err_ptr [x - 1];
-			err_ptr [x + 1] += e3;
-			err_ptr [x    ] += e5;
-			err_ptr [x - 1]  = e1;
-			err_nxt         += e7;
-		}
-	}
-
-	ed_buf.use_mem <int16_t> (0) = err_nxt;
-
-	if (! S_FLAG)
-	{
-		generate_rnd_eol (rnd_state);
-	}
-}
-
-
-
-template <bool S_FLAG, class DST_TYPE, int DST_BITS, class SRC_TYPE>
-void	Bitdepth::process_seg_floydsteinberg_flt_int_cpp (uint8_t *dst_ptr, const uint8_t *src_ptr, int w, uint32_t &rnd_state, fmtcl::ErrDifBuf &ed_buf, int y, const fmtcl::BitBltConv::ScaleInfo &scale_info) const
-{
-	assert (dst_ptr != 0);
-	assert (src_ptr != 0);
-	assert (w > 0);
-	assert (&rnd_state != 0);
-	assert (&ed_buf != 0);
-	assert (&scale_info != 0);
-
-	const SRC_TYPE *  src_n_ptr = reinterpret_cast <const SRC_TYPE *> (src_ptr);
-	DST_TYPE *        dst_n_ptr = reinterpret_cast <      DST_TYPE *> (dst_ptr);
-
-	const float    mul = float (scale_info._gain);
-	const float    add = float (scale_info._add_cst);
-	const float    ae  = float (_ampe_f);
-	const float    an  = float (_ampn_f);
-
-	float *        err_ptr = ed_buf.get_buf <float> (0);
-
-	float          e1;
-	float          e3;
-	float          e5;
-	float          e7;
-	float          err_nxt = ed_buf.use_mem <float> (0);
-
-	// Forward
-	if ((y & 1) == 0)
-	{
-		for (int x = 0; x < w; ++x)
-		{
-			float          err = err_nxt;
-
-			quantize_pix_flt <S_FLAG, DST_TYPE, DST_BITS, SRC_TYPE> (
-				dst_n_ptr, src_n_ptr, x, err, rnd_state, ae, an, mul, add
-			);
-			diffuse_floydsteinberg_flt (err, e1, e3, e5, e7);
-
-			err_nxt = err_ptr [x + 1];
-			err_ptr [x - 1] += e3;
-			err_ptr [x    ] += e5;
-			err_ptr [x + 1]  = e1;
-			err_nxt         += e7;
-		}
-	}
-
-	// Backward
-	else
-	{
-		for (int x = w - 1; x >= 0; --x)
-		{
-			float          err = err_nxt;
-
-			quantize_pix_flt <S_FLAG, DST_TYPE, DST_BITS, SRC_TYPE> (
-				dst_n_ptr, src_n_ptr, x, err, rnd_state, ae, an, mul, add
-			);
-			diffuse_floydsteinberg_flt (err, e1, e3, e5, e7);
-
-			err_nxt = err_ptr [x - 1];
-			err_ptr [x + 1] += e3;
-			err_ptr [x    ] += e5;
-			err_ptr [x - 1]  = e1;
-			err_nxt         += e7;
-		}
-	}
-
-	ed_buf.use_mem <float> (0) = err_nxt;
-
-	if (! S_FLAG)
-	{
-		generate_rnd_eol (rnd_state);
-	}
-}
-
-
-
-template <bool S_FLAG, class DST_TYPE, int DST_BITS, class SRC_TYPE, int SRC_BITS>
-void	Bitdepth::process_seg_filterlite_int_int_cpp (uint8_t *dst_ptr, const uint8_t *src_ptr, int w, uint32_t &rnd_state, fmtcl::ErrDifBuf &ed_buf, int y) const
-{
-	assert (dst_ptr != 0);
-	assert (src_ptr != 0);
-	assert (w > 0);
-	assert (&rnd_state != 0);
-	assert (&ed_buf != 0);
-
-	const SRC_TYPE *  src_n_ptr = reinterpret_cast <const SRC_TYPE *> (src_ptr);
-	DST_TYPE *        dst_n_ptr = reinterpret_cast <      DST_TYPE *> (dst_ptr);
-
-	const int      ae = _ampe_i;
-
-	int16_t *      err_ptr = ed_buf.get_buf <int16_t> (0);
-
-	int            e1;
-	int            e2;
-	int            err_nxt = ed_buf.use_mem <int16_t> (0);
-
-	// Forward
-	if ((y & 1) == 0)
-	{
-		for (int x = 0; x < w; ++x)
-		{
-			int            err = err_nxt;
-
-			quantize_pix_int <S_FLAG, DST_TYPE, DST_BITS, SRC_TYPE, SRC_BITS> (
-				dst_n_ptr, src_n_ptr, x, err, rnd_state, ae, _ampn_i
-			);
-			diffuse_filterlite_int (err, e1, e2);
-
-			err_nxt = err_ptr [x + 1];
-			err_ptr [x - 1] += e1;
-			err_ptr [x    ]  = e1;
-			err_nxt         += e2;
-		}
-		err_ptr [w] = 0;
-	}
-
-	// Backward
-	else
-	{
-		for (int x = w - 1; x >= 0; --x)
-		{
-			int            err = err_nxt;
-
-			quantize_pix_int <S_FLAG, DST_TYPE, DST_BITS, SRC_TYPE, SRC_BITS> (
-				dst_n_ptr, src_n_ptr, x, err, rnd_state, ae, _ampn_i
-			);
-			diffuse_filterlite_int (err, e1, e2);
-
-			err_nxt = err_ptr [x - 1];
-			err_ptr [x + 1] += e1;
-			err_ptr [x    ]  = e1;
-			err_nxt         += e2;
-		}
-		err_ptr [-1] = 0;
-	}
-
-	ed_buf.use_mem <int16_t> (0) = err_nxt;
-
-	if (! S_FLAG)
-	{
-		generate_rnd_eol (rnd_state);
-	}
-}
-
-
-
-template <bool S_FLAG, class DST_TYPE, int DST_BITS, class SRC_TYPE>
-void	Bitdepth::process_seg_filterlite_flt_int_cpp (uint8_t *dst_ptr, const uint8_t *src_ptr, int w, uint32_t &rnd_state, fmtcl::ErrDifBuf &ed_buf, int y, const fmtcl::BitBltConv::ScaleInfo &scale_info) const
-{
-	assert (dst_ptr != 0);
-	assert (src_ptr != 0);
-	assert (w > 0);
-	assert (&rnd_state != 0);
-	assert (&ed_buf != 0);
-	assert (&scale_info != 0);
-
-	const SRC_TYPE *  src_n_ptr = reinterpret_cast <const SRC_TYPE *> (src_ptr);
-	DST_TYPE *        dst_n_ptr = reinterpret_cast <      DST_TYPE *> (dst_ptr);
-
-	const float    mul = float (scale_info._gain);
-	const float    add = float (scale_info._add_cst);
-	const float    ae  = float (_ampe_f);
-	const float    an  = float (_ampn_f);
-
-	float *        err_ptr = ed_buf.get_buf <float> (0);
-
-	float          e1;
-	float          e2;
-	float          err_nxt = ed_buf.use_mem <float> (0);
-
-	// Forward
-	if ((y & 1) == 0)
-	{
-		for (int x = 0; x < w; ++x)
-		{
-			float          err = err_nxt;
-
-			quantize_pix_flt <S_FLAG, DST_TYPE, DST_BITS, SRC_TYPE> (
-				dst_n_ptr, src_n_ptr, x, err, rnd_state, ae, an, mul, add
-			);
-			diffuse_filterlite_flt (err, e1, e2);
-
-			err_nxt = err_ptr [x + 1];
-			err_ptr [x - 1] += e1;
-			err_ptr [x    ]  = e1;
-			err_nxt         += e2;
-		}
-		err_ptr [w] = 0;
-	}
-
-	// Backward
-	else
-	{
-		for (int x = w - 1; x >= 0; --x)
-		{
-			float          err = err_nxt;
-
-			quantize_pix_flt <S_FLAG, DST_TYPE, DST_BITS, SRC_TYPE> (
-				dst_n_ptr, src_n_ptr, x, err, rnd_state, ae, an, mul, add
-			);
-			diffuse_filterlite_flt (err, e1, e2);
-
-			err_nxt = err_ptr [x - 1];
-			err_ptr [x + 1] += e1;
-			err_ptr [x    ]  = e1;
-			err_nxt         += e2;
-		}
-		err_ptr [-1] = 0;
-	}
-
-	ed_buf.use_mem <float> (0) = err_nxt;
-
-	if (! S_FLAG)
-	{
-		generate_rnd_eol (rnd_state);
-	}
-}
-
-
-
-template <bool S_FLAG, class DST_TYPE, int DST_BITS, class SRC_TYPE, int SRC_BITS>
-void	Bitdepth::process_seg_stucki_int_int_cpp (uint8_t *dst_ptr, const uint8_t *src_ptr, int w, uint32_t &rnd_state, fmtcl::ErrDifBuf &ed_buf, int y) const
-{
-	assert (dst_ptr != 0);
-	assert (src_ptr != 0);
-	assert (w > 0);
-	assert (&rnd_state != 0);
-	assert (&ed_buf != 0);
-
-	const SRC_TYPE *  src_n_ptr = reinterpret_cast <const SRC_TYPE *> (src_ptr);
-	DST_TYPE *        dst_n_ptr = reinterpret_cast <      DST_TYPE *> (dst_ptr);
-
-	const int      ae = _ampe_i;
-
-	int16_t *      err0_ptr = ed_buf.get_buf <int16_t> (     y & 1 );
-	int16_t *      err1_ptr = ed_buf.get_buf <int16_t> (1 - (y & 1));
-
-	int            e1;
-	int            e2;
-	int            e4;
-	int            e8;
-	int            err_nxt0 = ed_buf.use_mem <int16_t> (0);
-	int            err_nxt1 = ed_buf.use_mem <int16_t> (1);
-
-	// Forward
-	if ((y & 1) == 0)
-	{
-		for (int x = 0; x < w; ++x)
-		{
-			int            err = err_nxt0;
-
-			quantize_pix_int <S_FLAG, DST_TYPE, DST_BITS, SRC_TYPE, SRC_BITS> (
-				dst_n_ptr, src_n_ptr, x, err, rnd_state, ae, _ampn_i
-			);
-			diffuse_stucki_int (err, e1, e2, e4, e8);
-
-			err_nxt0 = err_nxt1 + e8;
-			err_nxt1 = err1_ptr [x + 2] + e4;
-			err0_ptr [x - 2] += e2;
-			err0_ptr [x - 1] += e4;
-			err0_ptr [x    ] += e8;
-			err0_ptr [x + 1] += e4;
-			err0_ptr [x + 2] += e2;
-			err1_ptr [x - 2] += e1;
-			err1_ptr [x - 1] += e2;
-			err1_ptr [x    ] += e4;
-			err1_ptr [x + 1] += e2;
-			err1_ptr [x + 2]  = e1;
-		}
-	}
-
-	// Backward
-	else
-	{
-		for (int x = w - 1; x >= 0; --x)
-		{
-			int            err = err_nxt0;
-
-			quantize_pix_int <S_FLAG, DST_TYPE, DST_BITS, SRC_TYPE, SRC_BITS> (
-				dst_n_ptr, src_n_ptr, x, err, rnd_state, ae, _ampn_i
-			);
-			diffuse_stucki_int (err, e1, e2, e4, e8);
-
-			err_nxt0 = err_nxt1 + e8;
-			err_nxt1 = err1_ptr [x - 2] + e4;
-			err0_ptr [x + 2] += e2;
-			err0_ptr [x + 1] += e4;
-			err0_ptr [x    ] += e8;
-			err0_ptr [x - 1] += e4;
-			err0_ptr [x - 2] += e2;
-			err1_ptr [x + 2] += e1;
-			err1_ptr [x + 1] += e2;
-			err1_ptr [x    ] += e4;
-			err1_ptr [x - 1] += e2;
-			err1_ptr [x - 2]  = e1;
-		}
-	}
-
-	ed_buf.use_mem <int16_t> (0) = err_nxt0;
-	ed_buf.use_mem <int16_t> (1) = err_nxt1;
-
-	if (! S_FLAG)
-	{
-		generate_rnd_eol (rnd_state);
-	}
-}
-
-
-
-template <bool S_FLAG, class DST_TYPE, int DST_BITS, class SRC_TYPE>
-void	Bitdepth::process_seg_stucki_flt_int_cpp (uint8_t *dst_ptr, const uint8_t *src_ptr, int w, uint32_t &rnd_state, fmtcl::ErrDifBuf &ed_buf, int y, const fmtcl::BitBltConv::ScaleInfo &scale_info) const
-{
-	assert (dst_ptr != 0);
-	assert (src_ptr != 0);
-	assert (w > 0);
-	assert (&rnd_state != 0);
-	assert (&ed_buf != 0);
-	assert (&scale_info != 0);
-
-	const SRC_TYPE *  src_n_ptr = reinterpret_cast <const SRC_TYPE *> (src_ptr);
-	DST_TYPE *        dst_n_ptr = reinterpret_cast <      DST_TYPE *> (dst_ptr);
-
-	const float    mul = float (scale_info._gain);
-	const float    add = float (scale_info._add_cst);
-	const float    ae  = float (_ampe_f);
-	const float    an  = float (_ampn_f);
-
-	float *        err0_ptr = ed_buf.get_buf <float> (     y & 1 );
-	float *        err1_ptr = ed_buf.get_buf <float> (1 - (y & 1));
-
-	float          e1;
-	float          e2;
-	float          e4;
-	float          e8;
-	float          err_nxt0 = ed_buf.use_mem <float> (0);
-	float          err_nxt1 = ed_buf.use_mem <float> (1);
-
-	// Forward
-	if ((y & 1) == 0)
-	{
-		for (int x = 0; x < w; ++x)
-		{
-			float          err = err_nxt0;
-
-			quantize_pix_flt <S_FLAG, DST_TYPE, DST_BITS, SRC_TYPE> (
-				dst_n_ptr, src_n_ptr, x, err, rnd_state, ae, an, mul, add
-			);
-			diffuse_stucki_flt (err, e1, e2, e4, e8);
-
-			err_nxt0 = err_nxt1 + e8;
-			err_nxt1 = err1_ptr [x + 2] + e4;
-			err0_ptr [x - 2] += e2;
-			err0_ptr [x - 1] += e4;
-			err0_ptr [x    ] += e8;
-			err0_ptr [x + 1] += e4;
-			err0_ptr [x + 2] += e2;
-			err1_ptr [x - 2] += e1;
-			err1_ptr [x - 1] += e2;
-			err1_ptr [x    ] += e4;
-			err1_ptr [x + 1] += e2;
-			err1_ptr [x + 2]  = e1;
-		}
-	}
-
-	// Backward
-	else
-	{
-		for (int x = w - 1; x >= 0; --x)
-		{
-			float          err = err_nxt0;
-
-			quantize_pix_flt <S_FLAG, DST_TYPE, DST_BITS, SRC_TYPE> (
-				dst_n_ptr, src_n_ptr, x, err, rnd_state, ae, an, mul, add
-			);
-			diffuse_stucki_flt (err, e1, e2, e4, e8);
-
-			err_nxt0 = err_nxt1 + e8;
-			err_nxt1 = err1_ptr [x - 2] + e4;
-			err0_ptr [x + 2] += e2;
-			err0_ptr [x + 1] += e4;
-			err0_ptr [x    ] += e8;
-			err0_ptr [x - 1] += e4;
-			err0_ptr [x - 2] += e2;
-			err1_ptr [x + 2] += e1;
-			err1_ptr [x + 1] += e2;
-			err1_ptr [x    ] += e4;
-			err1_ptr [x - 1] += e2;
-			err1_ptr [x - 2]  = e1;
-		}
-	}
-
-	ed_buf.use_mem <float> (0) = err_nxt0;
-	ed_buf.use_mem <float> (1) = err_nxt1;
-
-	if (! S_FLAG)
-	{
-		generate_rnd_eol (rnd_state);
-	}
-}
-
-
-
-template <bool S_FLAG, class DST_TYPE, int DST_BITS, class SRC_TYPE, int SRC_BITS>
-void	Bitdepth::process_seg_atkinson_int_int_cpp (uint8_t *dst_ptr, const uint8_t *src_ptr, int w, uint32_t &rnd_state, fmtcl::ErrDifBuf &ed_buf, int y) const
-{
-	assert (dst_ptr != 0);
-	assert (src_ptr != 0);
-	assert (w > 0);
-	assert (&rnd_state != 0);
-	assert (&ed_buf != 0);
-
-	const SRC_TYPE *  src_n_ptr = reinterpret_cast <const SRC_TYPE *> (src_ptr);
-	DST_TYPE *        dst_n_ptr = reinterpret_cast <      DST_TYPE *> (dst_ptr);
-
-	const int      ae = _ampe_i;
-
-	int16_t *      err0_ptr = ed_buf.get_buf <int16_t> (     y & 1 );
-	int16_t *      err1_ptr = ed_buf.get_buf <int16_t> (1 - (y & 1));
-
-	int            e1;
-	int            err_nxt0 = ed_buf.use_mem <int16_t> (0);
-	int            err_nxt1 = ed_buf.use_mem <int16_t> (1);
-
-	// Forward
-	if ((y & 1) == 0)
-	{
-		for (int x = 0; x < w; ++x)
-		{
-			int            err = err_nxt0;
-
-			quantize_pix_int <S_FLAG, DST_TYPE, DST_BITS, SRC_TYPE, SRC_BITS> (
-				dst_n_ptr, src_n_ptr, x, err, rnd_state, ae, _ampn_i
-			);
-			diffuse_atkinson_int (err, e1);
-
-			err_nxt0 = err_nxt1 + e1;
-			err_nxt1 = err1_ptr [x + 2] + e1;
-			err0_ptr [x - 1] += e1;
-			err0_ptr [x    ] += e1;
-			err0_ptr [x + 1] += e1;
-			err1_ptr [x    ]  = e1;
-		}
-		err1_ptr [w] = 0;
-	}
-
-	// Backward
-	else
-	{
-		for (int x = w - 1; x >= 0; --x)
-		{
-			int            err = err_nxt0;
-
-			quantize_pix_int <S_FLAG, DST_TYPE, DST_BITS, SRC_TYPE, SRC_BITS> (
-				dst_n_ptr, src_n_ptr, x, err, rnd_state, ae, _ampn_i
-			);
-			diffuse_atkinson_int (err, e1);
-
-			err_nxt0 = err_nxt1 + e1;
-			err_nxt1 = err1_ptr [x - 2] + e1;
-			err0_ptr [x + 1] += e1;
-			err0_ptr [x    ] += e1;
-			err0_ptr [x - 1] += e1;
-			err1_ptr [x    ]  = e1;
-		}
-		err1_ptr [-1] = 0;
-	}
-
-	ed_buf.use_mem <int16_t> (0) = err_nxt0;
-	ed_buf.use_mem <int16_t> (1) = err_nxt1;
-
-	if (! S_FLAG)
-	{
-		generate_rnd_eol (rnd_state);
-	}
-}
-
-
-
-template <bool S_FLAG, class DST_TYPE, int DST_BITS, class SRC_TYPE>
-void	Bitdepth::process_seg_atkinson_flt_int_cpp (uint8_t *dst_ptr, const uint8_t *src_ptr, int w, uint32_t &rnd_state, fmtcl::ErrDifBuf &ed_buf, int y, const fmtcl::BitBltConv::ScaleInfo &scale_info) const
-{
-	assert (dst_ptr != 0);
-	assert (src_ptr != 0);
-	assert (w > 0);
-	assert (&rnd_state != 0);
-	assert (&ed_buf != 0);
-	assert (&scale_info != 0);
-
-	const SRC_TYPE *  src_n_ptr = reinterpret_cast <const SRC_TYPE *> (src_ptr);
-	DST_TYPE *        dst_n_ptr = reinterpret_cast <      DST_TYPE *> (dst_ptr);
-
-	const float    mul = float (scale_info._gain);
-	const float    add = float (scale_info._add_cst);
-	const float    ae  = float (_ampe_f);
-	const float    an  = float (_ampn_f);
-
-	float *        err0_ptr = ed_buf.get_buf <float> (     y & 1 );
-	float *        err1_ptr = ed_buf.get_buf <float> (1 - (y & 1));
-
-	float          e1;
-	float          err_nxt0 = ed_buf.use_mem <float> (0);
-	float          err_nxt1 = ed_buf.use_mem <float> (1);
-
-	// Forward
-	if ((y & 1) == 0)
-	{
-		for (int x = 0; x < w; ++x)
-		{
-			float          err = err_nxt0;
-
-			quantize_pix_flt <S_FLAG, DST_TYPE, DST_BITS, SRC_TYPE> (
-				dst_n_ptr, src_n_ptr, x, err, rnd_state, ae, an, mul, add
-			);
-			diffuse_atkinson_flt (err, e1);
-
-			err_nxt0 = err_nxt1 + e1;
-			err_nxt1 = err1_ptr [x + 2] + e1;
-			err0_ptr [x - 1] += e1;
-			err0_ptr [x    ] += e1;
-			err0_ptr [x + 1] += e1;
-			err1_ptr [x    ]  = e1;
-		}
-		err1_ptr [w] = 0;
-	}
-
-	// Backward
-	else
-	{
-		for (int x = w - 1; x >= 0; --x)
-		{
-			float          err = err_nxt0;
-
-			quantize_pix_flt <S_FLAG, DST_TYPE, DST_BITS, SRC_TYPE> (
-				dst_n_ptr, src_n_ptr, x, err, rnd_state, ae, an, mul, add
-			);
-			diffuse_atkinson_flt (err, e1);
-
-			err_nxt0 = err_nxt1 + e1;
-			err_nxt1 = err1_ptr [x - 2] + e1;
-			err0_ptr [x + 1] += e1;
-			err0_ptr [x    ] += e1;
-			err0_ptr [x - 1] += e1;
-			err1_ptr [x    ]  = e1;
-		}
-		err1_ptr [-1] = 0;
-	}
-
-	ed_buf.use_mem <float> (0) = err_nxt0;
-	ed_buf.use_mem <float> (1) = err_nxt1;
-
-	if (! S_FLAG)
-	{
-		generate_rnd_eol (rnd_state);
-	}
-}
-
-
-
-template <bool S_FLAG, class DST_TYPE, int DST_BITS, class SRC_TYPE, int SRC_BITS>
-void	Bitdepth::process_seg_ostromoukhov_int_int_cpp (uint8_t *dst_ptr, const uint8_t *src_ptr, int w, uint32_t &rnd_state, fmtcl::ErrDifBuf &ed_buf, int y) const
-{
-	assert (dst_ptr != 0);
-	assert (src_ptr != 0);
-	assert (w > 0);
-	assert (&rnd_state != 0);
-	assert (&ed_buf != 0);
 
 	enum {         DIF_BITS = SRC_BITS - DST_BITS };
+	static_assert (DIF_BITS >= 0, "This function cannot increase bidepth.");
+
+	const PatRow & pattern   = ctx.extract_pattern_row ();
+	uint32_t &     rnd_state = ctx._rnd_state;
+
+	typedef typename  fmtcl::ProxyRwSse2 <SRC_FMT>::PtrConst::Type SrcPtr;
+	typedef typename  fmtcl::ProxyRwSse2 <DST_FMT>::Ptr::Type      DstPtr;
+	SrcPtr         src_n_ptr = reinterpret_cast <SrcPtr> (src_ptr);
+	DstPtr         dst_n_ptr = reinterpret_cast <DstPtr> (dst_ptr);
+	const __m128i  zero      = _mm_setzero_si128 ();
+	const __m128i  mask_lsb  = _mm_set1_epi16 (0x00FF);
+	const __m128i  c128_16   = _mm_set1_epi16 (0x80);
+	const __m128i  sign_bit  = _mm_set1_epi16 (-0x8000);
+	const __m128i  rcst      = _mm_set1_epi16 (1 << (DIF_BITS - 1));
+	const __m128i  vmax      = _mm_set1_epi16 ((1 << DST_BITS) - 1);
+
+	const __m128i  ampo_i    = _mm_set1_epi16 (_ampo_i);  // 8 ?16 [0 ; 255]
+	const __m128i  ampn_i    = _mm_set1_epi16 (_ampn_i);  // 8 ?16 [0 ; 255]
+
+	for (int pos = 0; pos < w; pos += 8)
+	{
+		const __m128i  s =	// 8 u16
+			fmtcl::ProxyRwSse2 <SRC_FMT>::read_i16 (src_n_ptr + pos, zero);
+
+		__m128i        dith_o = 
+			_mm_load_si128 (reinterpret_cast <const __m128i *> (
+				&pattern [pos & (PAT_WIDTH - 1)]
+			)
+		);
+
+		__m128i        dither;
+		if (S_FLAG)
+		{
+			enum {         DIT_SHFT = 8 - DIF_BITS };
+			dither = _mm_srai_epi16 (dith_o, DIT_SHFT);
+		}
+		else
+		{
+			// Random generation
+			generate_rnd (rnd_state);
+			const uint32_t rnd_03  = rnd_state;
+			generate_rnd (rnd_state);
+			const uint32_t rnd_47  = rnd_state;
+			const __m128i  rnd_val = _mm_set_epi32 (0, 0, rnd_47, rnd_03);
+
+			__m128i			dith_n =
+				_mm_unpacklo_epi8 (rnd_val, zero);           // 8 ?16 [0 ; 255]
+			dith_n = _mm_sub_epi16 (dith_n, c128_16);       // 8 s16 [-128 ; 127]
+
+			dith_o = _mm_mullo_epi16 (dith_o, ampo_i);      // 8 s16 (full range)
+			dith_n = _mm_mullo_epi16 (dith_n, ampn_i);      // 8 s16 (full range)
+			dither = _mm_adds_epi16 (dith_o, dith_n);       // 8 s16 = s8 * s8
+
+			enum {         DIT_SHFT = AMP_BITS + 8 - DIF_BITS };
+			dither = _mm_srai_epi16 (dither, DIT_SHFT);     // 8 s16 = s16 >> cst
+		}
+
+		const __m128i  dith_rcst = _mm_adds_epi16 (dither, rcst);
+
+		__m128i        quant;
+		if (S_FLAG && SRC_BITS < 16)
+		{
+			__m128i        sum = _mm_adds_epi16 (s, dith_rcst);
+			quant = _mm_srai_epi16 (sum, DIF_BITS);
+		}
+		else
+		{
+			__m128i        sum  = _mm_xor_si128 (s, sign_bit); // 8 s16
+			sum   = _mm_adds_epi16 (sum, dith_rcst);
+			sum   = _mm_xor_si128 (sum, sign_bit);          // 8 u16
+			quant = _mm_srli_epi16 (sum, DIF_BITS);
+		}
+
+		__m128i        pix = quant;
+		if (SRC_BITS < 16)
+		{
+			pix = _mm_max_epi16 (pix, zero);
+			pix = _mm_min_epi16 (pix, vmax);
+		}
+
+		fmtcl::ProxyRwSse2 <DST_FMT>::write_i16 (dst_n_ptr + pos, pix, mask_lsb);
+	}
+
+	if (! S_FLAG)
+	{
+		generate_rnd_eol (rnd_state);
+	}
+}
+
+
+
+template <bool S_FLAG, fmtcl::SplFmt DST_FMT, int DST_BITS, fmtcl::SplFmt SRC_FMT>
+void	Bitdepth::process_seg_ord_flt_int_sse2 (uint8_t *dst_ptr, const uint8_t *src_ptr, int w, SegContext &ctx) const
+{
+	assert (dst_ptr != 0);
+	assert (src_ptr != 0);
+	assert (w > 0);
+	assert (&ctx != 0);
+	assert (&ctx._pattern_ptr != 0);
+	assert (&ctx._scale_info_ptr != 0);
+	assert (((_mm_getcsr () >> 13) & 3) == 0);   // 00 = Round to nearest (even)
+
+	const PatRow & pattern   = ctx.extract_pattern_row ();
+	uint32_t &     rnd_state = ctx._rnd_state;
+
+	const float    qt_cst    = 1.0f / (
+		65536.0f * float (1 << ((S_FLAG ? 0 : AMP_BITS) + 8))
+	);
+
+	typedef typename  fmtcl::ProxyRwSse2 <SRC_FMT>::PtrConst::Type SrcPtr;
+	typedef typename  fmtcl::ProxyRwSse2 <DST_FMT>::Ptr::Type      DstPtr;
+	SrcPtr         src_n_ptr = reinterpret_cast <SrcPtr> (src_ptr);
+	DstPtr         dst_n_ptr = reinterpret_cast <DstPtr> (dst_ptr);
+	const __m128   zero_f    = _mm_setzero_ps ();
+	const __m128i  zero_i    = _mm_setzero_si128 ();
+	const __m128i  c128_16   = _mm_set1_epi16 (0x80);
+	const __m128   mul       = _mm_set1_ps (float (ctx._scale_info_ptr->_gain));
+	const __m128   add       = _mm_set1_ps (float (ctx._scale_info_ptr->_add_cst));
+	const __m128   qt        = _mm_set1_ps (qt_cst);
+	const __m128   vmax      = _mm_set1_ps ((1 << DST_BITS) - 1);
+	const __m128   offset    = _mm_set1_ps (-32768);
+	const __m128i  mask_lsb  = _mm_set1_epi16 (0x00FF);
+	const __m128i  sign_bit  = _mm_set1_epi16 (-0x8000);
+
+	const __m128i  ampo_i    = _mm_set1_epi16 (_ampo_i);  // 8 ?16 [0 ; 255]
+	const __m128i  ampn_i    = _mm_set1_epi16 (_ampn_i);  // 8 ?16 [0 ; 255]
+
+	for (int pos = 0; pos < w; pos += 8)
+	{
+		__m128         s0;
+		__m128         s1;
+		fmtcl::ProxyRwSse2 <SRC_FMT>::read_flt (
+			src_n_ptr + pos, s0, s1, zero_i
+		);
+		s0 = _mm_add_ps (_mm_mul_ps (s0, mul), add);
+		s1 = _mm_add_ps (_mm_mul_ps (s1, mul), add);
+
+		__m128i        dith_o = 
+			_mm_load_si128 (reinterpret_cast <const __m128i *> (
+				&pattern [pos & (PAT_WIDTH - 1)]
+			)
+		);
+
+		__m128i        dither;
+		if (S_FLAG)
+		{
+			dither = dith_o;
+		}
+		else
+		{
+			// Random generation
+			generate_rnd (rnd_state);
+			const uint32_t rnd_03  = rnd_state;
+			generate_rnd (rnd_state);
+			const uint32_t rnd_47  = rnd_state;
+			const __m128i  rnd_val = _mm_set_epi32 (0, 0, rnd_47, rnd_03);
+
+			__m128i			dith_n =
+				_mm_unpacklo_epi8 (rnd_val, zero_i);         // 8 ?16 [0 ; 255]
+			dith_n = _mm_sub_epi16 (dith_n, c128_16);       // 8 s16 [-128 ; 127]
+
+			dith_o = _mm_mullo_epi16 (dith_o, ampo_i);      // 8 s16 (full range)
+			dith_n = _mm_mullo_epi16 (dith_n, ampn_i);      // 8 s16 (full range)
+			dither = _mm_adds_epi16 (dith_o, dith_n);       // 8 s16 = s8 * s8
+		}
+
+		__m128i        dither_03i = _mm_unpacklo_epi16 (zero_i, dither);  // 4 s32 << 16
+		__m128i        dither_47i = _mm_unpackhi_epi16 (zero_i, dither);  // 4 s32 << 16
+		__m128         dither_03  = _mm_cvtepi32_ps (dither_03i);
+		__m128         dither_47  = _mm_cvtepi32_ps (dither_47i);
+		dither_03 = _mm_mul_ps (dither_03, qt);
+		dither_47 = _mm_mul_ps (dither_47, qt);
+
+		s0 = _mm_add_ps (s0, dither_03);
+		s1 = _mm_add_ps (s1, dither_47);
+
+		s0 = _mm_max_ps (_mm_min_ps (s0, vmax), zero_f);
+		s1 = _mm_max_ps (_mm_min_ps (s1, vmax), zero_f);
+
+		fmtcl::ProxyRwSse2 <DST_FMT>::write_flt (
+			dst_n_ptr + pos, s0, s1, mask_lsb, sign_bit, offset
+		);
+	}
+
+	if (! S_FLAG)
+	{
+		generate_rnd_eol (rnd_state);
+	}
+}
+
+
+
+#endif   // fstb_ARCHI_X86
+
+
+
+template <bool S_FLAG, class ERRDIF>
+void	Bitdepth::process_seg_errdif_int_int_cpp (uint8_t *dst_ptr, const uint8_t *src_ptr, int w, SegContext &ctx) const
+{
+	assert (dst_ptr != 0);
+	assert (src_ptr != 0);
+	assert (w > 0);
+	assert (&ctx != 0);
+	assert (&ctx._ed_buf_ptr != 0);
+	assert (ctx._y >= 0);
+
+	typedef typename ERRDIF::SrcType SRC_TYPE;
+	typedef typename ERRDIF::DstType DST_TYPE;
+	enum { SRC_BITS = ERRDIF::SRC_BITS };
+	enum { DST_BITS = ERRDIF::DST_BITS };
+
+	uint32_t &           rnd_state =  ctx._rnd_state;
+	fmtcl::ErrDifBuf &   ed_buf    = *ctx._ed_buf_ptr;
 
 	const SRC_TYPE *  src_n_ptr = reinterpret_cast <const SRC_TYPE *> (src_ptr);
 	DST_TYPE *        dst_n_ptr = reinterpret_cast <      DST_TYPE *> (dst_ptr);
 
 	const int      ae = _ampe_i;
 
-	int16_t *      err_ptr = ed_buf.get_buf <int16_t> (0);
+	// Makes e1 point on the default buffer line for single-line
+	// error diffusor because we use it in prepare_next_line()
+	int            e0 = 0;
+	int            e1 = 0;
+	if (ERRDIF::NBR_ERR_LINES == 2)
+	{
+		e0 =      ctx._y & 1 ;
+		e1 = 1 - (ctx._y & 1);
+	}
+	int16_t *      err0_ptr = ed_buf.get_buf <int16_t> (e0);
+	int16_t *      err1_ptr = ed_buf.get_buf <int16_t> (e1);
 
-	int            e1;
-	int            e2;
-	int            e3;
-	int            err_nxt = ed_buf.use_mem <int16_t> (0);
+	int            err_nxt0 = ed_buf.use_mem <int16_t> (0);
+	int            err_nxt1 = ed_buf.use_mem <int16_t> (1);
 
 	// Forward
-	if ((y & 1) == 0)
+	if ((ctx._y & 1) == 0)
 	{
 		for (int x = 0; x < w; ++x)
 		{
-			int            err = err_nxt;
+			int            err = err_nxt0;
+			SRC_TYPE       src_raw;
 
 			quantize_pix_int <S_FLAG, DST_TYPE, DST_BITS, SRC_TYPE, SRC_BITS> (
-				dst_n_ptr, src_n_ptr, x, err, rnd_state, ae, _ampn_i
+				dst_n_ptr, src_n_ptr, src_raw, x, err, rnd_state, ae, _ampn_i
 			);
-			diffuse_ostromoukhov_int <DIF_BITS> (err, e1, e2, e3, src_n_ptr [x]);
-
-			err_nxt = err_ptr [x + 1];
-			err_ptr [x - 1] += e2;
-			err_ptr [x    ]  = e3;
-			err_nxt         += e1;
+			ERRDIF::template diffuse <1> (
+				err, err_nxt0, err_nxt1,
+				err0_ptr + x, err1_ptr + x, src_raw
+			);
 		}
-		err_ptr [w] = 0;
+		ERRDIF::prepare_next_line (err1_ptr + w);
 	}
 
 	// Backward
@@ -1888,22 +1538,113 @@ void	Bitdepth::process_seg_ostromoukhov_int_int_cpp (uint8_t *dst_ptr, const uin
 	{
 		for (int x = w - 1; x >= 0; --x)
 		{
-			int            err = err_nxt;
+			int            err = err_nxt0;
+			SRC_TYPE       src_raw;
 
 			quantize_pix_int <S_FLAG, DST_TYPE, DST_BITS, SRC_TYPE, SRC_BITS> (
-				dst_n_ptr, src_n_ptr, x, err, rnd_state, ae, _ampn_i
+				dst_n_ptr, src_n_ptr, src_raw, x, err, rnd_state, ae, _ampn_i
 			);
-			diffuse_ostromoukhov_int <DIF_BITS> (err, e1, e2, e3, src_n_ptr [x]);
-
-			err_nxt = err_ptr [x - 1];
-			err_ptr [x + 1] += e2;
-			err_ptr [x    ]  = e3;
-			err_nxt         += e1;
+			ERRDIF::template diffuse <-1> (
+				err, err_nxt0, err_nxt1,
+				err0_ptr + x, err1_ptr + x, src_raw
+			);
 		}
-		err_ptr [-1] = 0;
+		ERRDIF::prepare_next_line (err1_ptr - 1);
 	}
 
-	ed_buf.use_mem <int16_t> (0) = err_nxt;
+	ed_buf.use_mem <int16_t> (0) = err_nxt0;
+	ed_buf.use_mem <int16_t> (1) = err_nxt1;
+
+	if (! S_FLAG)
+	{
+		generate_rnd_eol (rnd_state);
+	}
+}
+
+
+
+template <bool S_FLAG, class ERRDIF>
+void	Bitdepth::process_seg_errdif_flt_int_cpp (uint8_t *dst_ptr, const uint8_t *src_ptr, int w, SegContext &ctx) const
+{
+	assert (dst_ptr != 0);
+	assert (src_ptr != 0);
+	assert (w > 0);
+	assert (&ctx != 0);
+	assert (&ctx._ed_buf_ptr != 0);
+	assert (ctx._y >= 0);
+	assert (&ctx._scale_info_ptr != 0);
+
+	typedef typename ERRDIF::SrcType SRC_TYPE;
+	typedef typename ERRDIF::DstType DST_TYPE;
+	enum { SRC_BITS = ERRDIF::SRC_BITS };
+	enum { DST_BITS = ERRDIF::DST_BITS };
+
+	uint32_t &           rnd_state =  ctx._rnd_state;
+	fmtcl::ErrDifBuf &   ed_buf    = *ctx._ed_buf_ptr;
+
+	const SRC_TYPE *  src_n_ptr = reinterpret_cast <const SRC_TYPE *> (src_ptr);
+	DST_TYPE *        dst_n_ptr = reinterpret_cast <      DST_TYPE *> (dst_ptr);
+
+	const float    mul = float (ctx._scale_info_ptr->_gain);
+	const float    add = float (ctx._scale_info_ptr->_add_cst);
+	const float    ae  = float (_ampe_f);
+	const float    an  = float (_ampn_f);
+
+	// Makes e1 point on the default buffer line for single-line
+	// error diffusor because we use it in prepare_next_line()
+	int            e0 = 0;
+	int            e1 = 0;
+	if (ERRDIF::NBR_ERR_LINES == 2)
+	{
+		e0 =      ctx._y & 1 ;
+		e1 = 1 - (ctx._y & 1);
+	}
+	float *        err0_ptr = ed_buf.get_buf <float> (e0);
+	float *        err1_ptr = ed_buf.get_buf <float> (e1);
+
+	float          err_nxt0 = ed_buf.use_mem <float> (0);
+	float          err_nxt1 = ed_buf.use_mem <float> (1);
+
+	// Forward
+	if ((ctx._y & 1) == 0)
+	{
+		for (int x = 0; x < w; ++x)
+		{
+			float          err = err_nxt0;
+			SRC_TYPE       src_raw;
+
+			quantize_pix_flt <S_FLAG, DST_TYPE, DST_BITS, SRC_TYPE> (
+				dst_n_ptr, src_n_ptr, src_raw, x, err, rnd_state, ae, an, mul, add
+			);
+			ERRDIF::template diffuse <1> (
+				err, err_nxt0, err_nxt1,
+				err0_ptr + x, err1_ptr + x, src_raw
+			);
+		}
+		ERRDIF::prepare_next_line (err1_ptr + w);
+	}
+
+	// Backward
+	else
+	{
+		for (int x = w - 1; x >= 0; --x)
+		{
+			float          err = err_nxt0;
+			SRC_TYPE       src_raw;
+
+			quantize_pix_flt <S_FLAG, DST_TYPE, DST_BITS, SRC_TYPE> (
+				dst_n_ptr, src_n_ptr, src_raw, x, err, rnd_state, ae, an, mul, add
+			);
+			ERRDIF::template diffuse <-1> (
+				err, err_nxt0, err_nxt1,
+				err0_ptr + x, err1_ptr + x, src_raw
+			);
+		}
+		ERRDIF::prepare_next_line (err1_ptr - 1);
+	}
+
+	ed_buf.use_mem <float> (0) = err_nxt0;
+	ed_buf.use_mem <float> (1) = err_nxt1;
 
 	if (! S_FLAG)
 	{
@@ -1931,8 +1672,30 @@ void	Bitdepth::generate_rnd_eol (uint32_t &state)
 
 
 
+Bitdepth::SegContext::SegContext ()
+:	_pattern_ptr (0)
+,	_rnd_state (0)
+,	_scale_info_ptr (0)
+,	_ed_buf_ptr (0)
+,	_y (-1)
+{
+	// Nothing
+}
+
+
+
+const Bitdepth::PatRow &	Bitdepth::SegContext::extract_pattern_row () const
+{
+	assert (_pattern_ptr != 0);
+	assert (_y >= 0);
+
+	return ((*_pattern_ptr) [_y & (PAT_WIDTH - 1)]);
+}
+
+
+
 template <bool S_FLAG, class DST_TYPE, int DST_BITS, class SRC_TYPE, int SRC_BITS>
-void	Bitdepth::quantize_pix_int (DST_TYPE *dst_ptr, const SRC_TYPE *src_ptr, int x, int &err, uint32_t &rnd_state, int ampe_i, int ampn_i)
+void	Bitdepth::quantize_pix_int (DST_TYPE *dst_ptr, const SRC_TYPE *src_ptr, SRC_TYPE &src_raw, int x, int &err, uint32_t &rnd_state, int ampe_i, int ampn_i)
 {
 	enum {         DIF_BITS = SRC_BITS - DST_BITS };
 	enum {         TMP_BITS =
@@ -1945,7 +1708,8 @@ void	Bitdepth::quantize_pix_int (DST_TYPE *dst_ptr, const SRC_TYPE *src_ptr, int
 	const int      rcst     = 1 << (TMP_INVS - 1);
 	const int      vmax     = (1 << DST_BITS) - 1;
 
-	const int		src     = src_ptr [x] << TMP_SHFT;
+	src_raw = src_ptr [x];
+	const int		src     = src_raw << TMP_SHFT;
 	const int      preq    = src + err;
 
 	int            sum     = preq;
@@ -1972,16 +1736,28 @@ void	Bitdepth::quantize_pix_int (DST_TYPE *dst_ptr, const SRC_TYPE *src_ptr, int
 
 
 
+template <class SRC_TYPE>
+static inline SRC_TYPE	Bitdepth_extract_src (SRC_TYPE src_read, float src)
+{
+	return (src_read);
+}
+
+static inline float	Bitdepth_extract_src (float src_read, float src)
+{
+	return (src);
+}
+
 template <bool S_FLAG, class DST_TYPE, int DST_BITS, class SRC_TYPE>
-void	Bitdepth::quantize_pix_flt (DST_TYPE *dst_ptr, const SRC_TYPE *src_ptr, int x, float &err, uint32_t &rnd_state, float ampe_f, float ampn_f, float mul, float add)
+void	Bitdepth::quantize_pix_flt (DST_TYPE *dst_ptr, const SRC_TYPE *src_ptr, SRC_TYPE &src_raw, int x, float &err, uint32_t &rnd_state, float ampe_f, float ampn_f, float mul, float add)
 {
 	const int      vmax = (1 << DST_BITS) - 1;
 
-	float          src     = float (src_ptr [x]);
-	src = src * mul + add;
-	const float    preq    = src + err;
+	const SRC_TYPE src_read = src_ptr [x];
+	const float    src      = float (src_read) * mul + add;
+	src_raw = Bitdepth_extract_src (src_read, src);
+	const float    preq     = src + err;
 
-	float          sum     = preq;
+	float          sum      = preq;
 	if (! S_FLAG)
 	{
 		generate_rnd (rnd_state);
@@ -2002,76 +1778,192 @@ void	Bitdepth::quantize_pix_flt (DST_TYPE *dst_ptr, const SRC_TYPE *src_ptr, int
 
 
 
-void	Bitdepth::diffuse_floydsteinberg_int (int err, int &e1, int &e3, int &e5, int &e7)
+// Original coefficients                     : 7, 3, 5, 1
+// Optimised coefficients for serpentine scan: 7, 4, 5, 0
+// Source:
+// Sam Hocevar and Gary Niger,
+// Reinstating Floyd-Steinberg: Improved Metrics for Quality Assessment
+// of Error Diffusion Algorithms,
+// Lecture Notes in Computer Science LNCS 5099, pp. 38–45, 2008
+// (Proceedings of the International Conference on Image and Signal Processing
+// ICISP 2008) ISSN 0302-9743
+
+#define fmtc_Bitdepth_FS_OPTIMIZED_SERPENTINE_COEF
+
+template <class DST_TYPE, int DST_BITS, class SRC_TYPE, int SRC_BITS>
+template <int DIR>
+void	Bitdepth::DiffuseFloydSteinberg <DST_TYPE, DST_BITS, SRC_TYPE, SRC_BITS>::diffuse (int err, int &err_nxt0, int &err_nxt1, int16_t *err0_ptr, int16_t *err1_ptr, SRC_TYPE src_raw)
 {
-	e1 = (err     + 8) >> 4;
-	e3 = (err * 3 + 8) >> 4;
-	e5 = (err * 5 + 8) >> 4;
-	e7 = err - e1 - e3 - e5;
+#if defined (fmtc_Bitdepth_FS_OPTIMIZED_SERPENTINE_COEF)
+	const int      e1 = 0;
+	const int      e3 = (err * 4 + 8) >> 4;
+#else
+	const int      e1 = (err     + 8) >> 4;
+	const int      e3 = (err * 3 + 8) >> 4;
+#endif
+	const int      e5 = (err * 5 + 8) >> 4;
+	const int      e7 = err - e1 - e3 - e5;
+	spread_error <DIR> (e1, e3, e5, e7, err_nxt0, err0_ptr);
+}
+
+template <class DST_TYPE, int DST_BITS, class SRC_TYPE, int SRC_BITS>
+template <int DIR>
+void	Bitdepth::DiffuseFloydSteinberg <DST_TYPE, DST_BITS, SRC_TYPE, SRC_BITS>::diffuse (float err, float &err_nxt0, float &err_nxt1, float *err0_ptr, float *err1_ptr, SRC_TYPE src_raw)
+{
+#if defined (fmtc_Bitdepth_FS_OPTIMIZED_SERPENTINE_COEF)
+	const float    e1 = 0;
+	const float    e3 = err * (4.0f / 16);
+#else
+	const float    e1 = err * (1.0f / 16);
+	const float    e3 = err * (3.0f / 16);
+#endif
+	const float    e5 = err * (5.0f / 16);
+	const float    e7 = err * (7.0f / 16);
+	spread_error <DIR> (e1, e3, e5, e7, err_nxt0, err0_ptr);
+}
+
+template <class DST_TYPE, int DST_BITS, class SRC_TYPE, int SRC_BITS>
+template <typename EB>
+void	Bitdepth::DiffuseFloydSteinberg <DST_TYPE, DST_BITS, SRC_TYPE, SRC_BITS>::prepare_next_line (EB *err_ptr)
+{
+	// Nothing
+}
+
+template <class DST_TYPE, int DST_BITS, class SRC_TYPE, int SRC_BITS>
+template <int DIR, typename ET, typename EB>
+void	Bitdepth::DiffuseFloydSteinberg <DST_TYPE, DST_BITS, SRC_TYPE, SRC_BITS>::spread_error (ET e1, ET e3, ET e5, ET e7, ET &err_nxt0, EB *err0_ptr)
+{
+	err_nxt0 = err0_ptr [DIR];
+	err0_ptr [-DIR] += e3;
+	err0_ptr [   0] += e5;
+	err0_ptr [ DIR]  = e1;
+	err_nxt0        += e7;
 }
 
 
 
-void	Bitdepth::diffuse_floydsteinberg_flt (float err, float &e1, float &e3, float &e5, float &e7)
+template <class DST_TYPE, int DST_BITS, class SRC_TYPE, int SRC_BITS>
+template <int DIR>
+void	Bitdepth::DiffuseFilterLite <DST_TYPE, DST_BITS, SRC_TYPE, SRC_BITS>::diffuse (int err, int &err_nxt0, int &err_nxt1, int16_t *err0_ptr, int16_t *err1_ptr, SRC_TYPE src_raw)
 {
-	e1 = err * (1.0f / 16);
-	e3 = err * (3.0f / 16);
-	e5 = err * (5.0f / 16);
-	e7 = err * (7.0f / 16);
+	const int      e1 = (err + 2) >> 2;
+	const int      e2 = err - 2 * e1;
+	spread_error <DIR> (e1, e2, err_nxt0, err0_ptr);
+}
+
+template <class DST_TYPE, int DST_BITS, class SRC_TYPE, int SRC_BITS>
+template <int DIR>
+void	Bitdepth::DiffuseFilterLite <DST_TYPE, DST_BITS, SRC_TYPE, SRC_BITS>::diffuse (float err, float &err_nxt0, float &err_nxt1, float *err0_ptr, float *err1_ptr, SRC_TYPE src_raw)
+{
+	const float    e1 = err * (1.0f / 4);
+	const float    e2 = err * (2.0f / 4);
+	spread_error <DIR> (e1, e2, err_nxt0, err0_ptr);
+}
+
+template <class DST_TYPE, int DST_BITS, class SRC_TYPE, int SRC_BITS>
+template <typename EB>
+void	Bitdepth::DiffuseFilterLite <DST_TYPE, DST_BITS, SRC_TYPE, SRC_BITS>::prepare_next_line (EB *err_ptr)
+{
+	err_ptr [0] = EB (0);
+}
+
+template <class DST_TYPE, int DST_BITS, class SRC_TYPE, int SRC_BITS>
+template <int DIR, typename ET, typename EB>
+void	Bitdepth::DiffuseFilterLite <DST_TYPE, DST_BITS, SRC_TYPE, SRC_BITS>::spread_error (ET e1, ET e2, ET &err_nxt0, EB *err0_ptr)
+{
+	err_nxt0 = err0_ptr [DIR];
+	err0_ptr [-DIR] += e1;
+	err0_ptr [   0]  = e1;
+	err_nxt0        += e2;
 }
 
 
 
-void	Bitdepth::diffuse_filterlite_int (int err, int &e1, int &e2)
+template <class DST_TYPE, int DST_BITS, class SRC_TYPE, int SRC_BITS>
+template <int DIR>
+void	Bitdepth::DiffuseStucki <DST_TYPE, DST_BITS, SRC_TYPE, SRC_BITS>::diffuse (int err, int &err_nxt0, int &err_nxt1, int16_t *err0_ptr, int16_t *err1_ptr, SRC_TYPE src_raw)
 {
-	e1 = (err + 2) >> 2;
-	e2 = err - 2 * e1;
-}
-
-
-
-void	Bitdepth::diffuse_filterlite_flt (float err, float &e1, float &e2)
-{
-	e1 = err * (1.0f / 4);
-	e2 = err * (2.0f / 4);
-}
-
-
-
-void	Bitdepth::diffuse_stucki_int (int err, int &e1, int &e2, int &e4, int &e8)
-{
-	const int      m = (err << 4) / 42;
-
-	e1 = (m + 8) >> 4;
-	e2 = (m + 4) >> 3;
-	e4 = (m + 2) >> 2;
-//	e8 = (m + 1) >> 1;
+	const int      m  = (err << 4) / 42;
+	const int      e1 = (m + 8) >> 4;
+	const int      e2 = (m + 4) >> 3;
+	const int      e4 = (m + 2) >> 2;
+//	const int      e8 = (m + 1) >> 1;
 	const int      sum = (e1 << 1) + ((e2 + e4) << 2);
-	e8 = (err - sum + 1) >> 1;
+	const int      e8 = (err - sum + 1) >> 1;
+	spread_error <DIR> (e1, e2, e4, e8, err_nxt0, err_nxt1, err0_ptr, err1_ptr);
+}
+
+template <class DST_TYPE, int DST_BITS, class SRC_TYPE, int SRC_BITS>
+template <int DIR>
+void	Bitdepth::DiffuseStucki <DST_TYPE, DST_BITS, SRC_TYPE, SRC_BITS>::diffuse (float err, float &err_nxt0, float &err_nxt1, float *err0_ptr, float *err1_ptr, SRC_TYPE src_raw)
+{
+	const float    e1 = err * (1.0f / 42);
+	const float    e2 = err * (2.0f / 42);
+	const float    e4 = err * (4.0f / 42);
+	const float    e8 = err * (8.0f / 42);
+	spread_error <DIR> (e1, e2, e4, e8, err_nxt0, err_nxt1, err0_ptr, err1_ptr);
+}
+
+template <class DST_TYPE, int DST_BITS, class SRC_TYPE, int SRC_BITS>
+template <typename EB>
+void	Bitdepth::DiffuseStucki <DST_TYPE, DST_BITS, SRC_TYPE, SRC_BITS>::prepare_next_line (EB *err_ptr)
+{
+	// Nothing
+}
+
+template <class DST_TYPE, int DST_BITS, class SRC_TYPE, int SRC_BITS>
+template <int DIR, typename ET, typename EB>
+void	Bitdepth::DiffuseStucki <DST_TYPE, DST_BITS, SRC_TYPE, SRC_BITS>::spread_error (ET e1, ET e2, ET e4, ET e8, ET &err_nxt0, ET &err_nxt1, EB *err0_ptr, EB *err1_ptr)
+{
+	err_nxt0 = err_nxt1 + e8;
+	err_nxt1 = err1_ptr [DIR * 2] + e4;
+	err0_ptr [-DIR * 2] += e2;
+	err0_ptr [-DIR    ] += e4;
+	err0_ptr [   0    ] += e8;
+	err0_ptr [ DIR    ] += e4;
+	err0_ptr [ DIR * 2] += e2;
+	err1_ptr [-DIR * 2] += e1;
+	err1_ptr [-DIR    ] += e2;
+	err1_ptr [   0    ] += e4;
+	err1_ptr [ DIR    ] += e2;
+	err1_ptr [ DIR * 2]  = e1;
 }
 
 
 
-void	Bitdepth::diffuse_stucki_flt (float err, float &e1, float &e2, float &e4, float &e8)
+template <class DST_TYPE, int DST_BITS, class SRC_TYPE, int SRC_BITS>
+template <int DIR>
+void	Bitdepth::DiffuseAtkinson <DST_TYPE, DST_BITS, SRC_TYPE, SRC_BITS>::diffuse (int err, int &err_nxt0, int &err_nxt1, int16_t *err0_ptr, int16_t *err1_ptr, SRC_TYPE src_raw)
 {
-	e1 = err * (1.0f / 42);
-	e2 = err * (2.0f / 42);
-	e4 = err * (4.0f / 42);
-	e8 = err * (8.0f / 42);
+	const int      e1 = (err + 4) >> 3;
+	spread_error <DIR> (e1, err_nxt0, err_nxt1, err0_ptr, err1_ptr);
 }
 
-
-
-void	Bitdepth::diffuse_atkinson_int (int err, int &e1)
+template <class DST_TYPE, int DST_BITS, class SRC_TYPE, int SRC_BITS>
+template <int DIR>
+void	Bitdepth::DiffuseAtkinson <DST_TYPE, DST_BITS, SRC_TYPE, SRC_BITS>::diffuse (float err, float &err_nxt0, float &err_nxt1, float *err0_ptr, float *err1_ptr, SRC_TYPE src_raw)
 {
-	e1 = (err + 4) >> 3;
+	const float    e1 = err * (1.0f / 8);
+	spread_error <DIR> (e1, err_nxt0, err_nxt1, err0_ptr, err1_ptr);
 }
 
-
-
-void	Bitdepth::diffuse_atkinson_flt (float err, float &e1)
+template <class DST_TYPE, int DST_BITS, class SRC_TYPE, int SRC_BITS>
+template <typename EB>
+void	Bitdepth::DiffuseAtkinson <DST_TYPE, DST_BITS, SRC_TYPE, SRC_BITS>::prepare_next_line (EB *err_ptr)
 {
-	e1 = err * (1.0f / 8);
+	err_ptr [0] = EB (0);
+}
+
+template <class DST_TYPE, int DST_BITS, class SRC_TYPE, int SRC_BITS>
+template <int DIR, typename ET, typename EB>
+void	Bitdepth::DiffuseAtkinson <DST_TYPE, DST_BITS, SRC_TYPE, SRC_BITS>::spread_error (ET e1, ET &err_nxt0, ET &err_nxt1, EB *err0_ptr, EB *err1_ptr)
+{
+	err_nxt0 = err_nxt1           + e1;
+	err_nxt1 = err1_ptr [2 * DIR] + e1;
+	err0_ptr [-DIR] += e1;
+	err0_ptr [   0] += e1;
+	err0_ptr [+DIR] += e1;
+	err1_ptr [   0]  = e1;
 }
 
 
@@ -2081,286 +1973,347 @@ void	Bitdepth::diffuse_atkinson_flt (float err, float &e1)
 // Proceedings of SIGGRAPH 2001, in ACM Computer Graphics,
 // Annual Conference Series, pp. 567-572, 2001.
 // Not optimised at all
-template <int DIF_BITS>
-void	Bitdepth::diffuse_ostromoukhov_int (int err, int &e1, int &e2, int &e3, int val)
+template <class DST_TYPE, int DST_BITS, class SRC_TYPE, int SRC_BITS>
+template <int DIR>
+void	Bitdepth::DiffuseOstromoukhov <DST_TYPE, DST_BITS, SRC_TYPE, SRC_BITS>::diffuse (int err, int &err_nxt0, int &err_nxt1, int16_t *err0_ptr, int16_t *err1_ptr, SRC_TYPE src_raw)
 {
-	const int      index = fstb::sshift_l <int, 8 - DIF_BITS> (val) & 255;
-	const OTableEntry &  te = _ostromoukhov_table [index];
-	const int      d = te [3];
+	enum {         DIF_BITS = SRC_BITS - DST_BITS };
 
-	e1 = err * te [0] / d;
-	e2 = err * te [1] / d;
-	e3 = err - e1 - e2;
+	const int      index    = fstb::sshift_l <
+		int,
+		DiffuseOstromoukhov::T_BITS - DIF_BITS
+	> (src_raw) & DiffuseOstromoukhov::T_MASK;
+	const typename DiffuseOstromoukhov <DST_TYPE, DST_BITS, SRC_TYPE, SRC_BITS>::TableEntry & te =
+		DiffuseOstromoukhov <DST_TYPE, DST_BITS, SRC_TYPE, SRC_BITS>::_table [index];
+	const int      d        = te._sum;
+
+	const int      e1 = err * te._c0 / d;
+	const int      e2 = err * te._c1 / d;
+	const int      e3 = err - e1 - e2;
+
+	spread_error <DIR> (e1, e2, e3, err_nxt0, err0_ptr);
+}
+
+template <int DST_BITS, int SRC_BITS>
+template <class SRC_TYPE>
+int	Bitdepth::DiffuseOstromoukhovBase2 <DST_BITS, SRC_BITS>::get_index (SRC_TYPE src_raw)
+{
+	enum {         DIF_BITS = SRC_BITS - DST_BITS };
+
+	return (fstb::sshift_l <
+		int,
+		DiffuseOstromoukhovBase::T_BITS - DIF_BITS
+	> (src_raw) & DiffuseOstromoukhovBase::T_MASK);
+}
+
+template <int DST_BITS, int SRC_BITS>
+int	Bitdepth::DiffuseOstromoukhovBase2 <DST_BITS, SRC_BITS>::get_index (float src_raw)
+{
+	return (  fstb::round_int (src_raw * DiffuseOstromoukhovBase::T_LEN)
+	        & DiffuseOstromoukhovBase::T_MASK);
+}
+
+template <class DST_TYPE, int DST_BITS, class SRC_TYPE, int SRC_BITS>
+template <int DIR>
+void	Bitdepth::DiffuseOstromoukhov <DST_TYPE, DST_BITS, SRC_TYPE, SRC_BITS>::diffuse (float err, float &err_nxt0, float &err_nxt1, float *err0_ptr, float *err1_ptr, SRC_TYPE src_raw)
+{
+	const int      index    = DiffuseOstromoukhov::get_index (src_raw);
+	const typename DiffuseOstromoukhov <DST_TYPE, DST_BITS, SRC_TYPE, SRC_BITS>::TableEntry &   te =
+		DiffuseOstromoukhov <DST_TYPE, DST_BITS, SRC_TYPE, SRC_BITS>::_table [index];
+	const float    invd     = te._inv_sum;
+
+	const float    e1 = err * te._c0 * invd;
+	const float    e2 = err * te._c1 * invd;
+	const float    e3 = err - e1 - e2;
+
+	spread_error <DIR> (e1, e2, e3, err_nxt0, err0_ptr);
+}
+
+template <class DST_TYPE, int DST_BITS, class SRC_TYPE, int SRC_BITS>
+template <typename EB>
+void	Bitdepth::DiffuseOstromoukhov <DST_TYPE, DST_BITS, SRC_TYPE, SRC_BITS>::prepare_next_line (EB *err_ptr)
+{
+	err_ptr [0] = EB (0);
+}
+
+template <class DST_TYPE, int DST_BITS, class SRC_TYPE, int SRC_BITS>
+template <int DIR, typename ET, typename EB>
+void	Bitdepth::DiffuseOstromoukhov <DST_TYPE, DST_BITS, SRC_TYPE, SRC_BITS>::spread_error (ET e1, ET e2, ET e3, ET &err_nxt0, EB *err0_ptr)
+{
+	err_nxt0 = err0_ptr [DIR];
+	err0_ptr [-DIR] += e2;
+	err0_ptr [   0]  = e3;
+	err_nxt0        += e1;
 }
 
 
 
-const Bitdepth::OTableEntry	Bitdepth::_ostromoukhov_table [256] =
+const Bitdepth::DiffuseOstromoukhovBase::TableEntry	Bitdepth::DiffuseOstromoukhovBase::_table [T_LEN] =
 {
-	{   13,    0,    5,   18 },
-	{   13,    0,    5,   18 },
-	{   21,    0,   10,   31 },
-	{    7,    0,    4,   11 },
-	{    8,    0,    5,   13 },
-	{   47,    3,   28,   78 },
-	{   23,    3,   13,   39 },
-	{   15,    3,    8,   26 },
-	{   22,    6,   11,   39 },
-	{   43,   15,   20,   78 },
-	{    7,    3,    3,   13 },
-	{  501,  224,  211,  936 },
-	{  249,  116,  103,  468 },
-	{  165,   80,   67,  312 },
-	{  123,   62,   49,  234 },
-	{  489,  256,  191,  936 },
-	{   81,   44,   31,  156 },
-	{  483,  272,  181,  936 },
-	{   60,   35,   22,  117 },
-	{   53,   32,   19,  104 },
-	{  237,  148,   83,  468 },
-	{  471,  304,  161,  936 },
-	{    3,    2,    1,    6 },
-	{  481,  314,  185,  980 },
-	{  354,  226,  155,  735 },
-	{ 1389,  866,  685, 2940 },
-	{  227,  138,  125,  490 },
-	{  267,  158,  163,  588 },
-	{  327,  188,  220,  735 },
-	{   61,   34,   45,  140 },
-	{  627,  338,  505, 1470 },
-	{ 1227,  638, 1075, 2940 },
+	{   13,    0,    5,   18, 1.0f /   18 },
+	{   13,    0,    5,   18, 1.0f /   18 },
+	{   21,    0,   10,   31, 1.0f /   31 },
+	{    7,    0,    4,   11, 1.0f /   11 },
+	{    8,    0,    5,   13, 1.0f /   13 },
+	{   47,    3,   28,   78, 1.0f /   78 },
+	{   23,    3,   13,   39, 1.0f /   39 },
+	{   15,    3,    8,   26, 1.0f /   26 },
+	{   22,    6,   11,   39, 1.0f /   39 },
+	{   43,   15,   20,   78, 1.0f /   78 },
+	{    7,    3,    3,   13, 1.0f /   13 },
+	{  501,  224,  211,  936, 1.0f /  936 },
+	{  249,  116,  103,  468, 1.0f /  468 },
+	{  165,   80,   67,  312, 1.0f /  312 },
+	{  123,   62,   49,  234, 1.0f /  234 },
+	{  489,  256,  191,  936, 1.0f /  936 },
+	{   81,   44,   31,  156, 1.0f /  156 },
+	{  483,  272,  181,  936, 1.0f /  936 },
+	{   60,   35,   22,  117, 1.0f /  117 },
+	{   53,   32,   19,  104, 1.0f /  104 },
+	{  237,  148,   83,  468, 1.0f /  468 },
+	{  471,  304,  161,  936, 1.0f /  936 },
+	{    3,    2,    1,    6, 1.0f /    6 },
+	{  481,  314,  185,  980, 1.0f /  980 },
+	{  354,  226,  155,  735, 1.0f /  735 },
+	{ 1389,  866,  685, 2940, 1.0f / 2940 },
+	{  227,  138,  125,  490, 1.0f /  490 },
+	{  267,  158,  163,  588, 1.0f /  588 },
+	{  327,  188,  220,  735, 1.0f /  735 },
+	{   61,   34,   45,  140, 1.0f /  140 },
+	{  627,  338,  505, 1470, 1.0f / 1470 },
+	{ 1227,  638, 1075, 2940, 1.0f / 2940 },
 
-	{   20,   10,   19,   49 },
-	{ 1937, 1000, 1767, 4704 },
-	{  977,  520,  855, 2352 },
-	{  657,  360,  551, 1568 },
-	{   71,   40,   57,  168 },
-	{ 2005, 1160, 1539, 4704 },
-	{  337,  200,  247,  784 },
-	{ 2039, 1240, 1425, 4704 },
-	{  257,  160,  171,  588 },
-	{  691,  440,  437, 1568 },
-	{ 1045,  680,  627, 2352 },
-	{  301,  200,  171,  672 },
-	{  177,  120,   95,  392 },
-	{ 2141, 1480, 1083, 4704 },
-	{ 1079,  760,  513, 2352 },
-	{  725,  520,  323, 1568 },
-	{  137,  100,   57,  294 },
-	{ 2209, 1640,  855, 4704 },
-	{   53,   40,   19,  112 },
-	{ 2243, 1720,  741, 4704 },
-	{  565,  440,  171, 1176 },
-	{  759,  600,  209, 1568 },
-	{ 1147,  920,  285, 2352 },
-	{ 2311, 1880,  513, 4704 },
-	{   97,   80,   19,  196 },
-	{  335,  280,   57,  672 },
-	{ 1181, 1000,  171, 2352 },
-	{  793,  680,   95, 1568 },
-	{  599,  520,   57, 1176 },
-	{ 2413, 2120,  171, 4704 },
-	{  405,  360,   19,  784 },
-	{ 2447, 2200,   57, 4704 },
+	{   20,   10,   19,   49, 1.0f /   49 },
+	{ 1937, 1000, 1767, 4704, 1.0f / 4704 },
+	{  977,  520,  855, 2352, 1.0f / 2352 },
+	{  657,  360,  551, 1568, 1.0f / 1568 },
+	{   71,   40,   57,  168, 1.0f /  168 },
+	{ 2005, 1160, 1539, 4704, 1.0f / 4704 },
+	{  337,  200,  247,  784, 1.0f /  784 },
+	{ 2039, 1240, 1425, 4704, 1.0f / 4704 },
+	{  257,  160,  171,  588, 1.0f /  588 },
+	{  691,  440,  437, 1568, 1.0f / 1568 },
+	{ 1045,  680,  627, 2352, 1.0f / 2352 },
+	{  301,  200,  171,  672, 1.0f /  672 },
+	{  177,  120,   95,  392, 1.0f /  392 },
+	{ 2141, 1480, 1083, 4704, 1.0f / 4704 },
+	{ 1079,  760,  513, 2352, 1.0f / 2352 },
+	{  725,  520,  323, 1568, 1.0f / 1568 },
+	{  137,  100,   57,  294, 1.0f /  294 },
+	{ 2209, 1640,  855, 4704, 1.0f / 4704 },
+	{   53,   40,   19,  112, 1.0f /  112 },
+	{ 2243, 1720,  741, 4704, 1.0f / 4704 },
+	{  565,  440,  171, 1176, 1.0f / 1176 },
+	{  759,  600,  209, 1568, 1.0f / 1568 },
+	{ 1147,  920,  285, 2352, 1.0f / 2352 },
+	{ 2311, 1880,  513, 4704, 1.0f / 4704 },
+	{   97,   80,   19,  196, 1.0f /  196 },
+	{  335,  280,   57,  672, 1.0f /  672 },
+	{ 1181, 1000,  171, 2352, 1.0f / 2352 },
+	{  793,  680,   95, 1568, 1.0f / 1568 },
+	{  599,  520,   57, 1176, 1.0f / 1176 },
+	{ 2413, 2120,  171, 4704, 1.0f / 4704 },
+	{  405,  360,   19,  784, 1.0f /  784 },
+	{ 2447, 2200,   57, 4704, 1.0f / 4704 },
 
-	{   11,   10,    0,   21 },
-	{  158,  151,    3,  312 },
-	{  178,  179,    7,  364 },
-	{ 1030, 1091,   63, 2184 },
-	{  248,  277,   21,  546 },
-	{  318,  375,   35,  728 },
-	{  458,  571,   63, 1092 },
-	{  878, 1159,  147, 2184 },
-	{    5,    7,    1,   13 },
-	{  172,  181,   37,  390 },
-	{   97,   76,   22,  195 },
-	{   72,   41,   17,  130 },
-	{  119,   47,   29,  195 },
-	{    4,    1,    1,    6 },
-	{    4,    1,    1,    6 },
-	{    4,    1,    1,    6 },
-	{    4,    1,    1,    6 },
-	{    4,    1,    1,    6 },
-	{    4,    1,    1,    6 },
-	{    4,    1,    1,    6 },
-	{    4,    1,    1,    6 },
-	{    4,    1,    1,    6 },
-	{   65,   18,   17,  100 },
-	{   95,   29,   26,  150 },
-	{  185,   62,   53,  300 },
-	{   30,   11,    9,   50 },
-	{   35,   14,   11,   60 },
-	{   85,   37,   28,  150 },
-	{   55,   26,   19,  100 },
-	{   80,   41,   29,  150 },
-	{  155,   86,   59,  300 },
-	{    5,    3,    2,   10 },
+	{   11,   10,    0,   21, 1.0f /   21 },
+	{  158,  151,    3,  312, 1.0f /  312 },
+	{  178,  179,    7,  364, 1.0f /  364 },
+	{ 1030, 1091,   63, 2184, 1.0f / 2184 },
+	{  248,  277,   21,  546, 1.0f /  546 },
+	{  318,  375,   35,  728, 1.0f /  728 },
+	{  458,  571,   63, 1092, 1.0f / 1092 },
+	{  878, 1159,  147, 2184, 1.0f / 2184 },
+	{    5,    7,    1,   13, 1.0f /   13 },
+	{  172,  181,   37,  390, 1.0f /  390 },
+	{   97,   76,   22,  195, 1.0f /  195 },
+	{   72,   41,   17,  130, 1.0f /  130 },
+	{  119,   47,   29,  195, 1.0f /  195 },
+	{    4,    1,    1,    6, 1.0f /    6 },
+	{    4,    1,    1,    6, 1.0f /    6 },
+	{    4,    1,    1,    6, 1.0f /    6 },
+	{    4,    1,    1,    6, 1.0f /    6 },
+	{    4,    1,    1,    6, 1.0f /    6 },
+	{    4,    1,    1,    6, 1.0f /    6 },
+	{    4,    1,    1,    6, 1.0f /    6 },
+	{    4,    1,    1,    6, 1.0f /    6 },
+	{    4,    1,    1,    6, 1.0f /    6 },
+	{   65,   18,   17,  100, 1.0f /  100 },
+	{   95,   29,   26,  150, 1.0f /  150 },
+	{  185,   62,   53,  300, 1.0f /  300 },
+	{   30,   11,    9,   50, 1.0f /   50 },
+	{   35,   14,   11,   60, 1.0f /   60 },
+	{   85,   37,   28,  150, 1.0f /  150 },
+	{   55,   26,   19,  100, 1.0f /  100 },
+	{   80,   41,   29,  150, 1.0f /  150 },
+	{  155,   86,   59,  300, 1.0f /  300 },
+	{    5,    3,    2,   10, 1.0f /   10 },
 
-	{    5,    3,    2,   10 },
-	{    5,    3,    2,   10 },
-	{    5,    3,    2,   10 },
-	{    5,    3,    2,   10 },
-	{    5,    3,    2,   10 },
-	{    5,    3,    2,   10 },
-	{    5,    3,    2,   10 },
-	{    5,    3,    2,   10 },
-	{    5,    3,    2,   10 },
-	{    5,    3,    2,   10 },
-	{    5,    3,    2,   10 },
-	{    5,    3,    2,   10 },
-	{  305,  176,  119,  600 },
-	{  155,   86,   59,  300 },
-	{  105,   56,   39,  200 },
-	{   80,   41,   29,  150 },
-	{   65,   32,   23,  120 },
-	{   55,   26,   19,  100 },
-	{  335,  152,  113,  600 },
-	{   85,   37,   28,  150 },
-	{  115,   48,   37,  200 },
-	{   35,   14,   11,   60 },
-	{  355,  136,  109,  600 },
-	{   30,   11,    9,   50 },
-	{  365,  128,  107,  600 },
-	{  185,   62,   53,  300 },
-	{   25,    8,    7,   40 },
-	{   95,   29,   26,  150 },
-	{  385,  112,  103,  600 },
-	{   65,   18,   17,  100 },
-	{  395,  104,  101,  600 },
-	{    4,    1,    1,    6 },
+	{    5,    3,    2,   10, 1.0f /   10 },
+	{    5,    3,    2,   10, 1.0f /   10 },
+	{    5,    3,    2,   10, 1.0f /   10 },
+	{    5,    3,    2,   10, 1.0f /   10 },
+	{    5,    3,    2,   10, 1.0f /   10 },
+	{    5,    3,    2,   10, 1.0f /   10 },
+	{    5,    3,    2,   10, 1.0f /   10 },
+	{    5,    3,    2,   10, 1.0f /   10 },
+	{    5,    3,    2,   10, 1.0f /   10 },
+	{    5,    3,    2,   10, 1.0f /   10 },
+	{    5,    3,    2,   10, 1.0f /   10 },
+	{    5,    3,    2,   10, 1.0f /   10 },
+	{  305,  176,  119,  600, 1.0f /  600 },
+	{  155,   86,   59,  300, 1.0f /  300 },
+	{  105,   56,   39,  200, 1.0f /  200 },
+	{   80,   41,   29,  150, 1.0f /  150 },
+	{   65,   32,   23,  120, 1.0f /  120 },
+	{   55,   26,   19,  100, 1.0f /  100 },
+	{  335,  152,  113,  600, 1.0f /  600 },
+	{   85,   37,   28,  150, 1.0f /  150 },
+	{  115,   48,   37,  200, 1.0f /  200 },
+	{   35,   14,   11,   60, 1.0f /   60 },
+	{  355,  136,  109,  600, 1.0f /  600 },
+	{   30,   11,    9,   50, 1.0f /   50 },
+	{  365,  128,  107,  600, 1.0f /  600 },
+	{  185,   62,   53,  300, 1.0f /  300 },
+	{   25,    8,    7,   40, 1.0f /   40 },
+	{   95,   29,   26,  150, 1.0f /  150 },
+	{  385,  112,  103,  600, 1.0f /  600 },
+	{   65,   18,   17,  100, 1.0f /  100 },
+	{  395,  104,  101,  600, 1.0f /  600 },
+	{    4,    1,    1,    6, 1.0f /    6 },
 
 	// Symetric
-	{    4,    1,    1,    6 },
-	{  395,  104,  101,  600 },
-	{   65,   18,   17,  100 },
-	{  385,  112,  103,  600 },
-	{   95,   29,   26,  150 },
-	{   25,    8,    7,   40 },
-	{  185,   62,   53,  300 },
-	{  365,  128,  107,  600 },
-	{   30,   11,    9,   50 },
-	{  355,  136,  109,  600 },
-	{   35,   14,   11,   60 },
-	{  115,   48,   37,  200 },
-	{   85,   37,   28,  150 },
-	{  335,  152,  113,  600 },
-	{   55,   26,   19,  100 },
-	{   65,   32,   23,  120 },
-	{   80,   41,   29,  150 },
-	{  105,   56,   39,  200 },
-	{  155,   86,   59,  300 },
-	{  305,  176,  119,  600 },
-	{    5,    3,    2,   10 },
-	{    5,    3,    2,   10 },
-	{    5,    3,    2,   10 },
-	{    5,    3,    2,   10 },
-	{    5,    3,    2,   10 },
-	{    5,    3,    2,   10 },
-	{    5,    3,    2,   10 },
-	{    5,    3,    2,   10 },
-	{    5,    3,    2,   10 },
-	{    5,    3,    2,   10 },
-	{    5,    3,    2,   10 },
-	{    5,    3,    2,   10 },
+	{    4,    1,    1,    6, 1.0f /    6 },
+	{  395,  104,  101,  600, 1.0f /  600 },
+	{   65,   18,   17,  100, 1.0f /  100 },
+	{  385,  112,  103,  600, 1.0f /  600 },
+	{   95,   29,   26,  150, 1.0f /  150 },
+	{   25,    8,    7,   40, 1.0f /   40 },
+	{  185,   62,   53,  300, 1.0f /  300 },
+	{  365,  128,  107,  600, 1.0f /  600 },
+	{   30,   11,    9,   50, 1.0f /   50 },
+	{  355,  136,  109,  600, 1.0f /  600 },
+	{   35,   14,   11,   60, 1.0f /   60 },
+	{  115,   48,   37,  200, 1.0f /  200 },
+	{   85,   37,   28,  150, 1.0f /  150 },
+	{  335,  152,  113,  600, 1.0f /  600 },
+	{   55,   26,   19,  100, 1.0f /  100 },
+	{   65,   32,   23,  120, 1.0f /  120 },
+	{   80,   41,   29,  150, 1.0f /  150 },
+	{  105,   56,   39,  200, 1.0f /  200 },
+	{  155,   86,   59,  300, 1.0f /  300 },
+	{  305,  176,  119,  600, 1.0f /  600 },
+	{    5,    3,    2,   10, 1.0f /   10 },
+	{    5,    3,    2,   10, 1.0f /   10 },
+	{    5,    3,    2,   10, 1.0f /   10 },
+	{    5,    3,    2,   10, 1.0f /   10 },
+	{    5,    3,    2,   10, 1.0f /   10 },
+	{    5,    3,    2,   10, 1.0f /   10 },
+	{    5,    3,    2,   10, 1.0f /   10 },
+	{    5,    3,    2,   10, 1.0f /   10 },
+	{    5,    3,    2,   10, 1.0f /   10 },
+	{    5,    3,    2,   10, 1.0f /   10 },
+	{    5,    3,    2,   10, 1.0f /   10 },
+	{    5,    3,    2,   10, 1.0f /   10 },
 
-	{    5,    3,    2,   10 },
-	{  155,   86,   59,  300 },
-	{   80,   41,   29,  150 },
-	{   55,   26,   19,  100 },
-	{   85,   37,   28,  150 },
-	{   35,   14,   11,   60 },
-	{   30,   11,    9,   50 },
-	{  185,   62,   53,  300 },
-	{   95,   29,   26,  150 },
-	{   65,   18,   17,  100 },
-	{    4,    1,    1,    6 },
-	{    4,    1,    1,    6 },
-	{    4,    1,    1,    6 },
-	{    4,    1,    1,    6 },
-	{    4,    1,    1,    6 },
-	{    4,    1,    1,    6 },
-	{    4,    1,    1,    6 },
-	{    4,    1,    1,    6 },
-	{    4,    1,    1,    6 },
-	{  119,   47,   29,  195 },
-	{   72,   41,   17,  130 },
-	{   97,   76,   22,  195 },
-	{  172,  181,   37,  390 },
-	{    5,    7,    1,   13 },
-	{  878, 1159,  147, 2184 },
-	{  458,  571,   63, 1092 },
-	{  318,  375,   35,  728 },
-	{  248,  277,   21,  546 },
-	{ 1030, 1091,   63, 2184 },
-	{  178,  179,    7,  364 },
-	{  158,  151,    3,  312 },
-	{   11,   10,    0,   21 },
+	{    5,    3,    2,   10, 1.0f /   10 },
+	{  155,   86,   59,  300, 1.0f /  300 },
+	{   80,   41,   29,  150, 1.0f /  150 },
+	{   55,   26,   19,  100, 1.0f /  100 },
+	{   85,   37,   28,  150, 1.0f /  150 },
+	{   35,   14,   11,   60, 1.0f /   60 },
+	{   30,   11,    9,   50, 1.0f /   50 },
+	{  185,   62,   53,  300, 1.0f /  300 },
+	{   95,   29,   26,  150, 1.0f /  150 },
+	{   65,   18,   17,  100, 1.0f /  100 },
+	{    4,    1,    1,    6, 1.0f /    6 },
+	{    4,    1,    1,    6, 1.0f /    6 },
+	{    4,    1,    1,    6, 1.0f /    6 },
+	{    4,    1,    1,    6, 1.0f /    6 },
+	{    4,    1,    1,    6, 1.0f /    6 },
+	{    4,    1,    1,    6, 1.0f /    6 },
+	{    4,    1,    1,    6, 1.0f /    6 },
+	{    4,    1,    1,    6, 1.0f /    6 },
+	{    4,    1,    1,    6, 1.0f /    6 },
+	{  119,   47,   29,  195, 1.0f /  195 },
+	{   72,   41,   17,  130, 1.0f /  130 },
+	{   97,   76,   22,  195, 1.0f /  195 },
+	{  172,  181,   37,  390, 1.0f /  390 },
+	{    5,    7,    1,   13, 1.0f /   13 },
+	{  878, 1159,  147, 2184, 1.0f / 2184 },
+	{  458,  571,   63, 1092, 1.0f / 1092 },
+	{  318,  375,   35,  728, 1.0f /  728 },
+	{  248,  277,   21,  546, 1.0f /  546 },
+	{ 1030, 1091,   63, 2184, 1.0f / 2184 },
+	{  178,  179,    7,  364, 1.0f /  364 },
+	{  158,  151,    3,  312, 1.0f /  312 },
+	{   11,   10,    0,   21, 1.0f /   21 },
 
-	{ 2447, 2200,   57, 4704 },
-	{  405,  360,   19,  784 },
-	{ 2413, 2120,  171, 4704 },
-	{  599,  520,   57, 1176 },
-	{  793,  680,   95, 1568 },
-	{ 1181, 1000,  171, 2352 },
-	{  335,  280,   57,  672 },
-	{   97,   80,   19,  196 },
-	{ 2311, 1880,  513, 4704 },
-	{ 1147,  920,  285, 2352 },
-	{  759,  600,  209, 1568 },
-	{  565,  440,  171, 1176 },
-	{ 2243, 1720,  741, 4704 },
-	{   53,   40,   19,  112 },
-	{ 2209, 1640,  855, 4704 },
-	{  137,  100,   57,  294 },
-	{  725,  520,  323, 1568 },
-	{ 1079,  760,  513, 2352 },
-	{ 2141, 1480, 1083, 4704 },
-	{  177,  120,   95,  392 },
-	{  301,  200,  171,  672 },
-	{ 1045,  680,  627, 2352 },
-	{  691,  440,  437, 1568 },
-	{  257,  160,  171,  588 },
-	{ 2039, 1240, 1425, 4704 },
-	{  337,  200,  247,  784 },
-	{ 2005, 1160, 1539, 4704 },
-	{   71,   40,   57,  168 },
-	{  657,  360,  551, 1568 },
-	{  977,  520,  855, 2352 },
-	{ 1937, 1000, 1767, 4704 },
-	{   20,   10,   19,   49 },
+	{ 2447, 2200,   57, 4704, 1.0f / 4704 },
+	{  405,  360,   19,  784, 1.0f /  784 },
+	{ 2413, 2120,  171, 4704, 1.0f / 4704 },
+	{  599,  520,   57, 1176, 1.0f / 1176 },
+	{  793,  680,   95, 1568, 1.0f / 1568 },
+	{ 1181, 1000,  171, 2352, 1.0f / 2352 },
+	{  335,  280,   57,  672, 1.0f /  672 },
+	{   97,   80,   19,  196, 1.0f /  196 },
+	{ 2311, 1880,  513, 4704, 1.0f / 4704 },
+	{ 1147,  920,  285, 2352, 1.0f / 2352 },
+	{  759,  600,  209, 1568, 1.0f / 1568 },
+	{  565,  440,  171, 1176, 1.0f / 1176 },
+	{ 2243, 1720,  741, 4704, 1.0f / 4704 },
+	{   53,   40,   19,  112, 1.0f /  112 },
+	{ 2209, 1640,  855, 4704, 1.0f / 4704 },
+	{  137,  100,   57,  294, 1.0f /  294 },
+	{  725,  520,  323, 1568, 1.0f / 1568 },
+	{ 1079,  760,  513, 2352, 1.0f / 2352 },
+	{ 2141, 1480, 1083, 4704, 1.0f / 4704 },
+	{  177,  120,   95,  392, 1.0f /  392 },
+	{  301,  200,  171,  672, 1.0f /  672 },
+	{ 1045,  680,  627, 2352, 1.0f / 2352 },
+	{  691,  440,  437, 1568, 1.0f / 1568 },
+	{  257,  160,  171,  588, 1.0f /  588 },
+	{ 2039, 1240, 1425, 4704, 1.0f / 4704 },
+	{  337,  200,  247,  784, 1.0f /  784 },
+	{ 2005, 1160, 1539, 4704, 1.0f / 4704 },
+	{   71,   40,   57,  168, 1.0f /  168 },
+	{  657,  360,  551, 1568, 1.0f / 1568 },
+	{  977,  520,  855, 2352, 1.0f / 2352 },
+	{ 1937, 1000, 1767, 4704, 1.0f / 4704 },
+	{   20,   10,   19,   49, 1.0f /   49 },
 
-	{ 1227,  638, 1075, 2940 },
-	{  627,  338,  505, 1470 },
-	{   61,   34,   45,  140 },
-	{  327,  188,  220,  735 },
-	{  267,  158,  163,  588 },
-	{  227,  138,  125,  490 },
-	{ 1389,  866,  685, 2940 },
-	{  354,  226,  155,  735 },
-	{  481,  314,  185,  980 },
-	{    3,    2,    1,    6 },
-	{  471,  304,  161,  936 },
-	{  237,  148,   83,  468 },
-	{   53,   32,   19,  104 },
-	{   60,   35,   22,  117 },
-	{  483,  272,  181,  936 },
-	{   81,   44,   31,  156 },
-	{  489,  256,  191,  936 },
-	{  123,   62,   49,  234 },
-	{  165,   80,   67,  312 },
-	{  249,  116,  103,  468 },
-	{  501,  224,  211,  936 },
-	{    7,    3,    3,   13 },
-	{   43,   15,   20,   78 },
-	{   22,    6,   11,   39 },
-	{   15,    3,    8,   26 },
-	{   23,    3,   13,   39 },
-	{   47,    3,   28,   78 },
-	{    8,    0,    5,   13 },
-	{    7,    0,    4,   11 },
-	{   21,    0,   10,   31 },
-	{   13,    0,    5,   18 },
-	{   13,    0,    5,   18 }
+	{ 1227,  638, 1075, 2940, 1.0f / 2940 },
+	{  627,  338,  505, 1470, 1.0f / 1470 },
+	{   61,   34,   45,  140, 1.0f /  140 },
+	{  327,  188,  220,  735, 1.0f /  735 },
+	{  267,  158,  163,  588, 1.0f /  588 },
+	{  227,  138,  125,  490, 1.0f /  490 },
+	{ 1389,  866,  685, 2940, 1.0f / 2940 },
+	{  354,  226,  155,  735, 1.0f /  735 },
+	{  481,  314,  185,  980, 1.0f /  980 },
+	{    3,    2,    1,    6, 1.0f /    6 },
+	{  471,  304,  161,  936, 1.0f /  936 },
+	{  237,  148,   83,  468, 1.0f /  468 },
+	{   53,   32,   19,  104, 1.0f /  104 },
+	{   60,   35,   22,  117, 1.0f /  117 },
+	{  483,  272,  181,  936, 1.0f /  936 },
+	{   81,   44,   31,  156, 1.0f /  156 },
+	{  489,  256,  191,  936, 1.0f /  936 },
+	{  123,   62,   49,  234, 1.0f /  234 },
+	{  165,   80,   67,  312, 1.0f /  312 },
+	{  249,  116,  103,  468, 1.0f /  468 },
+	{  501,  224,  211,  936, 1.0f /  936 },
+	{    7,    3,    3,   13, 1.0f /   13 },
+	{   43,   15,   20,   78, 1.0f /   78 },
+	{   22,    6,   11,   39, 1.0f /   39 },
+	{   15,    3,    8,   26, 1.0f /   26 },
+	{   23,    3,   13,   39, 1.0f /   39 },
+	{   47,    3,   28,   78, 1.0f /   78 },
+	{    8,    0,    5,   13, 1.0f /   13 },
+	{    7,    0,    4,   11, 1.0f /   11 },
+	{   21,    0,   10,   31, 1.0f /   31 },
+	{   13,    0,    5,   18, 1.0f /   18 },
+	{   13,    0,    5,   18, 1.0f /   18 }
 };
 
 

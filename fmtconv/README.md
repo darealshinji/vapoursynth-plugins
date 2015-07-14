@@ -8,7 +8,7 @@ It does:
 * Colorspace conversion (matrix and transfer characteristics).
 
 It supports:
-* Pixel data types: 8-, 9-, 10-, 12- and 16-bit integer, 32-bit float.
+* Pixel data types: 8-–12-, 14- and 16-bit integer, 32-bit float.
 * Colorspaces: RGB, Y, YUV in 4:4:4, 4:2:2, 4:2:0, 4:1:1 and YCgCo with the same chroma subsampling factors.
 * Progressive and interlaced content.
 
@@ -17,3 +17,4 @@ This does not mean it is slow or unoptimized, but fmtconv is clearly not on par 
 
 See `doc/fmtconv.html` for more information.
 
+Support on the [Doom9](http://forum.doom9.org/showthread.php?t=166504) forums.

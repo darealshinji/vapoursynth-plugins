@@ -1,7 +1,7 @@
 /*****************************************************************************
 
-        ErrDifBuf.hpp
-        Author: Laurent de Soras, 2010
+        MatrixWrap.hpp
+        Author: Laurent de Soras, 2015
 
 --- Legal stuff ---
 
@@ -15,15 +15,14 @@ http://sam.zoy.org/wtfpl/COPYING for more details.
 
 
 
-#if ! defined (fmtcl_ErrDifBuf_CODEHEADER_INCLUDED)
-#define	fmtcl_ErrDifBuf_CODEHEADER_INCLUDED
+#if ! defined (fmtcl_MatrixWrap_CODEHEADER_INCLUDED)
+#define	fmtcl_MatrixWrap_CODEHEADER_INCLUDED
 
 
 
 /*\\\ INCLUDE FILES \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\*/
 
 #include <cassert>
-#include <cstring>
 
 
 
@@ -36,61 +35,50 @@ namespace fmtcl
 
 
 
-void	ErrDifBuf::clear (int ds)
+template <class T>
+MatrixWrap <T>::MatrixWrap (int w, int h)
+:	_w (w)
+,	_h (h)
+,	_mat (w * h, 0)
 {
-	assert (ds > 0);
-	assert (ds <= MAX_DATA_SIZE);
-
-	memset (_buf_ptr, 0, _stride * NBR_LINES * ds);
-	for (int m = 0; m < MARGIN * MAX_DATA_SIZE; ++m)
-	{
-		_mem [m] = 0;
-	}
+	assert (w > 0);
+	assert (h > 0);
 }
 
 
 
 template <class T>
-void	ErrDifBuf::clear ()
+void	MatrixWrap <T>::clear (T fill_val)
 {
-	memset (_buf_ptr, 0, _stride * NBR_LINES * sizeof (T));
-	for (int k = 0; k < MARGIN; ++k)
-	{
-		reinterpret_cast <T *> (&_mem [0]) [k] = 0;
-	}
+	_mat.assign (_mat.size (), fill_val);
 }
 
 
 
 template <class T>
-T *	ErrDifBuf::get_buf (int ofy)
+T &	MatrixWrap <T>::operator () (int x, int y)
 {
-	assert (ofy >= 0);
-	assert (ofy < NBR_LINES);
+	assert (x >= -MARGIN * _w);
+	assert (y >= -MARGIN * _h);
 
-	return (reinterpret_cast <T *> (_buf_ptr) + ofy * _stride + MARGIN);
+	x = (x + _w * MARGIN) % _w;
+	y = (y + _h * MARGIN) % _h;
+
+	return (_mat [y * _w + x]);
 }
 
 
 
 template <class T>
-T &	ErrDifBuf::use_mem (int pos)
+const T &	MatrixWrap <T>::operator () (int x, int y) const
 {
-	assert (pos >= 0);
-	assert (pos < MARGIN);
+	assert (x >= -MARGIN * _w);
+	assert (y >= -MARGIN * _h);
 
-	return (reinterpret_cast <T *> (&_mem [0]) [pos]);
-}
+	x = (x + _w * MARGIN) % _w;
+	y = (y + _h * MARGIN) % _h;
 
-
-
-template <class T>
-const T&	ErrDifBuf::use_mem (int pos) const
-{
-	assert (pos >= 0);
-	assert (pos < MARGIN);
-
-	return (reinterpret_cast <const T *> (&_mem [0]) [pos]);
+	return (_mat [y * _w + x]);
 }
 
 
@@ -107,7 +95,7 @@ const T&	ErrDifBuf::use_mem (int pos) const
 
 
 
-#endif	// fmtcl_ErrDifBuf_CODEHEADER_INCLUDED
+#endif	// fmtcl_MatrixWrap_CODEHEADER_INCLUDED
 
 
 
