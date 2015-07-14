@@ -3,18 +3,20 @@ include ../config.mak
 YASM := yasm
 
 ifneq ($(V),1)
-CXXLD_silent = @ echo '  CXXLD    '$@;
-CXX_silent   = @ echo '  CXX      '$@;
-CCLD_silent  = @ echo '  CCLD     '$@;
-CC_silent    = @ echo '  CC       '$@;
-YASM_silent  = @ echo '  YASM     '$@;
+CXXLD_silent  = @ echo '  CXXLD    '$@;
+CXX_silent    = @ echo '  CXX      '$@;
+CCLD_silent   = @ echo '  CCLD     '$@;
+CC_silent     = @ echo '  CC       '$@;
+YASM_silent   = @ echo '  YASM     '$@;
+AR_silent     = @ echo '  AR       '$@;
+RANLIB_silent = @ echo '  RANLIB   '$@;
 endif
 
 commonflags = -c -fPIC -Wall -Wextra -Wno-unused-parameter -Wno-unused-result -Isrc -I../include -I../include/vapoursynth
 
 VSCFLAGS = $(commonflags) $(local_CFLAGS) $(CFLAGS) $(CPPFLAGS)
 VSCXXFLAGS = $(commonflags) $(local_CXXFLAGS) $(CXXFLAGS) $(CPPFLAGS)
-VSLDFLAGS = -shared -Wl,-soname,$(LIB) -Wl,-z,defs -Wl,-z,noexecstack -Wl,--as-needed $(LDFLAGS)
+VSLDFLAGS = -shared -Wl,-soname,$(LIB) -Wl,-z,defs -Wl,-z,noexecstack -Wl,--as-needed $(local_LDFLAGS) $(LDFLAGS)
 
 CXXSRCS = $(shell find src -name \*.cpp)
 CXXOBJS = $(CXXSRCS:%.cpp=%.o)

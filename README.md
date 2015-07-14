@@ -51,7 +51,7 @@ make install
 [dfttest r3](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-DFTTest)<br>
 [eedi2 r6](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-EEDI2)<br>
 [ffms2](https://github.com/FFMS/ffms2)<br>
-[fieldhint 2+git20150711](https://github.com/dubhater/vapoursynth-fieldhint)<br>
+[fieldhint r2+git20150711](https://github.com/dubhater/vapoursynth-fieldhint)<br>
 [fillborders 1.0](https://github.com/dubhater/vapoursynth-fillborders)<br>
 [finesharp 2015-01-16](https://gist.github.com/4re/8676fd350d4b5b223ab9)<br>
 [flash3kyuu_deband 1.5.1+git20150509](https://github.com/SAPikachu/flash3kyuu_deband)<br>
@@ -85,6 +85,7 @@ make install
 [vapoursynth-modules git20131225](https://github.com/4re/vapoursynth-modules/)<br>
 [vautodeint git20130608](https://github.com/gnaggnoyil/VAutoDeint)<br>
 [videoscope 1.0](https://github.com/dubhater/vapoursynth-videoscope)<br>
+[waifu2x r1](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-waifu2x-opt)<br>
 [wwxd 1.0](https://github.com/dubhater/vapoursynth-wwxd)<br>
 [yadifmod r8](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Yadifmod)<br>
 [zimg git20141102](https://github.com/dubhater/zimg)

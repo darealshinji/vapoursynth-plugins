@@ -21,6 +21,7 @@ License: WTFPL
 Files: bilateral/*
        bm3d/*
        retinex/*
+       waifu2x/*
 Copyright: 2014-2015 mawen1250
 License: GPL-3+
 
@@ -185,6 +186,16 @@ Files: vautodeint/*
 Copyright: 2013 Acfun
            2013 Li Yonggang <gnaggnoyil@gmail.com>
 License: GPL-3+
+
+Files: waifu2x/waifu2x-opt/*
+Copyright: 2015 nagadomi <nagadomi@nurs.or.jp>
+           2015 Takaaki Hiragushi
+License: MIT
+
+Files: waifu2x/waifu2x-opt/common/picojson.h
+Copyright: 2009-2010 Cybozu Labs, Inc.
+           2011-2014 Kazuho Oku
+License: BSD-2-clause
 
 Files: yadifmod/*
 Copyright: 2007 Kevin Stone
