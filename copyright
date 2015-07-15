@@ -187,6 +187,10 @@ Copyright: 2013 Acfun
            2013 Li Yonggang <gnaggnoyil@gmail.com>
 License: GPL-3+
 
+Files: waifu2x/models/*
+Copyright: 2015 nagadomi <nagadomi@nurs.or.jp>
+License: MIT
+
 Files: waifu2x/waifu2x-opt/*
 Copyright: 2015 nagadomi <nagadomi@nurs.or.jp>
            2015 Takaaki Hiragushi
