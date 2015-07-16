@@ -33,7 +33,7 @@ Depends:
 Pre-Depends:
  ${misc:Pre-Depends}
 Recommends:
- libvapoursynth3
+ libvapoursynth
 Suggests:
  vapoursynth-nnedi3-plugin
 Description: Additional plugins for VapourSynth
@@ -64,7 +64,7 @@ Depends:
 Pre-Depends:
  ${misc:Pre-Depends}
 Recommends:
- libvapoursynth3
+ libvapoursynth
 Description: nnedi3 plugin for VapourSynth
  It's an application for video manipulation. Or a plugin. Or a library.
  It's hard to tell because it has a core library written in C++ and a
@@ -88,7 +88,7 @@ Architecture: all
 Depends:
  ${misc:Depends}
 Recommends:
- libvapoursynth3
+ libvapoursynth
 Description: models files for the waifu2x VapourSynth plugin
  It's an application for video manipulation. Or a plugin. Or a library.
  It's hard to tell because it has a core library written in C++ and a
