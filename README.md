@@ -89,6 +89,6 @@ make install
 [finesharp 2015-01-16](https://gist.github.com/4re/8676fd350d4b5b223ab9)<br>
 [havsfunc r18](http://forum.doom9.org/showthread.php?t=166582)<br>
 [maskdetail git20141221](https://github.com/MonoS/VS-MaskDetail)<br>
-[mvsfunc 2015.06](https://github.com/HomeOfVapourSynthEvolution/mvsfunc)<br>
+[mvsfunc 2015-07-26](https://github.com/HomeOfVapourSynthEvolution/mvsfunc)<br>
 [vapoursynth-modules git20131225](https://github.com/4re/vapoursynth-modules)<br>
 
