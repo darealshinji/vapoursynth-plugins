@@ -35,6 +35,8 @@
 */
 
 #include <algorithm>
+#include <cmath>
+#include <cstdlib>
 #include <vector>
 #include <vapoursynth/VapourSynth.h>
 #include <vapoursynth/VSHelper.h>
@@ -1862,22 +1864,6 @@ static void VS_CC iscombedInit(VSMap *in, VSMap *out, void **instanceData, VSNod
     vsapi->setVideoInfo(d->vi, 1, node);
 }
 
-static const VSFrameRef *VS_CC tdeintmodAssumeTFFGetFrame(int n, int activationReason, void **instanceData, void **frameData, VSFrameContext *frameCtx, VSCore *core, const VSAPI *vsapi) {
-    const TDeintModData * d = static_cast<const TDeintModData *>(*instanceData);
-
-    if (activationReason == arInitial) {
-        vsapi->requestFrameFilter(n, d->node, frameCtx);
-    } else if (activationReason == arAllFramesReady) {
-        const VSFrameRef * src = vsapi->getFrameFilter(n, d->node, frameCtx);
-        VSFrameRef * dst = vsapi->copyFrame(src, core);
-        vsapi->propSetInt(vsapi->getFramePropsRW(dst), "_FieldBased", 2, paReplace);
-        vsapi->freeFrame(src);
-        return dst;
-    }
-
-    return nullptr;
-}
-
 static const VSFrameRef *VS_CC tdeintmodCreateMMGetFrame(int n, int activationReason, void **instanceData, void **frameData, VSFrameContext *frameCtx, VSCore *core, const VSAPI *vsapi) {
     const TDeintModData * d = static_cast<const TDeintModData *>(*instanceData);
 
@@ -2252,7 +2238,7 @@ static void VS_CC tdeintmodCreate(const VSMap *in, VSMap *out, void *userData, V
     d.show = !!vsapi->propGetInt(in, "show", 0, &err);
 
     if (d.length < 6 || d.length > 30) {
-        vsapi->setError(out, "TDeintMod: length must be between 6 and 30 inclusive");
+        vsapi->setError(out, "TDeintMod: length must be between 6 and 30 (inclusive)");
         return;
     }
     if (d.mtype < 0 || d.mtype > 2) {
@@ -2264,31 +2250,31 @@ static void VS_CC tdeintmodCreate(const VSMap *in, VSMap *out, void *userData, V
         return;
     }
     if (d.mtqL < -2 || d.mtqL > 255) {
-        vsapi->setError(out, "TDeintMod: mtql must be between -2 and 255 inclusive");
+        vsapi->setError(out, "TDeintMod: mtql must be between -2 and 255 (inclusive)");
         return;
     }
     if (d.mthL < -2 || d.mthL > 255) {
-        vsapi->setError(out, "TDeintMod: mthl must be between -2 and 255 inclusive");
+        vsapi->setError(out, "TDeintMod: mthl must be between -2 and 255 (inclusive)");
         return;
     }
     if (d.mtqC < -2 || d.mtqC > 255) {
-        vsapi->setError(out, "TDeintMod: mtqc must be between -2 and 255 inclusive");
+        vsapi->setError(out, "TDeintMod: mtqc must be between -2 and 255 (inclusive)");
         return;
     }
     if (d.mthC < -2 || d.mthC > 255) {
-        vsapi->setError(out, "TDeintMod: mthc must be between -2 and 255 inclusive");
+        vsapi->setError(out, "TDeintMod: mthc must be between -2 and 255 (inclusive)");
         return;
     }
     if (d.nt < 0 || d.nt > 255) {
-        vsapi->setError(out, "TDeintMod: nt must be between 0 and 255 inclusive");
+        vsapi->setError(out, "TDeintMod: nt must be between 0 and 255 (inclusive)");
         return;
     }
     if (d.minthresh < 0 || d.minthresh > 255) {
-        vsapi->setError(out, "TDeintMod: minthresh must be between 0 and 255 inclusive");
+        vsapi->setError(out, "TDeintMod: minthresh must be between 0 and 255 (inclusive)");
         return;
     }
     if (d.maxthresh < 0 || d.maxthresh > 255) {
-        vsapi->setError(out, "TDeintMod: maxthresh must be between 0 and 255 inclusive");
+        vsapi->setError(out, "TDeintMod: maxthresh must be between 0 and 255 (inclusive)");
         return;
     }
 
@@ -2333,19 +2319,28 @@ static void VS_CC tdeintmodCreate(const VSMap *in, VSMap *out, void *userData, V
 
     d.mask = nullptr;
     if (d.mtqL > -2 || d.mthL > -2 || d.mtqC > -2 || d.mthC > -2) {
-        TDeintModData * data = new TDeintModData(d);
-
-        vsapi->createFilter(in, out, "TDeintMod", tdeintmodInit, tdeintmodAssumeTFFGetFrame, tdeintmodCreateMMFree, fmParallel, nfNoCache, data, core);
-        d.node = vsapi->propGetNode(out, "clip", 0, nullptr);
-        vsapi->clearMap(out);
-
         VSMap * args = vsapi->createMap();
         VSPlugin * stdPlugin = vsapi->getPluginById("com.vapoursynth.std", core);
 
         vsapi->propSetNode(args, "clip", d.node, paReplace);
         vsapi->freeNode(d.node);
+        vsapi->propSetData(args, "prop", "_FieldBased", -1, paReplace);
+        vsapi->propSetInt(args, "intval", 2, paReplace);
+        VSMap * ret = vsapi->invoke(stdPlugin, "SetFrameProp", args);
+        if (vsapi->getError(ret)) {
+            vsapi->setError(out, vsapi->getError(ret));
+            vsapi->freeMap(args);
+            vsapi->freeMap(ret);
+            return;
+        }
+        d.node = vsapi->propGetNode(ret, "clip", 0, nullptr);
+        vsapi->clearMap(args);
+        vsapi->freeMap(ret);
+
+        vsapi->propSetNode(args, "clip", d.node, paReplace);
+        vsapi->freeNode(d.node);
         vsapi->propSetInt(args, "tff", 1, paReplace);
-        VSMap * ret = vsapi->invoke(stdPlugin, "SeparateFields", args);
+        ret = vsapi->invoke(stdPlugin, "SeparateFields", args);
         if (vsapi->getError(ret)) {
             vsapi->setError(out, vsapi->getError(ret));
             vsapi->freeMap(args);
@@ -2372,7 +2367,7 @@ static void VS_CC tdeintmodCreate(const VSMap *in, VSMap *out, void *userData, V
         vsapi->clearMap(args);
         vsapi->freeMap(ret);
 
-        data = new TDeintModData(d);
+        TDeintModData * data = new TDeintModData(d);
 
         vsapi->createFilter(in, out, "TDeintMod", tdeintmodInit, tdeintmodCreateMMGetFrame, tdeintmodCreateMMFree, fmParallel, 0, data, core);
         VSNodeRef * temp = vsapi->propGetNode(out, "clip", 0, nullptr);
@@ -2480,9 +2475,10 @@ static void VS_CC tdeintmodCreate(const VSMap *in, VSMap *out, void *userData, V
             vsapi->freeNode(d.edeint);
             return;
         }
-
         d.vi.numFrames *= 2;
-        muldivRational(&d.vi.fpsNum, &d.vi.fpsDen, 2, 1);
+
+        if (d.vi.fpsNum && d.vi.fpsDen)
+            muldivRational(&d.vi.fpsNum, &d.vi.fpsDen, 2, 1);
     }
 
     if (d.edeint) {

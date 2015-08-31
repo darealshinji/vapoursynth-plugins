@@ -72,7 +72,7 @@ make install
 [tc2cfr 0.0.1+git20131117](https://github.com/gnaggnoyil/tc2cfr)<br>
 [tcanny r3+git20150630](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-TCanny)<br>
 [tcomb 1.0](https://github.com/dubhater/vapoursynth-tcomb)<br>
-[tdeintmod r6](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-TDeintMod)<br>
+[tdeintmod r6+git20150630](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-TDeintMod)<br>
 [templinearapproximate r3+git20141209](https://bitbucket.org/mystery_keeper/templinearapproximate-vapoursynth)<br>
 [temporalsoften 1.0](https://github.com/dubhater/vapoursynth-temporalsoften)<br>
 [temporalsoften2 0.1.1](http://forum.doom9.org/showthread.php?t=166769)<br>
