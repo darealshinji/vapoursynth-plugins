@@ -1,8 +1,8 @@
 /****************************  vectorclass.h   ********************************
 * Author:        Agner Fog
 * Date created:  2012-05-30
-* Last modified: 2014-10-24
-* Version:       1.16
+* Last modified: 2015-07-31
+* Version:       1.17
 * Project:       vector classes
 * Description:
 * Header file defining vector classes as interface to intrinsic functions 

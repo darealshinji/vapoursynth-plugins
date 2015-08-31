@@ -1,8 +1,8 @@
 /****************************  vectori128.h   *******************************
 * Author:        Agner Fog
 * Date created:  2012-05-30
-* Last modified: 2014-10-24
-* Version:       1.16
+* Last modified: 2015-06-03
+* Version:       1.17
 * Project:       vector classes
 * Description:
 * Header file defining integer vector classes as interface to intrinsic 
@@ -864,25 +864,25 @@ class Vec16uc : public Vec16c {
 public:
     // Default constructor:
     Vec16uc() {
-    };
+    }
     // Constructor to broadcast the same value into all elements:
     Vec16uc(uint32_t i) {
         xmm = _mm_set1_epi8((char)i);
-    };
+    }
     // Constructor to build from all elements:
     Vec16uc(uint8_t i0, uint8_t i1, uint8_t i2, uint8_t i3, uint8_t i4, uint8_t i5, uint8_t i6, uint8_t i7,
         uint8_t i8, uint8_t i9, uint8_t i10, uint8_t i11, uint8_t i12, uint8_t i13, uint8_t i14, uint8_t i15) {
         xmm = _mm_setr_epi8(i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11, i12, i13, i14, i15);
-    };
+    }
     // Constructor to convert from type __m128i used in intrinsics:
     Vec16uc(__m128i const & x) {
         xmm = x;
-    };
+    }
     // Assignment operator to convert from type __m128i used in intrinsics:
     Vec16uc & operator = (__m128i const & x) {
         xmm = x;
         return *this;
-    };
+    }
     // Member function to load from array (unaligned)
     Vec16uc & load(void const * p) {
         xmm = _mm_loadu_si128((__m128i const*)p);
@@ -1080,28 +1080,28 @@ class Vec8s : public Vec128b {
 public:
     // Default constructor:
     Vec8s() {
-    };
+    }
     // Constructor to broadcast the same value into all elements:
     Vec8s(int i) {
         xmm = _mm_set1_epi16((int16_t)i);
-    };
+    }
     // Constructor to build from all elements:
     Vec8s(int16_t i0, int16_t i1, int16_t i2, int16_t i3, int16_t i4, int16_t i5, int16_t i6, int16_t i7) {
         xmm = _mm_setr_epi16(i0, i1, i2, i3, i4, i5, i6, i7);
-    };
+    }
     // Constructor to convert from type __m128i used in intrinsics:
     Vec8s(__m128i const & x) {
         xmm = x;
-    };
+    }
     // Assignment operator to convert from type __m128i used in intrinsics:
     Vec8s & operator = (__m128i const & x) {
         xmm = x;
         return *this;
-    };
+    }
     // Type cast operator to convert to __m128i used in intrinsics
     operator __m128i() const {
         return xmm;
-    };
+    }
     // Member function to load from array (unaligned)
     Vec8s & load(void const * p) {
         xmm = _mm_loadu_si128((__m128i const*)p);
@@ -1184,7 +1184,7 @@ public:
             xmm = _mm_insert_epi16(xmm,value,7);  break;
         }
         return *this;
-    };
+    }
     // Member function extract a single element from vector
     // Note: This function is inefficient. Use store function if extracting more than one element
     int16_t extract(uint32_t index) const {
@@ -1426,40 +1426,40 @@ static inline Vec8s & operator >>= (Vec8s & a, int b) {
 }
 
 // vector operator == : returns true for elements for which a == b
-static inline Vec8s operator == (Vec8s const & a, Vec8s const & b) {
+static inline Vec8sb operator == (Vec8s const & a, Vec8s const & b) {
     return _mm_cmpeq_epi16(a, b);
 }
 
 // vector operator != : returns true for elements for which a != b
-static inline Vec8s operator != (Vec8s const & a, Vec8s const & b) {
+static inline Vec8sb operator != (Vec8s const & a, Vec8s const & b) {
 #ifdef __XOP__  // AMD XOP instruction set
     return _mm_comneq_epi16(a,b);
 #else  // SSE2 instruction set
-    return Vec8s (~(a == b));
+    return Vec8sb (~(a == b));
 #endif
 }
 
 // vector operator > : returns true for elements for which a > b
-static inline Vec8s operator > (Vec8s const & a, Vec8s const & b) {
+static inline Vec8sb operator > (Vec8s const & a, Vec8s const & b) {
     return _mm_cmpgt_epi16(a, b);
 }
 
 // vector operator < : returns true for elements for which a < b
-static inline Vec8s operator < (Vec8s const & a, Vec8s const & b) {
+static inline Vec8sb operator < (Vec8s const & a, Vec8s const & b) {
     return b > a;
 }
 
 // vector operator >= : returns true for elements for which a >= b (signed)
-static inline Vec8s operator >= (Vec8s const & a, Vec8s const & b) {
+static inline Vec8sb operator >= (Vec8s const & a, Vec8s const & b) {
 #ifdef __XOP__  // AMD XOP instruction set
     return _mm_comge_epi16(a,b);
 #else  // SSE2 instruction set
-    return Vec8s (~(b > a));
+    return Vec8sb (~(b > a));
 #endif
 }
 
 // vector operator <= : returns true for elements for which a <= b (signed)
-static inline Vec8s operator <= (Vec8s const & a, Vec8s const & b) {
+static inline Vec8sb operator <= (Vec8s const & a, Vec8s const & b) {
     return b >= a;
 }
 
@@ -1641,24 +1641,24 @@ class Vec8us : public Vec8s {
 public:
     // Default constructor:
     Vec8us() {
-    };
+    }
     // Constructor to broadcast the same value into all elements:
     Vec8us(uint32_t i) {
         xmm = _mm_set1_epi16((int16_t)i);
-    };
+    }
     // Constructor to build from all elements:
     Vec8us(uint16_t i0, uint16_t i1, uint16_t i2, uint16_t i3, uint16_t i4, uint16_t i5, uint16_t i6, uint16_t i7) {
         xmm = _mm_setr_epi16(i0, i1, i2, i3, i4, i5, i6, i7);
-    };
+    }
     // Constructor to convert from type __m128i used in intrinsics:
     Vec8us(__m128i const & x) {
         xmm = x;
-    };
+    }
     // Assignment operator to convert from type __m128i used in intrinsics:
     Vec8us & operator = (__m128i const & x) {
         xmm = x;
         return *this;
-    };
+    }
     // Member function to load from array (unaligned)
     Vec8us & load(void const * p) {
         xmm = _mm_loadu_si128((__m128i const*)p);
@@ -1674,7 +1674,7 @@ public:
     Vec8us const & insert(uint32_t index, uint16_t value) {
         Vec8s::insert(index, value);
         return *this;
-    };
+    }
     // Member function extract a single element from vector
     uint16_t extract(uint32_t index) const {
         return Vec8s::extract(index);
@@ -1740,9 +1740,8 @@ static inline Vec8s operator >= (Vec8us const & a, Vec8us const & b) {
     __m128i max_ab = _mm_max_epu16(a,b);                   // max(a,b), unsigned
     return _mm_cmpeq_epi16(a,max_ab);                      // a == max(a,b)
 #else  // SSE2 instruction set
-    __m128i sub1 = _mm_sub_epi16(a,b);                     // a-b, wraparound
-    __m128i sub2 = _mm_subs_epu16(a,b);                    // a-b, saturated
-    return  _mm_cmpeq_epi16(sub1,sub2);                    // sub1 == sub2 if no carry
+    __m128i s = _mm_subs_epu16(b,a);                       // b-a, saturated
+    return  _mm_cmpeq_epi16(s, _mm_setzero_si128());       // s == 0 
 #endif
 }
 
@@ -2463,24 +2462,24 @@ class Vec4ui : public Vec4i {
 public:
     // Default constructor:
     Vec4ui() {
-    };
+    }
     // Constructor to broadcast the same value into all elements:
     Vec4ui(uint32_t i) {
         xmm = _mm_set1_epi32(i);
-    };
+    }
     // Constructor to build from all elements:
     Vec4ui(uint32_t i0, uint32_t i1, uint32_t i2, uint32_t i3) {
         xmm = _mm_setr_epi32(i0, i1, i2, i3);
-    };
+    }
     // Constructor to convert from type __m128i used in intrinsics:
     Vec4ui(__m128i const & x) {
         xmm = x;
-    };
+    }
     // Assignment operator to convert from type __m128i used in intrinsics:
     Vec4ui & operator = (__m128i const & x) {
         xmm = x;
         return *this;
-    };
+    }
     // Member function to load from array (unaligned)
     Vec4ui & load(void const * p) {
         xmm = _mm_loadu_si128((__m128i const*)p);
@@ -3296,24 +3295,24 @@ class Vec2uq : public Vec2q {
 public:
     // Default constructor:
     Vec2uq() {
-    };
+    }
     // Constructor to broadcast the same value into all elements:
     Vec2uq(uint64_t i) {
         xmm = Vec2q(i);
-    };
+    }
     // Constructor to build from all elements:
     Vec2uq(uint64_t i0, uint64_t i1) {
         xmm = Vec2q(i0, i1);
-    };
+    }
     // Constructor to convert from type __m128i used in intrinsics:
     Vec2uq(__m128i const & x) {
         xmm = x;
-    };
+    }
     // Assignment operator to convert from type __m128i used in intrinsics:
     Vec2uq & operator = (__m128i const & x) {
         xmm = x;
         return *this;
-    };
+    }
     // Member function to load from array (unaligned)
     Vec2uq & load(void const * p) {
         xmm = _mm_loadu_si128((__m128i const*)p);
@@ -3386,8 +3385,14 @@ static inline Vec2uq operator << (Vec2uq const & a, int32_t b) {
 
 // vector operator > : returns true for elements for which a > b (unsigned)
 static inline Vec2qb operator > (Vec2uq const & a, Vec2uq const & b) {
-#ifdef __XOP__  // AMD XOP instruction set
+#if defined ( __XOP__ ) // AMD XOP instruction set
     return Vec2q(_mm_comgt_epu64(a,b));
+#elif INSTRSET >= 6 // SSE4.2
+    __m128i sign64 = constant4i<0,(int32_t)0x80000000,0,(int32_t)0x80000000>();
+    __m128i aflip  = _mm_xor_si128(a, sign64);
+    __m128i bflip  = _mm_xor_si128(b, sign64);
+    Vec2q   cmp    = _mm_cmpgt_epi64(aflip,bflip);
+    return Vec2qb(cmp);
 #else  // SSE2 instruction set
     __m128i sign32  = _mm_set1_epi32(0x80000000);          // sign bit of each dword
     __m128i aflip   = _mm_xor_si128(a,sign32);             // a with sign bits flipped
@@ -5210,7 +5215,7 @@ static inline uint32_t vml_popcnt (uint32_t a) {
 
 // Define bit-scan-forward function. Gives index to lowest set bit
 #if defined (__GNUC__) || defined(__clang__)
-static inline uint32_t bit_scan_reverse (uint32_t a) __attribute__ ((pure));
+static inline uint32_t bit_scan_forward (uint32_t a) __attribute__ ((pure));
 static inline uint32_t bit_scan_forward (uint32_t a) {	
     uint32_t r;
     __asm("bsfl %1, %0" : "=r"(r) : "r"(a) : );
