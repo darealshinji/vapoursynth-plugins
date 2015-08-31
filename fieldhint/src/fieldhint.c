@@ -38,6 +38,21 @@ static void VS_CC fieldhintInit(VSMap *in, VSMap *out, void **instanceData, VSNo
 }
 
 
+static int cmp(const void *av, const void *bv) {
+    int a = *(int *)av;
+    int b = *(int *)bv;
+
+    if (a < b)
+        return -1;
+    else if (a == b)
+        return 0;
+    else if (a > b)
+        return 1;
+
+    return 0;
+}
+
+
 static const VSFrameRef *VS_CC fieldhintGetFrame(int n, int activationReason, void **instanceData, void **frameData, VSFrameContext *frameCtx, VSCore *core, const VSAPI *vsapi) {
     if (activationReason == arFrameReady)
         return NULL;
@@ -70,15 +85,12 @@ static const VSFrameRef *VS_CC fieldhintGetFrame(int n, int activationReason, vo
     }
 
     if (activationReason == arInitial) {
-        if (tf < bf) {
-            vsapi->requestFrameFilter(tf, d->node, frameCtx);
-        }
+        int frames[3] = { n, tf, bf };
 
-        vsapi->requestFrameFilter(bf, d->node, frameCtx);
+        qsort(frames, 3, sizeof(int), cmp);
 
-        if (tf > bf) {
-            vsapi->requestFrameFilter(tf, d->node, frameCtx);
-        }
+        for (int i = 0; i < 3; i++)
+            vsapi->requestFrameFilter(frames[i], d->node, frameCtx);
     } else if (activationReason == arAllFramesReady) {
         VSFrameRef *frame;
         if (tf == bf) {
@@ -114,6 +126,10 @@ static const VSFrameRef *VS_CC fieldhintGetFrame(int n, int activationReason, vo
             vsapi->freeFrame(top);
             vsapi->freeFrame(bottom);
         }
+
+        const VSFrameRef *src = vsapi->getFrameFilter(n, d->node, frameCtx);
+        vsapi->copyFrameProps(src, frame, core);
+        vsapi->freeFrame(src);
 
         if (d->ovrfile && d->ovr[n].hint != HINT_MISSING) {
             VSMap *props = vsapi->getFramePropsRW(frame);
