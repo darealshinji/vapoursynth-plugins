@@ -14,7 +14,7 @@ libavresample-dev
 libavutil-dev
 libfftw3-dev
 libjpeg-dev
-libpng12-dev
+libpng-dev
 libsndfile1-dev
 libxvidcore-dev
 nasm
@@ -31,6 +31,13 @@ cd vapoursynth-plugins
 ./configure
 make
 make install
+```
+
+Ubuntu users can also use my PPA:
+```
+sudo add-apt-repository ppa:djcj/vapoursynth
+sudo apt-get update
+sudo apt-get install vapoursynth-extra-plugins
 ```
 
 
