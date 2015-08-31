@@ -1,4 +1,3 @@
-m4_include([include/ac/ax_check_compile_flag.m4])
 m4_include([include/ac/ax_cxx_compile_stdcxx_11.m4])
 m4_include([include/ac/ax_prog_nasm.m4])
 m4_include([include/ac/ax_prog_yasm.m4])
@@ -16,13 +15,6 @@ AC_PROG_MAKE_SET
 AX_PROG_NASM([nasm_avail="no"])
 AX_PROG_YASM([yasm_avail="no"])
 
-AX_CHECK_COMPILE_FLAG("-fstack-protector-strong",
-  [CFLAGS="${CFLAGS} -fstack-protector-strong"
-   CXXFLAGS="${CXXFLAGS} -fstack-protector-strong"],
-  [AX_CHECK_COMPILE_FLAG("-fstack-protector",
-    [CFLAGS="${CFLAGS} -fstack-protector"
-     CXXFLAGS="${CXXFLAGS} -fstack-protector"])
-])
 AX_CXX_COMPILE_STDCXX_11([noext],[mandatory])
 
 # libraries
