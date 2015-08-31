@@ -1,14 +1,7 @@
 /*****************************************************************************
 
-        LockFreeCell.h
-        Author: Laurent de Soras, 2011
-
-Template parameters:
-
-- T. Contained object. Requires:
-	T::T();
-
-The cell must be aligned because of the AtomicPtr.
+        SingleObj.h
+        Author: Laurent de Soras, 2015
 
 --- Legal stuff ---
 
@@ -22,11 +15,11 @@ http://sam.zoy.org/wtfpl/COPYING for more details.
 
 
 
-#if ! defined (conc_LockFreeCell_HEADER_INCLUDED)
-#define	conc_LockFreeCell_HEADER_INCLUDED
+#pragma once
+#if ! defined (fstb_SingleObj_HEADER_INCLUDED)
+#define	fstb_SingleObj_HEADER_INCLUDED
 
 #if defined (_MSC_VER)
-	#pragma once
 	#pragma warning (4 : 4250)
 #endif
 
@@ -34,28 +27,28 @@ http://sam.zoy.org/wtfpl/COPYING for more details.
 
 /*\\\ INCLUDE FILES \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\*/
 
-#include "conc/AtomicPtr.h"
+#include "fstb/AllocAlign.h"
 
 
 
-namespace conc
+namespace fstb
 {
 
 
 
-template <class T>
-class LockFreeCell
+template <class T, class A = AllocAlign <T, 16> >
+class SingleObj
 {
 
 /*\\\ PUBLIC \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\*/
 
 public:
 
-	typedef	T	ValueType;
+	               SingleObj ();
+	virtual        ~SingleObj ();
 
-	AtomicPtr <LockFreeCell <T> >
-	               _next_ptr;
-	T              _val;
+	T *            operator -> () const;
+	T &            operator * () const;
 
 
 
@@ -69,25 +62,34 @@ protected:
 
 private:
 
+	A              _allo;
+	T *            _obj_ptr;
+
 
 
 /*\\\ FORBIDDEN MEMBER FUNCTIONS \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\*/
 
 private:
 
-};	// class LockFreeCell
+	               SingleObj (const SingleObj <T, A> &other)         = delete;
+	SingleObj <T, A> &
+	               operator = (const SingleObj <T, A> &other)        = delete;
+	bool           operator == (const SingleObj <T, A> &other) const = delete;
+	bool           operator != (const SingleObj <T, A> &other) const = delete;
+
+};	// class SingleObj
 
 
 
-}	// namespace conc
+}	// namespace fstb
 
 
 
-//#include "conc/LockFreeCell.hpp"
+#include "fstb/SingleObj.hpp"
 
 
 
-#endif	// conc_LockFreeCell_HEADER_INCLUDED
+#endif	// fstb_SingleObj_HEADER_INCLUDED
 
 
 

@@ -1,6 +1,6 @@
 /*****************************************************************************
 
-        TransOpAffine.cpp
+        SingleObj.hpp
         Author: Laurent de Soras, 2015
 
 --- Legal stuff ---
@@ -15,23 +15,18 @@ http://sam.zoy.org/wtfpl/COPYING for more details.
 
 
 
-#if defined (_MSC_VER)
-	#pragma warning (1 : 4130 4223 4705 4706)
-	#pragma warning (4 : 4355 4786 4800)
-#endif
+#if ! defined (fstb_SingleObj_CODEHEADER_INCLUDED)
+#define	fstb_SingleObj_CODEHEADER_INCLUDED
 
 
 
 /*\\\ INCLUDE FILES \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\*/
 
-#include "fmtcl/TransOpAffine.h"
-#include "fstb/fnc.h"
-
 #include <cassert>
 
 
 
-namespace fmtcl
+namespace fstb
 {
 
 
@@ -40,18 +35,56 @@ namespace fmtcl
 
 
 
-TransOpAffine::TransOpAffine (double a, double b)
-:	_a (a)
-,	_b (b)
+template <class T, class A>
+SingleObj <T, A>::SingleObj ()
+:	_allo ()
+,	_obj_ptr (0)
 {
-	assert (! fstb::is_null (a));
+	_obj_ptr = _allo.allocate (1);
+	if (_obj_ptr == 0)
+	{
+		throw std::bad_alloc ();
+	}
+
+	try
+	{
+		new (_obj_ptr) T ();
+	}
+	catch (...)
+	{
+		_allo.deallocate (_obj_ptr, 1);
+		throw;
+	}
 }
 
 
 
-double	TransOpAffine::operator () (double x) const
+template <class T, class A>
+SingleObj <T, A>::~SingleObj ()
 {
-	return (x * _a + _b);
+	_obj_ptr->~T ();
+	_allo.deallocate (_obj_ptr, 1);
+	_obj_ptr = 0;
+}
+
+
+
+template <class T, class A>
+T *	SingleObj <T, A>::operator -> () const
+{
+	assert (_obj_ptr != 0);
+
+	return (_obj_ptr);
+}
+
+
+
+template <class T, class A>
+T &	SingleObj <T, A>::operator * () const
+{
+	assert (_obj_ptr != 0);
+
+	return (*_obj_ptr);
 }
 
 
@@ -64,7 +97,11 @@ double	TransOpAffine::operator () (double x) const
 
 
 
-}	// namespace fmtcl
+}	// namespace fstb
+
+
+
+#endif	// fstb_SingleObj_CODEHEADER_INCLUDED
 
 
 

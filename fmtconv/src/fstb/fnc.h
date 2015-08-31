@@ -46,8 +46,14 @@ inline double  round (double x);
 inline int     round_int (double x);
 inline int     floor_int (double x);
 inline int     ceil_int (double x);
-inline int     conv_int_fast (float x);
-inline int     conv_int_fast (double x);
+template <class T>
+inline int     conv_int_fast (T x);
+template <class T>
+inline bool    is_null (T val, T eps = T (1e-9));
+template <class T>
+inline bool    is_eq (T v1, T v2, T eps = T (1e-9));
+template <class T>
+inline bool    is_eq_rel (T v1, T v2, T tol = T (1e-6));
 inline int     get_prev_pow_2 (uint32_t x);
 inline double  sinc (double x);
 template <class T, int S>

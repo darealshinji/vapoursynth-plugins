@@ -54,7 +54,7 @@ make install
 [fillborders 1.0](https://github.com/dubhater/vapoursynth-fillborders)<br>
 [flash3kyuu_deband 1.5.1+git20150509](https://github.com/SAPikachu/flash3kyuu_deband)<br>
 [fluxsmooth 1.0+git20141002](https://github.com/dubhater/vapoursynth-fluxsmooth)<br>
-[fmtconv r17](https://github.com/EleonoreMizo/fmtconv)<br>
+[fmtconv r17+git20150726](https://github.com/EleonoreMizo/fmtconv)<br>
 [genericfilters 1.0.0+git20150505](https://github.com/myrsloik/GenericFilters)<br>
 [histogram 1.0+git20141212](https://github.com/dubhater/vapoursynth-histogram)<br>
 [imagereader 0.2.1](https://github.com/chikuzen/vsimagereader)<br>

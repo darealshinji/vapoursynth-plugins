@@ -24,6 +24,8 @@ http://sam.zoy.org/wtfpl/COPYING for more details.
 
 #include "def.h"
 
+#include <type_traits>
+
 #if defined (_MSC_VER)
 	#if (fstb_ARCHI == fstb_ARCHI_X86)
 		#include <intrin.h>
@@ -315,59 +317,11 @@ int	ceil_int (double x)
 
 
 
-int	conv_int_fast (float x)
+template <class T>
+int	conv_int_fast (T x)
 {
-	int            p;
+	static_assert (std::is_floating_point <T>::value, "T must be floating point");
 
-#if (fstb_ARCHI == fstb_ARCHI_X86)
-
- #if defined (_MSC_VER)
-
-  #if defined (_WIN64) || defined (__64BIT__) || defined (__amd64__) || defined (__x86_64__)
-
-	p = conv_int_fast (double (x));
-
-  #else
-
-	__asm
-	{
-		fld            x;
-		fistp          p;
-	}
-
-  #endif
-
- #elif defined (__GNUC__)
-
-	asm (
-		"flds				%[x]		\n"
-		"fistpl			%[v]		\n"
-	:	[v]	"=m"	(p)
-	:	[x]	"m"	(x)
-	:	
-	);
-
- #else
-
-	// Slow...
-	p = int (x);
-
- #endif
-
-#else
-
-	// Slow...
-	p = int (x);
-
-#endif
-
-	return (p);
-}
-
-
-
-int	conv_int_fast (double x)
-{
 	int            p;
 
 #if (fstb_ARCHI == fstb_ARCHI_X86)
@@ -414,6 +368,43 @@ int	conv_int_fast (double x)
 #endif
 
 	return (p);
+}
+
+
+
+template <class T>
+bool	is_null (T val, T eps)
+{
+	static_assert (std::is_floating_point <T>::value, "T must be floating point");
+	assert (eps >= 0);
+
+	return (fabs (val) <= eps);
+}
+
+
+
+template <class T>
+bool	is_eq (T v1, T v2, T eps)
+{
+	static_assert (std::is_floating_point <T>::value, "T must be floating point");
+	assert (eps >= 0);
+
+	return (is_null (v2 - v1, eps));
+}
+
+
+
+template <class T>
+bool	is_eq_rel (T v1, T v2, T tol)
+{
+	static_assert (std::is_floating_point <T>::value, "T must be floating point");
+	assert (tol >= 0);
+
+	const T        v1a = T (fabs (v1));
+	const T        v2a = T (fabs (v2));
+	const T        eps = std::max (v1a, v2a) * tol;
+
+	return (is_eq (v1, v2, eps));
 }
 
 
@@ -489,19 +480,31 @@ double	sinc (double x)
 
 
 template <class T, int S, bool L>
-class fnc_ShiftGeneric { public: static T sh (T x) { return (x << S); } };
+class fnc_ShiftGeneric
+{
+public:
+	static_assert (S < int (sizeof (T) * CHAR_BIT), "Shift too large");
+	static T sh (T x) { return (x << S); }
+};
 template <class T, int S>
-class fnc_ShiftGeneric <T, S, false> { public: static T sh (T x) { return (x >> S); } };
+class fnc_ShiftGeneric <T, S, false>
+{
+public:
+	static_assert (S < int (sizeof (T) * CHAR_BIT), "Shift too large");
+	static T sh (T x) { return (x >> S); }
+};
 
 template <class T, int S>
 T	sshift_l (T x)
 {
+	static_assert (std::is_integral <T>::value, "T must be integer");
 	return (fnc_ShiftGeneric <T, (S < 0) ? -S : S, (S > 0)>::sh (x));
 }
 
 template <class T, int S>
 T	sshift_r (T x)
 {
+	static_assert (std::is_integral <T>::value, "T must be integer");
 	return (fnc_ShiftGeneric <T, (S < 0) ? -S : S, (S < 0)>::sh (x));
 }
 
