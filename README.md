@@ -79,7 +79,7 @@ make install
 [vaguedenoiser r2](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-VagueDenoiser)<br>
 [vautodeint git20130608](https://github.com/gnaggnoyil/VAutoDeint)<br>
 [videoscope 1.0](https://github.com/dubhater/vapoursynth-videoscope)<br>
-[waifu2x r1+20150829](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-waifu2x-opt)<br>
+[waifu2x-opt r1+20150829](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-waifu2x-opt)<br>
 [wwxd 1.0](https://github.com/dubhater/vapoursynth-wwxd)<br>
 [yadifmod r8](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Yadifmod)<br>
 [zimg git20141102](https://github.com/dubhater/zimg)

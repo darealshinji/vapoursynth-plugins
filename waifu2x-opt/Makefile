@@ -1,5 +1,5 @@
 
-LIB  = libvswaifu2x.so
+LIB  = libwaifu2x-opt.so
 ZIMG = libzimg.a
 W2X  = waifu2x-opt/libwaifu2x.a
 

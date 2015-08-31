@@ -44,7 +44,7 @@ SUBDIRS = \
 	vaguedenoiser \
 	vautodeint \
 	videoscope \
-	waifu2x \
+	waifu2x-opt \
 	wwxd \
 	yadifmod \
 	zimg
