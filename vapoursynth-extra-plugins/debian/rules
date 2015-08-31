@@ -3,8 +3,6 @@
 DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
 
 export V=1
-export CFLAGS=-g -O3
-export CXXFLAGS=-g -O3
 
 
 %:
@@ -23,7 +21,7 @@ override_dh_auto_install:
 	dh_auto_install
 
 override_dh_install:
-	dh_install -pvapoursynth-extra-plugins -Xnnedi3 -X.json
+	dh_install -pvapoursynth-extra-plugins -Xnnedi3_weights.bin -X.json
 	dh_install --remaining-packages
 
 override_dh_link:

@@ -29,13 +29,12 @@ Depends:
  ${misc:Depends},
  ${shlibs:Depends},
  ${perl:Depends},
+ nnedi3-weights (>= 0.9.4),
  vapoursynth-waifu2x-models (= ${source:Version})
 Pre-Depends:
  ${misc:Pre-Depends}
 Recommends:
  libvapoursynth
-Suggests:
- vapoursynth-nnedi3-plugin
 Description: Additional plugins for VapourSynth
  It's an application for video manipulation. Or a plugin. Or a library.
  It's hard to tell because it has a core library written in C++ and a
@@ -55,17 +54,14 @@ Description: Additional plugins for VapourSynth
     one format or frame size VapourSynth can handle any kind of change
 
 Package: vapoursynth-nnedi3-plugin
-Architecture: amd64 i386
+Architecture: all
+Section: oldlibs
+Priority: extra
+Multi-Arch: foreign
 Depends:
- vapoursynth-extra-plugins (= ${binary:Version}),
- nnedi3-weights (>= 0.9.4),
- ${misc:Depends},
- ${shlibs:Depends}
-Pre-Depends:
- ${misc:Pre-Depends}
-Recommends:
- libvapoursynth
-Description: nnedi3 plugin for VapourSynth
+ vapoursynth-extra-plugins,
+ ${misc:Depends}
+Description: nnedi3 plugin for VapourSynth (transitional package)
  It's an application for video manipulation. Or a plugin. Or a library.
  It's hard to tell because it has a core library written in C++ and a
  Python module to allow video scripts to be created. It came to be when
@@ -82,6 +78,9 @@ Description: nnedi3 plugin for VapourSynth
     you don't have to learn a special language
   * Support for video with format changes - Some video just can't stick to
     one format or frame size VapourSynth can handle any kind of change
+ .
+ The nnedi3 plugin is now provided by vapoursynth-extra-plugins. This is a
+ transitional package and can safely be removed.
 
 Package: vapoursynth-waifu2x-models
 Architecture: all
@@ -113,8 +112,7 @@ Section: debug
 Architecture: amd64 i386
 Depends:
  ${misc:Depends},
- vapoursynth-extra-plugins (= ${binary:Version}),
- vapoursynth-nnedi3-plugin (= ${binary:Version})
+ vapoursynth-extra-plugins (= ${binary:Version})
 Description: Additional plugins for VapourSynth - debug symbols
  It's an application for video manipulation. Or a plugin. Or a library.
  It's hard to tell because it has a core library written in C++ and a
