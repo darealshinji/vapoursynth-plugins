@@ -74,7 +74,7 @@ static void VS_CC Waifu2x_Denoise_Create(const VSMap *in, VSMap *out, void *user
 
     // Create filter
     vsapi->createFilter(in, out, "Denoise", Waifu2x_Denoise_Init, Waifu2x_Denoise_GetFrame, Waifu2x_Denoise_Free,
-        USE_VAPOURSYNTH_MT ? fmParallel : fmUnordered, 0, d, core);
+        USE_VAPOURSYNTH_MT ? fmParallel : fmParallelRequests, 0, d, core);
 }
 
 
@@ -136,7 +136,7 @@ static void VS_CC Waifu2x_Resize_Create(const VSMap *in, VSMap *out, void *userD
 
     // Create filter
     vsapi->createFilter(in, out, "Resize", Waifu2x_Resize_Init, Waifu2x_Resize_GetFrame, Waifu2x_Resize_Free,
-        USE_VAPOURSYNTH_MT ? fmParallel : fmUnordered, 0, d, core);
+        USE_VAPOURSYNTH_MT ? fmParallel : fmParallelRequests, 0, d, core);
 }
 
 

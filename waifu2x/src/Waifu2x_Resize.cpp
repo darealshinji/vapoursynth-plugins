@@ -319,7 +319,7 @@ void Waifu2x_Resize_Data::init(VSCore *core)
     double src_sub_w = 1 << vi->format->subSamplingW;
     double src_sub_h = 1 << vi->format->subSamplingH;
     double dst_sub_w = 1 << para.subsample_w;
-    //double dst_sub_h = 1 << para.subsample_h;
+    double dst_sub_h = 1 << para.subsample_h;
 
     bool sCLeftAlign = para.chroma_loc_in == CHROMA_LOC_MPEG2;
     double sHCPlace = !sCLeftAlign ? 0 : 0.5 - src_sub_w / 2;
