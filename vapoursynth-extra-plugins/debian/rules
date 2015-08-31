@@ -3,6 +3,8 @@
 DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
 
 export V=1
+export CFLAGS=-g -O2
+export CXXFLAGS=-g -O2
 
 
 %:
