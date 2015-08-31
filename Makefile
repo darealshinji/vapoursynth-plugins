@@ -85,9 +85,9 @@ install:
 	$(INSTALL_DATA) fmtconv/doc/colorspace-subsampling.png $(DESTDIR)$(docdir)
 	$(INSTALL_DATA) fmtconv/doc/vapourdoc.css $(DESTDIR)$(docdir)
 	$(INSTALL_DATA) nnedi3/src/nnedi3_weights.bin $(DESTDIR)$(prefix)/share/nnedi3
-	$(INSTALL_DATA) waifu2x/models/noise1_model.json $(DESTDIR)$(plugins)
-	$(INSTALL_DATA) waifu2x/models/noise2_model.json $(DESTDIR)$(plugins)
-	$(INSTALL_DATA) waifu2x/models/scale2.0x_model.json $(DESTDIR)$(plugins)
+	$(INSTALL_DATA) waifu2x-opt/models/noise1_model.json $(DESTDIR)$(plugins)
+	$(INSTALL_DATA) waifu2x-opt/models/noise2_model.json $(DESTDIR)$(plugins)
+	$(INSTALL_DATA) waifu2x-opt/models/scale2.0x_model.json $(DESTDIR)$(plugins)
 
 	$(INSTALL) -m 755 d2vsource/d2vscan.pl $(DESTDIR)$(plugins)
 	$(INSTALL_DATA) d2vsource/d2vscan.txt $(DESTDIR)$(docdir)/d2vscan
