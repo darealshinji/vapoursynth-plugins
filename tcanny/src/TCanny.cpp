@@ -38,6 +38,7 @@ struct TCannyData {
     float * weights;
     float magnitude;
     int peak;
+    float lower[3], upper[3];
 };
 
 struct Stack {
@@ -73,7 +74,7 @@ static float * gaussianWeights(const float sigma, int & rad) {
 }
 
 template<typename T>
-static void genConvV(const T * srcp, float * VS_RESTRICT dstp, const int width, const int height, const int stride, const int rad, const float * weights) {
+static void genConvV(const T * srcp, float * VS_RESTRICT dstp, const int width, const int height, const int stride, const int rad, const float * weights, const float offset) {
     weights += rad;
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
@@ -84,7 +85,7 @@ static void genConvV(const T * srcp, float * VS_RESTRICT dstp, const int width, 
                     yc = -yc;
                 else if (yc >= height)
                     yc = 2 * (height - 1) - yc;
-                sum += srcp[x + yc * stride] * weights[v];
+                sum += (srcp[x + yc * stride] + offset) * weights[v];
             }
             dstp[x] = sum;
         }
@@ -112,10 +113,16 @@ static void genConvH(const float * srcp, float * VS_RESTRICT dstp, const int wid
     }
 }
 
-static int getBin(const float dir, const int n) {
-    const float scale = n / M_PIF;
-    const int bin = static_cast<int>(dir * scale + 0.5f);
+template<typename T>
+static T getBin(const float dir, const int n) {
+    const int bin = static_cast<int>(dir * (n / M_PIF) + 0.5f);
     return (bin >= n) ? 0 : bin;
+}
+
+template<>
+float getBin<float>(const float dir, const int n) {
+    const float bin = dir * (n / M_PIF);
+    return (bin > static_cast<float>(n)) ? 0.f : bin;
 }
 
 static void gmDirImages(float * VS_RESTRICT srcp, float * VS_RESTRICT gimg, float * VS_RESTRICT dimg, const int width, const int height, const int stride,
@@ -159,7 +166,7 @@ static void gmDirImages(float * VS_RESTRICT srcp, float * VS_RESTRICT gimg, floa
         for (int x = 1; x < width - 1; x++) {
             const float dir = dirT[x];
             if (nms & 1) {
-                const int off = offTable[getBin(dir, 4)];
+                const int off = offTable[getBin<int>(dir, 4)];
                 if (gmnT[x] >= std::max(gmnT[x + off], gmnT[x - off]))
                     continue;
             }
@@ -225,7 +232,8 @@ static void hystersis(float * VS_RESTRICT srcp, Stack & VS_RESTRICT stack, const
 }
 
 template<typename T>
-static void outputGB(const float * srcp, T * VS_RESTRICT dstp, const int width, const int height, const int stride, const int peak) {
+static void outputGB(const float * srcp, T * VS_RESTRICT dstp, const int width, const int height, const int stride,
+                     const int peak, const float offset, const float lower, const float upper) {
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++)
             dstp[x] = std::min(std::max(static_cast<int>(srcp[x] + 0.5f), 0), peak);
@@ -234,8 +242,19 @@ static void outputGB(const float * srcp, T * VS_RESTRICT dstp, const int width, 
     }
 }
 
+template<>
+void outputGB<float>(const float * srcp, float * VS_RESTRICT dstp, const int width, const int height, const int stride,
+                     const int peak, const float offset, const float lower, const float upper) {
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++)
+            dstp[x] = std::min(std::max(srcp[x] - offset, lower), upper);
+        srcp += stride;
+        dstp += stride;
+    }
+}
+
 template<typename T>
-static void binarizeCE(const float * srcp, T * VS_RESTRICT dstp, const int width, const int height, const int stride, const float t_h, const T peak) {
+static void binarizeCE(const float * srcp, T * VS_RESTRICT dstp, const int width, const int height, const int stride, const float t_h, const T peak, const float lower, const float upper) {
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++)
             dstp[x] = (srcp[x] >= t_h) ? peak : 0;
@@ -244,8 +263,20 @@ static void binarizeCE(const float * srcp, T * VS_RESTRICT dstp, const int width
     }
 }
 
+template<>
+void binarizeCE<float>(const float * srcp, float * VS_RESTRICT dstp, const int width, const int height, const int stride,
+                       const float t_h, const float peak, const float lower, const float upper) {
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++)
+            dstp[x] = (srcp[x] >= t_h) ? upper : lower;
+        srcp += stride;
+        dstp += stride;
+    }
+}
+
 template<typename T>
-static void discretizeGM(const float * gimg, T * VS_RESTRICT dstp, const int width, const int height, const int stride, const float magnitude, const int peak) {
+static void discretizeGM(const float * gimg, T * VS_RESTRICT dstp, const int width, const int height, const int stride,
+                         const float magnitude, const int peak, const float offset, const float upper) {
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++)
             dstp[x] = std::min(static_cast<int>(gimg[x] * magnitude + 0.5f), peak);
@@ -254,11 +285,35 @@ static void discretizeGM(const float * gimg, T * VS_RESTRICT dstp, const int wid
     }
 }
 
-template<typename T>
-static void discretizeDM_T(const float * srcp, const float * dimg, T * VS_RESTRICT dstp, const int width, const int height, const int stride, const float t_h, const int bins) {
+template<>
+void discretizeGM<float>(const float * gimg, float * VS_RESTRICT dstp, const int width, const int height, const int stride,
+                         const float magnitude, const int peak, const float offset, const float upper) {
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++)
-            dstp[x] = (srcp[x] >= t_h) ? getBin(dimg[x], bins) : 0;
+            dstp[x] = std::min(gimg[x] * magnitude - offset, upper);
+        gimg += stride;
+        dstp += stride;
+    }
+}
+
+template<typename T>
+static void discretizeDM_T(const float * srcp, const float * dimg, T * VS_RESTRICT dstp, const int width, const int height, const int stride,
+                           const float t_h, const int bins, const float offset, const float lower) {
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++)
+            dstp[x] = (srcp[x] >= t_h) ? getBin<T>(dimg[x], bins) : 0;
+        srcp += stride;
+        dimg += stride;
+        dstp += stride;
+    }
+}
+
+template<>
+void discretizeDM_T<float>(const float * srcp, const float * dimg, float * VS_RESTRICT dstp, const int width, const int height, const int stride,
+                           const float t_h, const int bins, const float offset, const float lower) {
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++)
+            dstp[x] = (srcp[x] >= t_h) ? getBin<float>(dimg[x], bins) - offset : lower;
         srcp += stride;
         dimg += stride;
         dstp += stride;
@@ -266,10 +321,20 @@ static void discretizeDM_T(const float * srcp, const float * dimg, T * VS_RESTRI
 }
 
 template<typename T>
-static void discretizeDM(const float * dimg, T * VS_RESTRICT dstp, const int width, const int height, const int stride, const int bins) {
+static void discretizeDM(const float * dimg, T * VS_RESTRICT dstp, const int width, const int height, const int stride, const int bins, const float offset) {
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++)
-            dstp[x] = getBin(dimg[x], bins);
+            dstp[x] = getBin<T>(dimg[x], bins);
+        dimg += stride;
+        dstp += stride;
+    }
+}
+
+template<>
+void discretizeDM<float>(const float * dimg, float * VS_RESTRICT dstp, const int width, const int height, const int stride, const int bins, const float offset) {
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++)
+            dstp[x] = getBin<float>(dimg[x], bins) - offset;
         dimg += stride;
         dstp += stride;
     }
@@ -284,8 +349,9 @@ static void TCanny(const VSFrameRef * src, VSFrameRef * dst, float * VS_RESTRICT
             const int stride = vsapi->getStride(src, plane) / sizeof(T);
             const T * srcp = reinterpret_cast<const T *>(vsapi->getReadPtr(src, plane));
             T * VS_RESTRICT dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
+            const float offset = (d->vi->format->sampleType == stInteger || plane == 0 || d->vi->format->colorFamily == cmRGB) ? 0.f : 0.5f;
 
-            genConvV<T>(srcp, fa[1], width, height, stride, d->grad, d->weights);
+            genConvV<T>(srcp, fa[1], width, height, stride, d->grad, d->weights, offset);
             genConvH(fa[1], fa[0], width, height, stride, d->grad, d->weights);
 
             if (d->mode != -1)
@@ -295,15 +361,15 @@ static void TCanny(const VSFrameRef * src, VSFrameRef * dst, float * VS_RESTRICT
                 hystersis(fa[0], stack, width, height, stride, d->t_h, d->t_l);
 
             if (d->mode == -1)
-                outputGB<T>(fa[0], dstp, width, height, stride, d->peak);
+                outputGB<T>(fa[0], dstp, width, height, stride, d->peak, offset, d->lower[plane], d->upper[plane]);
             else if (d->mode == 0)
-                binarizeCE<T>(fa[0], dstp, width, height, stride, d->t_h, d->peak);
+                binarizeCE<T>(fa[0], dstp, width, height, stride, d->t_h, d->peak, d->lower[plane], d->upper[plane]);
             else if (d->mode == 1)
-                discretizeGM<T>(fa[1], dstp, width, height, stride, d->magnitude, d->peak);
+                discretizeGM<T>(fa[1], dstp, width, height, stride, d->magnitude, d->peak, offset, d->upper[plane]);
             else if (d->mode == 2)
-                discretizeDM_T<T>(fa[0], fa[2], dstp, width, height, stride, d->t_h, d->bins);
+                discretizeDM_T<T>(fa[0], fa[2], dstp, width, height, stride, d->t_h, d->bins, offset, d->lower[plane]);
             else
-                discretizeDM<T>(fa[2], dstp, width, height, stride, d->bins);
+                discretizeDM<T>(fa[2], dstp, width, height, stride, d->bins, offset);
         }
     }
 }
@@ -347,10 +413,14 @@ static const VSFrameRef *VS_CC tcannyGetFrame(int n, int activationReason, void 
             }
         }
 
-        if (d->vi->format->bitsPerSample == 8)
-            TCanny<uint8_t>(src, dst, fa, stack, d, vsapi);
-        else
-            TCanny<uint16_t>(src, dst, fa, stack, d, vsapi);
+        if (d->vi->format->sampleType == stInteger) {
+            if (d->vi->format->bitsPerSample == 8)
+                TCanny<uint8_t>(src, dst, fa, stack, d, vsapi);
+            else
+                TCanny<uint16_t>(src, dst, fa, stack, d, vsapi);
+        } else {
+            TCanny<float>(src, dst, fa, stack, d, vsapi);
+        }
 
         vsapi->freeFrame(src);
         for (int i = 0; i < 3; i++)
@@ -418,8 +488,9 @@ static void VS_CC tcannyCreate(const VSMap *in, VSMap *out, void *userData, VSCo
     d.node = vsapi->propGetNode(in, "clip", 0, nullptr);
     d.vi = vsapi->getVideoInfo(d.node);
 
-    if (!isConstantFormat(d.vi) || d.vi->format->sampleType != stInteger || d.vi->format->bitsPerSample > 16) {
-        vsapi->setError(out, "TCanny: only constant format 8-16 bits integer input supported");
+    if (!isConstantFormat(d.vi) || (d.vi->format->sampleType == stInteger && d.vi->format->bitsPerSample > 16) ||
+        (d.vi->format->sampleType == stFloat && d.vi->format->bitsPerSample != 32)) {
+        vsapi->setError(out, "TCanny: only constant format 8-16 bits integer and 32 bits float input supported");
         vsapi->freeNode(d.node);
         return;
     }
@@ -447,12 +518,29 @@ static void VS_CC tcannyCreate(const VSMap *in, VSMap *out, void *userData, VSCo
         d.process[n] = true;
     }
 
-    const float scale = static_cast<float>(1 << (d.vi->format->bitsPerSample - 8));
-    d.t_h *= scale;
-    d.t_l *= scale;
-    d.magnitude = 255.f / d.gmmax;
-    d.bins = 1 << d.vi->format->bitsPerSample;
-    d.peak = d.bins - 1;
+    if (d.vi->format->sampleType == stInteger) {
+        const float scale = static_cast<float>(1 << (d.vi->format->bitsPerSample - 8));
+        d.t_h *= scale;
+        d.t_l *= scale;
+        d.bins = 1 << d.vi->format->bitsPerSample;
+        d.peak = d.bins - 1;
+    } else {
+        d.t_h /= 255.f;
+        d.t_l /= 255.f;
+        d.bins = 1;
+
+        for (int plane = 0; plane < d.vi->format->numPlanes; plane++) {
+            if (d.process[plane]) {
+                if (plane == 0 || d.vi->format->colorFamily == cmRGB) {
+                    d.lower[plane] = 0.f;
+                    d.upper[plane] = 1.f;
+                } else {
+                    d.lower[plane] = -0.5f;
+                    d.upper[plane] = 0.5f;
+                }
+            }
+        }
+    }
 
     d.weights = gaussianWeights(d.sigma, d.grad);
     if (!d.weights) {
@@ -460,6 +548,8 @@ static void VS_CC tcannyCreate(const VSMap *in, VSMap *out, void *userData, VSCo
         vsapi->freeNode(d.node);
         return;
     }
+
+    d.magnitude = 255.f / d.gmmax;
 
     TCannyData * data = new TCannyData(d);
 

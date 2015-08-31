@@ -22,6 +22,7 @@ Usage
   * (nms&3) = if pixel is maxima along linearly interpolated direction then keep
 
 * mode: Sets output format.
+  * -1 = gaussian blur only
   * 0 = thresholded edge map (2^bitdepth-1 for edge, 0 for non-edge)
   * 1 = gradient magnitude map
   * 2 = edge pixel only gradient direction map (non-edge pixels set to 0)
