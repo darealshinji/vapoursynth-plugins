@@ -1,3 +1,9 @@
+vapoursynth-extra-plugins (20150902-1~trusty) trusty; urgency=low
+
+  * Updates: fieldhint, fmtconv, msvfunc, tdeintmod, tcanny, waifu2x
+
+ -- Marshall Banana <djcj@gmx.de>  Wed, 02 Sep 2015 23:50:52 +0200
+
 vapoursynth-extra-plugins (20150715-1~trusty) trusty; urgency=low
 
   * Updates: fmtconv
