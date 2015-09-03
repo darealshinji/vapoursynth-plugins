@@ -31,6 +31,8 @@ override_dh_link:
 		debian/vapoursynth-extra-plugins.links.in > debian/vapoursynth-extra-plugins.links
 	dh_link
 
+override_dh_makeshlibs:
+
 override_dh_clean:
 	dh_clean debian/vapoursynth-extra-plugins.links
 

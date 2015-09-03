@@ -31,8 +31,6 @@ Depends:
  ${perl:Depends},
  nnedi3-weights (>= 0.9.4),
  vapoursynth-waifu2x-models (= ${source:Version})
-Pre-Depends:
- ${misc:Pre-Depends}
 Recommends:
  libvapoursynth
 Description: Additional plugins for VapourSynth
