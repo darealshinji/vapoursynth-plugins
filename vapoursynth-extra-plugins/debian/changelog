@@ -1,3 +1,9 @@
+vapoursynth-extra-plugins (20150902-2~trusty) trusty; urgency=low
+
+  * Fix FTBFS for vapoursynth-waifu2x-models package
+
+ -- Marshall Banana <djcj@gmx.de>  Thu, 03 Sep 2015 18:13:42 +0200
+
 vapoursynth-extra-plugins (20150902-1~trusty) trusty; urgency=low
 
   * Updates: fieldhint, fmtconv, msvfunc, tdeintmod, tcanny, waifu2x
