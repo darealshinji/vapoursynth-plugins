@@ -28,9 +28,6 @@ libjpeg.map
 jconfig.h
 tjbenchtest
 
-fmtconv/build/unix/Makefile
-fmtconv/build/unix/m4/
-
 imagereader/libjpeg-turbo/Makefile
 imagereader/libjpeg-turbo/config.h
 imagereader/libjpeg-turbo/md5/Makefile

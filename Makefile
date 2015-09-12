@@ -104,6 +104,12 @@ distclean: clean
 	$(MAKE) -C ffms2 distclean || true
 	rm -f config.mak
 
+autoclean: distclean
+	rm -rf autom4te.cache
+	rm -f config.log config.status configure install-sh
+	cd imagereader/libjpeg-turbo && rm -rf autom4te.cache build-aux m4
+	cd imagereader/libjpeg-turbo && rm -f aclocal.m4 config.h.in* configure install-sh Makefile.in md5/Makefile.in simd/Makefile.in
+
 config.mak:
 	./configure
 

@@ -14,8 +14,3 @@ if type git >/dev/null 2>&1 && [ -d ".git" ]; then
    git submodule init
    git submodule update
 fi
-
-if [ -f "ffms2/src/configure.ac" ]; then
-   echo "autoreconf --install ffms2/src"
-   autoreconf --install ffms2/src 2>/dev/null >/dev/null
-fi
