@@ -15,6 +15,8 @@ Build-Depends:
  libpng12-dev,
  libsndfile1-dev,
  libxvidcore-dev,
+ ocl-icd-libopencl1,
+ opencl-headers,
  nasm,
  yasm,
  zlib1g-dev
