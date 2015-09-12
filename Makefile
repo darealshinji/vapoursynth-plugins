@@ -24,6 +24,7 @@ SUBDIRS = \
 	histogram \
 	imagereader \
 	it \
+	knlmeanscl \
 	msmoosh \
 	mvtools \
 	nnedi3 \

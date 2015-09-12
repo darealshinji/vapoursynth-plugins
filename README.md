@@ -17,6 +17,8 @@ libjpeg-dev
 libpng-dev
 libsndfile1-dev
 libxvidcore-dev
+ocl-icd-libopencl1
+opencl-headers
 nasm
 yasm
 zlib1g-dev
@@ -66,6 +68,7 @@ sudo apt-get install vapoursynth-extra-plugins
 [histogram 1.0+git20141212](https://github.com/dubhater/vapoursynth-histogram)<br>
 [imagereader 0.2.1](https://github.com/chikuzen/vsimagereader)<br>
 [it 1.2](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-IT)<br>
+[knlmeanscl 0.6.4](https://github.com/Khanattila/KNLMeansCL)<br>
 [msmoosh 1.1](https://github.com/dubhater/vapoursynth-msmoosh)<br>
 [mvtools 9](https://github.com/dubhater/vapoursynth-mvtools)<br>
 [nnedi3 5+git20150528](https://github.com/dubhater/vapoursynth-nnedi3)<br>

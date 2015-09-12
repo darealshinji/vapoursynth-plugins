@@ -40,6 +40,8 @@ AS_IF([test "x$fftw3f_avail" != "xno"], [
 ])
 
 AC_CHECK_LIB([xvidcore], [xvid_encore], , [xvid_avail="no"])
+AC_CHECK_LIB([OpenCL], [clReleaseKernel], , [opencl_avail="no"])
+AC_CHECK_HEADERS([CL/cl.h], , [opencl_avail="no"])
 
 # config
 AS_IF([test "x$nasm_avail" != "xno"], [AC_SUBST([HAVE_NASM], [yes])])
@@ -56,6 +58,7 @@ AS_IF([test "x$sndfile_avail" != "xno"], [AC_SUBST([HAVE_SNDFILE], [yes])])
 AS_IF([test "x$fftw3f_avail" != "xno"], [AC_SUBST([HAVE_FFTW3F], [yes])])
 AS_IF([test "x$fftw3f_newer_avail" != "xno"], [AC_SUBST([HAVE_FFTW3F_NEWER], [yes])])
 AS_IF([test "x$xvid_avail" != "xno"], [AC_SUBST([HAVE_XVID], [yes])])
+AS_IF([test "x$opencl_avail" != "xno"], [AC_SUBST([HAVE_OPENCL], [yes])])
 
 AC_CONFIG_FILES([config.mak])
 AC_OUTPUT
