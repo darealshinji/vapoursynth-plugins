@@ -15,7 +15,7 @@ override_dh_autoreconf:
 
 override_dh_auto_clean:
 	touch config.mak
-	$(MAKE) autoclean
+	dh_auto_clean -- autoclean
 	rm -f nnedi3/src/nnedi3_weights.bin
 
 override_dh_auto_install:
