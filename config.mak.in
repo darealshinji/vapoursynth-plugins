@@ -59,7 +59,7 @@ HAVE_SWSCALE = @HAVE_SWSCALE@
 # damb
 HAVE_SNDFILE = @HAVE_SNDFILE@
 
-# bm3d, dfttest, mvtools
+# bm3d, dfttest, fft3dfilter, mvtools
 HAVE_FFTW3F = @HAVE_FFTW3F@
 
 # bm3d

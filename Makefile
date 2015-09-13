@@ -15,6 +15,7 @@ SUBDIRS = \
 	delogo \
 	dfttest \
 	eedi2 \
+	fft3dfilter \
 	fieldhint \
 	fillborders \
 	flash3kyuu_deband \
