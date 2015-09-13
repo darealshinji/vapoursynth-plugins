@@ -30,6 +30,7 @@ SUBDIRS = \
 	mvtools \
 	nnedi3 \
 	rawsource \
+	reduceflicker \
 	retinex \
 	sangnommod \
 	scenechange \

@@ -150,6 +150,15 @@ Copyright: 2005-2012 x264 project
            Henrik Gramner <hengar-6@student.ltu.se>
 License: ISC
 
+Files: reduceflicker/src/*
+Copyright: 2005 Rainer Wittmann <gorw@gmx.de>
+           2015 Yusuke Nakamura <muken.the.vfrmaniac@gmail.com>
+License: GPL-2+
+
+Files: reduceflicker/src/Plugin.cpp
+Copyright: 2015 Yusuke Nakamura <muken.the.vfrmaniac@gmail.com>
+License: ISC
+
 Files: sangnommod/*
 Copyright: 2014 msg7086
 License: GPL-2+
