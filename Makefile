@@ -44,6 +44,7 @@ SUBDIRS = \
 	templinearapproximate \
 	temporalsoften \
 	temporalsoften2 \
+	tnlmeans \
 	vaguedenoiser \
 	vautodeint \
 	videoscope \

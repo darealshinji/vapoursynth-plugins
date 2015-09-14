@@ -1,0 +1,2 @@
+#define VSTNLMEANS_REV "39"
+#define VSTNLMEANS_GIT_HASH "22a40af"

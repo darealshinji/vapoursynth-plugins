@@ -59,7 +59,7 @@ Copyright: 2015 HolyWu
 License: GPL-2+
 
 Files: eedi2/*
-Copyright: 2005-2006 Kevin Stone
+Copyright: 2005-2006 Kevin Eliot Stone <kes25c@mail.missouri.edu>
            2014-2015 HolyWu
 License: GPL-2+
 
@@ -71,10 +71,9 @@ Files: fft3dfilter/src/fft3dfilter_c.cpp
 Copyright: 2004-2006 A.G.Balakhnin aka Fizick <bag@hotmail.ru>
 License: GPL-2
 
-Files: fft3dfilter/src/FFT3DFilter.cpp
-       fft3dfilter/src/FFT3DFilter.h
+Files: fft3dfilter/src/FFT3DFilter.*
 Copyright: 2004-2006 A.G.Balakhnin aka Fizick <bag@hotmail.ru>
-           2015 Yusuke Nakamura, <muken.the.vfrmaniac@gmail.com>
+           2015 Yusuke Nakamura <muken.the.vfrmaniac@gmail.com>
 License: GPL-2
 
 Files: fft3dfilter/src/info.h
@@ -83,6 +82,9 @@ Copyright: 2002 thejam79
 License: GPL-2+
 
 Files: fft3dfilter/src/Plugin.cpp
+       reduceflicker/src/Plugin.cpp
+       tnlmeans/src/AlignedMemory.*
+       tnlmeans/src/Plugin.cpp
 Copyright: 2015 Yusuke Nakamura <muken.the.vfrmaniac@gmail.com>
 License: ISC
 
@@ -155,10 +157,6 @@ Copyright: 2005 Rainer Wittmann <gorw@gmx.de>
            2015 Yusuke Nakamura <muken.the.vfrmaniac@gmail.com>
 License: GPL-2+
 
-Files: reduceflicker/src/Plugin.cpp
-Copyright: 2015 Yusuke Nakamura <muken.the.vfrmaniac@gmail.com>
-License: ISC
-
 Files: sangnommod/*
 Copyright: 2014 msg7086
 License: GPL-2+
@@ -191,12 +189,12 @@ Copyright: 2013 Li Yonggang <gnaggnoyil@gmail.com>
 License: BSD-2-clause
 
 Files: tcanny/*
-Copyright: 2009 Kevin Stone
+Copyright: 2009 Kevin Eliot Stone <kes25c@mail.missouri.edu>
            2015 HolyWu
 License: GPL-2+
 
 Files: tdeintmod/*
-Copyright: 2004-2007 Kevin Stone
+Copyright: 2004-2007 Kevin Eliot Stone <kes25c@mail.missouri.edu>
            2014-2015 HolyWu
 License: GPL-2+
 
@@ -204,6 +202,11 @@ Files: temporalsoften/*
 Copyright: 2002 Ben Rudiak-Gould et al.
            2012-2013 dubhater
 License: GPL-2+ with linking exception
+
+Files: tnlmeans/src/TNLMeans.*
+Copyright: 2006-2007 Kevin Eliot Stone <kes25c@mail.missouri.edu>
+           2015 Yusuke Nakamura <muken.the.vfrmaniac@gmail.com>
+License: GPL2+
 
 Files: dctfilter/*
        templinearapproximate/*
@@ -234,7 +237,7 @@ Copyright: 2009-2010 Cybozu Labs, Inc.
 License: BSD-2-clause
 
 Files: yadifmod/*
-Copyright: 2007 Kevin Stone
+Copyright: 2007 Kevin Eliot Stone <kes25c@mail.missouri.edu>
            2007 Alexander G. Balakhnin
            2006 Michael Niedermayer <michaelni@gmx.at>
            2014-2015 HolyWu
