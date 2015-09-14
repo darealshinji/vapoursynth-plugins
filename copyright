@@ -206,7 +206,7 @@ License: GPL-2+ with linking exception
 Files: tnlmeans/src/TNLMeans.*
 Copyright: 2006-2007 Kevin Eliot Stone <kes25c@mail.missouri.edu>
            2015 Yusuke Nakamura <muken.the.vfrmaniac@gmail.com>
-License: GPL2+
+License: GPL-2+
 
 Files: dctfilter/*
        templinearapproximate/*
