@@ -1,10 +1,8 @@
 
 LIB = libgenericfilters.so
 
-local_CFLAGS = -std=gnu99 \
-	-Isrc/alone -Isrc/common -Isrc/convolution -Isrc/neighbors -Isrc/specific \
-	-ffast-math -fomit-frame-pointer -fno-zero-initialized-in-bss -fexcess-precision=fast -fvisibility=hidden \
-	-DUSE_X86_INTRINSICS -msse2 -mfpmath=sse -Wno-unused-function
+local_CFLAGS = -Wno-unused-function -DUSE_X86_INTRINSICS \
+	-Isrc/alone -Isrc/common -Isrc/convolution -Isrc/neighbors -Isrc/specific
 
 LIBADD = -lm
 

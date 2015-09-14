@@ -16,6 +16,7 @@ libfftw3-dev
 libjpeg-dev
 libpng-dev
 libsndfile1-dev
+libswscale-dev
 libxvidcore-dev
 ocl-icd-libopencl1
 opencl-headers

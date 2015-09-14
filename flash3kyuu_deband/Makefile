@@ -1,7 +1,7 @@
 
 ifeq ($(shell uname -p),x86_64)
 LIB = libf3kdb.so
-local_CXXFLAGS = -Isrc/include -DHAVE_ALIGNAS=1 -fvisibility=hidden -fvisibility-inlines-hidden
+local_CXXFLAGS = -Isrc/include -DHAVE_ALIGNAS=1
 endif
 
 include ../global.inc
@@ -18,9 +18,6 @@ CXXSRCS = \
 	src/public_interface.cpp \
 	src/random.cpp \
 	src/vapoursynth/plugin.cpp
-
-%_sse2.o: %_sse2.cpp
-	$(CXX_silent)$(CXX) $(VSCXXFLAGS) -msse2 -o $@ $^
 
 %_ssse3.o: %_ssse3.cpp
 	$(CXX_silent)$(CXX) $(VSCXXFLAGS) -mssse3 -o $@ $^

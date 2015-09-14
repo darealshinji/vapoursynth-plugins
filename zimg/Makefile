@@ -28,9 +28,6 @@ CXXSRCS = src/API/zimg.cpp \
 		src/Resize/resize_impl_avx2.cpp \
 		src/Colorspace/operation_impl_f16c.cpp
 
-%_sse2.o: %_sse2.cpp
-	$(CXX_silent)$(CXX) $(VSCXXFLAGS) -msse2 -o $@ $^
-
 %_avx2.o: %_avx2.cpp
 	$(CXX_silent)$(CXX) $(VSCXXFLAGS) -mavx2 -mfma -mf16c -o $@ $^
 

@@ -1,6 +1,5 @@
 
 LIB = libtcomb.so
-local_CFLAGS = -std=gnu99
 
 ifeq ($(shell uname -p),x86_64)
 

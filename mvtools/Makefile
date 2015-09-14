@@ -21,7 +21,6 @@ ifeq ($(HAVE_FFTW3F),yes)
 LIB = libmvtools.so
 $(LIB): $(ASMOBJS)
 LIBADD = $(ASMOBJS) -lfftw3f
-local_CXXFLAGS = -msse2 -mfpmath=sse
 
 VSASFLAGS = $(ASFLAGS) -Dprivate_prefix=mvtools -DHIGH_BIT_DEPTH=0 -DBIT_DEPTH=8 -f elf
 ifeq ($(shell uname -p),x86_64)

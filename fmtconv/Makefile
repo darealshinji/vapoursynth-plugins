@@ -1,9 +1,8 @@
 
 LIB = libfmtconv.so
 
-local_CXXFLAGS = -mfpmath=sse -msse2
 ifeq ($(shell uname -p),x86_64)
-local_CXXFLAGS += -mcx16
+local_CXXFLAGS = -mcx16
 endif
 
 include ../global.inc

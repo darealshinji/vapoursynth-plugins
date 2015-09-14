@@ -2,7 +2,7 @@ include ../config.mak
 
 LIB = libnnedi3.so
 LIBADD = -lm
-local_CXXFLAGS = -Wno-unused-variable -mfpmath=sse -msse2 -DNNEDI3_X86 -DNNEDI3_DATADIR='"$(datarootdir)/nnedi3"'
+local_CXXFLAGS = -Wno-unused-variable -DNNEDI3_X86 -DNNEDI3_DATADIR='"$(datarootdir)/nnedi3"'
 
 
 ifeq ($(HAVE_YASM),yes)

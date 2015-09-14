@@ -12,9 +12,12 @@ AR_silent     = @ echo '  AR       '$@;
 RANLIB_silent = @ echo '  RANLIB   '$@;
 endif
 
-commonflags = -c -Wall -Wextra -Wno-unused-parameter -Wno-unused-result -Werror=format-security -fPIC -fstack-protector-all -Isrc -I../include -I../include/vapoursynth
+commonflags  = -c -Wall -Wextra -Wno-unused-parameter -Wno-unused-result -Werror=format-security
+commonflags += -fPIC -fstack-protector-all -fno-strict-aliasing -mfpmath=sse -msse2
+commonflags += -DVS_TARGET_CPU_X86 -D_FORTIFY_SOURCE=2
+commonflags += -Isrc -I../include -I../include/vapoursynth
 
-VSCFLAGS = $(commonflags) $(local_CFLAGS) $(CFLAGS) $(CPPFLAGS)
+VSCFLAGS = $(commonflags) $(local_CFLAGS) $(CFLAGS) -std=gnu99 $(CPPFLAGS)
 VSCXXFLAGS = $(commonflags) $(local_CXXFLAGS) $(CXXFLAGS) $(CPPFLAGS)
 VSLDFLAGS = -shared -Wl,-soname,$(LIB) -Wl,-Bsymbolic-functions -Wl,-z,relro -Wl,-z,noexecstack -Wl,-z,defs -Wl,--as-needed $(local_LDFLAGS) $(LDFLAGS)
 
