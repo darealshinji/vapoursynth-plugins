@@ -1,3 +1,11 @@
+vapoursynth-extra-plugins (20150914-1~trusty) trusty; urgency=low
+
+  * New plugins: FFT3DFilter, ReduceFlicker, TNLMeans
+  * Updates: DCTFilter
+  * Don't build a debug package
+
+ -- Marshall Banana <djcj@gmx.de>  Mon, 14 Sep 2015 03:26:14 +0200
+
 vapoursynth-extra-plugins (20150912-1~trusty) trusty; urgency=low
 
   * New plugin: KNLMeansCL

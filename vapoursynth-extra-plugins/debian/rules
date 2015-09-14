@@ -3,12 +3,13 @@
 DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
 
 export V=1
-export CFLAGS=-g -O2
-export CXXFLAGS=-g -O2
+export CFLAGS=-O3
+export CXXFLAGS=-O3
+export CPPFLAGS=
 
 
 %:
-	dh ${@} --parallel --with autoreconf
+	dh ${@} --with autoreconf
 
 override_dh_autoreconf:
 	./autogen.sh
@@ -35,7 +36,4 @@ override_dh_makeshlibs:
 
 override_dh_clean:
 	dh_clean debian/vapoursynth-extra-plugins.links
-
-override_dh_strip:
-	dh_strip --dbg-package=vapoursynth-extra-plugins-dbg
 

@@ -59,13 +59,34 @@ Copyright: 2015 HolyWu
 License: GPL-2+
 
 Files: eedi2/*
-Copyright: 2005-2006 Kevin Stone
+Copyright: 2005-2006 Kevin Eliot Stone <kes25c@mail.missouri.edu>
            2014-2015 HolyWu
 License: GPL-2+
 
 Files: ffms2/*
 Copyright: 2007-2015 Fredrik Mellbin
 License: MIT
+
+Files: fft3dfilter/src/fft3dfilter_c.cpp
+Copyright: 2004-2006 A.G.Balakhnin aka Fizick <bag@hotmail.ru>
+License: GPL-2
+
+Files: fft3dfilter/src/FFT3DFilter.*
+Copyright: 2004-2006 A.G.Balakhnin aka Fizick <bag@hotmail.ru>
+           2015 Yusuke Nakamura <muken.the.vfrmaniac@gmail.com>
+License: GPL-2
+
+Files: fft3dfilter/src/info.h
+Copyright: 2002 thejam79
+           2003 minamina
+License: GPL-2+
+
+Files: fft3dfilter/src/Plugin.cpp
+       reduceflicker/src/Plugin.cpp
+       tnlmeans/src/AlignedMemory.*
+       tnlmeans/src/Plugin.cpp
+Copyright: 2015 Yusuke Nakamura <muken.the.vfrmaniac@gmail.com>
+License: ISC
 
 Files: fieldhint/*
 Copyright: 2004 Loren Merritt
@@ -131,6 +152,11 @@ Copyright: 2005-2012 x264 project
            Henrik Gramner <hengar-6@student.ltu.se>
 License: ISC
 
+Files: reduceflicker/src/*
+Copyright: 2005 Rainer Wittmann <gorw@gmx.de>
+           2015 Yusuke Nakamura <muken.the.vfrmaniac@gmail.com>
+License: GPL-2+
+
 Files: sangnommod/*
 Copyright: 2014 msg7086
 License: GPL-2+
@@ -163,12 +189,12 @@ Copyright: 2013 Li Yonggang <gnaggnoyil@gmail.com>
 License: BSD-2-clause
 
 Files: tcanny/*
-Copyright: 2009 Kevin Stone
+Copyright: 2009 Kevin Eliot Stone <kes25c@mail.missouri.edu>
            2015 HolyWu
 License: GPL-2+
 
 Files: tdeintmod/*
-Copyright: 2004-2007 Kevin Stone
+Copyright: 2004-2007 Kevin Eliot Stone <kes25c@mail.missouri.edu>
            2014-2015 HolyWu
 License: GPL-2+
 
@@ -176,6 +202,11 @@ Files: temporalsoften/*
 Copyright: 2002 Ben Rudiak-Gould et al.
            2012-2013 dubhater
 License: GPL-2+ with linking exception
+
+Files: tnlmeans/src/TNLMeans.*
+Copyright: 2006-2007 Kevin Eliot Stone <kes25c@mail.missouri.edu>
+           2015 Yusuke Nakamura <muken.the.vfrmaniac@gmail.com>
+License: GPL-2+
 
 Files: dctfilter/*
        templinearapproximate/*
@@ -206,7 +237,7 @@ Copyright: 2009-2010 Cybozu Labs, Inc.
 License: BSD-2-clause
 
 Files: yadifmod/*
-Copyright: 2007 Kevin Stone
+Copyright: 2007 Kevin Eliot Stone <kes25c@mail.missouri.edu>
            2007 Alexander G. Balakhnin
            2006 Michael Niedermayer <michaelni@gmx.at>
            2014-2015 HolyWu
@@ -288,6 +319,22 @@ License: LGPL-2.1
  .
  On Debian systems, the complete text of the GNU Lesser General
  Public License version 2.1 can be found in "/usr/share/common-licenses/LGPL-2.1".
+
+License: GPL-2
+ This program is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License version 2 as published by
+ the Free Software Foundation.
+ .
+ This program is distributed in the hope that it will be useful, but
+ WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ General Public License for more details.
+ .
+ You should have received a copy of the GNU General Public License
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
+ .
+ On Debian systems, the complete text of the GNU General
+ Public License version 2 can be found in "/usr/share/common-licenses/GPL-2".
 
 License: GPL-2+
  This program is free software: you can redistribute it and/or modify
