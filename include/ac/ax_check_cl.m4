@@ -36,7 +36,7 @@
 #
 
 # djcj <djcj@gmx.de>:
-# removed some stuff; changes are marked with '# VAPOURSYNTH:'
+# changes are marked with '# VAPOURSYNTH:'
 # source(s): http://wili.cc/blog/opencl-m4.html
 #            http://wili.cc/blog/entries/opencl-m4/ax_check_cl.m4
 
@@ -89,14 +89,18 @@ m4_define([AX_CHECK_CL_PROGRAM],
 AC_CACHE_CHECK([for OpenCL library], [ax_cv_check_cl_libcl],
 [ax_cv_check_cl_libcl=no
 case $host_cpu in
-  x86_64) ax_check_cl_libdir=lib64 ;;
-  *)      ax_check_cl_libdir=lib ;;
+  x86_64) ax_check_cl_libdir=lib64 ;
+          ax_check_cl_libdir_multi=x86_64-linux-gnu ;;
+  *)      ax_check_cl_libdir=lib ;
+          ax_check_cl_libdir_multi=i386-linux-gnu ;;
 esac
+# VAPOURSYNTH: ^^^ add Debian multiarch directories (ax_check_cl_libdir_multi)
 ax_save_CPPFLAGS=$CPPFLAGS
 CPPFLAGS="$CL_CFLAGS $CPPFLAGS"
 ax_save_LIBS=$LIBS
 LIBS=""
-ax_check_libs="-lOpenCL -lCL"
+ax_check_libs="-lOpenCL -lCL /usr/lib/$ax_check_cl_libdir_multi/libOpenCL.so.1"
+# VAPOURSYNTH: ^^^ check for libOpenCL.so.1 (required for Ubuntu 15.04 and newer)
 for ax_lib in $ax_check_libs; do
   AS_IF([test X$ax_compiler_ms = Xyes],
         [ax_try_lib=`echo $ax_lib | $SED -e 's/^-l//' -e 's/$/.lib/'`],
@@ -104,18 +108,21 @@ for ax_lib in $ax_check_libs; do
   LIBS="$ax_try_lib $CL_LIBS $ax_save_LIBS"
 AC_LINK_IFELSE([AX_CHECK_CL_PROGRAM],
                [ax_cv_check_cl_libcl=$ax_try_lib; break],
-               [ax_check_cl_nvidia_flags="-L/usr/$ax_check_cl_libdir/nvidia" LIBS="$ax_try_lib $ax_check_cl_nvidia_flags $CL_LIBS $ax_save_LIBS"
-               AC_LINK_IFELSE([AX_CHECK_CL_PROGRAM],
-                              [ax_cv_check_cl_libcl="$ax_try_lib $ax_check_cl_nvidia_flags"; break],
-                              [ax_check_cl_dylib_flag='-dylib_file /System/Library/Frameworks/OpenCL.framework/Versions/A/Libraries/libCL.dylib:/System/Library/Frameworks/OpenCL.framework/Versions/A/Libraries/libCL.dylib' LIBS="$ax_try_lib $ax_check_cl_dylib_flag $CL_LIBS $ax_save_LIBS"
-                              AC_LINK_IFELSE([AX_CHECK_CL_PROGRAM],
-                                             [ax_cv_check_cl_libcl="$ax_try_lib $ax_check_cl_dylib_flag"; break])])])
+               [ax_check_cl_nvidia_flags="-L/usr/$ax_check_cl_libdir/nvidia -L/usr/lib/$ax_check_cl_libdir_multi/nvidia" LIBS="$ax_try_lib $ax_check_cl_nvidia_flags $CL_LIBS $ax_save_LIBS"
+#               AC_LINK_IFELSE([AX_CHECK_CL_PROGRAM],
+#                              [ax_cv_check_cl_libcl="$ax_try_lib $ax_check_cl_nvidia_flags"; break],
+#                              [ax_check_cl_dylib_flag='-dylib_file /System/Library/Frameworks/OpenCL.framework/Versions/A/Libraries/libCL.dylib:/System/Library/Frameworks/OpenCL.framework/Versions/A/Libraries/libCL.dylib' LIBS="$ax_try_lib $ax_check_cl_dylib_flag $CL_LIBS $ax_save_LIBS"
+#                              AC_LINK_IFELSE([AX_CHECK_CL_PROGRAM],
+#                                             [ax_cv_check_cl_libcl="$ax_try_lib $ax_check_cl_dylib_flag"; break])])])
+])
 done
 
-AS_IF([test "X$ax_cv_check_cl_libcl" = Xno -a X$no_x = Xyes],
-      [LIBS='-framework OpenCL'
-      AC_LINK_IFELSE([AX_CHECK_CL_PROGRAM],
-                     [ax_cv_check_cl_libcl=$LIBS])])
+#AS_IF([test "X$ax_cv_check_cl_libcl" = Xno -a X$no_x = Xyes],
+#      [LIBS='-framework OpenCL'
+#      AC_LINK_IFELSE([AX_CHECK_CL_PROGRAM],
+#                     [ax_cv_check_cl_libcl=$LIBS])])
+
+# VAPOURSYNTH: ^^^ skip OSX dylib checks
 
 LIBS=$ax_save_LIBS
 CPPFLAGS=$ax_save_CPPFLAGS])
