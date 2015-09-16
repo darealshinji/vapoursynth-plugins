@@ -13,7 +13,7 @@ The file ``nnedi3_weights.bin`` is required. In Windows, it must be located in t
 
 ::
 
-   nnedi3.nnedi3(clip clip, int field[, bint dh=False, bint Y=True, bint U=True, bint V=True, int nsize=6, int nns=1, int qual=1, int etype=0, int pscrn=2, bint opt=True, int fapprox=15])
+   nnedi3.nnedi3(clip clip, int field[, bint dh=False, int[] planes=[0, 1, 2], bint Y=True, bint U=True, bint V=True, int nsize=6, int nns=1, int qual=1, int etype=0, int pscrn=2, bint opt=True, int fapprox=15])
 
 Allowed values (ranges are inclusive):
 
@@ -34,28 +34,9 @@ The opt parameter is now a boolean. If False, only C functions will be used. If 
 
 The ``_FieldBased`` frame property is now used to determine each frame's field dominance. The *field* parameter is only a fallback for frames that don't have the ``_FieldBased`` property, or where said property indicates that the frame is progressive.
 
-::
+The Y, U, and V parameters are deprecated. Use the planes parameter instead.
 
-   nnedi3.nnedi3_rpow2(clip clip, int rfactor[, int width=clip.width*rfactor, int height=clip.height*rfactor, bint correct_shift=1, int nsize=0, int nns=3, int qual=1, int etype=0, int pscrn=2, bint opt=True, int fapprox=15])
-
-Requires Firesledge's fmtconv plugin.
-
-- rfactor
-
-  Magnification factor. It must be a power of 2 between 2 and 1024.
-
-- width
-
-- height
-
-  Dimensions of the output. These parameters only have an effect if *correct_shift* is True.
-  If they are different from the default values, the image will be enlarged by *rfactor* and then scaled to the desired dimensions using fmtconv.
-
-- correct_shift
-
-  If set to True, the shift introduced by nnedi3 will be corrected using fmtconv's spline36 resizer. The same resizer will scale the image to *width*\ ×\ *height* pixels, if those parameters were provided.
-
-  If the video is vertically subsampled, the vertical chroma shift will be corrected regardless of this parameter's value.
+This plugin no longer provides the nnedi3_rpow2 filter.
 
 
 Compilation
