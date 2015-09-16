@@ -1,8 +1,10 @@
 include ../config.mak
 
+PACKAGE_VERSION = 7
+
 LIB = libnnedi3.so
 LIBADD = -lm
-local_CXXFLAGS = -Wno-unused-variable -DNNEDI3_X86 -DNNEDI3_DATADIR='"$(datarootdir)/nnedi3"'
+local_CXXFLAGS = -Wno-unused-variable -DPACKAGE_VERSION='"$(PACKAGE_VERSION)"' -DNNEDI3_X86 -DNNEDI3_DATADIR='"$(datarootdir)/nnedi3"'
 
 
 ifeq ($(HAVE_YASM),yes)
