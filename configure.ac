@@ -38,7 +38,7 @@ AS_IF([test "x$fftw3f_avail" != "xno"], [
   printf "$fftw3f_newer_avail\n"
 ])
 AC_CHECK_LIB([xvidcore],   [xvid_encore], ,            [xvid_avail="no"])
-AC_CHECK_LIB([OpenCL],     [clReleaseKernel], ,        [opencl_avail="no"])
+AC_CHECK_LIB([OpenCL],     [main], ,                   [opencl_avail="no"])
 AC_CHECK_HEADERS([CL/cl.h], , [opencl_avail="no"])
 
 # config
