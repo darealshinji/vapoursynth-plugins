@@ -1,8 +1,12 @@
+# TODO: write a real macro for the HAVE_FFTW3F_NEWER check
+
+m4_include([include/ac/ax_check_cl.m4])
 m4_include([include/ac/ax_cxx_compile_stdcxx_11.m4])
 m4_include([include/ac/ax_prog_nasm.m4])
 m4_include([include/ac/ax_prog_yasm.m4])
 
 AC_INIT([vapoursynth-extra-plugins], [0], [https://github.com/darealshinji/vapoursynth-plugins])
+AC_CONFIG_AUX_DIR([include/build-aux])
 
 : ${CFLAGS="-O3"}
 : ${CXXFLAGS="-O3"}
@@ -18,6 +22,7 @@ AX_PROG_YASM([yasm_avail="no"])
 AX_CXX_COMPILE_STDCXX_11([noext],[mandatory])
 
 # libraries
+AX_CHECK_CL
 AC_CHECK_LIB([m],          [sqrt], ,                   [exit 1])
 AC_CHECK_LIB([jpeg],       [jpeg_start_decompress], ,  [jpeg_avail="no"])
 AC_CHECK_LIB([png],        [png_create_read_struct], , [png_avail="no"])
@@ -38,12 +43,11 @@ AS_IF([test "x$fftw3f_avail" != "xno"], [
   printf "$fftw3f_newer_avail\n"
 ])
 AC_CHECK_LIB([xvidcore],   [xvid_encore], ,            [xvid_avail="no"])
-AC_CHECK_LIB([OpenCL],     [main], ,                   [opencl_avail="no"])
-AC_CHECK_HEADERS([CL/cl.h], , [opencl_avail="no"])
 
 # config
 AS_IF([test "x$nasm_avail" != "xno"],         [AC_SUBST([HAVE_NASM], [yes])])
 AS_IF([test "x$yasm_avail" != "xno"],         [AC_SUBST([HAVE_YASM], [yes])])
+AS_IF([test "x$no_cl" != "xyes"],             [AC_SUBST([HAVE_OPENCL], [yes])])
 AS_IF([test "x$jpeg_avail" != "xno"],         [AC_SUBST([HAVE_JPEG], [yes])])
 AS_IF([test "x$png_avail" != "xno"],          [AC_SUBST([HAVE_PNG], [yes])])
 AS_IF([test "x$zlib_avail" != "xno"],         [AC_SUBST([HAVE_ZLIB], [yes])])
@@ -56,7 +60,6 @@ AS_IF([test "x$sndfile_avail" != "xno"],      [AC_SUBST([HAVE_SNDFILE], [yes])])
 AS_IF([test "x$fftw3f_avail" != "xno"],       [AC_SUBST([HAVE_FFTW3F], [yes])])
 AS_IF([test "x$fftw3f_newer_avail" != "xno"], [AC_SUBST([HAVE_FFTW3F_NEWER], [yes])])
 AS_IF([test "x$xvid_avail" != "xno"],         [AC_SUBST([HAVE_XVID], [yes])])
-AS_IF([test "x$opencl_avail" != "xno"],       [AC_SUBST([HAVE_OPENCL], [yes])])
 
 AC_CONFIG_FILES([config.mak])
 AC_OUTPUT

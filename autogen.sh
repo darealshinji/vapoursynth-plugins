@@ -4,7 +4,11 @@ type autoconf >/dev/null 2>&1 || { echo >&2 "Cannot find \`autoconf'.  Aborting.
 type automake >/dev/null 2>&1 || { echo >&2 "Cannot find \`automake'.  Aborting."; exit 1; }
 type autoreconf >/dev/null 2>&1 || { echo >&2 "Cannot find \`autoreconf'.  Aborting."; exit 1; }
 
+mkdir -p include/build-aux
+
 echo "autoconf"; autoconf 2>/dev/null >/dev/null
+
+# use automake only to copy files
 echo "automake --add-missing --copy"; automake --add-missing --copy 2>/dev/null >/dev/null
 
 echo "autoreconf --install imagereader/libjpeg-turbo"

@@ -19,6 +19,8 @@ config.h.in
 config.log
 config.mak
 config.status
+config.guess
+config.sub
 stamp-h1
 stamp-h2
 
