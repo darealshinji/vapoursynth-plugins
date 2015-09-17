@@ -70,7 +70,7 @@ sudo apt-get install vapoursynth-extra-plugins
 [histogram 1.0+git20141212](https://github.com/dubhater/vapoursynth-histogram)<br>
 [imagereader 0.2.1](https://github.com/chikuzen/vsimagereader)<br>
 [it 1.2](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-IT)<br>
-[knlmeanscl 0.6.4](https://github.com/Khanattila/KNLMeansCL)<br>
+[knlmeanscl 0.6.6](https://github.com/Khanattila/KNLMeansCL)<br>
 [msmoosh 1.1](https://github.com/dubhater/vapoursynth-msmoosh)<br>
 [mvtools 9+git20150904](https://github.com/dubhater/vapoursynth-mvtools)<br>
 [nnedi3 7](https://github.com/dubhater/vapoursynth-nnedi3)<br>

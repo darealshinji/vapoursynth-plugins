@@ -6,7 +6,8 @@ type autoreconf >/dev/null 2>&1 || { echo >&2 "Cannot find \`autoreconf'.  Abort
 
 mkdir -p include/build-aux
 
-echo "autoconf"; autoconf 2>/dev/null >/dev/null
+echo "autoconf"; autoconf
+test -x configure || { echo >&2 "\`configure' was not generated.  Aborting."; exit 1; }
 
 # use automake only to copy files
 echo "automake --add-missing --copy"; automake --add-missing --copy 2>/dev/null >/dev/null
