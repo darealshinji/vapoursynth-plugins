@@ -1,3 +1,9 @@
+vapoursynth-extra-plugins (20150917-1~trusty) trusty; urgency=low
+
+  * Updates: KNLMeansCL, nnedi3, MVTools
+
+ -- Marshall Banana <djcj@gmx.de>  Thu, 17 Sep 2015 11:05:52 +0200
+
 vapoursynth-extra-plugins (20150914-1~trusty) trusty; urgency=low
 
   * New plugins: FFT3DFilter, ReduceFlicker, TNLMeans
