@@ -49,6 +49,7 @@ SUBDIRS = \
 	vautodeint \
 	videoscope \
 	waifu2x-opt \
+	waifu2x-w2xc \
 	wwxd \
 	yadifmod \
 	zimg
