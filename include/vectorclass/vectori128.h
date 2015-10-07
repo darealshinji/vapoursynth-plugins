@@ -1,8 +1,8 @@
 /****************************  vectori128.h   *******************************
 * Author:        Agner Fog
 * Date created:  2012-05-30
-* Last modified: 2015-06-03
-* Version:       1.17
+* Last modified: 2015-08-08
+* Version:       1.18
 * Project:       vector classes
 * Description:
 * Header file defining integer vector classes as interface to intrinsic 
@@ -39,7 +39,7 @@
 *
 * For detailed instructions, see VectorClass.pdf
 *
-* (c) Copyright 2012 - 2013 GNU General Public License http://www.gnu.org/licenses
+* (c) Copyright 2012 - 2015 GNU General Public License http://www.gnu.org/licenses
 *****************************************************************************/
 #ifndef VECTORI128_H
 #define VECTORI128_H
@@ -5837,7 +5837,7 @@ static inline Vec8s divide_by_i(Vec8s const & x) {
     Static_error_check<(d0 != 0)> Dividing_by_zero;                  // Error message if dividing by zero
     if (d0 ==  1) return  x;                                         // divide by  1
     if (d0 == -1) return -x;                                         // divide by -1
-    if (uint16_t(d0) == 0x8000u) return (x == Vec8s(0x8000)) & 1;    // prevent overflow when changing sign
+    if (uint16_t(d0) == 0x8000u) return Vec8s(x == Vec8s(0x8000)) & 1;// prevent overflow when changing sign
     // if (d > 0x7FFF || d < -0x8000) return 0;                      // not relevant when d truncated to 16 bits
     const uint16_t d1 = d0 > 0 ? d0 : -d0;                           // compile-time abs(d0)
     if ((d1 & (d1-1)) == 0) {
