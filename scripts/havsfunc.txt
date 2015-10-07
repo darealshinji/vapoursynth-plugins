@@ -5,28 +5,27 @@ HolyWu:
 Here is my ported AviSynth scripts for VapourSynth.
 
 Now includes:
-    ediaa
     daa
-    maa - Added 'noring' parameter to indicate that a non-ringing algorithm must be used in case of supersampling.
-    SharpAAMCmod - Added 'noring' parameter to indicate that a non-ringing algorithm must be used in case of supersampling.
+    santiag
     Deblock_QED
-    DeHalo_alpha - Added 'noring' parameter to indicate that a non-ringing algorithm must be used in case of supersampling.
+    DeHalo_alpha - Added noring parameter to indicate that a non-ringing algorithm must be used in case of supersampling.
     YAHR
     HQDering mod
-    QTGMC - Add FFT3dGPU as another Denoiser to NoiseProcess. Since FFT3dGPU doesn't support bt=5, the maximum of NoiseTR is restricted to 1. Renamed 'DftThreads' parameter to 'DenoiseThreads'. The threads of FFT3DFilter is not set in the original version. Now 'DenoiseThreads' sets the threads of FFT3DFilter.
+    QTGMC - Add KNLMeansCL as another Denoiser to NoiseProcess. Renamed DftThreads parameter to FftThreads, to set the ncpu argument of FFT3DFilter.
     ivtc_txt60mc
+    logoNR
     Vinverse
     Vinverse2
-    logoNR
     LUTDeCrawl
     LUTDeRainbow
     GrainStabilizeMC
-    SMDegrain - Added 'MVglobal' and 'dct' parameters to be able to set the 'global' and 'dct' of MAnalyse.
+    SMDegrain - Added MVglobal and dct parameters to be able to set the global and dct arguments of MAnalyse.
+    STPresso
+    SigmoidInverse, SigmoidDirect
+    GrainFactory3
     SmoothLevels
     FastLineDarken 1.4x MT MOD
-    GammaToLinear, LinearToGamma, SigmoidInverse, SigmoidDirect
-    LSFmod - Added 'noring' parameter to indicate that a non-ringing algorithm must be used in case of supersampling.
-    GrainFactory3
+    LSFmod - Added noring parameter to indicate that a non-ringing algorithm must be used in case of supersampling.
 
 
 Since VapourSynth has no notion of field order internally, I have to add a mandatory argument 'TFF' to QTGMC for the script to work correctly. Setting TFF to true means top field first and false means bottom field first. You will get error if TFF is not set. The same thing applies to SMDegrain and ivtc_txt60mc.
