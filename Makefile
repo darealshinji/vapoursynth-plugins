@@ -83,8 +83,6 @@ install:
 
 	$(INSTALL_DATA) README.md $(DESTDIR)$(docdir)
 	$(INSTALL_DATA) rawsource/format_list.txt $(DESTDIR)$(docdir)/rawsource_format_list
-	$(INSTALL_DATA) flash3kyuu_deband/flash3kyuu_deband.txt $(DESTDIR)$(docdir)
-	$(INSTALL_DATA) flash3kyuu_deband/flash3kyuu_deband.zh.txt $(DESTDIR)$(docdir)
 	$(INSTALL_DATA) fmtconv/doc/fmtconv.html $(DESTDIR)$(docdir)
 	$(INSTALL_DATA) fmtconv/doc/colorspace-subsampling.png $(DESTDIR)$(docdir)
 	$(INSTALL_DATA) fmtconv/doc/vapourdoc.css $(DESTDIR)$(docdir)
@@ -97,6 +95,8 @@ install:
 	$(INSTALL_DATA) d2vsource/d2vscan.txt $(DESTDIR)$(docdir)/d2vscan
 	$(foreach FILE,$(shell ls */readme* */README*), \
 		$(INSTALL_DATA) $(FILE) $(DESTDIR)$(docdir)/$(shell echo $$(dirname $(FILE))) $(NL))
+	$(foreach FILE,$(shell ls scripts/*.txt flash3kyuu_deband/*.txt), \
+		$(INSTALL_DATA) $(FILE) $(DESTDIR)$(docdir) $(NL))
 
 clean:
 	$(foreach DIR,$(SUBDIRS),$(MAKE) -C $(DIR) clean || true $(NL))
