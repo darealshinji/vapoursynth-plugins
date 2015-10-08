@@ -240,6 +240,19 @@ Files: waifu2x-w2xc/*
 Copyright: 2015 HolyWu
 License: MIT
 
+Files: waifu2x-w2xc/w2xc/*
+Copyright: 2015 amigo(white luckers) <white.luckers@gmail.com>
+License: MIT
+
+Files: waifu2x-w2xc/include/picojson.h
+Copyright: 2009-2010 Cybozu Labs, Inc.
+           2011-2015 Kazuho Oku
+License: BSD-2-Clause
+
+Files: waifu2x-w2xc/w2xc/include/tclap/*
+Copyright: 2003 Michael E. Smoot
+License: MIT
+
 Files: yadifmod/*
 Copyright: 2007 Kevin Eliot Stone <kes25c@mail.missouri.edu>
            2007 Alexander G. Balakhnin
