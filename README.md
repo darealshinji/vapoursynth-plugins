@@ -18,6 +18,7 @@ libpng-dev
 libsndfile1-dev
 libswscale-dev
 libxvidcore-dev
+libopencv-dev
 ocl-icd-libopencl1
 opencl-headers
 nasm

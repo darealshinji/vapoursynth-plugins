@@ -42,6 +42,7 @@ AS_IF([test "x$fftw3f_avail" != "xno"], [
         [fftw3f_newer_avail="no"])
   printf "$fftw3f_newer_avail\n"
 ])
+AC_CHECK_LIB([opencv_core],[main], ,                   [opencv_avail="no"])
 AC_CHECK_LIB([xvidcore],   [xvid_encore], ,            [xvid_avail="no"])
 
 # config
@@ -59,6 +60,7 @@ AS_IF([test "x$swscale_avail" != "xno"],      [AC_SUBST([HAVE_SWSCALE], [yes])])
 AS_IF([test "x$sndfile_avail" != "xno"],      [AC_SUBST([HAVE_SNDFILE], [yes])])
 AS_IF([test "x$fftw3f_avail" != "xno"],       [AC_SUBST([HAVE_FFTW3F], [yes])])
 AS_IF([test "x$fftw3f_newer_avail" != "xno"], [AC_SUBST([HAVE_FFTW3F_NEWER], [yes])])
+AS_IF([test "x$opencv_avail" != "xno"],       [AC_SUBST([HAVE_OPENCV], [yes])])
 AS_IF([test "x$xvid_avail" != "xno"],         [AC_SUBST([HAVE_XVID], [yes])])
 
 AC_CONFIG_FILES([config.mak])
