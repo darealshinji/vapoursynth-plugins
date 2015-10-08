@@ -1,3 +1,13 @@
+vapoursynth-extra-plugins (20151008-1~trusty) trusty; urgency=low
+
+  * New plugin: waifu2x-w2xc
+  * New scripts: dehalo_alpha, fastlinedarken, knlm, mcdegrainsharp,
+    nnedi3_rpow2, psharpen, resamplehq, sharpaamcmod, supersampledantialiasing,
+    vshelpers
+  * Updates: HAvsFunc
+
+ -- Marshall Banana <djcj@gmx.de>  Thu, 08 Oct 2015 12:29:34 +0200
+
 vapoursynth-extra-plugins (20150917-1~trusty) trusty; urgency=low
 
   * Updates: KNLMeansCL, nnedi3, MVTools
