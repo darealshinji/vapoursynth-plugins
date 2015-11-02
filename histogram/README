@@ -1,9 +1,0 @@
-Port of the Histogram() function from Avisynth.
-
-All modes dealing with video are implemented
-(classic, levels, color, color2, luma).
-
-To compile:
-./autogen.sh
-./configure
-make
