@@ -31,7 +31,7 @@
 struct Waifu2xData {
     VSNodeRef * node;
     VSVideoInfo vi;
-    int noise, scale, block;
+    int noise, scale, block, processor;
     bool photo, log;
     W2XConvGPUMode gpu;
     int iterTimesTwiceScaling;
@@ -214,7 +214,12 @@ static const VSFrameRef *VS_CC waifu2xGetFrame(int n, int activationReason, void
             pluginPath = pluginPath.append("/models/anime_style_art");
         }
 
-        W2XConv * conv = w2xconv_init(d->gpu, 0, d->log);
+        W2XConv * conv;
+        if (d->processor > -1)
+            conv = w2xconv_init_with_processor(d->processor, 0, d->log);
+        else
+            conv = w2xconv_init(d->gpu, 0, d->log);
+
         if (w2xconv_load_models(conv, pluginPath.c_str()) < 0) {
             char * err = w2xconv_strerror(&conv->last_error);
             vsapi->setFilterError(std::string("Waifu2x: ").append(err).c_str(), frameCtx);
@@ -266,10 +271,16 @@ static void VS_CC waifu2xCreate(const VSMap *in, VSMap *out, void *userData, VSC
     if (err)
         d.block = 512;
     d.photo = !!vsapi->propGetInt(in, "photo", 0, &err);
+    d.processor = int64ToIntS(vsapi->propGetInt(in, "processor", 0, &err));
+    if (err)
+        d.processor = -1;
     d.gpu = static_cast<W2XConvGPUMode>(int64ToIntS(vsapi->propGetInt(in, "gpu", 0, &err)));
     if (err)
         d.gpu = W2XCONV_GPU_AUTO;
     d.log = !!vsapi->propGetInt(in, "log", 0, &err);
+
+    int numProcessors;
+    const W2XConvProcessor * processors = w2xconv_get_processor_list(&numProcessors);
 
     if (d.noise < 0 || d.noise > 2) {
         vsapi->setError(out, "Waifu2x: noise must be set to 0, 1 or 2");
@@ -283,6 +294,10 @@ static void VS_CC waifu2xCreate(const VSMap *in, VSMap *out, void *userData, VSC
         vsapi->setError(out, "Waifu2x: block must be greater than or equal to 1");
         return;
     }
+    if (d.processor >= numProcessors) {
+        vsapi->setError(out, "Waifu2x: selected processor is not available");
+        return;
+    }
     if (d.gpu < 0 || d.gpu > 2) {
         vsapi->setError(out, "Waifu2x: gpu must be set to 0, 1 or 2");
         return;
@@ -291,7 +306,67 @@ static void VS_CC waifu2xCreate(const VSMap *in, VSMap *out, void *userData, VSC
     d.node = vsapi->propGetNode(in, "clip", 0, nullptr);
     d.vi = *vsapi->getVideoInfo(d.node);
 
-    if (d.noise == 0 && d.scale == 1) {
+    if (!!vsapi->propGetInt(in, "list_proc", 0, &err)) {
+        std::string text;
+
+        for (int i = 0; i < numProcessors; i++) {
+            const W2XConvProcessor * p = &processors[i];
+            const char * type;
+
+            switch (p->type) {
+            case W2XCONV_PROC_HOST:
+                switch (p->sub_type) {
+                case W2XCONV_PROC_HOST_FMA:
+                    type = "FMA";
+                    break;
+                case W2XCONV_PROC_HOST_AVX:
+                    type = "AVX";
+                    break;
+                case W2XCONV_PROC_HOST_SSE3:
+                    type = "SSE3";
+                    break;
+                default:
+                    type = "OpenCV";
+                    break;
+                }
+                break;
+
+            case W2XCONV_PROC_CUDA:
+                type = "CUDA";
+                break;
+
+            case W2XCONV_PROC_OPENCL:
+                type = "OpenCL";
+                break;
+
+            default:
+                type = "??";
+                break;
+            }
+
+            text = text.append(std::to_string(i)).append(": ").append(p->dev_name).append(" (").append(type).append(")\n");
+        }
+
+        VSMap * args = vsapi->createMap();
+        vsapi->propSetNode(args, "clip", d.node, paReplace);
+        vsapi->freeNode(d.node);
+        vsapi->propSetData(args, "text", text.c_str(), -1, paReplace);
+
+        VSMap * ret = vsapi->invoke(vsapi->getPluginById("com.vapoursynth.text", core), "Text", args);
+        if (vsapi->getError(ret)) {
+            vsapi->setError(out, vsapi->getError(ret));
+            vsapi->freeMap(args);
+            vsapi->freeMap(ret);
+            return;
+        }
+
+        d.node = vsapi->propGetNode(ret, "clip", 0, nullptr);
+        vsapi->freeMap(args);
+        vsapi->freeMap(ret);
+        vsapi->propSetNode(out, "clip", d.node, paReplace);
+        vsapi->freeNode(d.node);
+        return;
+    } else if (d.noise == 0 && d.scale == 1) {
         vsapi->propSetNode(out, "clip", d.node, paReplace);
         vsapi->freeNode(d.node);
         return;
@@ -299,12 +374,6 @@ static void VS_CC waifu2xCreate(const VSMap *in, VSMap *out, void *userData, VSC
 
     if (!isConstantFormat(&d.vi) || d.vi.format->sampleType != stFloat || d.vi.format->bitsPerSample != 32) {
         vsapi->setError(out, "Waifu2x: only constant format 32-bit float input supported");
-        vsapi->freeNode(d.node);
-        return;
-    }
-
-    if (d.scale != 1 && d.vi.format->subSamplingW > 2) {
-        vsapi->setError(out, "Waifu2x: horizontal subsampling larger than 2 is not supported");
         vsapi->freeNode(d.node);
         return;
     }
@@ -326,7 +395,7 @@ static void VS_CC waifu2xCreate(const VSMap *in, VSMap *out, void *userData, VSC
     vsapi->createFilter(in, out, "Waifu2x", waifu2xInit, waifu2xGetFrame, waifu2xFree, fmParallelRequests, 0, data, core);
 
     if (d.scale != 1 && d.vi.format->subSamplingW != 0) {
-        const double offset = (d.vi.format->subSamplingW == 1) ? 0.5 : 1.5;
+        const double offset = 0.5 * (1 << d.vi.format->subSamplingW) - 0.5;
         double shift = 0.;
         for (int n = 0; n < d.iterTimesTwiceScaling; n++)
             shift = shift * 2. + offset;
@@ -362,5 +431,5 @@ static void VS_CC waifu2xCreate(const VSMap *in, VSMap *out, void *userData, VSC
 
 VS_EXTERNAL_API(void) VapourSynthPluginInit(VSConfigPlugin configFunc, VSRegisterFunction registerFunc, VSPlugin *plugin) {
     configFunc("com.holywu.waifu2x", "w2xc", "Image Super-Resolution using Deep Convolutional Neural Networks", VAPOURSYNTH_API_VERSION, 1, plugin);
-    registerFunc("Waifu2x", "clip:clip;noise:int:opt;scale:int:opt;block:int:opt;photo:int:opt;gpu:int:opt;log:int:opt;", waifu2xCreate, nullptr, plugin);
+    registerFunc("Waifu2x", "clip:clip;noise:int:opt;scale:int:opt;block:int:opt;photo:int:opt;processor:int:opt;gpu:int:opt;list_proc:int:opt;log:int:opt;", waifu2xCreate, nullptr, plugin);
 }

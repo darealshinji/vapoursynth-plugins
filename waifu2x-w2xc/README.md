@@ -14,7 +14,7 @@ The filter will generate .bin files at the same location of the model files for 
 Usage
 =====
 
-    w2xc.Waifu2x(clip clip[, int noise=1, int scale=2, int block=512, bint photo=False, int gpu=1, bint log=False])
+    w2xc.Waifu2x(clip clip[, int noise=1, int scale=2, int block=512, bint photo=False, int processor=-1, int gpu=1, bint list_proc=False, bint log=False])
 
 * clip: The input clip. Must be 32-bit floating point. Any planar color family is supported.
 
@@ -29,6 +29,8 @@ Usage
 
 * photo: When set to false, the anime model will be used for both denoising and upscaling. When set to true, the photo model will be used only for upscaling. Currently there is no photo model released for denoising yet, so the anime model will be used for denoising at the moment, which may give inferior results. There are two sets of models for anime, one is trained under RGB, the other is trained under Y (luma only). The RGB model will be used when the color family of the input is RGB, and the Y model will be used for all the other color family. Note that the photo model is only available for RGB, so this parameter has no effect for non-RGB input.
 
+* processor: Sets target processor. Supersedes the choice from `gpu`, except any negative value. Use `list_proc` to get the index of the processors.
+
 * gpu: Controls the environment to use.
   * 0 = disable GPU
   * 1 = auto detect. It will run on the first available environment in the following order:
@@ -37,10 +39,13 @@ Usage
     * FMA
     * AVX
     * Intel OpenCL
+    * SSE3
     * OpenCV filter2D
-  * 2 = force to use OpenCL on Intel platform
+  * 2 = force to use OpenCL
 
-* log: Whether the internal processing stats will be written to stdout.
+* list_proc: Whether the processors list is drawn on the frame.
+
+* log: Whether the internal processing stats are written to stdout.
 
 
 Dependencies
