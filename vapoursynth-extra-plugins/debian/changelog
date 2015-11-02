@@ -1,3 +1,11 @@
+vapoursynth-extra-plugins (20151102-1~trusty) trusty; urgency=low
+
+  * New plugin: awarpsharp2
+  * New script: vsTAAmbk
+  * Updates: HAvsFunc, KNLMeansCL, mvsfunc, waifu2x-w2xc
+
+ -- Marshall Banana <djcj@gmx.de>  Mon, 02 Nov 2015 12:22:25 +0100
+
 vapoursynth-extra-plugins (20151008-1~trusty) trusty; urgency=low
 
   * New plugin: waifu2x-w2xc
