@@ -2,6 +2,7 @@ include config.mak
 
 SUBDIRS = \
 	addgrain \
+	awarpsharp2 \
 	bifrost \
 	bilateral \
 	bm3d \
