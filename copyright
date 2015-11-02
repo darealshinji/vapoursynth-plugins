@@ -13,6 +13,10 @@ Files: adjust/*
 Copyright: 2015 dubhater
 License: WTFPL
 
+Files: awarpsharp2/*
+Copyright: 2015 dubhater
+License: ISC
+
 Files: bifrost/*
 Copyright: 2013-2014 dubhater
            2007 Fredrik Mellbin
