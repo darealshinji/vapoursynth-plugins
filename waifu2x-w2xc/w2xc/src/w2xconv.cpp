@@ -1,17 +1,31 @@
 #define W2XCONV_IMPL
+#define _WIN32_WINNT 0x0600
 
 #include <thread>
+
 #ifdef X86OPT
 //#if (defined __GNUC__) || (defined __clang__)
 #ifndef _WIN32
 #include <cpuid.h>
 #endif
 #endif // X86OPT
+
+#ifdef ARMOPT
+#if defined __ANDROID__
+#include <cpu-features.h>
+#elif (defined(__linux))
+#include <sys/auxv.h>
+#endif
+#endif
+
+#include <sstream>
 #include "w2xconv.h"
 #include "sec.hpp"
 #include "Buffer.hpp"
 #include "modelHandler.hpp"
 #include "convertRoutine.hpp"
+#include "filters.hpp"
+#include "cvwrap.hpp"
 
 struct W2XConvImpl {
 	std::string dev_name;
@@ -23,87 +37,368 @@ struct W2XConvImpl {
 	std::vector<std::unique_ptr<w2xc::Model> > scale2_models;
 };
 
+static std::vector<struct W2XConvProcessor> processor_list;
+
+static void
+global_init2(void)
+{
+	{
+		W2XConvProcessor host;
+		host.type = W2XCONV_PROC_HOST;
+		host.sub_type = W2XCONV_PROC_HOST_OPENCV;
+		host.dev_id = 0;
+		host.dev_name = "Generic";
+		host.num_core = std::thread::hardware_concurrency();
+
+#ifdef X86OPT
+#ifdef _WIN32
+#define x_cpuid(p,eax) __cpuid(p, eax)
+		typedef int cpuid_t;
+#else
+#define x_cpuid(p,eax) __get_cpuid(eax, &(p)[0], &(p)[1], &(p)[2], &(p)[3]);
+		typedef unsigned int cpuid_t;
+#endif
+		cpuid_t v[4];
+		cpuid_t data[4*3+1];
+
+		x_cpuid(v, 0x80000000);
+		if ((unsigned int)v[0] >= 0x80000004) {
+			x_cpuid(data+4*0, 0x80000002);
+			x_cpuid(data+4*1, 0x80000003);
+			x_cpuid(data+4*2, 0x80000004);
+			data[12] = 0;
+
+			host.dev_name = strdup((char*)data);
+		} else {
+			x_cpuid(data, 0x0);
+			data[4] = 0;
+			host.dev_name = strdup((char*)(data + 1));
+		}
+
+		x_cpuid(v, 1);
+
+		if ((v[2] & 0x18000000) == 0x18000000) {
+			if (v[2] & (1<<12)) {
+				host.sub_type = W2XCONV_PROC_HOST_FMA;
+			} else {
+				host.sub_type = W2XCONV_PROC_HOST_AVX;
+			}
+		} else if (v[2] & (1<<0)) {
+			host.sub_type = W2XCONV_PROC_HOST_SSE3;
+		}
+#endif // X86OPT
+
+#ifdef ARMOPT
+		bool have_neon = false;
+#if defined(__ARM_NEON)
+// armv8 or -march=armv7-a for all files
+		have_neon = true;
+#elif defined(__ANDROID__)
+		int hwcap = android_getCpuFeatures();
+		if (hwcap & ANDROID_CPU_ARM_FEATURE_NEON) {
+			have_neon = true;
+		}
+#elif defined(__linux)
+		int hwcap = getauxval(AT_HWCAP);
+		if (hwcap & HWCAP_ARM_NEON) {
+			have_neon = true;
+		}
+#endif
+		if (have_neon) {
+			host.dev_name = "ARM NEON";
+			host.sub_type = W2XCONV_PROC_HOST_NEON;
+		}
+#endif
+
+		processor_list.push_back(host);
+	}
+
+	w2xc::initOpenCLGlobal(&processor_list);
+	w2xc::initCUDAGlobal(&processor_list);
+
+
+	/*
+	 * 1: NV CUDA
+	 * 2: OCL GPU
+	 * 3: host
+	 * 4: other
+	 *
+	 * && orderd by num_core
+	 */
+	std::sort(processor_list.begin(),
+		  processor_list.end(),
+		  [&](W2XConvProcessor const &p0,
+		      W2XConvProcessor const &p1)
+		  {
+			  bool p0_is_opencl_gpu =
+				  (p0.type == W2XCONV_PROC_OPENCL) &&
+				  ((p0.sub_type&W2XCONV_PROC_OPENCL_DEVICE_MASK) == W2XCONV_PROC_OPENCL_DEVICE_GPU)
+				  ;
+
+			  bool p1_is_opencl_gpu =
+				  (p1.type == W2XCONV_PROC_OPENCL) &&
+				  ((p1.sub_type&W2XCONV_PROC_OPENCL_DEVICE_MASK) == W2XCONV_PROC_OPENCL_DEVICE_GPU)
+				  ;
+
+
+			  bool p0_is_opencl_intel_gpu =
+				  (p0.type == W2XCONV_PROC_OPENCL) &&
+				  (p0.sub_type == W2XCONV_PROC_OPENCL_INTEL_GPU)
+				  ;
+
+			  bool p1_is_opencl_intel_gpu =
+				  (p1.type == W2XCONV_PROC_OPENCL) &&
+				  (p1.sub_type == W2XCONV_PROC_OPENCL_INTEL_GPU)
+				  ;
+
+			  bool p0_host_avx =
+				  (p0.type == W2XCONV_PROC_HOST) &&
+				  (p0.sub_type >= W2XCONV_PROC_HOST_AVX)
+				  ;
+
+			  bool p1_host_avx =
+				  (p1.type == W2XCONV_PROC_HOST) &&
+				  (p1.sub_type >= W2XCONV_PROC_HOST_AVX)
+				  ;
+
+			  if (p0.type == p1.type) {
+				  if (p0.type == W2XCONV_PROC_OPENCL) {
+					  if (p0.sub_type != p1.sub_type) {
+						  if (p0_is_opencl_gpu) {
+							  return true;
+						  }
+
+						  if (p1_is_opencl_gpu) {
+							  return false;
+						  }
+					  }
+				  }
+
+				  if (p0.num_core != p1.num_core) {
+					  return p0.num_core > p1.num_core;
+				  }
+			  } else {
+				  if (p0.type == W2XCONV_PROC_CUDA) {
+					  return true;
+				  }
+
+				  if (p1.type == W2XCONV_PROC_CUDA) {
+					  return false;
+				  }
+
+				  if (p0_is_opencl_intel_gpu) {
+					  if (p1_host_avx) {
+						  return false;
+					  }
+				  }
+
+				  if (p1_is_opencl_intel_gpu) {
+					  if (p0_host_avx) {
+						  return false;
+					  }
+				  }
+
+				  if (p0_is_opencl_gpu) {
+					  return true;
+				  }
+
+				  if (p1_is_opencl_gpu) {
+					  return false;
+				  }
+			  }
+
+			  if (p0.type == W2XCONV_PROC_HOST) {
+				  return true;
+			  }
+
+			  if (p1.type == W2XCONV_PROC_HOST) {
+				  return false;
+			  }
+
+			  /* ?? */
+			  return p0.dev_id < p1.dev_id;
+		  });
+}
+
+#ifdef _WIN32
+#include <windows.h>
+static INIT_ONCE global_init_once = INIT_ONCE_STATIC_INIT;
+
+static BOOL CALLBACK
+global_init1(PINIT_ONCE initOnce,
+	     PVOID Parameter,
+	     PVOID *Context)
+{
+	global_init2();
+	return TRUE;
+}
+
+static void
+global_init(void)
+{
+	InitOnceExecuteOnce(&global_init_once,
+			    global_init1,
+			    nullptr, nullptr);
+}
+#else
+
+#include <pthread.h>
+
+static pthread_once_t global_init_once = PTHREAD_ONCE_INIT;
+static void
+global_init1()
+{
+	global_init2();
+}
+static void
+global_init()
+{
+	pthread_once(&global_init_once, global_init1);
+}
+#endif
+
+
+const struct W2XConvProcessor *
+w2xconv_get_processor_list(int *ret_num)
+{
+	global_init();
+
+	*ret_num = processor_list.size();
+	return &processor_list[0];
+}
+
+static int
+select_device(enum W2XConvGPUMode gpu)
+{
+	int n = processor_list.size();
+	if (gpu == W2XCONV_GPU_FORCE_OPENCL) {
+		for (int i=0; i<n; i++) {
+			if (processor_list[i].type == W2XCONV_PROC_OPENCL) {
+				return i;
+			}
+		}
+	}
+
+	int host_proc = 0;
+	for (int i=0; i<n; i++) {
+		if (processor_list[i].type == W2XCONV_PROC_HOST) {
+			host_proc = i;
+			break;
+		}
+	}
+
+	if (gpu == W2XCONV_GPU_AUTO) {
+		/* 1. CUDA
+		 * 2. AMD GPU OpenCL
+		 * 3. FMA
+		 * 4. AVX
+		 * 5. Intel GPU OpenCL
+		 */
+
+		for (int i=0; i<n; i++) {
+			if (processor_list[i].type == W2XCONV_PROC_CUDA) {
+				return i;
+			}
+		}
+
+		for (int i=0; i<n; i++) {
+			if ((processor_list[i].type == W2XCONV_PROC_OPENCL) &&
+			    (processor_list[i].sub_type == W2XCONV_PROC_OPENCL_AMD_GPU))
+			{
+				return i;
+			}
+		}
+
+		if (processor_list[host_proc].sub_type == W2XCONV_PROC_HOST_FMA ||
+		    processor_list[host_proc].sub_type == W2XCONV_PROC_HOST_AVX)
+		{
+			return host_proc;
+		}
+
+		for (int i=0; i<n; i++) {
+			if ((processor_list[i].type == W2XCONV_PROC_OPENCL) &&
+			    (processor_list[i].sub_type == W2XCONV_PROC_OPENCL_INTEL_GPU))
+			{
+				return i;
+			}
+		}
+
+		return host_proc;
+	}
+
+	/* (gpu == GPU_DISABLE) */
+	for (int i=0; i<n; i++) {
+		if (processor_list[i].type == W2XCONV_PROC_HOST) {
+			return i;
+		}
+	}
+
+	return 0;		// ??
+}
+
 W2XConv *
 w2xconv_init(enum W2XConvGPUMode gpu,
              int nJob,
 	     int enable_log)
 {
+	global_init();
+
+	int proc_idx = select_device(gpu);
+	return w2xconv_init_with_processor(proc_idx, nJob, enable_log);
+}
+
+struct W2XConv *
+w2xconv_init_with_processor(int processor_idx,
+			    int nJob,
+			    int enable_log)
+{
+	global_init();
+
 	struct W2XConv *c = new struct W2XConv;
 	struct W2XConvImpl *impl = new W2XConvImpl;
-
-	c->impl = impl;
-	c->enable_log = enable_log;
+	struct W2XConvProcessor *proc = &processor_list[processor_idx];
 
 	if (nJob == 0) {
 		nJob = std::thread::hardware_concurrency();
+	}
+
+	bool r;
+
+	switch (proc->type) {
+	case W2XCONV_PROC_CUDA:
+		w2xc::initCUDA(&impl->env, proc->dev_id);
+		break;
+
+	case W2XCONV_PROC_OPENCL:
+		r = w2xc::initOpenCL(c, &impl->env, proc);
+		if (!r) {
+			return NULL;
+		}
+		break;
+
+	default:
+	case W2XCONV_PROC_HOST:
+		break;
 	}
 
 #if defined(_WIN32) || defined(__linux)
 	impl->env.tpool = w2xc::initThreadPool(nJob);
 #endif
 
-	if (gpu == W2XCONV_GPU_DISABLE) {
-		/* disable */
-	} else {
-		w2xc::initOpenCL(&impl->env, gpu);
-		if (gpu != W2XCONV_GPU_FORCE_OPENCL) {
-			w2xc::initCUDA(&impl->env);
-		}
-	}
+	w2xc::modelUtility::getInstance().setNumberOfJobs(nJob);
 
+	c->impl = impl;
+	c->enable_log = enable_log;
+	c->target_processor = proc;
 	c->last_error.code = W2XCONV_NOERROR;
 	c->flops.flop = 0;
 	c->flops.filter_sec = 0;
 	c->flops.process_sec = 0;
 
-	if (impl->env.num_cuda_dev != 0) {
-		c->target_processor.type = W2XCONV_PROC_CUDA;
-		c->target_processor.devid = 0;
-		impl->dev_name = impl->env.cuda_dev_list[0].name.c_str();
-	} else if (impl->env.num_cl_dev != 0) {
-		c->target_processor.type = W2XCONV_PROC_OPENCL;
-		c->target_processor.devid = 0;
-		impl->dev_name = impl->env.cl_dev_list[0].name.c_str();
-	} else {
-#ifdef X86OPT
-		{
-
-#ifdef _WIN32
-#define x_cpuid(p,eax) __cpuid(p, eax)
-			typedef int cpuid_t;
-#else
-#define x_cpuid(p,eax) __get_cpuid(eax, &(p)[0], &(p)[1], &(p)[2], &(p)[3]);
-			typedef unsigned int cpuid_t;
-#endif
-			cpuid_t v[4];
-			cpuid_t data[4*3+1];
-
-			x_cpuid(v, 0x80000000);
-			if ((unsigned int)v[0] >= 0x80000004) {
-				x_cpuid(data+4*0, 0x80000002);
-				x_cpuid(data+4*1, 0x80000003);
-				x_cpuid(data+4*2, 0x80000004);
-				data[12] = 0;
-
-				impl->dev_name = (char*)data;
-			} else {
-				x_cpuid(data, 0x0);
-				data[4] = 0;
-				impl->dev_name = (char*)(data + 1);
-			}
-
-			c->target_processor.type = W2XCONV_PROC_HOST;
-		}
-#endif // X86OPT
-	}
-
-	c->target_processor.dev_name = impl->dev_name.c_str();
-	impl->env.target_processor = c->target_processor;
-
 	return c;
 }
 
-static void
+void
 clearError(W2XConv *conv)
 {
 	switch (conv->last_error.code) {
@@ -243,6 +538,39 @@ w2xconv_load_models(W2XConv *conv, const char *model_dir)
 	return 0;
 }
 
+void
+w2xconv_set_model_3x3(struct W2XConv *conv,
+		      enum W2XConvFilterType m,
+		      int layer_depth,
+		      int num_input_plane,
+		      const int *num_map, // num_map[layer_depth]
+		      const float *coef_list, // coef_list[layer_depth][num_map][3x3]
+		      const float *bias // bias[layer_depth][num_map]
+	)
+{
+	struct W2XConvImpl *impl = conv->impl;
+	std::vector<std::unique_ptr<w2xc::Model> > *models = nullptr;
+
+	switch (m) {
+	case W2XCONV_FILTER_DENOISE1:
+		models = &impl->noise1_models;
+		break;
+	case W2XCONV_FILTER_DENOISE2:
+		models = &impl->noise2_models;
+		break;
+	case W2XCONV_FILTER_SCALE2x:
+		models = &impl->scale2_models;
+		break;
+	}
+
+	models->clear();
+	w2xc::modelUtility::generateModelFromMEM(layer_depth,
+						 num_input_plane,
+						 num_map,
+						 coef_list,
+						 bias,
+						 *models);
+}
 
 void
 w2xconv_fini(struct W2XConv *conv)
@@ -260,6 +588,7 @@ w2xconv_fini(struct W2XConv *conv)
 	delete conv;
 }
 
+#ifdef HAVE_OPENCV
 static void
 apply_denoise(struct W2XConv *conv,
 	      cv::Mat &image,
@@ -285,15 +614,20 @@ apply_denoise(struct W2XConv *conv,
 		output = &imageSplit[0];
 	}
 
+	W2Mat output_2;
+	W2Mat input_2(extract_view_from_cvmat(*input));
+
 	if (denoise_level == 1) {
-		w2xc::convertWithModels(env, *input, *output,
+		w2xc::convertWithModels(conv, env, input_2, output_2,
 					impl->noise1_models,
 					&conv->flops, blockSize, fmt, conv->enable_log);
 	} else {
-		w2xc::convertWithModels(env, *input, *output,
+		w2xc::convertWithModels(conv, env, input_2, output_2,
 					impl->noise2_models,
 					&conv->flops, blockSize, fmt, conv->enable_log);
 	}
+
+	*output = copy_to_cvmat(output_2);
 
 	if (! IS_3CHANNEL(fmt)) {
 		cv::merge(imageSplit, image);
@@ -349,9 +683,13 @@ apply_scale(struct W2XConv *conv,
 			output = &imageSplit[0];
 		}
 
-		if(!w2xc::convertWithModels(env,
-					    *input,
-					    *output,
+		W2Mat output_2;
+		W2Mat input_2(extract_view_from_cvmat(*input));
+
+		if(!w2xc::convertWithModels(conv,
+					    env,
+					    input_2,
+					    output_2,
 					    impl->scale2_models,
 					    &conv->flops, blockSize, fmt,
 					    conv->enable_log))
@@ -360,6 +698,8 @@ apply_scale(struct W2XConv *conv,
 				"stop." << std::endl;
 			std::exit(1);
 		}
+
+		*output = copy_to_cvmat(output_2);
 
 		if (!IS_3CHANNEL(fmt)) {
 			cv::merge(imageSplit, image);
@@ -577,7 +917,7 @@ w2xconv_convert_yuv(struct W2XConv *conv,
 
 	return 0;
 }
-
+#endif // HAVE_OPENCV
 
 int
 w2xconv_apply_filter_y(struct W2XConv *conv,
@@ -596,8 +936,8 @@ w2xconv_apply_filter_y(struct W2XConv *conv,
 	struct W2XConvImpl *impl = conv->impl;
 	ComputeEnv *env = &impl->env;
 
-	cv::Mat dsti(src_h, src_w, CV_32F, dst, dst_step_byte);
-	cv::Mat srci(src_h, src_w, CV_32F, src, src_step_byte);
+	W2Mat dsti(src_h, src_w, CV_32FC1, dst, dst_step_byte);
+	W2Mat srci(src_h, src_w, CV_32FC1, src, src_step_byte);
 
 	std::vector<std::unique_ptr<w2xc::Model> > *mp = NULL;
 
@@ -618,17 +958,22 @@ w2xconv_apply_filter_y(struct W2XConv *conv,
 		return -1;
 	}
 
-	cv::Mat result;
-	w2xc::convertWithModels(env, srci, result,
+	W2Mat result;
+	w2xc::convertWithModels(conv, env, srci, result,
 				*mp,
 				&conv->flops, blockSize, w2xc::IMAGE_Y, conv->enable_log);
 
-	result.copyTo(dsti);
+	for (int yi=0; yi<src_h; yi++) {
+		char *d0 = dsti.ptr<char>(yi);
+		char *s0 = srci.ptr<char>(yi);
+
+		memcpy(d0, s0, src_w * sizeof(float));
+	}
 
 	return 0;
 }
 
-
+#ifdef HAVE_OPENCV
 int
 w2xconv_test(struct W2XConv *conv, int block_size)
 {
@@ -739,3 +1084,4 @@ w2xconv_test(struct W2XConv *conv, int block_size)
 
 	return 0;
 }
+#endif

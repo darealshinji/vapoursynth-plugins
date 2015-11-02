@@ -8,6 +8,7 @@
  *   (ここにファイルの説明を記入)
  */
 
+#include <limits.h>
 #include "convertRoutine.hpp"
 #include "common.hpp"
 #include "Buffer.hpp"
@@ -16,34 +17,40 @@
 namespace w2xc {
 
 // converting process inside program
-static bool convertWithModelsBasic(ComputeEnv *env,
-				   cv::Mat &inputPlane, cv::Mat &outputPlane,
+static bool convertWithModelsBasic(W2XConv *conv,
+				   ComputeEnv *env,
+				   W2Mat &inputPlane, W2Mat &outputPlane,
 				   Buffer *input_buf, Buffer *output_buf,
 				   std::vector<std::unique_ptr<Model> > &models,
 				   W2XConvFlopsCounter *flops,
 				   enum image_format fmt,
 				   bool enableLog);
-static bool convertWithModelsBlockSplit(ComputeEnv *env,
-					cv::Mat &inputPlane,
-					cv::Mat &outputPlane, std::vector<std::unique_ptr<Model> > &models,
+static bool convertWithModelsBlockSplit(W2XConv *conv,
+					ComputeEnv *env,
+					W2Mat &inputPlane,
+					W2Mat &outputPlane, std::vector<std::unique_ptr<Model> > &models,
 					W2XConvFlopsCounter *flops,
 					int blockSize,
 					enum image_format fmt,
 					bool enableLog);
 
-bool convertWithModels(ComputeEnv *env,
-		       cv::Mat &inputPlane, cv::Mat &outputPlane,
+bool convertWithModels(W2XConv *conv,
+		       ComputeEnv *env,
+		       W2Mat &inputPlane, W2Mat &outputPlane,
 		       std::vector<std::unique_ptr<Model> > &models,
 		       W2XConvFlopsCounter *flops,
 		       int blockSize,
 		       enum image_format fmt,
 		       bool enableLog)
 {
-	return convertWithModelsBlockSplit(env, inputPlane, outputPlane, models, flops, blockSize, fmt, enableLog);
+	return convertWithModelsBlockSplit(conv, env,
+					   inputPlane, outputPlane,
+					   models, flops, blockSize, fmt, enableLog);
 }
 
-static bool convertWithModelsBasic(ComputeEnv *env,
-				   cv::Mat &inputPlane, cv::Mat &outputPlane,
+static bool convertWithModelsBasic(W2XConv *conv,
+				   ComputeEnv *env,
+				   W2Mat &inputPlane, W2Mat &outputPlane,
 				   Buffer *packed_input_buf,
 				   Buffer *packed_output_buf,
 				   std::vector<std::unique_ptr<Model> > &models, W2XConvFlopsCounter *flops,
@@ -52,15 +59,10 @@ static bool convertWithModelsBasic(ComputeEnv *env,
 {
 	// padding is require before calling this function
 
-	std::unique_ptr<std::vector<cv::Mat> > inputPlanes = std::unique_ptr<
-			std::vector<cv::Mat> >(new std::vector<cv::Mat>());
-	std::unique_ptr<std::vector<cv::Mat> > outputPlanes = std::unique_ptr<
-			std::vector<cv::Mat> >(new std::vector<cv::Mat>());
+	std::vector<W2Mat> inputPlanes;
+	inputPlanes.emplace_back(W2Mat::clip_view(inputPlane,0,0,0,0));
 
-	inputPlanes->clear();
-	inputPlanes->push_back(inputPlane);
-
-	cv::Size filterSize = inputPlane.size();
+	W2Size filterSize(inputPlane.view_width, inputPlane.view_height);
 	int filterWidth = filterSize.width;
 	int filterHeight = filterSize.height;
 
@@ -77,7 +79,7 @@ static bool convertWithModelsBasic(ComputeEnv *env,
 		pack_mat_rgb_f32(packed_input, inputPlane, filterWidth, filterHeight);
 		break;
 	case IMAGE_Y:
-		pack_mat(packed_input, *inputPlanes, filterWidth, filterHeight, 1);
+		pack_mat(packed_input, inputPlanes, filterWidth, filterHeight, 1);
 		break;
 	}
 
@@ -92,7 +94,7 @@ static bool convertWithModelsBasic(ComputeEnv *env,
 			std::cout << "Iteration #" << (index + 1) << "(" << nInputPlanes << "->" << nOutputPlanes << ")..." ;
 		}
 		double t0 = getsec();
-		if (!models[index]->filter(env, packed_input_buf, packed_output_buf, filterSize)) {
+		if (!models[index]->filter(conv, env, packed_input_buf, packed_output_buf, filterSize)) {
 			std::exit(-1);
 		}
 		double t1 = getsec();
@@ -121,19 +123,19 @@ static bool convertWithModelsBasic(ComputeEnv *env,
 
 	switch (fmt) {
 	case IMAGE_BGR:
-		outputPlane = cv::Mat::zeros(filterSize, CV_8UC3);
+		outputPlane = W2Mat(filterSize.width*3, filterSize.height, 1);
 		unpack_mat_bgr(outputPlane, packed_input, filterWidth, filterHeight);
 		break;
 	case IMAGE_RGB:
-		outputPlane = cv::Mat::zeros(filterSize, CV_8UC3);
+		outputPlane = W2Mat(filterSize.width*3, filterSize.height, 1);
 		unpack_mat_rgb(outputPlane, packed_input, filterWidth, filterHeight);
 		break;
 	case IMAGE_RGB_F32:
-		outputPlane = cv::Mat::zeros(filterSize, CV_32FC3);
+		outputPlane = W2Mat(filterSize.width*3, filterSize.height, 4);
 		unpack_mat_rgb_f32(outputPlane, packed_input, filterWidth, filterHeight);
 		break;
 	case IMAGE_Y:
-		outputPlane = cv::Mat::zeros(filterSize, CV_32FC1);
+		outputPlane = W2Mat(filterSize.width*1, filterSize.height, 4);
 		unpack_mat1(outputPlane, packed_input, filterWidth, filterHeight);
 		break;
 	}
@@ -147,33 +149,123 @@ static bool convertWithModelsBasic(ComputeEnv *env,
 
 }
 
-static bool convertWithModelsBlockSplit(ComputeEnv *env,
-					cv::Mat &inputPlane,
-					cv::Mat &outputPlane,
+static bool convertWithModelsBlockSplit(W2XConv *conv,
+					ComputeEnv *env,
+					W2Mat &inputPlane_2,
+					W2Mat &outputPlane_2,
 					std::vector<std::unique_ptr<Model> > &models,
 					W2XConvFlopsCounter *flops,
 					int blockSize,
 					enum image_format fmt,
 					bool enableLog)
 {
-
 	// padding is not required before calling this function
 
 	// initialize local variables
 	unsigned int nModel = models.size();
 
 	//insert padding to inputPlane
-	cv::Mat tempMat;
-	cv::Size outputSize = inputPlane.size();
-	cv::copyMakeBorder(inputPlane, tempMat, nModel, nModel, nModel, nModel,
-			cv::BORDER_REPLICATE);
+	int tempWidth = inputPlane_2.view_width + nModel*2;
+	int tempHeight = inputPlane_2.view_height + nModel*2;
+	int inputWidth = inputPlane_2.view_width;
+	int inputHeight = inputPlane_2.view_height;
+
+	W2Mat tempMat_2(tempWidth, tempHeight, inputPlane_2.type);
+	int elem_size = CV_ELEM_SIZE(inputPlane_2.type);
+
+	/* y border */
+	for (int bi=0; bi<nModel; bi++) {
+		char *dst;
+		char *src;
+
+		/* top */
+		dst = tempMat_2.ptr<char>(bi) + elem_size * nModel;
+		src = inputPlane_2.ptr<char>(0);
+		memcpy(dst, src, inputWidth * elem_size);
+
+		/* bottom */
+		dst = tempMat_2.ptr<char>(inputHeight + nModel + bi) + elem_size * nModel;
+		src = inputPlane_2.ptr<char>(inputHeight - 1);
+		memcpy(dst, src, inputWidth * elem_size);
+	}
+
+	/* body */
+	for (int bi=0; bi<inputHeight; bi++) {
+		char *dst;
+		char *src;
+		dst = tempMat_2.ptr<char>(bi + nModel) + elem_size * nModel;
+		src = inputPlane_2.ptr<char>(bi);
+		memcpy(dst, src, inputWidth * elem_size);
+	}
+
+	/* x border */
+	for (int bi=0; bi<tempHeight; bi++) {
+		char *left = tempMat_2.ptr<char>(bi);
+		char *right = left + elem_size * (nModel + inputWidth);
+		uint32_t v32;
+		uint32_t v_0, v_1, v_2;
+
+		switch (elem_size) {
+		case 1:
+			memset(left, left[nModel], nModel);
+			memset(right, right[-1], nModel);
+			break;
+
+		case 3:
+			v_0 = ((unsigned char*)left)[nModel*3+0];
+			v_1 = ((unsigned char*)left)[nModel*3+1];
+			v_2 = ((unsigned char*)left)[nModel*3+2];
+			for (int xi=0; xi<nModel; xi++) {
+				left[xi*3+0] = v_0;
+				left[xi*3+1] = v_1;
+				left[xi*3+2] = v_2;
+			}
+
+			v_0 = ((unsigned char*)right)[-3+0];
+			v_1 = ((unsigned char*)right)[-3+1];
+			v_2 = ((unsigned char*)right)[-3+2];
+			for (int xi=0; xi<nModel; xi++) {
+				right[xi*3+0] = v_0;
+				right[xi*3+1] = v_1;
+				right[xi*3+2] = v_2;
+			}
+			break;
+
+		case 4:
+			v32 = ((uint32_t*)left)[nModel];
+			for (int xi=0; xi<nModel; xi++) {
+				((uint32_t*)left)[xi] = v32;
+			}
+			v32 = ((uint32_t*)right)[-1];
+			for (int xi=0; xi<nModel; xi++) {
+				((uint32_t*)right)[xi] = v32;
+			}
+			break;
+
+		case 12:
+			v_0 = ((uint32_t*)left)[nModel*3+0];
+			v_1 = ((uint32_t*)left)[nModel*3+1];
+			v_2 = ((uint32_t*)left)[nModel*3+2];
+			for (int xi=0; xi<nModel; xi++) {
+				((uint32_t*)left)[xi*3+0] = v_0;
+				((uint32_t*)left)[xi*3+1] = v_1;
+				((uint32_t*)left)[xi*3+2] = v_2;
+			}
+
+			v_0 = ((uint32_t*)right)[-3+0];
+			v_1 = ((uint32_t*)right)[-3+1];
+			v_2 = ((uint32_t*)right)[-3+2];
+			for (int xi=0; xi<nModel; xi++) {
+				((uint32_t*)right)[xi*3+0] = v_0;
+				((uint32_t*)right)[xi*3+1] = v_1;
+				((uint32_t*)right)[xi*3+2] = v_2;
+			}
+			break;
+		}
+	}
 
 	// start to convert
-	cv::Mat processRow;
-	cv::Mat processBlock;
-	cv::Mat processBlockOutput;
-	cv::Mat writeMatTo;
-	cv::Mat writeMatFrom;
+	W2Mat processBlockOutput;
 
 	if (blockSize == 0) {
 		blockSize = env->pref_block_size;
@@ -185,8 +277,8 @@ static bool convertWithModelsBlockSplit(ComputeEnv *env,
 	while (1) {
 		long long max_size = 0;
 
-		int width = (std::min)(tempMat.size().width, blockSize);
-		int height = (std::min)(tempMat.size().height, blockSize);
+		int width = (std::min)(tempMat_2.view_width, blockSize);
+		int height = (std::min)(tempMat_2.view_height, blockSize);
 
 		for (int index = 0; index < (int)models.size(); index++) {
 			long long bufsize =
@@ -204,8 +296,8 @@ static bool convertWithModelsBlockSplit(ComputeEnv *env,
 			input_buf = new Buffer(env, max_size);
 			output_buf = new Buffer(env, max_size);
 
-			if (input_buf->prealloc(env) &&
-			    output_buf->prealloc(env))
+			if (input_buf->prealloc(conv, env) &&
+			    output_buf->prealloc(conv, env))
 			{
 				break;
 			}
@@ -221,86 +313,114 @@ static bool convertWithModelsBlockSplit(ComputeEnv *env,
 		}
 	}
 
-	int blockWidth = (std::min)(blockSize, tempMat.size().width);
-	int blockHeight = (std::min)(blockSize, tempMat.size().height);
+	int blockWidth = (std::min)(blockSize, tempMat_2.view_width);
+	int blockHeight = (std::min)(blockSize, tempMat_2.view_height);
+	int clipWidth = blockWidth - 2*nModel;
+	int clipHeight = blockHeight - 2*nModel;
 
 	//printf("blockSize = %d\n", blockSize);
 
 	// calcurate split rows/cols
-	unsigned int splitColumns = static_cast<unsigned int>(std::ceil(
-			static_cast<float>(outputSize.width)
-					/ static_cast<float>(blockWidth - 2 * nModel)));
-	unsigned int splitRows = static_cast<unsigned int>(std::ceil(
-			static_cast<float>(outputSize.height)
-					/ static_cast<float>(blockHeight - 2 * nModel)));
+	unsigned int splitColumns = (inputWidth + (clipWidth-1)) / clipWidth;
+	unsigned int splitRows = (inputHeight + (clipHeight-1)) / clipHeight;
 
 	switch (fmt) {
 	case IMAGE_BGR:
 	case IMAGE_RGB:
-		outputPlane = cv::Mat::zeros(outputSize, CV_8UC3);
+		outputPlane_2 = W2Mat(inputWidth, inputHeight, CV_8UC3);
 		break;
 
 	case IMAGE_RGB_F32:
-		outputPlane = cv::Mat::zeros(outputSize, CV_32FC3);
+		outputPlane_2 = W2Mat(inputWidth, inputHeight, CV_32FC3);
 		break;
 
 	case IMAGE_Y:
-		outputPlane = cv::Mat::zeros(outputSize, CV_32FC1);
+		outputPlane_2 = W2Mat(inputWidth, inputHeight, CV_32FC1);
 		break;
+
+	default:
+		abort();
 	}
+
 	for (unsigned int r = 0; r < splitRows; r++) {
+		int clipStartY = r * clipHeight;
+		int clipEndY = 0;
+
 		if (r == splitRows - 1) {
-			processRow = tempMat.rowRange(r * (blockHeight - 2 * nModel),
-					tempMat.size().height);
+			clipEndY = tempMat_2.view_height;
 		} else {
-			processRow = tempMat.rowRange(r * (blockHeight - 2 * nModel),
-					r * (blockHeight - 2 * nModel) + blockHeight);
+			clipEndY = r * clipHeight + blockHeight;
 		}
+
 		for (unsigned int c = 0; c < splitColumns; c++) {
+			int clipStartX = c * clipWidth;
+			int clipEndX = 0;
+
 			if (c == splitColumns - 1) {
-				processBlock = processRow.colRange(
-						c * (blockWidth- 2 * nModel),
-						tempMat.size().width);
+				clipEndX = tempMat_2.view_width;
 			} else {
-				processBlock = processRow.colRange(
-						c * (blockWidth - 2 * nModel),
-						c * (blockWidth - 2 * nModel) + blockWidth);
+				clipEndX = c * (blockWidth - 2 * nModel) + blockWidth;
 			}
+
+			int curBlockWidth = clipEndX - clipStartX;
+			int curBlockHeight = clipEndY - clipStartY;
+
+			W2Mat processBlock(W2Mat::clip_view(tempMat_2,
+							    clipStartX, clipStartY,
+							    curBlockWidth, curBlockHeight));
 
 			if (enableLog) {
 				std::cout << "start process block (" << c << "," << r << ") ..."
 					  << std::endl;
 			}
-			if (!convertWithModelsBasic(env,
+
+			int elemSize = 0;
+
+			switch (fmt) {
+			case IMAGE_BGR:
+			case IMAGE_RGB:
+				elemSize = 3;
+				processBlockOutput = W2Mat(curBlockWidth, curBlockHeight, CV_8UC3);
+				break;
+
+			case IMAGE_RGB_F32:
+				elemSize = 12;
+				processBlockOutput = W2Mat(curBlockWidth, curBlockHeight, CV_32FC3);
+				break;
+
+			case IMAGE_Y:
+				elemSize = 4;
+				processBlockOutput = W2Mat(curBlockWidth, curBlockHeight, CV_32FC1);
+				break;
+			}
+
+			if (!convertWithModelsBasic(conv, env,
 						    processBlock, processBlockOutput,
 						    input_buf, output_buf,
 						    models, flops, fmt, enableLog)) {
 				std::cerr << "w2xc::convertWithModelsBasic()\n"
-						"in w2xc::convertWithModelsBlockSplit() : \n"
-						"something error has occured. stop." << std::endl;
+					"in w2xc::convertWithModelsBlockSplit() : \n"
+					"something error has occured. stop." << std::endl;
 				return false;
 			}
 
-			writeMatFrom = processBlockOutput(
-					cv::Range(nModel,
-							processBlockOutput.size().height - nModel),
-					cv::Range(nModel,
-							processBlockOutput.size().width - nModel));
-			writeMatTo = outputPlane(
-					cv::Range(r * (blockHeight - 2 * nModel),
-						  r * (blockHeight - 2 * nModel)
-						  + processBlockOutput.size().height
-						  - 2 * nModel),
-					cv::Range(c * (blockWidth - 2 * nModel),
-						  c * (blockWidth - 2 * nModel)
-						  + processBlockOutput.size().width
-						  - 2 * nModel));
-			assert(
-					writeMatTo.size().height == writeMatFrom.size().height
-							&& writeMatTo.size().width
-									== writeMatFrom.size().width);
-			writeMatFrom.copyTo(writeMatTo);
+			int srcStartY = nModel;
+			int srcStartX = nModel;
 
+			int dstStartY = r * (blockHeight - 2*nModel);
+			int dstStartX = c * (blockWidth - 2*nModel);
+			int copyWidth = curBlockWidth - (nModel * 2);
+			int copyHeight = curBlockHeight - (nModel * 2);
+
+			for (int yi=0; yi<copyHeight; yi++) {
+				char *src = processBlockOutput.ptr<char>(yi + srcStartY);
+				char *dst = outputPlane_2.ptr<char>(yi + dstStartY);
+
+				src += srcStartX * elemSize;
+				dst += dstStartX * elemSize;
+
+				memcpy(dst, src, copyWidth * elemSize);
+			}
 		} // end process 1 column
 
 	} // end process all blocks

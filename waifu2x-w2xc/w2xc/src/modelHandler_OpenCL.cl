@@ -200,6 +200,9 @@
 		out[OI] = v;					\
 	}
 
+/* a += b*c */
+#define CUM(a,b,c)				\
+	a = mad(b,c,a)
 
 #define BLOCK_SIZE 8
 
@@ -340,6 +343,21 @@ filter_in128_out1(__global const float * __restrict__ packed_input,
 		  __global float * __restrict__ weight)
 {
 	unsigned int yi_base = get_group_id(0)*1;
+	__local float in00_buf[128];
+	__local float in01_buf[128];
+	__local float in02_buf[128];
+
+	__local float in10_buf[128];
+	__local float in11_buf[128];
+	__local float in12_buf[128];
+
+	__local float in20_buf[128];
+	__local float in21_buf[128];
+	__local float in22_buf[128];
+
+	__local float sum_buffer[128];
+
+
 	for (int yi0=0; yi0<1; yi0++) {
 		int yi = yi_base + yi0;
 		unsigned int lid = get_local_id(0);
@@ -372,18 +390,6 @@ filter_in128_out1(__global const float * __restrict__ packed_input,
 		/* y      : (2height/group) */
 		/* iplane : 1plane / 1item * 128plane */
 
-		__local float in00_buf[128];
-		__local float in01_buf[128];
-		__local float in02_buf[128];
-
-		__local float in10_buf[128];
-		__local float in11_buf[128];
-		__local float in12_buf[128];
-
-		__local float in20_buf[128];
-		__local float in21_buf[128];
-		__local float in22_buf[128];
-
 		__local float *lin00 = in00_buf;
 		__local float *lin01 = in01_buf;
 		__local float *lin02 = in02_buf;
@@ -395,8 +401,6 @@ filter_in128_out1(__global const float * __restrict__ packed_input,
 		__local float *lin20 = in20_buf;
 		__local float *lin21 = in21_buf;
 		__local float *lin22 = in22_buf;
-
-		__local float sum_buffer[128];
 
 #define OUT1_LOAD_WEIGHT(I,Y,X) float w##I##Y##X = weight[(I*16 + lid)*9 + Y*3 + X];
 		float w00 = weight[lid*9 + 0];
@@ -453,17 +457,17 @@ filter_in128_out1(__global const float * __restrict__ packed_input,
 					lin22[lid] = pin22[xi*128];	\
 				}					\
 									\
-				sum += w00 * lin00[lid];		\
-				sum += w10 * lin10[lid];		\
-				sum += w20 * lin20[lid];		\
+				CUM(sum, w00, lin00[lid]);		\
+				CUM(sum, w10, lin10[lid]);		\
+				CUM(sum, w20, lin20[lid]);		\
 									\
-				sum += w01 * lin01[lid];		\
-				sum += w11 * lin11[lid];		\
-				sum += w21 * lin21[lid];		\
+				CUM(sum, w01, lin01[lid]);		\
+				CUM(sum, w11, lin11[lid]);		\
+				CUM(sum, w21, lin21[lid]);		\
 									\
-				sum += w02 * lin02[lid];		\
-				sum += w12 * lin12[lid];		\
-				sum += w22 * lin22[lid];		\
+				CUM(sum, w02, lin02[lid]);		\
+				CUM(sum, w12, lin12[lid]);		\
+				CUM(sum, w22, lin22[lid]);		\
 									\
 			}						\
 			barrier(CLK_LOCAL_MEM_FENCE);			\
@@ -612,17 +616,17 @@ filter_in3_out32(__global const float * __restrict__ packed_input,
 			if (lid < 96) { // 3input x 32output
 				float sum = 0;
 
-				sum += w0 * in_block0[(xi1 - 1)*3+(int)ioff];
-				sum += w1 * in_block0[(xi1    )*3+(int)ioff];
-				sum += w2 * in_block0[(xi1 + 1)*3+(int)ioff];
+				CUM(sum, w0, in_block0[(xi1 - 1)*3+(int)ioff]);
+				CUM(sum, w1, in_block0[(xi1    )*3+(int)ioff]);
+				CUM(sum, w2, in_block0[(xi1 + 1)*3+(int)ioff]);
 
-				sum += w3 * in_block1[(xi1 - 1)*3+(int)ioff];
-				sum += w4 * in_block1[(xi1    )*3+(int)ioff];
-				sum += w5 * in_block1[(xi1 + 1)*3+(int)ioff];
+				CUM(sum, w3, in_block1[(xi1 - 1)*3+(int)ioff]);
+				CUM(sum, w4, in_block1[(xi1    )*3+(int)ioff]);
+				CUM(sum, w5, in_block1[(xi1 + 1)*3+(int)ioff]);
 
-				sum += w6 * in_block2[(xi1 - 1)*3+(int)ioff];
-				sum += w7 * in_block2[(xi1    )*3+(int)ioff];
-				sum += w8 * in_block2[(xi1 + 1)*3+(int)ioff];
+				CUM(sum, w6, in_block2[(xi1 - 1)*3+(int)ioff]);
+				CUM(sum, w7, in_block2[(xi1    )*3+(int)ioff]);
+				CUM(sum, w8, in_block2[(xi1 + 1)*3+(int)ioff]);
 
 				sum_buffer[lid] = sum;
 			}
@@ -761,17 +765,17 @@ filter_in128_out3(__global const float * __restrict__ packed_input,
 #define I128_O3(OI)							\
 		{							\
 			float sum = 0;					\
-			sum += w##OI##0 * lin00; \
-			sum += w##OI##1 * lin01;		\
-			sum += w##OI##2 * lin02; \
-									\
-			sum += w##OI##3 * lin10; \
-			sum += w##OI##4 * lin11;		\
-			sum += w##OI##5 * lin12; \
-									\
-			sum += w##OI##6 * lin20; \
-			sum += w##OI##7 * lin21;		\
-			sum += w##OI##8 * lin22; \
+			CUM(sum, w##OI##0, lin00);			\
+			CUM(sum, w##OI##1, lin01);		\
+			CUM(sum, w##OI##2, lin02); \
+						   \
+			CUM(sum, w##OI##3, lin10); \
+			CUM(sum, w##OI##4, lin11);		\
+			CUM(sum, w##OI##5, lin12); \
+						   \
+			CUM(sum, w##OI##6, lin20); \
+			CUM(sum, w##OI##7, lin21);		\
+			CUM(sum, w##OI##8, lin22);			\
 									\
 			barrier(CLK_LOCAL_MEM_FENCE);			\
 			sum_buffer[OI][lid] = sum;				\
@@ -959,15 +963,16 @@ filter(__global const float * __restrict__ packed_input,
 
 							__global char *w = ((__global char*)w0 + (ipIndex4 * 128) * 9);
 							UNROLL9(LOAD_COEF);
+
 #define CALC(IDX,Y,I0,I1,I2,I3,I4,I5,I6,I7)				\
-								intermediate_reg0 += w_##IDX * i##Y##I0; \
-								intermediate_reg1 += w_##IDX * i##Y##I1; \
-								intermediate_reg2 += w_##IDX * i##Y##I2; \
-								intermediate_reg3 += w_##IDX * i##Y##I3; \
-								intermediate_reg4 += w_##IDX * i##Y##I4; \
-								intermediate_reg5 += w_##IDX * i##Y##I5; \
-								intermediate_reg6 += w_##IDX * i##Y##I6; \
-								intermediate_reg7 += w_##IDX * i##Y##I7;
+							CUM(intermediate_reg0, w_##IDX, i##Y##I0); \
+							CUM(intermediate_reg1, w_##IDX, i##Y##I1); \
+							CUM(intermediate_reg2, w_##IDX, i##Y##I2); \
+							CUM(intermediate_reg3, w_##IDX, i##Y##I3); \
+							CUM(intermediate_reg4, w_##IDX, i##Y##I4); \
+							CUM(intermediate_reg5, w_##IDX, i##Y##I5); \
+							CUM(intermediate_reg6, w_##IDX, i##Y##I6); \
+							CUM(intermediate_reg7, w_##IDX, i##Y##I7);
 
 							{
 								CALC(0,0,0,1,2,3,4,5,6,7);
@@ -1097,17 +1102,17 @@ filter(__global const float * __restrict__ packed_input,
 							__global char *w = ((__global char*)w0 + (ipIndex4 * 128) * 9);
 
 							{
-								intermediate_reg0 += *(__global float*)(w + 0 * vec_width4) * i00;
-								intermediate_reg0 += *(__global float*)(w + 1 * vec_width4) * i01;
-								intermediate_reg0 += *(__global float*)(w + 2 * vec_width4) * i02;
+								CUM(intermediate_reg0, *(__global float*)(w + 0 * vec_width4), i00);
+								CUM(intermediate_reg0, *(__global float*)(w + 1 * vec_width4), i01);
+								CUM(intermediate_reg0, *(__global float*)(w + 2 * vec_width4), i02);
 
-								intermediate_reg0 += *(__global float*)(w + 3 * vec_width4) * i10;
-								intermediate_reg0 += *(__global float*)(w + 4 * vec_width4) * i11;
-								intermediate_reg0 += *(__global float*)(w + 5 * vec_width4) * i12;
+								CUM(intermediate_reg0, *(__global float*)(w + 3 * vec_width4), i10);
+								CUM(intermediate_reg0, *(__global float*)(w + 4 * vec_width4), i11);
+								CUM(intermediate_reg0, *(__global float*)(w + 5 * vec_width4), i12);
 
-								intermediate_reg0 += *(__global float*)(w + 6 * vec_width4) * i20;
-								intermediate_reg0 += *(__global float*)(w + 7 * vec_width4) * i21;
-								intermediate_reg0 += *(__global float*)(w + 8 * vec_width4) * i22;
+								CUM(intermediate_reg0, *(__global float*)(w + 6 * vec_width4), i20);
+								CUM(intermediate_reg0, *(__global float*)(w + 7 * vec_width4), i21);
+								CUM(intermediate_reg0, *(__global float*)(w + 8 * vec_width4), i22);
 							}
 						}
 

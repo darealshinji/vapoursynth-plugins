@@ -17,20 +17,14 @@ struct ComputeEnv {
     CUDADev *cuda_dev_list;
     double transfer_wait;
 
-    static const int HAVE_CPU_FMA = 1<<0;
-    static const int HAVE_CPU_AVX = 1<<1;
-    static const int HAVE_CPU_SSE3 = 1<<2;
-
-    int flags;
-
     unsigned int pref_block_size;
-
-    struct W2XConvProcessor target_processor;
 
 #if defined(_WIN32) || defined(__linux)
     w2xc::ThreadPool *tpool;
 #endif
     ComputeEnv();
 };
+
+extern void clearError(W2XConv *conv);
 
 #endif

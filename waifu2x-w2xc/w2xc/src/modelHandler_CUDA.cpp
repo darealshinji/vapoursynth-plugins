@@ -33,55 +33,85 @@ FOR_EACH_CUDA_FUNC(CUDA_DECL, CUDA_DECL)
 
 namespace w2xc {
 
-static int
-cudalib_init(void)
+void
+initCUDAGlobal(std::vector<W2XConvProcessor> *proc_list)
 {
 #ifdef _WIN32
 	handle = LoadLibrary("nvcuda.dll");
 #elif defined __APPLE__
 	handle = dlopen("libcuda.dylib", RTLD_LAZY);
 #define GetProcAddress dlsym
-
+#define FreeLibrary dlclose
 #else
 	handle = dlopen("libcuda.so.1", RTLD_LAZY);
 
 #define GetProcAddress dlsym
+#define FreeLibrary dlclose
 
 #endif
 	if (!handle) {
-		return -1;
+		return;
 	}
 
 #define LOAD(name)					\
 	name = (t##name) GetProcAddress(handle, #name); \
 	if (name == NULL) {				\
-		return -1;				\
+		FreeLibrary(handle);			\
+		handle = NULL;				\
+		return;					\
 	}
 
 #define LOAD_V2(name)					\
 	name = (t##name) GetProcAddress(handle, #name "_v2"); \
 	if (name == NULL) {				\
-		return -1;				\
+		FreeLibrary(handle);			\
+		handle = NULL;				\
+		return;					\
 	}
 
 	FOR_EACH_CUDA_FUNC(LOAD, LOAD_V2);
 
-	return 0;
-}
+	int dev_count;
+	struct W2XConvProcessor proc;
 
-bool
-initCUDA(ComputeEnv *env)
-{
-#ifdef HAVE_CUDA
-	if (cudalib_init() < 0) {
-		return false;
-	}
+	proc.type = W2XCONV_PROC_CUDA;
+	proc.sub_type = W2XCONV_PROC_CUDA_NVIDIA;
 
 	CUresult r = cuInit(0);
 	if (r != CUDA_SUCCESS) {
+		return;
+	}
+
+	r = cuDeviceGetCount(&dev_count);
+	if (r != CUDA_SUCCESS) {
+		return;
+	}
+
+	for (int di=0; di<dev_count; di++) {
+		char name[1024];
+		cuDeviceGetName(name, sizeof(name), di);
+		proc.dev_name = strdup(name);
+		proc.dev_id = di;
+
+		int attr;
+		cuDeviceGetAttribute(&attr, CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT, di);
+		proc.num_core = attr;
+
+		proc_list->push_back(proc);
+	}
+
+	return;
+}
+
+bool
+initCUDA(ComputeEnv *env, int dev_id)
+{
+#ifdef HAVE_CUDA
+	if (handle == NULL) {
 		return false;
 	}
 
+	CUresult r;
 	int dev_count;
 	cuDeviceGetCount(&dev_count);
 
@@ -254,9 +284,6 @@ finiCUDA(ComputeEnv *env)
 		cuCtxDestroy(d->context);
 	}
 }
-
-
-
 
 void
 filter_CUDA_impl(ComputeEnv *env,

@@ -11,6 +11,7 @@
 #include <iostream>
 #include <sstream>
 #include <fstream>
+#include <cstring>
 #include <string>
 #include <cmath>
 #include "tclap/CmdLine.h"
@@ -22,8 +23,66 @@
 #define DEFAULT_MODELS_DIRECTORY "models_rgb"
 #endif
 
+static void
+dump_procs()
+{
+	const W2XConvProcessor *procs;
+	int num_proc;
+	procs = w2xconv_get_processor_list(&num_proc);
+
+	for (int i=0; i<num_proc; i++) {
+		const W2XConvProcessor *p = &procs[i];
+		const char *type;
+		switch (p->type) {
+		case W2XCONV_PROC_HOST:
+			switch (p->sub_type) {
+			case W2XCONV_PROC_HOST_AVX:
+				type = "AVX";
+				break;
+			case W2XCONV_PROC_HOST_FMA:
+				type = "FMA";
+				break;
+			case W2XCONV_PROC_HOST_SSE3:
+				type = "SSE3";
+				break;
+			case W2XCONV_PROC_HOST_NEON:
+				type = "NEON";
+				break;
+			default:
+				type = "OpenCV";
+				break;
+			}
+			break;
+
+		case W2XCONV_PROC_CUDA:
+			type = "CUDA";
+			break;
+
+		case W2XCONV_PROC_OPENCL:
+			type = "OpenCL";
+			break;
+
+		default:
+			type = "??";
+			break;
+		}
+
+		printf("%4d: %-45s(%-10s): num_core=%d\n",
+		       i,
+		       p->dev_name,
+		       type,
+		       p->num_core);
+	}
+}
+
 int main(int argc, char** argv) {
 	int ret = 1;
+	for (int ai=1; ai<argc; ai++) {
+		if (strcmp(argv[ai], "--list-processor") == 0) {
+			dump_procs();
+			return 0;
+		}
+	}
 
 	// definition of command line arguments
 	TCLAP::CmdLine cmd("waifu2x reimplementation using OpenCV", ' ', "1.0.0");
@@ -62,6 +121,10 @@ int main(int argc, char** argv) {
 			"number of threads launching at the same time", false, 0, "integer",
 			cmd);
 
+	TCLAP::ValueArg<int> cmdTargetProcessor("", "processor",
+						"set target processor", false, -1, "integer",
+						cmd);
+
 	TCLAP::SwitchArg cmdForceOpenCL("", "force-OpenCL",
 					"force to use OpenCL on Intel Platform",
 					cmd, false);
@@ -70,6 +133,7 @@ int main(int argc, char** argv) {
 
 	TCLAP::ValueArg<int> cmdBlockSize("", "block_size", "block size",
 					  false, 0, "integer", cmd);
+	TCLAP::SwitchArg cmdListProcessor("", "list-processor", "dump processor list", cmd, false);
 
 	// definition of command line argument : end
 
@@ -82,6 +146,9 @@ int main(int argc, char** argv) {
 		std::exit(-1);
 	}
 
+	if (cmdListProcessor.getValue()) {
+		dump_procs();
+	}
 
 	std::string outputFileName = cmdOutputFile.getValue();
 	if (outputFileName == "(auto)") {
@@ -109,25 +176,36 @@ int main(int argc, char** argv) {
 		gpu = W2XCONV_GPU_FORCE_OPENCL;
 	}
 
-	W2XConv *converter = w2xconv_init(gpu,
-					  cmdNumberOfJobs.getValue(), 1);
+	W2XConv *converter;
+	int num_proc;
+	w2xconv_get_processor_list(&num_proc);
+	int proc = cmdTargetProcessor.getValue();
+
+	if (proc != -1 && proc < num_proc) {
+		converter = w2xconv_init_with_processor(proc,
+							cmdNumberOfJobs.getValue(),
+							1);
+	} else {
+		converter = w2xconv_init(gpu,
+					 cmdNumberOfJobs.getValue(), 1);
+	}
 
 	double time_start = getsec();
 
-	switch (converter->target_processor.type) {
+	switch (converter->target_processor->type) {
 	case W2XCONV_PROC_HOST:
 		printf("CPU: %s\n",
-		       converter->target_processor.dev_name);
+		       converter->target_processor->dev_name);
 		break;
 
 	case W2XCONV_PROC_CUDA:
 		printf("CUDA: %s\n",
-		       converter->target_processor.dev_name);
+		       converter->target_processor->dev_name);
 		break;
 
 	case W2XCONV_PROC_OPENCL:
 		printf("OpenCL: %s\n",
-		       converter->target_processor.dev_name);
+		       converter->target_processor->dev_name);
 		break;
 	}
 

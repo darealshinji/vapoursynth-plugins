@@ -14,9 +14,8 @@
 #include "modelHandler.hpp"
 #include "common.hpp"
 #include "w2xconv.h"
+#include "cvwrap.hpp"
 #include <memory>
-//#include "opencv2/opencv.hpp"
-//#include "opencv2/core/ocl.hpp" in modelHandler.hpp
 #include <vector>
 
 namespace w2xc {
@@ -33,9 +32,10 @@ enum image_format {
 /**
  * convert inputPlane to outputPlane by convoluting with models.
  */
-bool convertWithModels(ComputeEnv *env,
-                       cv::Mat &inputPlanes,
-                       cv::Mat &outputPlanes,
+bool convertWithModels(W2XConv *conv,
+                       ComputeEnv *env,
+                       W2Mat &inputPlanes,
+                       W2Mat &outputPlanes,
                        std::vector<std::unique_ptr<Model> > &models,
                        W2XConvFlopsCounter *flops,
                        int blockSize,

@@ -11,14 +11,15 @@
 #ifndef MODEL_HANDLER_HPP_
 #define MODEL_HANDLER_HPP_
 
-#include <opencv2/opencv.hpp>
-#include "picojson.h"
-#include "Buffer.hpp"
-#include "filters.hpp"
 #include <iostream>
 #include <memory>
 #include <cstdint>
 #include <cstdlib>
+#include "picojson.h"
+#include "Buffer.hpp"
+#include "filters.hpp"
+#include "w2xconv.h"
+#include "cvwrap.hpp"
 
 namespace w2xc {
 
@@ -27,7 +28,7 @@ class Model {
 private:
 	int nInputPlanes;
 	int nOutputPlanes;
-	std::vector<cv::Mat> weights;
+	std::vector<W2Mat> weights;
 	std::vector<double> biases;
 	int kernelSize;
 
@@ -39,26 +40,21 @@ private:
 	bool loadModelFromJSONObject(picojson::object& jsonObj);
 
 	// thread worker function
-	bool filterWorker(std::vector<cv::Mat> &inputPlanes,
-			std::vector<cv::Mat> &weightMatrices,
-			std::vector<cv::Mat> &outputPlanes, unsigned int beginningIndex,
-			unsigned int nWorks);
+	bool filterWorker(std::vector<W2Mat> &inputPlanes,
+			  std::vector<W2Mat> &weightMatrices,
+			  std::vector<W2Mat> &outputPlanes, unsigned int beginningIndex,
+			  unsigned int nWorks);
 
 	bool filter_CV(ComputeEnv *env,
 		       Buffer *packed_input,
 		       Buffer *packed_output,
-		       cv::Size size);
-	enum runtype {
-		RUN_CUDA,
-		RUN_OPENCL,
-		RUN_CPU
-	};
+		       const W2Size &size);
 
-	bool filter_AVX_OpenCL(ComputeEnv *env,
+	bool filter_AVX_OpenCL(W2XConv *conv,
+			       ComputeEnv *env,
 			       Buffer *packed_input,
                                Buffer *packed_output,
-                               cv::Size size,
-			       enum runtype rt);
+                               const W2Size &size);
 
 public:
 	// ctor and dtor
@@ -74,8 +70,6 @@ public:
 			std::exit(-1);
 		} // kH == kW
 
-		weights = std::vector<cv::Mat>(nInputPlanes * nOutputPlanes,
-				cv::Mat(kernelSize, kernelSize, CV_32FC1));
 		biases = std::vector<double>(nOutputPlanes, 0.0);
 
 		if (!loadModelFromJSONObject(jsonObj)) {
@@ -87,8 +81,11 @@ public:
 		}
 	}
 	Model(FILE *binfp);
+	Model(int nInputPlane,
+	      int nOutputPlane,
+	      const float *coef_list,
+	      const float *bias);
 
-	;
 	~Model() {
 	}
 
@@ -100,7 +97,7 @@ public:
 	int getNInputPlanes();
 	int getNOutputPlanes();
 
-	std::vector<cv::Mat> &getWeigts() {
+	std::vector<W2Mat> &getWeigts() {
 		return weights;
 	}
 	std::vector<double> &getBiases() {
@@ -109,10 +106,11 @@ public:
 	// setter function
 
 	// public operation function
-	bool filter(ComputeEnv *env,
+	bool filter(W2XConv *conv,
+		    ComputeEnv *env,
 		    Buffer *packed_input,
 		    Buffer *packed_output,
-		    cv::Size size);
+		    const W2Size &size);
 
 
 };
@@ -129,7 +127,15 @@ private:
 
 public:
 	static bool generateModelFromJSON(const std::string &fileName,
-			std::vector<std::unique_ptr<Model> > &models);
+					  std::vector<std::unique_ptr<Model> > &models);
+	static void generateModelFromMEM(int layer_depth,
+					 int num_input_plane,
+					 const int *num_map, // num_map[layer_depth]
+					 const float *coef_list, // coef_list[layer_depth][num_map][3x3]
+					 const float *bias, // bias[layer_depth][num_map]
+					 std::vector<std::unique_ptr<Model> > &models
+		);
+
 	static modelUtility& getInstance();
 	bool setNumberOfJobs(int setNJob);
 	int getNumberOfJobs();

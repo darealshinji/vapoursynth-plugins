@@ -2,141 +2,11 @@
 #include "params.h"
 #include <algorithm>
 #include <vector>
-#include <immintrin.h>
 
 namespace {
 
 #define BLOCK_SIZE_HOR 256
 #define BLOCK_SIZE_VER 16
-
-#ifdef HAVE_AVX
-
-typedef __m256 v256_t;
-
-#ifdef HAVE_FMA
-static inline __m256
-madd256(__m256 v0, __m256 v1, __m256 v2)
-{
-	return _mm256_fmadd_ps(v0, v1, v2);
-}
-#else
-
-static inline __m256
-madd256(__m256 v0, __m256 v1, __m256 v2)
-{
-	return _mm256_add_ps(_mm256_mul_ps(v0, v1), v2);
-}
-#endif
-
-#define load_broadcast _mm256_broadcast_ss
-#define load256 _mm256_load_ps
-#define store256 _mm256_store_ps
-#define add256 _mm256_add_ps
-#define max256 _mm256_max_ps
-#define min256 _mm256_min_ps
-#define zero _mm256_setzero_ps
-#define set1 _mm256_set1_ps
-#define mul256 _mm256_mul_ps
-
-static inline float
-hadd8(__m256 v)
-{
-	v = _mm256_hadd_ps(v, v);
-	v = _mm256_hadd_ps(v, v);
-
-	float v0 = _mm_cvtss_f32(_mm256_extractf128_ps(v,0));
-	float v1 = _mm_cvtss_f32(_mm256_extractf128_ps(v,1));
-
-	return v0 + v1;
-}
-
-
-#else
-
-struct v256_t {
-	__m128 v0, v1;
-};
-
-
-static inline ALWAYS_INLINE v256_t
-madd256(v256_t const &v0, v256_t const &v1, v256_t const &v2)
-{
-	v256_t ret;
-	ret.v0 = _mm_add_ps(_mm_mul_ps(v0.v0,v1.v0), v2.v0);
-	ret.v1 = _mm_add_ps(_mm_mul_ps(v0.v1,v1.v1), v2.v1);
-	return ret;
-}
-
-static inline v256_t
-load_broadcast(const float *p)
-{
-	v256_t ret;
-	ret.v0 = _mm_set1_ps(p[0]);
-	ret.v1 = _mm_set1_ps(p[0]);
-	return ret;
-}
-
-static inline v256_t
-load256(const float *p)
-{
-	v256_t ret;
-	ret.v0 = _mm_load_ps(p);
-	ret.v1 = _mm_load_ps(p+4);
-	return ret;
-}
-
-
-static inline void
-store256(float *p, v256_t const &v)
-{
-	_mm_storeu_ps(p, v.v0);
-	_mm_storeu_ps(p+4, v.v1);
-}
-
-static inline v256_t
-zero()
-{
-	v256_t ret;
-	ret.v0 = _mm_setzero_ps();
-	ret.v1 = _mm_setzero_ps();
-	return ret;
-}
-
-static inline v256_t
-set1(float a)
-{
-	v256_t ret;
-	ret.v0 = _mm_set1_ps(a);
-	ret.v1 = _mm_set1_ps(a);
-	return ret;
-}
-
-static inline float
-hadd8(v256_t const &v)
-{
-	__m128 sum4 = _mm_add_ps(v.v0, v.v1);
-	sum4 = _mm_hadd_ps(sum4, sum4);
-	sum4 = _mm_hadd_ps(sum4, sum4);
-	return _mm_cvtss_f32(sum4);
-}
-
-#define SSE_GEN_BINARY(func_name, intrin_name)	\
-static inline v256_t				\
-func_name(v256_t const &a, v256_t const &b)			\
-{						\
-	v256_t ret;				\
-	ret.v0 = intrin_name(a.v0, b.v0);	\
-	ret.v1 = intrin_name(a.v1, b.v1);	\
-	return ret;				\
-}
-
-SSE_GEN_BINARY(add256, _mm_add_ps)
-SSE_GEN_BINARY(mul256, _mm_mul_ps)
-SSE_GEN_BINARY(max256, _mm_max_ps)
-SSE_GEN_BINARY(min256, _mm_min_ps)
-
-#endif
-
 
 template <bool border, bool ip0>
 static void
@@ -226,7 +96,7 @@ apply_filter(unsigned long xi, unsigned long wsz,
 		if (ip0) {
 			store256(&intermediate0[opIndex+0], v00);
 			store256(&intermediate1[opIndex+0], v01);
-		} else {					\
+		} else {
 			v256_t prev00 = load256(&intermediate0[opIndex+0]);
 			v256_t prev01 = load256(&intermediate1[opIndex+0]);
 
@@ -634,13 +504,13 @@ filter_AVX_impl0(ComputeEnv *env,
 	std::atomic<unsigned int> block_counter(0U);
 
 	auto func = [&]() {
-		float *intermediate = (float*)_mm_malloc(sizeof(float)*nOutputPlanes*2, 64);
+		float *intermediate = (float*)w2xc_aligned_malloc(sizeof(float)*nOutputPlanes*2, 64);
 
 		while (1) {
 			unsigned int bi = block_counter++;
 
 			if (bi >= total_block) {
-				_mm_free(intermediate);
+				w2xc_aligned_free(intermediate);
 				return;
 			}
 
