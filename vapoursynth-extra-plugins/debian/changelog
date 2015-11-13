@@ -1,3 +1,9 @@
+vapoursynth-extra-plugins (20151113-1~trusty) trusty; urgency=low
+
+  * Updates: KNLMeansCL, mvsfunc, vsTAAmbk
+
+ -- Marshall Banana <djcj@gmx.de>  Fri, 13 Nov 2015 14:25:43 +0100
+
 vapoursynth-extra-plugins (20151102-2~trusty) trusty; urgency=low
 
   * Build awarpsharp2 with -DAWARPSHARP2_X86
