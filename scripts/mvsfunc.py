@@ -1,6 +1,6 @@
 ################################################################################################################################
 ## mvsfunc - mawen1250's VapourSynth functions
-## 2015.10
+## 2015.11
 ################################################################################################################################
 ## Requirments:
 ##     fmtconv
@@ -13,6 +13,13 @@
 ##     ToYUV
 ##     BM3D
 ################################################################################################################################
+## Runtime functions:
+##     PlaneStatistics
+##     PlaneCompare
+##     ShowAverage
+##     FilterIf
+##     FilterCombed
+################################################################################################################################
 ## Utility functions:
 ##     Min
 ##     Max
@@ -20,10 +27,6 @@
 ##     MinFilter
 ##     MaxFilter
 ##     LimitFilter
-##     PlaneStatistics
-##     PlaneCompare
-##     ShowAverage
-##     FilterCombed
 ##     PointPower
 ################################################################################################################################
 ## Frame property functions:
@@ -1006,6 +1009,408 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
 ################################################################################################################################
 ################################################################################################################################
 ################################################################################################################################
+## Runtime functions below
+################################################################################################################################
+################################################################################################################################
+################################################################################################################################
+
+
+################################################################################################################################
+## Runtime function: PlaneStatistics()
+################################################################################################################################
+## Calculate statistics of specific plane and store them as frame properties
+## All the values are normalized (float that the peak-to-peak value is 1)
+## Supported statistics:
+##     mean: stored as frame property 'PlaneMean'
+##     mean absolute deviation: stored as frame property 'PlaneMAD'
+##     variance: stored as frame property 'PlaneVar'
+##     standard deviation: stored as frame property 'PlaneSTD'
+##     root mean square: stored as frame property 'PlaneRMS'
+################################################################################################################################
+## Basic parameters
+##     clip {clip}: clip to be evaluated
+##         can be of YUV/RGB/Gray/YCoCg color family, can be of 8-16 bit integer or 32 bit float
+##     plane {int}: specify which plane to evaluate
+##         default: 0
+##     mean {bool}: whether to calculate mean
+##         default: True
+##     mad {bool}: whether to calculate mean absolute deviation
+##         default: True
+##     var {bool}: whether to calculate variance
+##         default: True
+##     std {bool}: whether to calculate standard deviation
+##         default: True
+##     rms {bool}: whether to calculate root mean square
+##         default: True
+################################################################################################################################
+def PlaneStatistics(clip, plane=None, mean=True, mad=True, var=True, std=True, rms=True):
+    # Set VS core and function name
+    core = vs.get_core()
+    funcName = 'PlaneStatistics'
+    
+    if not isinstance(clip, vs.VideoNode):
+        raise TypeError(funcName + ': \"clip\" must be a clip!')
+    
+    # Get properties of input clip
+    sFormat = clip.format
+    
+    sSType = sFormat.sample_type
+    sbitPS = sFormat.bits_per_sample
+    sNumPlanes = sFormat.num_planes
+    
+    valueRange = (1 << sbitPS) - 1 if sSType == vs.INTEGER else 1
+    
+    # Parameters
+    if plane is None:
+        plane = 0
+    elif not isinstance(plane, int):
+        raise TypeError(funcName + ': \"plane\" must be an int!')
+    elif plane < 0 or plane > sNumPlanes:
+        raise ValueError(funcName + ': valid range of \"plane\" is [0, sNumPlanes)!'.format(sNumPlanes=sNumPlanes))
+    
+    floatFormat = core.register_format(vs.GRAY, vs.FLOAT, 32, 0, 0)
+    floatBlk = core.std.BlankClip(clip, format=floatFormat.id)
+    
+    clipPlane = GetPlane(clip, plane)
+    
+    # Plane Mean
+    clip = core.std.PlaneAverage(clip, plane, "PlaneMean")
+    
+    # Plane MAD (mean absolute deviation)
+    if mad:
+        '''# always float precision
+        def _PlaneADFrame(n, f, clip):
+            mean = f.props.PlaneMean
+            expr = "x {gain} * {mean} - abs".format(gain=1 / valueRange, mean=mean)
+            return core.std.Expr(clip, expr, floatFormat.id)
+        ADclip = core.std.FrameEval(floatBlk, functools.partial(_PlaneADFrame, clip=clipPlane), clip)'''
+        def _PlaneADFrame(n, f, clip):
+            mean = f.props.PlaneMean * valueRange
+            expr = "x {mean} - abs".format(mean=mean)
+            return core.std.Expr(clip, expr)
+        ADclip = core.std.FrameEval(clipPlane, functools.partial(_PlaneADFrame, clip=clipPlane), clip)
+        ADclip = core.std.PlaneAverage(ADclip, 0, "PlaneMAD")
+        
+        def _PlaneMADTransfer(n, f):
+            fout = f[0].copy()
+            fout.props.PlaneMAD = f[1].props.PlaneMAD
+            return fout
+        clip = core.std.ModifyFrame(clip, [clip, ADclip], selector=_PlaneMADTransfer)
+    
+    # Plane Var (variance) and STD (standard deviation)
+    if var or std:
+        def _PlaneSDFrame(n, f, clip):
+            mean = f.props.PlaneMean * valueRange
+            expr = "x {mean} - dup *".format(mean=mean)
+            return core.std.Expr(clip, expr, floatFormat.id)
+        SDclip = core.std.FrameEval(floatBlk, functools.partial(_PlaneSDFrame, clip=clipPlane), clip)
+        SDclip = core.std.PlaneAverage(SDclip, 0, "PlaneVar")
+        
+        def _PlaneVarSTDTransfer(n, f):
+            fout = f[0].copy()
+            if var:
+                fout.props.PlaneVar = f[1].props.PlaneVar / (valueRange * valueRange)
+            if std:
+                fout.props.PlaneSTD = math.sqrt(f[1].props.PlaneVar) / valueRange
+            return fout
+        clip = core.std.ModifyFrame(clip, [clip, SDclip], selector=_PlaneVarSTDTransfer)
+    
+    # Plane RMS (root mean square)
+    if rms:
+        expr = "x x *"
+        squareClip = core.std.Expr(clipPlane, expr, floatFormat.id)
+        squareClip = core.std.PlaneAverage(squareClip, 0, "PlaneMS")
+        
+        def _PlaneRMSTransfer(n, f):
+            fout = f[0].copy()
+            fout.props.PlaneRMS = math.sqrt(f[1].props.PlaneMS) / valueRange
+            return fout
+        clip = core.std.ModifyFrame(clip, [clip, squareClip], selector=_PlaneRMSTransfer)
+    
+    # Delete frame property "PlaneMean" if not needed
+    if not mean:
+        clip = core.std.SetFrameProp(clip, "PlaneMean", delete=True)
+    
+    # Output
+    return clip
+################################################################################################################################
+
+
+################################################################################################################################
+## Runtime function: PlaneCompare()
+################################################################################################################################
+## Compare specific plane of 2 clips and store the statistical results as frame properties
+## All the values are normalized (float of which the peak-to-peak value is 1) except PSNR
+## Supported statistics:
+##     mean absolute error: stored as frame property 'PlaneMAE', aka L1 distance
+##     root of mean squared error: stored as frame property 'PlaneRMSE', aka L2 distance(Euclidean distance)
+##     peak signal-to-noise ratio: stored as frame property 'PlanePSNR', maximum value is 100.0 (when 2 planes are identical)
+##     covariance: stored as frame property 'PlaneCov'
+##     correlation: stored as frame property 'PlaneCorr'
+################################################################################################################################
+## Basic parameters
+##     clip1 {clip}: the first clip to be evaluated, will be copied to output
+##         can be of YUV/RGB/Gray/YCoCg color family, can be of 8-16 bit integer or 32 bit float
+##     clip2 {clip}: the second clip, to be compared with the first one
+##         must be of the same format and dimension as the "clip1"
+##     plane {int}: specify which plane to evaluate
+##         default: 0
+##     mae {bool}: whether to calculate mean absolute error
+##         default: True
+##     rmse {bool}: whether to calculate root of mean squared error
+##         default: True
+##     psnr {bool}: whether to calculate peak signal-to-noise ratio
+##         default: True
+##     cov {bool}: whether to calculate covariance
+##         default: True
+##     corr {bool}: whether to calculate correlation
+##         default: True
+################################################################################################################################
+def PlaneCompare(clip1, clip2, plane=None, mae=True, rmse=True, psnr=True, cov=True, corr=True):
+    # Set VS core and function name
+    core = vs.get_core()
+    funcName = 'PlaneCompare'
+    
+    if not isinstance(clip1, vs.VideoNode):
+        raise TypeError(funcName + ': \"clip1\" must be a clip!')
+    if not isinstance(clip2, vs.VideoNode):
+        raise TypeError(funcName + ': \"clip2\" must be a clip!')
+    
+    # Get properties of input clip
+    sFormat = clip1.format
+    if sFormat.id != clip2.format.id:
+        raise ValueError(funcName + ': \"clip1\" and \"clip2\" must be of the same format!')
+    if clip1.width != clip2.width or clip1.height != clip2.height:
+        raise ValueError(funcName + ': \"clip1\" and \"clip2\" must be of the same width and height!')
+    
+    sSType = sFormat.sample_type
+    sbitPS = sFormat.bits_per_sample
+    sNumPlanes = sFormat.num_planes
+    
+    valueRange = (1 << sbitPS) - 1 if sSType == vs.INTEGER else 1
+    
+    # Parameters
+    if plane is None:
+        plane = 0
+    elif not isinstance(plane, int):
+        raise TypeError(funcName + ': \"plane\" must be an int!')
+    elif plane < 0 or plane > sNumPlanes:
+        raise ValueError(funcName + ': valid range of \"plane\" is [0, sNumPlanes)!'.format(sNumPlanes=sNumPlanes))
+    
+    floatFormat = core.register_format(vs.GRAY, vs.FLOAT, 32, 0, 0)
+    floatBlk = core.std.BlankClip(clip1, format=floatFormat.id)
+    
+    clip1Plane = GetPlane(clip1, plane)
+    clip2Plane = GetPlane(clip2, plane)
+    
+    # Plane MAE (mean absolute error)
+    if mae:
+        expr = "x y - abs"
+        ADclip = core.std.Expr([clip1Plane, clip2Plane], expr, floatFormat.id)
+        ADclip = core.std.PlaneAverage(ADclip, 0, "PlaneMAE")
+        
+        def _PlaneMAETransfer(n, f):
+            fout = f[0].copy()
+            fout.props.PlaneMAE = f[1].props.PlaneMAE / valueRange
+            return fout
+        clip1 = core.std.ModifyFrame(clip1, [clip1, ADclip], selector=_PlaneMAETransfer)
+    
+    # Plane RMSE (root of mean squared error) and PSNR (peak signal-to-noise ratio)
+    if rmse or psnr:
+        expr = "x y - dup *"
+        SDclip = core.std.Expr([clip1Plane, clip2Plane], expr, floatFormat.id)
+        SDclip = core.std.PlaneAverage(SDclip, 0, "PlaneMSE")
+        
+        def _PlaneRMSEnPSNRTransfer(n, f):
+            fout = f[0].copy()
+            if rmse:
+                fout.props.PlaneRMSE = math.sqrt(f[1].props.PlaneMSE) / valueRange
+            if psnr:
+                fout.props.PlanePSNR = min(10 * math.log(valueRange * valueRange / f[1].props.PlaneMSE, 10), 99.99999999999999) if f[1].props.PlaneMSE > 0 else 100.0
+            return fout
+        clip1 = core.std.ModifyFrame(clip1, [clip1, SDclip], selector=_PlaneRMSEnPSNRTransfer)
+    
+    # Plane Cov (covariance) and Corr (correlation)
+    if cov or corr:
+        clip1Mean = core.std.PlaneAverage(clip1Plane, 0, "PlaneMean")
+        clip2Mean = core.std.PlaneAverage(clip2Plane, 0, "PlaneMean")
+        
+        def _PlaneCoDFrame(n, f, clip1, clip2):
+            mean1 = f[0].props.PlaneMean * valueRange
+            mean2 = f[1].props.PlaneMean * valueRange
+            expr = "x {mean1} - y {mean2} - *".format(mean1=mean1, mean2=mean2)
+            return core.std.Expr([clip1, clip2], expr, floatFormat.id)
+        CoDclip = core.std.FrameEval(floatBlk, functools.partial(_PlaneCoDFrame, clip1=clip1Plane, clip2=clip2Plane), [clip1Mean, clip2Mean])
+        CoDclip = core.std.PlaneAverage(CoDclip, 0, "PlaneCov")
+        clips = [clip1, CoDclip]
+        
+        if corr:
+            def _PlaneSDFrame(n, f, clip):
+                mean = f.props.PlaneMean * valueRange
+                expr = "x {mean} - dup *".format(mean=mean)
+                return core.std.Expr(clip, expr, floatFormat.id)
+            SDclip1 = core.std.FrameEval(floatBlk, functools.partial(_PlaneSDFrame, clip=clip1Plane), clip1Mean)
+            SDclip2 = core.std.FrameEval(floatBlk, functools.partial(_PlaneSDFrame, clip=clip2Plane), clip2Mean)
+            SDclip1 = core.std.PlaneAverage(SDclip1, 0, "PlaneVar")
+            SDclip2 = core.std.PlaneAverage(SDclip2, 0, "PlaneVar")
+            clips.append(SDclip1)
+            clips.append(SDclip2)
+        
+        def _PlaneCovTransfer(n, f):
+            fout = f[0].copy()
+            if cov:
+                fout.props.PlaneCov = f[1].props.PlaneCov / (valueRange * valueRange)
+            if corr:
+                std1std2 = math.sqrt(f[2].props.PlaneVar * f[3].props.PlaneVar)
+                fout.props.PlaneCorr = f[1].props.PlaneCov / std1std2 if std1std2 > 0 else float("inf")
+            return fout
+        clip1 = core.std.ModifyFrame(clip1, clips, selector=_PlaneCovTransfer)
+    
+    # Output
+    return clip1
+################################################################################################################################
+
+
+################################################################################################################################
+## Runtime function: ShowAverage()
+################################################################################################################################
+## Display unnormalized average of each plane
+################################################################################################################################
+## Basic parameters
+##     clip {clip}: clip to be evaluated
+##         can be of YUV/RGB/Gray/YCoCg color family, can be of 8-16 bit integer or 16/32 bit float
+################################################################################################################################
+## Advanced parameters
+##     alignment {int}: same as the one in text.Text()
+##         default: 7
+################################################################################################################################
+def ShowAverage(clip, alignment=None):
+    # Set VS core and function name
+    core = vs.get_core()
+    funcName = 'ShowAverage'
+    
+    if not isinstance(clip, vs.VideoNode):
+        raise TypeError(funcName + ': \"clip\" must be a clip!')
+    
+    # Get properties of input clip
+    sFormat = clip.format
+    
+    sColorFamily = sFormat.color_family
+    sIsYUV = sColorFamily == vs.YUV
+    sIsYCOCG = sColorFamily == vs.YCOCG
+    
+    sSType = sFormat.sample_type
+    sbitPS = sFormat.bits_per_sample
+    sNumPlanes = sFormat.num_planes
+    
+    valueRange = (1 << sbitPS) - 1 if sSType == vs.INTEGER else 1
+    offset = [0, -0.5, -0.5] if sSType == vs.FLOAT and (sIsYUV or sIsYCOCG) else [0, 0, 0]
+    
+    # Process and output
+    def _ShowAverageFrame(n, f):
+        text = ""
+        if sNumPlanes == 1:
+            average = f.props.PlaneAverage * valueRange + offset[0]
+            text += "PlaneAverage[{plane}]={average}".format(plane=0, average=average)
+        else:
+            for p in range(sNumPlanes):
+                average = f[p].props.PlaneAverage * valueRange + offset[p]
+                text += "PlaneAverage[{plane}]={average}\n".format(plane=p, average=average)
+        return core.text.Text(clip, text, alignment)
+    
+    avg = []
+    for p in range(sNumPlanes):
+        avg.append(core.std.PlaneAverage(clip, p))
+    
+    return core.std.FrameEval(clip, _ShowAverageFrame, prop_src=avg)
+################################################################################################################################
+
+
+################################################################################################################################
+## Runtime function: FilterIf()
+################################################################################################################################
+## Take the frames from clip "flt" that is marked to be filtered and the ones from clip "src" that is not.
+## An arbitrary frame property named "prop_name" from clip "props" is evaluated to determine whether it should be filtered.
+################################################################################################################################
+## Basic parameters
+##     src {clip}: the source clip
+##         can be of any constant format
+##     flt {clip}: the filtered clip
+##         must be of the same format and dimension as "src"
+##     prop_name {str} (mandatory): the frame property to be evaluated
+##         for each frame, if this property exists and is True, then take the frame from "flt", otherwise take the one from "src"
+##     props {clip} (optional): the clip from which the frame property is evaluated
+##         can be of any format, should have the same number of frames as "src"
+##         default: None (use "src")
+################################################################################################################################
+def FilterIf(src, flt, prop_name, props=None):
+    # Set VS core and function name
+    core = vs.get_core()
+    funcName = 'FilterIf'
+    
+    if not isinstance(src, vs.VideoNode):
+        raise TypeError(funcName + ': \"src\" must be a clip!')
+    if not isinstance(flt, vs.VideoNode):
+        raise TypeError(funcName + ': \"flt\" must be a clip!')
+    if props is not None and not isinstance(props, vs.VideoNode):
+        raise TypeError(funcName + ': \"props\" must be a clip!')
+    
+    # Get properties of input clip
+    sFormat = src.format
+    if sFormat.id != flt.format.id:
+        raise ValueError(funcName + ': \"src\" and \"flt\" must be of the same format!')
+    if src.width != flt.width or src.height != flt.height:
+        raise ValueError(funcName + ': \"src\" and \"flt\" must be of the same width and height!')
+    
+    if prop_name is None or not isinstance(prop_name, str):
+        raise TypeError(funcName + ': \"prop_name\" must be specified and must be a str!')
+    else:
+        prop_name = _check_arg_prop(prop_name, None, None, 'prop_name', funcName)
+    
+    if props is None:
+        props = src
+    
+    # FrameEval function
+    def _FilterIfFrame(n, f):
+        try:
+            if f.props.__getattr__(prop_name):
+                return flt
+        except KeyError:
+            pass
+        return src
+    
+    # Process
+    return core.std.FrameEval(src, _FilterIfFrame, props)
+################################################################################################################################
+
+
+################################################################################################################################
+## Runtime function: FilterCombed()
+################################################################################################################################
+## Take the frames from clip "flt" that is marked as combed and the ones from clip "src" that is not.
+## The frame property '_Combed' from clip "props" is evaluated to determine whether it's combed.
+## This function is an instantiation of FilterIf()
+################################################################################################################################
+## Basic parameters
+##     src {clip}: the source clip
+##         can be of any constant format
+##     flt {clip}: the filtered clip (de-interlaced)
+##         must be of the same format and dimension as "src"
+##     props {clip} (optional): the clip from which the frame property is evaluated
+##         can be of any format, should have the same number of frames as "src"
+##         default: None (use "src")
+################################################################################################################################
+def FilterCombed(src, flt, props=None):
+    return FilterIf(src, flt, '_Combed', props)
+################################################################################################################################
+
+
+
+
+
+################################################################################################################################
+################################################################################################################################
+################################################################################################################################
 ## Utility functions below
 ################################################################################################################################
 ################################################################################################################################
@@ -1034,7 +1439,7 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
 ##         default: 1 << (bits_per_sample - 1) for integer input, 0 for float input
 ################################################################################################################################
 def Min(clip1, clip2, mode=None, neutral=None):
-    return _Operator2(clip1, clip2, mode, neutral, 'Min')
+    return _operator2(clip1, clip2, mode, neutral, 'Min')
 ################################################################################################################################
 
 
@@ -1060,7 +1465,7 @@ def Min(clip1, clip2, mode=None, neutral=None):
 ##         default: 1 << (bits_per_sample - 1) for integer input, 0 for float input
 ################################################################################################################################
 def Max(clip1, clip2, mode=None, neutral=None):
-    return _Operator2(clip1, clip2, mode, neutral, 'Max')
+    return _operator2(clip1, clip2, mode, neutral, 'Max')
 ################################################################################################################################
 
 
@@ -1080,7 +1485,7 @@ def Max(clip1, clip2, mode=None, neutral=None):
 ##         default: [1,1,1] for YUV/RGB/YCoCg input, [1] for Gray input
 ################################################################################################################################
 def Avg(clip1, clip2, mode=None):
-    return _Operator2(clip1, clip2, mode, None, 'Avg')
+    return _operator2(clip1, clip2, mode, None, 'Avg')
 ################################################################################################################################
 
 
@@ -1101,7 +1506,7 @@ def Avg(clip1, clip2, mode=None):
 ##         default: all planes will be processed, [0,1,2] for YUV/RGB/YCoCg input, [0] for Gray input
 ################################################################################################################################
 def MinFilter(src, flt1, flt2, planes=None):
-    return _Min_Max_Filter(src, flt1, flt2, planes, 'MinFilter')
+    return _min_max_filter(src, flt1, flt2, planes, 'MinFilter')
 ################################################################################################################################
 
 
@@ -1122,7 +1527,7 @@ def MinFilter(src, flt1, flt2, planes=None):
 ##         default: all planes will be processed, [0,1,2] for YUV/RGB/YCoCg input, [0] for Gray input
 ################################################################################################################################
 def MaxFilter(src, flt1, flt2, planes=None):
-    return _Min_Max_Filter(src, flt1, flt2, planes, 'MaxFilter')
+    return _min_max_filter(src, flt1, flt2, planes, 'MaxFilter')
 ################################################################################################################################
 
 
@@ -1294,8 +1699,8 @@ def LimitFilter(flt, src, ref=None, thr=None, elast=None, brighten_thr=None, thr
     
     if force_expr: # implementation with std.Expr
         valueRange = (1 << sbitPS) - 1 if sSType == vs.INTEGER else 1
-        limitExprY = _LimitFilterExpr(ref is not None, thr, elast, brighten_thr, valueRange)
-        limitExprC = _LimitFilterExpr(ref is not None, thrc, elast, thrc, valueRange)
+        limitExprY = _limit_filter_expr(ref is not None, thr, elast, brighten_thr, valueRange)
+        limitExprC = _limit_filter_expr(ref is not None, thrc, elast, thrc, valueRange)
         expr = []
         for i in range(sNumPlanes):
             if process[i]:
@@ -1314,387 +1719,20 @@ def LimitFilter(flt, src, ref=None, thr=None, elast=None, brighten_thr=None, thr
         diff = core.std.MakeDiff(flt, src, planes=planes)
         if sIsYUV or sIsYCOCG:
             if process[0]:
-                diff = _LimitDiffLut(diff, thr, elast, brighten_thr, [0])
+                diff = _limit_diff_lut(diff, thr, elast, brighten_thr, [0])
             if process[1] or process[2]:
                 _planes = []
                 if process[1]:
                     _planes.append(1)
                 if process[2]:
                     _planes.append(2)
-                diff = _LimitDiffLut(diff, thrc, elast, thrc, [1, 2])
+                diff = _limit_diff_lut(diff, thrc, elast, thrc, [1, 2])
         else:
-            diff = _LimitDiffLut(diff, thr, elast, brighten_thr, planes)
+            diff = _limit_diff_lut(diff, thr, elast, brighten_thr, planes)
         clip = core.std.MakeDiff(flt, diff, planes=planes)
     
     # Output
     return clip
-################################################################################################################################
-
-
-################################################################################################################################
-## Utility function: PlaneStatistics()
-################################################################################################################################
-## Calculate statistics of specific plane and store them as frame properties
-## All the values are normalized (float that the peak-to-peak value is 1)
-## Supported statistics:
-##     mean: stored as frame property 'PlaneMean'
-##     mean absolute deviation: stored as frame property 'PlaneMAD'
-##     variance: stored as frame property 'PlaneVar'
-##     standard deviation: stored as frame property 'PlaneSTD'
-##     root mean square: stored as frame property 'PlaneRMS'
-################################################################################################################################
-## Basic parameters
-##     clip {clip}: clip to be evaluated
-##         can be of YUV/RGB/Gray/YCoCg color family, can be of 8-16 bit integer or 32 bit float
-##     plane {int}: specify which plane to evaluate
-##         default: 0
-##     mean {bool}: whether to calculate mean
-##         default: True
-##     mad {bool}: whether to calculate mean absolute deviation
-##         default: True
-##     var {bool}: whether to calculate variance
-##         default: True
-##     std {bool}: whether to calculate standard deviation
-##         default: True
-##     rms {bool}: whether to calculate root mean square
-##         default: True
-################################################################################################################################
-def PlaneStatistics(clip, plane=None, mean=True, mad=True, var=True, std=True, rms=True):
-    # Set VS core and function name
-    core = vs.get_core()
-    funcName = 'PlaneStatistics'
-    
-    if not isinstance(clip, vs.VideoNode):
-        raise TypeError(funcName + ': \"clip\" must be a clip!')
-    
-    # Get properties of input clip
-    sFormat = clip.format
-    
-    sSType = sFormat.sample_type
-    sbitPS = sFormat.bits_per_sample
-    sNumPlanes = sFormat.num_planes
-    
-    valueRange = (1 << sbitPS) - 1 if sSType == vs.INTEGER else 1
-    
-    # Parameters
-    if plane is None:
-        plane = 0
-    elif not isinstance(plane, int):
-        raise TypeError(funcName + ': \"plane\" must be an int!')
-    elif plane < 0 or plane > sNumPlanes:
-        raise ValueError(funcName + ': valid range of \"plane\" is [0, sNumPlanes)!'.format(sNumPlanes=sNumPlanes))
-    
-    floatFormat = core.register_format(vs.GRAY, vs.FLOAT, 32, 0, 0)
-    floatBlk = core.std.BlankClip(clip, format=floatFormat.id)
-    
-    clipPlane = GetPlane(clip, plane)
-    
-    # Plane Mean
-    clip = core.std.PlaneAverage(clip, plane, "PlaneMean")
-    
-    # Plane MAD (mean absolute deviation)
-    if mad:
-        '''# always float precision
-        def _PlaneADFrame(n, f, clip):
-            mean = f.props.PlaneMean
-            expr = "x {gain} * {mean} - abs".format(gain=1 / valueRange, mean=mean)
-            return core.std.Expr(clip, expr, floatFormat.id)
-        ADclip = core.std.FrameEval(floatBlk, functools.partial(_PlaneADFrame, clip=GetPlane(clip, plane)), clip)'''
-        def _PlaneADFrame(n, f, clip):
-            mean = f.props.PlaneMean * valueRange
-            expr = "x {mean} - abs".format(mean=mean)
-            return core.std.Expr(clip, expr)
-        ADclip = core.std.FrameEval(clipPlane, functools.partial(_PlaneADFrame, clip=clipPlane), clip)
-        ADclip = core.std.PlaneAverage(ADclip, 0, "PlaneMAD")
-        
-        def _PlaneMADTransfer(n, f):
-            fout = f[0].copy()
-            fout.props.PlaneMAD = f[1].props.PlaneMAD
-            return fout
-        clip = core.std.ModifyFrame(clip, [clip, ADclip], selector=_PlaneMADTransfer)
-    
-    # Plane Var (variance) and STD (standard deviation)
-    if var or std:
-        def _PlaneSDFrame(n, f, clip):
-            mean = f.props.PlaneMean * valueRange
-            expr = "x {mean} - dup *".format(mean=mean)
-            return core.std.Expr(clip, expr, floatFormat.id)
-        SDclip = core.std.FrameEval(floatBlk, functools.partial(_PlaneSDFrame, clip=clipPlane), clip)
-        SDclip = core.std.PlaneAverage(SDclip, 0, "PlaneVar")
-        
-        def _PlaneVarSTDTransfer(n, f):
-            fout = f[0].copy()
-            if var:
-                fout.props.PlaneVar = f[1].props.PlaneVar / (valueRange * valueRange)
-            if std:
-                fout.props.PlaneSTD = math.sqrt(f[1].props.PlaneVar) / valueRange
-            return fout
-        clip = core.std.ModifyFrame(clip, [clip, SDclip], selector=_PlaneVarSTDTransfer)
-    
-    # Plane RMS (root mean square)
-    if rms:
-        expr = "x x *"
-        squareClip = core.std.Expr(clipPlane, expr, floatFormat.id)
-        squareClip = core.std.PlaneAverage(squareClip, 0, "PlaneMS")
-        
-        def _PlaneRMSTransfer(n, f):
-            fout = f[0].copy()
-            fout.props.PlaneRMS = math.sqrt(f[1].props.PlaneMS) / valueRange
-            return fout
-        clip = core.std.ModifyFrame(clip, [clip, squareClip], selector=_PlaneRMSTransfer)
-    
-    # Delete frame property "PlaneMean" if not needed
-    if not mean:
-        clip = core.std.SetFrameProp(clip, "PlaneMean", delete=True)
-    
-    # Output
-    return clip
-################################################################################################################################
-
-
-################################################################################################################################
-## Utility function: PlaneCompare()
-################################################################################################################################
-## Compare specific plane of 2 clips and store the statistical results as frame properties
-## All the values are normalized (float of which the peak-to-peak value is 1) except PSNR
-## Supported statistics:
-##     mean absolute difference: stored as frame property 'PlaneMD'
-##     mean squared error: stored as frame property 'PlaneMSE'
-##     peak signal-to-noise ratio: stored as frame property 'PlanePSNR', maximum value is 100.0 (when 2 planes are identical)
-##     covariance: stored as frame property 'PlaneCov'
-##     correlation: stored as frame property 'PlaneCorr'
-################################################################################################################################
-## Basic parameters
-##     clip1 {clip}: the first clip to be evaluated, will be copied to output
-##         can be of YUV/RGB/Gray/YCoCg color family, can be of 8-16 bit integer or 32 bit float
-##     clip2 {clip}: the second clip, to be compared with the first one
-##         must be of the same format and dimension as the "clip1"
-##     plane {int}: specify which plane to evaluate
-##         default: 0
-##     md {bool}: whether to calculate mean absolute difference
-##         default: True
-##     mse {bool}: whether to calculate mean squared error
-##         default: True
-##     psnr {bool}: whether to calculate peak signal-to-noise ratio
-##         default: True
-##     cov {bool}: whether to calculate covariance
-##         default: True
-##     corr {bool}: whether to calculate correlation
-##         default: True
-################################################################################################################################
-def PlaneCompare(clip1, clip2, plane=None, md=True, mse=True, psnr=True, cov=True, corr=True):
-    # Set VS core and function name
-    core = vs.get_core()
-    funcName = 'PlaneCompare'
-    
-    if not isinstance(clip1, vs.VideoNode):
-        raise TypeError(funcName + ': \"clip1\" must be a clip!')
-    if not isinstance(clip2, vs.VideoNode):
-        raise TypeError(funcName + ': \"clip2\" must be a clip!')
-    
-    # Get properties of input clip
-    sFormat = clip1.format
-    if sFormat.id != clip2.format.id:
-        raise ValueError(funcName + ': \"clip1\" and \"clip2\" must be of the same format!')
-    if clip1.width != clip2.width or clip1.height != clip2.height:
-        raise ValueError(funcName + ': \"clip1\" and \"clip2\" must be of the same width and height!')
-    
-    sSType = sFormat.sample_type
-    sbitPS = sFormat.bits_per_sample
-    sNumPlanes = sFormat.num_planes
-    
-    valueRange = (1 << sbitPS) - 1 if sSType == vs.INTEGER else 1
-    
-    # Parameters
-    if plane is None:
-        plane = 0
-    elif not isinstance(plane, int):
-        raise TypeError(funcName + ': \"plane\" must be an int!')
-    elif plane < 0 or plane > sNumPlanes:
-        raise ValueError(funcName + ': valid range of \"plane\" is [0, sNumPlanes)!'.format(sNumPlanes=sNumPlanes))
-    
-    floatFormat = core.register_format(vs.GRAY, vs.FLOAT, 32, 0, 0)
-    floatBlk = core.std.BlankClip(clip1, format=floatFormat.id)
-    
-    clip1Plane = GetPlane(clip1, plane)
-    clip2Plane = GetPlane(clip2, plane)
-    
-    # Plane MD (mean absolute difference)
-    if md:
-        expr = "x y - abs"
-        ADclip = core.std.Expr([clip1Plane, clip2Plane], expr, floatFormat.id)
-        ADclip = core.std.PlaneAverage(ADclip, 0, "PlaneMD")
-        
-        def _PlaneMDTransfer(n, f):
-            fout = f[0].copy()
-            fout.props.PlaneMD = f[1].props.PlaneMD / valueRange
-            return fout
-        clip1 = core.std.ModifyFrame(clip1, [clip1, ADclip], selector=_PlaneMDTransfer)
-    
-    # Plane MSE (mean squared error) and PSNR (peak signal-to-noise ratio)
-    if mse or psnr:
-        expr = "x y - dup *"
-        SDclip = core.std.Expr([clip1Plane, clip2Plane], expr, floatFormat.id)
-        SDclip = core.std.PlaneAverage(SDclip, 0, "PlaneMSE")
-        
-        def _PlaneMSEnPSNRTransfer(n, f):
-            fout = f[0].copy()
-            if mse:
-                fout.props.PlaneMSE = f[1].props.PlaneMSE / (valueRange * valueRange)
-            if psnr:
-                fout.props.PlanePSNR = min(10 * math.log(valueRange * valueRange / f[1].props.PlaneMSE, 10), 99.99999999999999) if f[1].props.PlaneMSE > 0 else 100.0
-            return fout
-        clip1 = core.std.ModifyFrame(clip1, [clip1, SDclip], selector=_PlaneMSEnPSNRTransfer)
-    
-    # Plane Cov (covariance) and Corr (correlation)
-    if cov or corr:
-        clip1Mean = core.std.PlaneAverage(clip1Plane, 0, "PlaneMean")
-        clip2Mean = core.std.PlaneAverage(clip2Plane, 0, "PlaneMean")
-        
-        def _PlaneCoDFrame(n, f, clip1, clip2):
-            mean1 = f[0].props.PlaneMean * valueRange
-            mean2 = f[1].props.PlaneMean * valueRange
-            expr = "x {mean1} - y {mean2} - *".format(mean1=mean1, mean2=mean2)
-            return core.std.Expr([clip1, clip2], expr, floatFormat.id)
-        CoDclip = core.std.FrameEval(floatBlk, functools.partial(_PlaneCoDFrame, clip1=clip1Plane, clip2=clip2Plane), [clip1Mean, clip2Mean])
-        CoDclip = core.std.PlaneAverage(CoDclip, 0, "PlaneCov")
-        clips = [clip1, CoDclip]
-        
-        if corr:
-            def _PlaneSDFrame(n, f, clip):
-                mean = f.props.PlaneMean * valueRange
-                expr = "x {mean} - dup *".format(mean=mean)
-                return core.std.Expr(clip, expr, floatFormat.id)
-            SDclip1 = core.std.FrameEval(floatBlk, functools.partial(_PlaneSDFrame, clip=clip1Plane), clip1Mean)
-            SDclip2 = core.std.FrameEval(floatBlk, functools.partial(_PlaneSDFrame, clip=clip2Plane), clip2Mean)
-            SDclip1 = core.std.PlaneAverage(SDclip1, 0, "PlaneVar")
-            SDclip2 = core.std.PlaneAverage(SDclip2, 0, "PlaneVar")
-            clips.append(SDclip1)
-            clips.append(SDclip2)
-        
-        def _PlaneCovTransfer(n, f):
-            fout = f[0].copy()
-            if cov:
-                fout.props.PlaneCov = f[1].props.PlaneCov / (valueRange * valueRange)
-            if corr:
-                std1std2 = math.sqrt(f[2].props.PlaneVar * f[3].props.PlaneVar)
-                fout.props.PlaneCorr = f[1].props.PlaneCov / std1std2 if std1std2 > 0 else float("inf")
-            return fout
-        clip1 = core.std.ModifyFrame(clip1, clips, selector=_PlaneCovTransfer)
-    
-    # Output
-    return clip1
-################################################################################################################################
-
-
-################################################################################################################################
-## Utility function: ShowAverage()
-################################################################################################################################
-## Display unnormalized average of each plane
-################################################################################################################################
-## Basic parameters
-##     clip {clip}: clip to be evaluated
-##         can be of YUV/RGB/Gray/YCoCg color family, can be of 8-16 bit integer or 16/32 bit float
-################################################################################################################################
-## Advanced parameters
-##     alignment {int}: same as the one in text.Text()
-##         default: 7
-################################################################################################################################
-def ShowAverage(clip, alignment=None):
-    # Set VS core and function name
-    core = vs.get_core()
-    funcName = 'ShowAverage'
-    
-    if not isinstance(clip, vs.VideoNode):
-        raise TypeError(funcName + ': \"clip\" must be a clip!')
-    
-    # Get properties of input clip
-    sFormat = clip.format
-    
-    sColorFamily = sFormat.color_family
-    sIsYUV = sColorFamily == vs.YUV
-    sIsYCOCG = sColorFamily == vs.YCOCG
-    
-    sSType = sFormat.sample_type
-    sbitPS = sFormat.bits_per_sample
-    sNumPlanes = sFormat.num_planes
-    
-    valueRange = (1 << sbitPS) - 1 if sSType == vs.INTEGER else 1
-    offset = [0, -0.5, -0.5] if sSType == vs.FLOAT and (sIsYUV or sIsYCOCG) else [0, 0, 0]
-    
-    # Process and output
-    def _ShowAverageFrame(n, f):
-        text = ""
-        if sNumPlanes == 1:
-            average = f.props.PlaneAverage * valueRange + offset[0]
-            text += "PlaneAverage[{plane}]={average}".format(plane=0, average=average)
-        else:
-            for p in range(sNumPlanes):
-                average = f[p].props.PlaneAverage * valueRange + offset[p]
-                text += "PlaneAverage[{plane}]={average}\n".format(plane=p, average=average)
-        return core.text.Text(clip, text, alignment)
-    
-    avg = []
-    for p in range(sNumPlanes):
-        avg.append(core.std.PlaneAverage(clip, p))
-    
-    return core.std.FrameEval(clip, _ShowAverageFrame, prop_src=avg)
-################################################################################################################################
-
-
-################################################################################################################################
-## Utility function: FilterCombed()
-################################################################################################################################
-## Take the frames from clip "flt" that is marked as combed and the ones from clip "src" that is not.
-## The frame property '_Combed' from clip "props" is evaluated to determine whether it's combed.
-################################################################################################################################
-## Basic parameters
-##     src {clip}: the source clip
-##         can be of any constant format
-##     flt {clip}: the filtered clip (de-interlaced)
-##         must be of the same format and dimension as "src"
-##     props {clip} (optional): the clip from which the frame property is evaluated
-##         can be of any format, should have the same number of frames as "src"
-##         default: None (use "src")
-################################################################################################################################
-def FilterCombed(src, flt, props=None):
-    # Set VS core and function name
-    core = vs.get_core()
-    funcName = 'FilterCombed'
-    
-    if not isinstance(src, vs.VideoNode):
-        raise TypeError(funcName + ': \"src\" must be a clip!')
-    if not isinstance(flt, vs.VideoNode):
-        raise TypeError(funcName + ': \"flt\" must be a clip!')
-    if props is not None and not isinstance(props, vs.VideoNode):
-        raise TypeError(funcName + ': \"props\" must be a clip!')
-    
-    # Get properties of input clip
-    sFormat = src.format
-    if sFormat.id != flt.format.id:
-        raise ValueError(funcName + ': \"src\" and \"flt\" must be of the same format!')
-    if src.width != flt.width or src.height != flt.height:
-        raise ValueError(funcName + ': \"src\" and \"flt\" must be of the same width and height!')
-    
-    if props is None:
-        props = src
-    else:
-        if sFormat.id != props.format.id:
-            raise ValueError(funcName + ': \"src\" and \"props\" must be of the same format!')
-        if src.width != props.width or src.height != props.height:
-            raise ValueError(funcName + ': \"src\" and \"props\" must be of the same width and height!')
-    
-    # FrameEval function
-    def _FilterCombedFrame(n, f):
-        try:
-            if f.props._Combed:
-                return flt
-        except:
-            pass
-        return src
-    
-    # Process
-    return core.std.FrameEval(src, _FilterCombedFrame, props)
 ################################################################################################################################
 
 
@@ -2141,10 +2179,16 @@ def zDepth(clip, sample=None, depth=None, range=None, range_in=None, dither_type
     format = core.register_format(sFormat.color_family, sample, depth, sFormat.subsampling_w, sFormat.subsampling_h)
     
     # Process
-    try:
-        return core.z.Format(clip, format=format.id, range=range, range_in=range_in, dither_type=dither_type, cpu_type=cpu_type)
-    except AttributeError:
-        return core.z.Depth(clip, dither=dither_type, sample=sample, depth=depth, fullrange_in=range_in, fullrange_out=range)
+    zFuncs = core.z.get_functions()
+    if zFuncs.__contains__('Format'):
+        clip = core.z.Format(clip, format=format.id, range=range, range_in=range_in, dither_type=dither_type, cpu_type=cpu_type)
+    elif zFuncs.__contains__('Depth'):
+        clip = core.z.Depth(clip, dither=dither_type, sample=sample, depth=depth, fullrange_in=range_in, fullrange_out=range)
+    else:
+        raise AttributeError(funcName + ': Unsupported zimg used! z.Format or z.Depth not found!')
+    
+    # Output
+    return clip
 ################################################################################################################################
 
 
@@ -2197,9 +2241,34 @@ def GetPlane(clip, plane=None):
 
 
 ################################################################################################################################
+## Internal used function to check the argument for frame property
+################################################################################################################################
+def _check_arg_prop(arg, default=None, defaultTrue=None, argName='arg', funcName='_check_arg_prop'):
+    if defaultTrue is None:
+        defaultTrue = default
+    
+    if arg is None:
+        arg = default
+    elif isinstance(arg, int):
+        if arg:
+            arg = defaultTrue
+    elif isinstance(arg, str):
+        if arg:
+            if not arg.isidentifier():
+                raise ValueError(funcName + ': {argName}=\"{arg}\" is not a valid identifier!'.format(argName=argName, arg=arg))
+        else:
+            arg = False
+    else:
+        raise TypeError(funcName + ': \"{argName}\" must be a str or a bool!'.format(argName=argName))
+    
+    return arg
+################################################################################################################################
+
+
+################################################################################################################################
 ## Internal used function for Min(), Max() and Avg()
 ################################################################################################################################
-def _Operator2(clip1, clip2, mode, neutral, funcName):
+def _operator2(clip1, clip2, mode, neutral, funcName):
     # Set VS core
     core = vs.get_core()
     
@@ -2262,7 +2331,7 @@ def _Operator2(clip1, clip2, mode, neutral, funcName):
             else:
                 expr.append("")
         else:
-            raise ValueError('_Operator2: Unknown \"funcName\" specified!')
+            raise ValueError('_operator2: Unknown \"funcName\" specified!')
     
     return core.std.Expr([clip1, clip2], expr)
 ################################################################################################################################
@@ -2271,7 +2340,7 @@ def _Operator2(clip1, clip2, mode, neutral, funcName):
 ################################################################################################################################
 ## Internal used function for MinFilter() and MaxFilter()
 ################################################################################################################################
-def _Min_Max_Filter(src, flt1, flt2, planes, funcName):
+def _min_max_filter(src, flt1, flt2, planes, funcName):
     # Set VS core and function name
     core = vs.get_core()
     
@@ -2319,7 +2388,7 @@ def _Min_Max_Filter(src, flt1, flt2, planes, funcName):
             elif funcName == 'MaxFilter':
                 expr.append("x z - abs x y - abs > z y ?")
             else:
-                raise ValueError('_Min_Max_Filter: Unknown \"funcName\" specified!')
+                raise ValueError('_min_max_filter: Unknown \"funcName\" specified!')
         else:
             expr.append("")
     
@@ -2330,7 +2399,7 @@ def _Min_Max_Filter(src, flt1, flt2, planes, funcName):
 ################################################################################################################################
 ## Internal used functions for LimitFilter()
 ################################################################################################################################
-def _LimitFilterExpr(defref, thr, elast, largen_thr, value_range):
+def _limit_filter_expr(defref, thr, elast, largen_thr, value_range):
     flt = " x "
     src = " y "
     ref = " z " if defref else src
@@ -2369,10 +2438,15 @@ def _LimitFilterExpr(defref, thr, elast, largen_thr, value_range):
     
     return limitExpr
 ################################################################################################################################
-def _LimitDiffLut(diff, thr, elast, largen_thr, planes):
+
+
+################################################################################################################################
+## Internal used functions for LimitFilter()
+################################################################################################################################
+def _limit_diff_lut(diff, thr, elast, largen_thr, planes):
     # Set VS core and function name
     core = vs.get_core()
-    funcName = '_LimitDiffLut'
+    funcName = '_limit_diff_lut'
     
     if not isinstance(diff, vs.VideoNode):
         raise TypeError(funcName + ': \"diff\" must be a clip!')
