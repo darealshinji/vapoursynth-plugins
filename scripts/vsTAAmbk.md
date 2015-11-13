@@ -1,4 +1,4 @@
-# vsTAAmbk 0.3
+# vsTAAmbk 0.3.2
 A ported AA-script from Avisynth
 
 
@@ -38,3 +38,5 @@ Only YUV colorfmaily is supported! And input bitdepth must be 8 or 16 INTEGER !
 Output is always 16bit INTEGER.
 
 "mtype" and "mtype2" = 5 are DISABLED.
+
+add "aatype 7" using sangnom

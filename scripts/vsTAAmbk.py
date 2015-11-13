@@ -1,5 +1,5 @@
 ##==========================================================
-## 2015.10.24			vsTAAmbk 0.3					
+## 2015.11.9			vsTAAmbk 0.3.2					
 ##			Port from TAAmbk 0.7.0 by Evalyn
 ##			Email: pov@mahou-shoujo.moe			
 ##			Thanks (author)kewenyu for help				
@@ -26,7 +26,8 @@
 ##	"mtype" and "mtype2" = 5 are completely useless.	
 ##	 Add lsb[bool] to control nnedi3 input bitdepth.
 ##	"False" means input depth for nnedi3 is always 8bit.
-##	"thin" and "dark" are now removed.					
+##	"thin" and "dark" are now removed.
+##  add aatype 7 using sangnom					
 ##		 												
 ##==========================================================	 												
 ##		 												
@@ -53,11 +54,11 @@ def TAAmbk(input, aatype=1, lsb=False, preaa=0, sharp=0, postaa=None, mtype=None
 	h = input.height
 	upw4 = (round(w*0.09375)*16) # mod16(w*1.5)
 	uph4 = (round(h*0.09375)*16) # mod16(h*1.5)
-	downw4 = (round(w*0.1875)*4) # mod4(w*0.75)
-	downh4 = (round(h*0.1875)*4) # mod4(h*0.75)
+	downw4 = (round(w*0.046875)*16) # mod16(w*0.75)
+	downh4 = (round(h*0.046875)*16) # mod16(h*0.75)
 	
-	# border to add for SangNomMod when aatype = 6
-	if aatype == 6:
+	# border to add for SangNomMod when aatype = 6 or 7
+	if aatype == 6 or aatype == 7:
 		# mod16 or not
 		if w % 16 == 0:
 			mod16w = True
@@ -69,6 +70,7 @@ def TAAmbk(input, aatype=1, lsb=False, preaa=0, sharp=0, postaa=None, mtype=None
 		else:
 			mod16h = False
 			borderH = (16 - h % 16)
+	
 	
 	
 	#generate paramerters if None
@@ -117,14 +119,14 @@ def TAAmbk(input, aatype=1, lsb=False, preaa=0, sharp=0, postaa=None, mtype=None
 	
 	# p1~p6 preset groups	
 	pindex = aatype + 3
-	#				 aatype =	-3          -2		-1		0	   1	  2	 3		 4		 5		 6
-	if p1	is None: p1		=	[	48,	    48,		48,		0,	   10,	 0.5, 	 3,		48,		48,		48][pindex]
-	if p2	is None: p2		=	[	 3,	   0.5,		10,		0,	   20,	 0.2, 	 1,		 1,		 0,		rp][pindex]
-	if p3	is None: p3		=	[	 1,	   0.2,		20,		0,	   20,	  20, 	 2,		 3,		 0,		 0][pindex]
-	if p4	is None: p4		=	[	 2,	    20,		20,		0,	   24,	   3, 	 0,		 2,		 0,		 0][pindex]
-	if p4	is None: p4		=	[	 2,	    20,		20,		0,	   24,	   3, 	 0,		 2,		 0,		 0][pindex]
-	if p5	is None: p5		=	[	 0,	     3,		24,		0,	   50,	  30, 	 0,		 0,		 0,		 0][pindex]
-	if p6	is None: p6		=	[	 0,	    30,		50,		0,	    0,	   0, 	 0,		 0,		 0,		 0][pindex]
+	#				 aatype =		-3       -2		-1		0	   1	  2	 	3		 4		 5		 6		7
+	if p1	is None: p1		=	[	48,	    48,		48,		0,	   10,	 0.5, 	 3,		48,		48,		48,		48][pindex]
+	if p2	is None: p2		=	[	 3,	   0.5,		10,		0,	   20,	 0.2, 	 1,		 1,		 0,		rp,		rp][pindex]
+	if p3	is None: p3		=	[	 1,	   0.2,		20,		0,	   20,	  20, 	 2,		 3,		 0,		 0,		 0][pindex]
+	if p4	is None: p4		=	[	 2,	    20,		20,		0,	   24,	   3, 	 0,		 2,		 0,		 0,		 0][pindex]
+	if p4	is None: p4		=	[	 2,	    20,		20,		0,	   24,	   3, 	 0,		 2,		 0,		 0,		 0][pindex]
+	if p5	is None: p5		=	[	 0,	     3,		24,		0,	   50,	  30, 	 0,		 0,		 0,		 0,		 0][pindex]
+	if p6	is None: p6		=	[	 0,	    30,		50,		0,	    0,	   0, 	 0,		 0,		 0,		 0,		 0][pindex]
 	
 	
 	#paramerters check
@@ -147,8 +149,8 @@ def TAAmbk(input, aatype=1, lsb=False, preaa=0, sharp=0, postaa=None, mtype=None
 		raise TypeError(funcname + ': Only YUV colorfmaily is supported !')
 	
 	#aatype check
-	if not isinstance(aatype, int) or (aatype < -3 or aatype > 6):
-		raise ValueError(funcname + ': \"aatype\" (int: -3~6) invalid !')
+	if not isinstance(aatype, int) or (aatype < -3 or aatype > 7):
+		raise ValueError(funcname + ': \"aatype\" (int: -3~7) invalid !')
 	#lsb check
 	if not isinstance(lsb, bool):
 		raise TypeError(funcname + ': \"lsb\" must be BOOL !')
@@ -195,7 +197,31 @@ def TAAmbk(input, aatype=1, lsb=False, preaa=0, sharp=0, postaa=None, mtype=None
 	###bugs
 	if mtype == 5 or mtype2 == 5:
 		raise ValueError(funcname + ': \"mtype\" or \"mtype2\" = 5 (Roberts) unavailable now !')
+		
+	###################################
+	###  Small functions ##############
+	###################################
 	
+	# average two clips of 3 yuv planes
+	def average(clipa, clipb):
+		return (core.std.Expr(clips=[clipa,clipb], expr=["x y + 2 /"]))
+		
+	# bitdepth conversion from mvsfunc, mawen1250 Thanks!
+	def Depth(input, depth=None):
+		sbitPS = input.format.bits_per_sample
+		if sbitPS == depth:
+			return input
+		else:
+			return core.fmtc.bitdepth(input,bits=depth,flt=0,dmode=3)
+			
+	# fast PointResize from mvsfunc
+	def PointPower(input, vpow=1):
+		for i in range(vpow):
+			clip = core.std.Interleave([input,input]).std.DoubleWeave(tff=True).std.SelectEvery(2,0)
+		return clip
+		
+	
+	###################################
 	
 	# src clip issue
 	#======================
@@ -214,19 +240,6 @@ def TAAmbk(input, aatype=1, lsb=False, preaa=0, sharp=0, postaa=None, mtype=None
 	#======================
 	
 
-
-
-	#average two clips of 3 yuv planes
-	def average(clipa, clipb):
-		return (core.std.Expr(clips=[clipa,clipb], expr=["x y + 2 /"]))
-		
-	#bitdepth conversion
-	def Depth(input, depth=None):
-		sbitPS = input.format.bits_per_sample
-		if sbitPS == depth:
-			return input
-		else:
-			return core.fmtc.bitdepth(input,bits=depth,flt=0,dmode=3)
 	
 	#internal function
 	def TAAmbk_prepass(clip, predown=predown, downw4=downw4, downh4=downh4, thin=0, dark=0, preaa=preaa):
@@ -275,7 +288,7 @@ def TAAmbk(input, aatype=1, lsb=False, preaa=0, sharp=0, postaa=None, mtype=None
 	#internal functions
 	def TAAmbk_mainpass(preaaC, aatype=aatype, cycle=cycle, p1=p1, p2=p2, p3=p3, p4=p4, p5=p5, p6=p6, w=w, h=h,
 						uph4=uph4, upw4=upw4, eedi3sclip=eedi3sclip):
-						
+		# generate eedi3 sclip using nnedi3 double height				
 		if eedi3sclip is True:
 			if aatype == -2:
 				if lsb:
@@ -305,6 +318,9 @@ def TAAmbk(input, aatype=1, lsb=False, preaa=0, sharp=0, postaa=None, mtype=None
 					sclip_r = core.nnedi3.nnedi3(sclip_r,field=1,dh=True)
 		
 		# generate aa_clip
+		##########################
+		# # # AAtype -3 or 4 # # #
+		##########################
 		if aatype == -3 or aatype == 4:
 			if lsb:
 				aa_clip = core.nnedi3.nnedi3(preaaC, dh=True, field=1, nsize=int(p2), nns=int(p3), qual=int(p4))
@@ -320,99 +336,162 @@ def TAAmbk(input, aatype=1, lsb=False, preaa=0, sharp=0, postaa=None, mtype=None
 				aa_clip = Depth(aa_clip,depth=8)
 				aa_clip = core.sangnom.SangNomMod(core.std.Transpose(core.sangnom.SangNomMod(aa_clip,aa=int(p1))),aa=int(p1))
 				aa_clip = core.fmtc.resample(aa_clip,w=w,h=h,kernel=["spline36","spline36"])
-		else:
-			if aatype == -2:
-				if eedi3sclip == False:
+		######################
+		# # # AA type -2 # # #
+		######################
+		elif aatype == -2:
+			if eedi3sclip == False:
 					
-					aa_clip = core.fmtc.resample(core.eedi3.eedi3(preaaC, dh=True, field=1, alpha=p2, beta=p3, gamma=p4, nrad=int(p5), mdis=int(p6)), w=w, h=uph4, sx=0,sy=[-0.5,-0.5*(1<<preaaC.format.subsampling_h)],kernel="spline36")
-					aa_clip = Depth(aa_clip,depth=8)
-					aa_clip = core.eedi3.eedi3(core.std.Transpose(aa_clip), dh=True, field=1, alpha=p2, beta=p3, gamma=p4, nrad=int(p5), mdis=int(p6))
-					aa_clip = core.sangnom.SangNomMod(Depth(core.fmtc.resample(aa_clip, w=uph4, h=upw4, sx=0,sy=[-0.5,-0.5*(1<<preaaC.format.subsampling_h)],kernel="spline36"),depth=8),aa=int(p1))
-					aa_clip = core.sangnom.SangNomMod(core.std.Transpose(aa_clip),aa=int(p1))
-					aa_clip = core.fmtc.resample(aa_clip,w=w,h=h,kernel=["spline36","spline36"])
-				else:
-					# EEDI3 need w * h
-					aa_clip = core.fmtc.resample(core.eedi3.eedi3(preaaC, dh=True, field=1, alpha=p2, beta=p3, gamma=p4, nrad=int(p5), mdis=int(p6), sclip=sclip), w=w, h=uph4, sx=0,sy=[-0.5,-0.5*(1<<preaaC.format.subsampling_h)],kernel="spline36")
-					# output w * uph4
-					aa_clip = Depth(aa_clip,depth=8)
-					# EEDI3 need uph4 * w
-					aa_clip = core.eedi3.eedi3(core.std.Transpose(aa_clip), dh=True, field=1, alpha=p2, beta=p3, gamma=p4, nrad=int(p5), mdis=int(p6), sclip=sclip_r)
-					aa_clip = core.sangnom.SangNomMod(Depth(core.fmtc.resample(aa_clip, w=uph4, h=upw4, sx=0,sy=[-0.5,-0.5*(1<<preaaC.format.subsampling_h)],kernel="spline36"),depth=8),aa=int(p1))
-					aa_clip = core.sangnom.SangNomMod(core.std.Transpose(aa_clip),aa=int(p1))
-					aa_clip = core.fmtc.resample(aa_clip,w=w,h=h,kernel=["spline36","spline36"])
+				aa_clip = core.fmtc.resample(core.eedi3.eedi3(Depth(preaaC,8), dh=True, field=1, alpha=p2, beta=p3, gamma=p4, nrad=int(p5), mdis=int(p6)), w=w, h=uph4, sx=0,sy=[-0.5,-0.5*(1<<preaaC.format.subsampling_h)],kernel="spline36")
+				aa_clip = Depth(aa_clip,depth=8)
+				aa_clip = core.eedi3.eedi3(core.std.Transpose(aa_clip), dh=True, field=1, alpha=p2, beta=p3, gamma=p4, nrad=int(p5), mdis=int(p6))
+				aa_clip = core.sangnom.SangNomMod(Depth(core.fmtc.resample(aa_clip, w=uph4, h=upw4, sx=0,sy=[-0.5,-0.5*(1<<preaaC.format.subsampling_h)],kernel="spline36"),depth=8),aa=int(p1))
+				aa_clip = core.sangnom.SangNomMod(core.std.Transpose(aa_clip),aa=int(p1))
+				aa_clip = core.fmtc.resample(aa_clip,w=w,h=h,kernel=["spline36","spline36"])
 			else:
-				if aatype == -1:
-					aa_clip = core.fmtc.resample(core.eedi2.EEDI2(preaaC, field=1, mthresh=int(p2), lthresh=int(p3), vthresh=int(p4), maxd=int(p5), nt=int(p6)),w=w,h=uph4,sx=0,sy=[-0.5,-0.5*(1<<preaaC.format.subsampling_h)],kernel="spline36")
-					aa_clip = core.eedi2.EEDI2(core.std.Transpose(aa_clip),field=1, mthresh=int(p2), lthresh=int(p3), vthresh=int(p4), maxd=int(p5), nt=int(p6))
-					aa_clip = core.sangnom.SangNomMod(Depth(core.fmtc.resample(aa_clip,w=uph4,h=upw4,sx=0,sy=[-0.5,-0.5*(1<<preaaC.format.subsampling_h)],kernel="spline36"),depth=8),aa=int(p1))
-					aa_clip = core.sangnom.SangNomMod(core.std.Transpose(aa_clip),aa=int(p1))
-					aa_clip = core.fmtc.resample(aa_clip,w=w,h=h,kernel=["spline36","spline36"])
+				# EEDI3 need w * h
+				aa_clip = core.fmtc.resample(core.eedi3.eedi3(Depth(preaaC,8), dh=True, field=1, alpha=p2, beta=p3, gamma=p4, nrad=int(p5), mdis=int(p6), sclip=sclip), w=w, h=uph4, sx=0,sy=[-0.5,-0.5*(1<<preaaC.format.subsampling_h)],kernel="spline36")
+				# output w * uph4
+				aa_clip = Depth(aa_clip,depth=8)
+				# EEDI3 need uph4 * w
+				aa_clip = core.eedi3.eedi3(core.std.Transpose(aa_clip), dh=True, field=1, alpha=p2, beta=p3, gamma=p4, nrad=int(p5), mdis=int(p6), sclip=sclip_r)
+				aa_clip = core.sangnom.SangNomMod(Depth(core.fmtc.resample(aa_clip, w=uph4, h=upw4, sx=0,sy=[-0.5,-0.5*(1<<preaaC.format.subsampling_h)],kernel="spline36"),depth=8),aa=int(p1))
+				aa_clip = core.sangnom.SangNomMod(core.std.Transpose(aa_clip),aa=int(p1))
+				aa_clip = core.fmtc.resample(aa_clip,w=w,h=h,kernel=["spline36","spline36"])
+		######################
+		# # # AA type -1 # # #
+		######################
+		elif aatype == -1:
+			aa_clip = core.fmtc.resample(core.eedi2.EEDI2(preaaC, field=1, mthresh=int(p2), lthresh=int(p3), vthresh=int(p4), maxd=int(p5), nt=int(p6)),w=w,h=uph4,sx=0,sy=[-0.5,-0.5*(1<<preaaC.format.subsampling_h)],kernel="spline36")
+			aa_clip = core.eedi2.EEDI2(core.std.Transpose(aa_clip),field=1, mthresh=int(p2), lthresh=int(p3), vthresh=int(p4), maxd=int(p5), nt=int(p6))
+			aa_clip = core.sangnom.SangNomMod(Depth(core.fmtc.resample(aa_clip,w=uph4,h=upw4,sx=0,sy=[-0.5,-0.5*(1<<preaaC.format.subsampling_h)],kernel="spline36"),depth=8),aa=int(p1))
+			aa_clip = core.sangnom.SangNomMod(core.std.Transpose(aa_clip),aa=int(p1))
+			aa_clip = core.fmtc.resample(aa_clip,w=w,h=h,kernel=["spline36","spline36"])
+		######################
+		# # # AA type 1  # # #
+		######################
+		elif aatype == 1:
+			aa_clip = core.fmtc.resample(core.eedi2.EEDI2(preaaC,field=1,mthresh=int(p1), lthresh=int(p2), vthresh=int(p3), maxd=int(p4), nt=int(p5)),w=w,h=h,sx=0,sy=[-0.5,-0.5*(1<<preaaC.format.subsampling_h)],kernel="spline36")
+			aa_clip = core.eedi2.EEDI2(core.std.Transpose(aa_clip),field=1,mthresh=int(p1), lthresh=int(p2), vthresh=int(p3), maxd=int(p4), nt=int(p5))
+			aa_clip = core.std.Transpose(core.fmtc.resample(aa_clip,w=h,h=w,sx=0,sy=[-0.5,-0.5*(1<<preaaC.format.subsampling_h)],kernel="spline36"))
+		######################
+		# # # AA type 2  # # #
+		######################
+		elif aatype == 2:
+			if eedi3sclip == False:
+				aa_clip = core.fmtc.resample(core.eedi3.eedi3(Depth(preaaC,8),dh=True, field=1, alpha=p1, beta=p2, gamma=p3, nrad=int(p4), mdis=int(p5)),w=w,h=h,sx=0,sy=[-0.5,-0.5*(1<<preaaC.format.subsampling_h)],kernel="spline36")
+				aa_clip = Depth(core.std.Transpose(aa_clip),depth=8)
+				aa_clip = core.fmtc.resample(core.eedi3.eedi3(aa_clip,dh=True, field=1, alpha=p1, beta=p2, gamma=p3, nrad=int(p4), mdis=int(p5)),w=h,h=w,sx=0,sy=[-0.5,-0.5*(1<<preaaC.format.subsampling_h)],kernel="spline36")
+				aa_clip = core.std.Transpose(aa_clip)
+			else:
+				#EEDI3 need w * h
+				aa_clip = core.fmtc.resample(core.eedi3.eedi3(Depth(preaaC,8),dh=True, field=1, alpha=p1, beta=p2, gamma=p3, nrad=int(p4), mdis=int(p5), sclip=sclip),w=w,h=h,sx=0,sy=[-0.5,-0.5*(1<<preaaC.format.subsampling_h)],kernel="spline36")
+				#output w * h
+				aa_clip = Depth(core.std.Transpose(aa_clip),depth=8)
+				#EEDI3 need h * w
+				aa_clip = core.fmtc.resample(core.eedi3.eedi3(aa_clip,dh=True, field=1, alpha=p1, beta=p2, gamma=p3, nrad=int(p4), mdis=int(p5), sclip=sclip_r),w=h,h=w,sx=0,sy=[-0.5,-0.5*(1<<preaaC.format.subsampling_h)],kernel="spline36")
+				aa_clip = core.std.Transpose(aa_clip)
+		######################
+		# # # AA type 3  # # #
+		######################
+		elif aatype == 3:
+			if lsb:
+				aa_clip = core.fmtc.resample(core.nnedi3.nnedi3(preaaC, dh=True, field=1, nsize=int(p1), nns=int(p2), qual=int(p3)),w=w,h=h,sx=0,sy=[-0.5,-0.5*(1<<preaaC.format.subsampling_h)],kernel="spline36")
+				aa_clip = core.nnedi3.nnedi3(core.std.Transpose(aa_clip), dh=True, field=1, nsize=int(p1), nns=int(p2), qual=int(p3))
+				aa_clip = core.std.Transpose(core.fmtc.resample(aa_clip,w=h,h=w,sx=0,sy=[-0.5,-0.5*(1<<preaaC.format.subsampling_h)],kernel="spline36"))
+			else:
+				aa_clip = core.fmtc.resample(core.nnedi3.nnedi3(Depth(preaaC,8), dh=True, field=1, nsize=int(p1), nns=int(p2), qual=int(p3)),w=w,h=h,sx=0,sy=[-0.5,-0.5*(1<<preaaC.format.subsampling_h)],kernel="spline36")
+				aa_clip = core.nnedi3.nnedi3(Depth(core.std.Transpose(aa_clip),8), dh=True, field=1, nsize=int(p1), nns=int(p2), qual=int(p3))
+				aa_clip = core.std.Transpose(core.fmtc.resample(aa_clip,w=h,h=w,sx=0,sy=[-0.5,-0.5*(1<<preaaC.format.subsampling_h)],kernel="spline36"))
+		######################
+		# # # AA type 5  # # #
+		######################
+		elif aatype == 5:
+			aa_clip = Depth(core.fmtc.resample(preaaC, w=upw4, h=uph4 ,kernel=["lanczos","bicubic"]),depth=8)
+			aa_clip = core.std.Transpose(core.sangnom.SangNomMod(aa_clip,aa=int(p1)))
+			aa_clip = core.fmtc.resample(core.sangnom.SangNomMod(aa_clip,aa=int(p1)),w=h,h=w,kernel="spline36")
+			aa_clip = core.std.Transpose(aa_clip)
+		######################
+		# # # AA type 6  # # #
+		######################
+		elif aatype == 6:
+			aa_clip = Depth(core.fmtc.resample(preaaC, w=w, h=uph4 ,kernel=["lanczos","bicubic"]),depth=8)
+			if mod16w is True:
+				aa_clip = core.fmtc.resample(core.sangnom.SangNomMod(aa_clip,aa=int(p1)),w=w,h=h,kernel="spline36")
+			else:
+				aa_clip = core.std.AddBorders(aa_clip,borderW)
+				aa_clip = core.fmtc.resample(core.sangnom.SangNomMod(aa_clip,aa=int(p1)),w=w,h=h,kernel="spline36")
+				aa_clip = core.std.CropRel(aa_clip,borderW)
+			aa_clip = core.fmtc.resample(core.std.Transpose(aa_clip),w=h,h=upw4,kernel=["lanczos","bicubic"])
+			if mod16h is True:
+				aa_clip = core.sangnom.SangNomMod(Depth(aa_clip,depth=8),aa=int(p1))
+			else:
+				aa_clip = core.std.AddBorders(aa_clip,borderH)
+				aa_clip = core.sangnom.SangNomMod(Depth(aa_clip,depth=8),aa=int(p1))
+				aa_clip = core.std.CropRel(aa_clip,borderH)
+			aa_clip = core.std.Transpose(core.fmtc.resample(aa_clip,w=h,h=w,kernel="spline36"))
+			aa_clip = core.rgvs.Repair(aa_clip, core.fmtc.resample(preaaC,w=w,h=h,kernel="spline64"), mode=int(p2))
+		######################
+		# # # AA type 7  # # #
+		######################
+		elif aatype == 7:
+			aa_clip = PointPower(Depth(preaaC,8))
+			
+			if mod16w and not predown:
+				aa_clip = core.sangnom.SangNomMod(aa_clip,aa=int(p1))
+				aa_clip = core.std.Transpose(aa_clip)
+			elif predown:
+				if aa_clip.width == downw4:
+					aa_clip = core.sangnom.SangNomMod(aa_clip,aa=int(p1))
+					aa_clip = core.std.Transpose(aa_clip)
+				elif mod16w:
+					aa_clip = core.sangnom.SangNomMod(aa_clip,aa=int(p1))
+					aa_clip = core.std.Transpose(aa_clip)
 				else:
-					if aatype == 1:
-						aa_clip = core.fmtc.resample(core.eedi2.EEDI2(preaaC,field=1,mthresh=int(p1), lthresh=int(p2), vthresh=int(p3), maxd=int(p4), nt=int(p5)),w=w,h=h,sx=0,sy=[-0.5,-0.5*(1<<preaaC.format.subsampling_h)],kernel="spline36")
-						aa_clip = core.eedi2.EEDI2(core.std.Transpose(aa_clip),field=1,mthresh=int(p1), lthresh=int(p2), vthresh=int(p3), maxd=int(p4), nt=int(p5))
-						aa_clip = core.std.Transpose(core.fmtc.resample(aa_clip,w=h,h=w,sx=0,sy=[-0.5,-0.5*(1<<preaaC.format.subsampling_h)],kernel="spline36"))
-					else:
-						if aatype == 2:
-							if eedi3sclip == False:
-								aa_clip = core.fmtc.resample(core.eedi3.eedi3(preaaC,dh=True, field=1, alpha=p1, beta=p2, gamma=p3, nrad=int(p4), mdis=int(p5)),w=w,h=h,sx=0,sy=[-0.5,-0.5*(1<<preaaC.format.subsampling_h)],kernel="spline36")
-								aa_clip = Depth(core.std.Transpose(aa_clip),depth=8)
-								aa_clip = core.fmtc.resample(core.eedi3.eedi3(aa_clip,dh=True, field=1, alpha=p1, beta=p2, gamma=p3, nrad=int(p4), mdis=int(p5)),w=h,h=w,sx=0,sy=[-0.5,-0.5*(1<<preaaC.format.subsampling_h)],kernel="spline36")
-								aa_clip = core.std.Transpose(aa_clip)
-							else:
-								#EEDI3 need w * h
-								aa_clip = core.fmtc.resample(core.eedi3.eedi3(preaaC,dh=True, field=1, alpha=p1, beta=p2, gamma=p3, nrad=int(p4), mdis=int(p5), sclip=sclip),w=w,h=h,sx=0,sy=[-0.5,-0.5*(1<<preaaC.format.subsampling_h)],kernel="spline36")
-								#output w * h
-								aa_clip = Depth(core.std.Transpose(aa_clip),depth=8)
-								#EEDI3 need h * w
-								aa_clip = core.fmtc.resample(core.eedi3.eedi3(aa_clip,dh=True, field=1, alpha=p1, beta=p2, gamma=p3, nrad=int(p4), mdis=int(p5), sclip=sclip_r),w=h,h=w,sx=0,sy=[-0.5,-0.5*(1<<preaaC.format.subsampling_h)],kernel="spline36")
-								aa_clip = core.std.Transpose(aa_clip)
-						else:
-							if aatype == 3:
-								if lsb:
-									aa_clip = core.fmtc.resample(core.nnedi3.nnedi3(preaaC, dh=True, field=1, nsize=int(p1), nns=int(p2), qual=int(p3)),w=w,h=h,sx=0,sy=[-0.5,-0.5*(1<<preaaC.format.subsampling_h)],kernel="spline36")
-									aa_clip = core.nnedi3.nnedi3(core.std.Transpose(aa_clip), dh=True, field=1, nsize=int(p1), nns=int(p2), qual=int(p3))
-									aa_clip = core.std.Transpose(core.fmtc.resample(aa_clip,w=h,h=w,sx=0,sy=[-0.5,-0.5*(1<<preaaC.format.subsampling_h)],kernel="spline36"))
-								else:
-									aa_clip = core.fmtc.resample(core.nnedi3.nnedi3(Depth(preaaC,8), dh=True, field=1, nsize=int(p1), nns=int(p2), qual=int(p3)),w=w,h=h,sx=0,sy=[-0.5,-0.5*(1<<preaaC.format.subsampling_h)],kernel="spline36")
-									aa_clip = core.nnedi3.nnedi3(Depth(core.std.Transpose(aa_clip),8), dh=True, field=1, nsize=int(p1), nns=int(p2), qual=int(p3))
-									aa_clip = core.std.Transpose(core.fmtc.resample(aa_clip,w=h,h=w,sx=0,sy=[-0.5,-0.5*(1<<preaaC.format.subsampling_h)],kernel="spline36"))
-							else:
-								if aatype == 5:
-									aa_clip = Depth(core.fmtc.resample(preaaC, w=upw4, h=uph4 ,kernel=["lanczos","bicubic"]),depth=8)
-									aa_clip = core.std.Transpose(core.sangnom.SangNomMod(aa_clip,aa=int(p1)))
-									aa_clip = core.fmtc.resample(core.sangnom.SangNomMod(aa_clip,aa=int(p1)),w=h,h=w,kernel="spline36")
-									aa_clip = core.std.Transpose(aa_clip)
-								else:
-									if aatype == 6:
-										aa_clip = Depth(core.fmtc.resample(preaaC, w=w, h=uph4 ,kernel=["lanczos","bicubic"]),depth=8)
-										if mod16w is True:
-											aa_clip = core.fmtc.resample(core.sangnom.SangNomMod(aa_clip,aa=int(p1)),w=w,h=h,kernel="spline36")
-										else:
-											aa_clip = core.std.AddBorders(aa_clip,borderW)
-											aa_clip = core.fmtc.resample(core.sangnom.SangNomMod(aa_clip,aa=int(p1)),w=w,h=h,kernel="spline36")
-											aa_clip = core.std.CropRel(aa_clip,borderW)
-										aa_clip = core.fmtc.resample(core.std.Transpose(aa_clip),w=h,h=upw4,kernel=["lanczos","bicubic"])
-										if mod16h is True:
-											aa_clip = core.sangnom.SangNomMod(Depth(aa_clip,depth=8),aa=int(p1))
-										else:
-											aa_clip = core.std.AddBorders(aa_clip,borderH)
-											aa_clip = core.sangnom.SangNomMod(Depth(aa_clip,depth=8),aa=int(p1))
-											aa_clip = core.std.CropRel(aa_clip,borderH)
-										aa_clip = core.std.Transpose(core.fmtc.resample(aa_clip,w=h,h=w,kernel="spline36"))
-										aa_clip = core.rgvs.Repair(aa_clip, core.fmtc.resample(preaaC,w=w,h=h,kernel="spline64"), mode=int(p2))
-									else:
-										if predown:
-											if lsb:
-												aa_clip = core.fmtc.resample(core.nnedi3.nnedi3(preaaC,dh=True, field=1, nsize=1, nns=3, qual=2),w=preaaC.width,h=h,sx=0,sy=[-0.5,-0.5*(1<<preaaC.format.subsampling_h)],kernel="spline36")
-												aa_clip = core.nnedi3.nnedi3(core.std.Transpose(aa_clip),dh=True, field=1, nsize=1, nns=3, qual=2)
-												aa_clip = core.std.Transpose(core.fmtc.resample(aa_clip,w=h,h=w,sx=0,sy=[-0.5,-0.5*(1<<preaaC.format.subsampling_h)],kernel="spline36"))
-											else:
-												aa_clip = core.fmtc.resample(core.nnedi3.nnedi3(Depth(preaaC,8),dh=True, field=1, nsize=1, nns=3, qual=2),w=preaaC.width,h=h,sx=0,sy=[-0.5,-0.5*(1<<preaaC.format.subsampling_h)],kernel="spline36")
-												aa_clip = core.nnedi3.nnedi3(Depth(core.std.Transpose(aa_clip),8),dh=True, field=1, nsize=1, nns=3, qual=2)
-												aa_clip = core.std.Transpose(core.fmtc.resample(aa_clip,w=h,h=w,sx=0,sy=[-0.5,-0.5*(1<<preaaC.format.subsampling_h)],kernel="spline36"))
-										else:
-											aa_clip = Depth(preaaC,16)
+					aa_clip = core.std.AddBorders(aa_clip,borderW)
+					aa_clip = core.sangnom.SangNomMod(aa_clip,aa=int(p1))
+					aa_clip = core.std.CropRel(aa_clip,borderW)
+					aa_clip = core.std.Transpose(aa_clip)
+			else:
+				aa_clip = core.std.AddBorders(aa_clip,borderW)
+				aa_clip = core.sangnom.SangNomMod(aa_clip,aa=int(p1))
+				aa_clip = core.std.CropRel(aa_clip,borderW)
+				aa_clip = core.std.Transpose(aa_clip)
+			aa_clip = PointPower(aa_clip)
+			
+			if mod16h and not predown:
+				aa_clip = core.sangnom.SangNomMod(aa_clip,aa=int(p1))
+			elif predown:
+				if aa_clip.width == downh4 * 2:
+					aa_clip = core.sangnom.SangNomMod(aa_clip,aa=int(p1))
+				elif mod16h:
+					aa_clip = core.sangnom.SangNomMod(aa_clip,aa=int(p1))
+				else:
+					aa_clip = core.std.AddBorders(aa_clip,(16 - h * 2 % 16))
+					aa_clip = core.sangnom.SangNomMod(aa_clip,aa=int(p1))
+					aa_clip = core.std.CropRel(aa_clip,(16 - h * 2 % 16))
+			else:
+				aa_clip = core.std.AddBorders(aa_clip,(16 - h * 2 % 16))
+				aa_clip = core.sangnom.SangNomMod(aa_clip,aa=int(p1))
+				aa_clip = core.std.CropRel(aa_clip,(16 - h * 2 % 16))
+			aa_clip = core.std.Transpose(core.fmtc.resample(aa_clip,w=h,h=w,kernel="spline36"))
+			
+			if predown:
+				aa_clip = core.rgvs.Repair(aa_clip, core.fmtc.resample(preaaC,w=w,h=h,kernel="spline64"), mode=int(p2))
+			else:
+				aa_clip = core.rgvs.Repair(aa_clip, Depth(preaaC,16), mode=int(p2))
+			
+		# if predown and no aa, use nnedi3 to recover
+		else:
+			if predown:
+				if lsb:
+					aa_clip = core.fmtc.resample(core.nnedi3.nnedi3(preaaC,dh=True, field=1, nsize=1, nns=3, qual=2),w=preaaC.width,h=h,sx=0,sy=[-0.5,-0.5*(1<<preaaC.format.subsampling_h)],kernel="spline36")
+					aa_clip = core.nnedi3.nnedi3(core.std.Transpose(aa_clip),dh=True, field=1, nsize=1, nns=3, qual=2)
+					aa_clip = core.std.Transpose(core.fmtc.resample(aa_clip,w=h,h=w,sx=0,sy=[-0.5,-0.5*(1<<preaaC.format.subsampling_h)],kernel="spline36"))
+				else:
+					aa_clip = core.fmtc.resample(core.nnedi3.nnedi3(Depth(preaaC,8),dh=True, field=1, nsize=1, nns=3, qual=2),w=preaaC.width,h=h,sx=0,sy=[-0.5,-0.5*(1<<preaaC.format.subsampling_h)],kernel="spline36")
+					aa_clip = core.nnedi3.nnedi3(Depth(core.std.Transpose(aa_clip),8),dh=True, field=1, nsize=1, nns=3, qual=2)
+					aa_clip = core.std.Transpose(core.fmtc.resample(aa_clip,w=h,h=w,sx=0,sy=[-0.5,-0.5*(1<<preaaC.format.subsampling_h)],kernel="spline36"))
 		
 		return aa_clip if cycle == 0 else TAAmbk_mainpass(aa_clip, aatype=aatype ,cycle=cycle-1, p1=p1, p2=p2, p3=p3, p4=p4, p5=p5, p6=p6, w=w, h=h, uph4=uph4, upw4=upw4, eedi3sclip=eedi3sclip)
 	
