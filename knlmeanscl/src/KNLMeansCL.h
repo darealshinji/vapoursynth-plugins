@@ -16,7 +16,8 @@
 *	along with KNLMeansCL. If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define VERSION "0.7.2"
+#define VERSION "0.7.3"
+#define OCL_MIN_VERSION "1.2"
 
 #ifdef _MSC_VER
     #pragma warning (disable : 4514 4710 4820)
@@ -71,12 +72,13 @@ private:
     cl_kernel kernel[nlmNumberKernels];
     cl_mem mem_in[2], mem_out, mem_U[4], mem_P[3];
     bool equals(VideoInfo *v, VideoInfo *w);
+    void oclErrorCheck(const char* function, cl_int errcode, IScriptEnvironment *env);
 public:
     KNLMeansClass(PClip _child, const int _d, const int _a, const int _s, const bool _cmode, const int _wmode, 
         const double _h, PClip _baby, const char* _ocl_device, const int _ocl_id, const bool _lsb, const bool _info, 
-        IScriptEnvironment* env);
+        IScriptEnvironment *env);
     ~KNLMeansClass();
-    PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment* env);
+    PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment *env);
 };
 #endif //__AVISYNTH_6_H__
 
@@ -97,5 +99,6 @@ typedef struct {
     cl_kernel kernel[nlmNumberKernels];
     cl_mem mem_in[2], mem_out, mem_U[4], mem_P[3];
     bool equals(const VSVideoInfo *v, const VSVideoInfo *w);
+    void oclErrorCheck2(const char* function, cl_int errcode, VSMap *out, const VSAPI *vsapi);
 } KNLMeansData;
 #endif //__VAPOURSYNTH_H__
