@@ -9,10 +9,10 @@ ifeq ($(HAVE_YASM),yes)
 
 $(LIB): $(ASMOBJS)
 LIBADD = $(ASMOBJS)
-VSASFLAGS = -DARCH_X86_64=1 -DPIC -f elf64 $(ASFLAGS)
+VSASFLAGS = -DARCH_X86_64=1 -DPIC -f elf64
 
 %.o: %.asm
-	$(YASM_silent)$(YASM) $(VSASFLAGS) -o $@ $<
+	$(YASM_silent)$(YASM) $(VSASFLAGS) $(ASINC) $(ASFLAGS) -o $@ $<
 
 endif #HAVE_YASM
 endif #x86_64

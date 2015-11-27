@@ -15,7 +15,7 @@ $(LIB): $(ASMOBJS)
 LIBADD = $(ASMOBJS)
 CLEANFILES = $(ASMOBJS)
 
-VSASFLAGS = $(ASFLAGS) -f elf -Dprivate_prefix=nnedi3
+VSASFLAGS = -f elf -Dprivate_prefix=nnedi3
 ifeq ($(shell uname -p),x86_64)
 VSASFLAGS += -DARCH_X86_64=1 -DPIC -m amd64
 else
@@ -23,7 +23,7 @@ VSASFLAGS += -DARCH_X86_64=0
 endif
 
 %.o: %.asm
-	$(YASM_silent)$(YASM) $(VSASFLAGS) -o $@ $<
+	$(YASM_silent)$(YASM) $(VSASFLAGS) $(ASINC) $(ASFLAGS) -o $@ $<
 
 endif #HAVE_YASM
 

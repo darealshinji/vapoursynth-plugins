@@ -22,15 +22,17 @@ LIB = libmvtools.so
 $(LIB): $(ASMOBJS)
 LIBADD = $(ASMOBJS) -lfftw3f
 
-VSASFLAGS = $(ASFLAGS) -Dprivate_prefix=mvtools -DHIGH_BIT_DEPTH=0 -DBIT_DEPTH=8 -f elf
+VSASFLAGS = -Dprivate_prefix=mvtools -DHIGH_BIT_DEPTH=0 -DBIT_DEPTH=8 -f elf
 ifeq ($(shell uname -p),x86_64)
 VSASFLAGS += -DARCH_X86_64=1 -DPIC -m amd64
 else
 VSASFLAGS += -DARCH_X86_64=0
 endif
 
+#reminder: mvtools doesn't build with a newer x86inc.asm file
+
 %.o: %.asm
-	$(YASM_silent)$(YASM) $(VSASFLAGS) -o $@ $<
+	$(YASM_silent)$(YASM) $(VSASFLAGS) $(ASFLAGS) -o $@ $<
 
 endif #HAVE_FFTW3F
 endif #HAVE_YASM
