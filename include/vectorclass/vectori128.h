@@ -1,8 +1,8 @@
 /****************************  vectori128.h   *******************************
 * Author:        Agner Fog
 * Date created:  2012-05-30
-* Last modified: 2015-08-08
-* Version:       1.18
+* Last modified: 2015-11-07
+* Version:       1.19
 * Project:       vector classes
 * Description:
 * Header file defining integer vector classes as interface to intrinsic 
@@ -3562,16 +3562,16 @@ template <int i0, int i1, int i2, int i3>
 static inline Vec4i permute4i(Vec4i const & a) {
 
     // Combine all the indexes into a single bitfield, with 4 bits for each
-    const int m1 = (i0&3) | (i1&3)<<4 | (i2&3)<<8 | (i3&3)<<12; 
+    const uint32_t m1 = (i0&3) | (i1&3)<<4 | (i2&3)<<8 | (i3&3)<<12; 
 
     // Mask to zero out negative indexes
-    const int mz = (i0<0?0:0xF) | (i1<0?0:0xF)<<4 | (i2<0?0:0xF)<<8 | (i3<0?0:0xF)<<12;
+    const uint32_t mz = (i0<0?0:0xF) | (i1<0?0:0xF)<<4 | (i2<0?0:0xF)<<8 | (i3<0?0:0xF)<<12;
 
     // Mask indicating required zeroing of all indexes, with 4 bits for each, 0 for index = -1, 0xF for index >= 0 or -256
-    const int ssz = ((i0 & 0x80) ? 0 : 0xF) | ((i1 & 0x80) ? 0 : 0xF) << 4 | ((i2 & 0x80) ? 0 : 0xF) << 8 | ((i3 & 0x80) ? 0 : 0xF) << 12;
+    const uint32_t ssz = ((i0 & 0x80) ? 0 : 0xF) | ((i1 & 0x80) ? 0 : 0xF) << 4 | ((i2 & 0x80) ? 0 : 0xF) << 8 | ((i3 & 0x80) ? 0 : 0xF) << 12;
 
     // Mask indicating 0 for don't care, 0xF for non-negative value of required zeroing
-    const int md = mz | ~ ssz;
+    const uint32_t md = mz | ~ ssz;
 
     // Test if permutation needed
     const bool do_shuffle = ((m1 ^ 0x00003210) & mz) != 0;

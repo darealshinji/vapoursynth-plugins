@@ -1,6 +1,10 @@
 change log for vectorclass.zip
 ------------------------------
-2015-09-25 version1.18
+2015-11-14 version 1.19
+  * fix various problems with Clang compiler
+
+
+2015-09-25 version 1.18
   * fix compiler error for Vec8s divide_by_i(Vec8s const & x) under Clang compiler
   * fix error in Vec4d::size() in vectorf256e.h
 

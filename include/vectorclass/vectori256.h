@@ -1,8 +1,8 @@
 /****************************  vectori256.h   *******************************
 * Author:        Agner Fog
 * Date created:  2012-05-30
-* Last modified: 2014-12-07
-* Version:       1.17
+* Last modified: 2015-11-08
+* Version:       1.19
 * Project:       vector classes
 * Description:
 * Header file defining integer vector classes as interface to intrinsic 
@@ -36,7 +36,7 @@
 *
 * For detailed instructions, see VectorClass.pdf
 *
-* (c) Copyright 2012 - 2013 GNU General Public License http://www.gnu.org/licenses
+* (c) Copyright 2012 - 2015 GNU General Public License http://www.gnu.org/licenses
 *****************************************************************************/
 
 // check combination of header files
@@ -3469,14 +3469,14 @@ static inline Vec16s permute16s(Vec16s const & a) {
             if (dozero) {
                 // zero some elements
                 const __m256i maskz = constant8i<
-                    (i0 <0?0:0xFFFF) | (i1 <0?0:0xFFFF0000),
-                    (i2 <0?0:0xFFFF) | (i3 <0?0:0xFFFF0000),
-                    (i4 <0?0:0xFFFF) | (i5 <0?0:0xFFFF0000),
-                    (i6 <0?0:0xFFFF) | (i7 <0?0:0xFFFF0000),
-                    (i8 <0?0:0xFFFF) | (i9 <0?0:0xFFFF0000),
-                    (i10<0?0:0xFFFF) | (i11<0?0:0xFFFF0000),
-                    (i12<0?0:0xFFFF) | (i13<0?0:0xFFFF0000),
-                    (i14<0?0:0xFFFF) | (i15<0?0:0xFFFF0000) > ();                    
+                    int((i0 <0?0:0xFFFF) | (i1 <0?0:0xFFFF0000)),
+                    int((i2 <0?0:0xFFFF) | (i3 <0?0:0xFFFF0000)),
+                    int((i4 <0?0:0xFFFF) | (i5 <0?0:0xFFFF0000)),
+                    int((i6 <0?0:0xFFFF) | (i7 <0?0:0xFFFF0000)),
+                    int((i8 <0?0:0xFFFF) | (i9 <0?0:0xFFFF0000)),
+                    int((i10<0?0:0xFFFF) | (i11<0?0:0xFFFF0000)),
+                    int((i12<0?0:0xFFFF) | (i13<0?0:0xFFFF0000)),
+                    int((i14<0?0:0xFFFF) | (i15<0?0:0xFFFF0000)) > ();                    
                 return _mm256_and_si256(a, maskz);
             }
             return a;                                 // do nothing
@@ -3511,14 +3511,14 @@ static inline Vec16s permute16s(Vec16s const & a) {
         }
         // need more zeroing
         mask = constant8i<
-            (i0 <0?0:0xFFFF) | (i1 <0?0:0xFFFF0000),
-            (i2 <0?0:0xFFFF) | (i3 <0?0:0xFFFF0000),
-            (i4 <0?0:0xFFFF) | (i5 <0?0:0xFFFF0000),
-            (i6 <0?0:0xFFFF) | (i7 <0?0:0xFFFF0000),
-            (i8 <0?0:0xFFFF) | (i9 <0?0:0xFFFF0000),
-            (i10<0?0:0xFFFF) | (i11<0?0:0xFFFF0000),
-            (i12<0?0:0xFFFF) | (i13<0?0:0xFFFF0000),
-            (i14<0?0:0xFFFF) | (i15<0?0:0xFFFF0000) > ();                    
+            int((i0 <0?0:0xFFFF) | (i1 <0?0:0xFFFF0000)),
+            int((i2 <0?0:0xFFFF) | (i3 <0?0:0xFFFF0000)),
+            int((i4 <0?0:0xFFFF) | (i5 <0?0:0xFFFF0000)),
+            int((i6 <0?0:0xFFFF) | (i7 <0?0:0xFFFF0000)),
+            int((i8 <0?0:0xFFFF) | (i9 <0?0:0xFFFF0000)),
+            int((i10<0?0:0xFFFF) | (i11<0?0:0xFFFF0000)),
+            int((i12<0?0:0xFFFF) | (i13<0?0:0xFFFF0000)),
+            int((i14<0?0:0xFFFF) | (i15<0?0:0xFFFF0000)) > ();                    
         return _mm256_and_si256(t1, mask);
     }
 
@@ -3662,14 +3662,14 @@ static inline Vec32c permute32c(Vec32c const & a) {
         if (dozero) {
             // zero some elements
             mask = constant8i <
-                (i0 <0?0:0xFF) | (i1 <0?0:0xFF00) | (i2 <0?0:0xFF0000) | (i3 <0?0:0xFF000000),
-                (i4 <0?0:0xFF) | (i5 <0?0:0xFF00) | (i6 <0?0:0xFF0000) | (i7 <0?0:0xFF000000),
-                (i8 <0?0:0xFF) | (i9 <0?0:0xFF00) | (i10<0?0:0xFF0000) | (i11<0?0:0xFF000000),
-                (i12<0?0:0xFF) | (i13<0?0:0xFF00) | (i14<0?0:0xFF0000) | (i15<0?0:0xFF000000),
-                (i16<0?0:0xFF) | (i17<0?0:0xFF00) | (i18<0?0:0xFF0000) | (i19<0?0:0xFF000000),
-                (i20<0?0:0xFF) | (i21<0?0:0xFF00) | (i22<0?0:0xFF0000) | (i23<0?0:0xFF000000),
-                (i24<0?0:0xFF) | (i25<0?0:0xFF00) | (i26<0?0:0xFF0000) | (i27<0?0:0xFF000000),
-                (i28<0?0:0xFF) | (i29<0?0:0xFF00) | (i30<0?0:0xFF0000) | (i31<0?0:0xFF000000) > ();
+                int((i0 <0?0:0xFF) | (i1 <0?0:0xFF00) | (i2 <0?0:0xFF0000) | (i3 <0?0:0xFF000000)),
+                int((i4 <0?0:0xFF) | (i5 <0?0:0xFF00) | (i6 <0?0:0xFF0000) | (i7 <0?0:0xFF000000)),
+                int((i8 <0?0:0xFF) | (i9 <0?0:0xFF00) | (i10<0?0:0xFF0000) | (i11<0?0:0xFF000000)),
+                int((i12<0?0:0xFF) | (i13<0?0:0xFF00) | (i14<0?0:0xFF0000) | (i15<0?0:0xFF000000)),
+                int((i16<0?0:0xFF) | (i17<0?0:0xFF00) | (i18<0?0:0xFF0000) | (i19<0?0:0xFF000000)),
+                int((i20<0?0:0xFF) | (i21<0?0:0xFF00) | (i22<0?0:0xFF0000) | (i23<0?0:0xFF000000)),
+                int((i24<0?0:0xFF) | (i25<0?0:0xFF00) | (i26<0?0:0xFF0000) | (i27<0?0:0xFF000000)),
+                int((i28<0?0:0xFF) | (i29<0?0:0xFF00) | (i30<0?0:0xFF0000) | (i31<0?0:0xFF000000)) > ();
             return _mm256_and_si256(a, mask);
         }
         return a; // do nothing
@@ -3725,14 +3725,14 @@ static inline Vec32c permute32c(Vec32c const & a) {
         }
         // need more zeroing
         mask = constant8i <
-            (i0 <0?0:0xFF) | (i1 <0?0:0xFF00) | (i2 <0?0:0xFF0000) | (i3 <0?0:0xFF000000),
-            (i4 <0?0:0xFF) | (i5 <0?0:0xFF00) | (i6 <0?0:0xFF0000) | (i7 <0?0:0xFF000000),
-            (i8 <0?0:0xFF) | (i9 <0?0:0xFF00) | (i10<0?0:0xFF0000) | (i11<0?0:0xFF000000),
-            (i12<0?0:0xFF) | (i13<0?0:0xFF00) | (i14<0?0:0xFF0000) | (i15<0?0:0xFF000000),
-            (i16<0?0:0xFF) | (i17<0?0:0xFF00) | (i18<0?0:0xFF0000) | (i19<0?0:0xFF000000),
-            (i20<0?0:0xFF) | (i21<0?0:0xFF00) | (i22<0?0:0xFF0000) | (i23<0?0:0xFF000000),
-            (i24<0?0:0xFF) | (i25<0?0:0xFF00) | (i26<0?0:0xFF0000) | (i27<0?0:0xFF000000),
-            (i28<0?0:0xFF) | (i29<0?0:0xFF00) | (i30<0?0:0xFF0000) | (i31<0?0:0xFF000000) > ();
+            int((i0 <0?0:0xFF) | (i1 <0?0:0xFF00) | (i2 <0?0:0xFF0000) | (i3 <0?0:0xFF000000)),
+            int((i4 <0?0:0xFF) | (i5 <0?0:0xFF00) | (i6 <0?0:0xFF0000) | (i7 <0?0:0xFF000000)),
+            int((i8 <0?0:0xFF) | (i9 <0?0:0xFF00) | (i10<0?0:0xFF0000) | (i11<0?0:0xFF000000)),
+            int((i12<0?0:0xFF) | (i13<0?0:0xFF00) | (i14<0?0:0xFF0000) | (i15<0?0:0xFF000000)),
+            int((i16<0?0:0xFF) | (i17<0?0:0xFF00) | (i18<0?0:0xFF0000) | (i19<0?0:0xFF000000)),
+            int((i20<0?0:0xFF) | (i21<0?0:0xFF00) | (i22<0?0:0xFF0000) | (i23<0?0:0xFF000000)),
+            int((i24<0?0:0xFF) | (i25<0?0:0xFF00) | (i26<0?0:0xFF0000) | (i27<0?0:0xFF000000)),
+            int((i28<0?0:0xFF) | (i29<0?0:0xFF00) | (i30<0?0:0xFF0000) | (i31<0?0:0xFF000000)) > ();
         return _mm256_and_si256(a, mask);
     } 
 
@@ -4159,28 +4159,28 @@ static inline Vec16s blend16s(Vec16s const & a, Vec16s const & b) {
         (i12<0||(i12&15)==12) && (i13<0||(i13&15)==13) && (i14<0||(i14&15)==14) && (i15<0||(i15&15)==15)) {
 
         mask = constant8i <
-            ((i0 & 16) ? 0xFFFF : 0) | ((i1 & 16) ? 0xFFFF0000 : 0),
-            ((i2 & 16) ? 0xFFFF : 0) | ((i3 & 16) ? 0xFFFF0000 : 0),
-            ((i4 & 16) ? 0xFFFF : 0) | ((i5 & 16) ? 0xFFFF0000 : 0),
-            ((i6 & 16) ? 0xFFFF : 0) | ((i7 & 16) ? 0xFFFF0000 : 0),
-            ((i8 & 16) ? 0xFFFF : 0) | ((i9 & 16) ? 0xFFFF0000 : 0),
-            ((i10& 16) ? 0xFFFF : 0) | ((i11& 16) ? 0xFFFF0000 : 0),
-            ((i12& 16) ? 0xFFFF : 0) | ((i13& 16) ? 0xFFFF0000 : 0),
-            ((i14& 16) ? 0xFFFF : 0) | ((i15& 16) ? 0xFFFF0000 : 0) > ();
+            int(((i0 & 16) ? 0xFFFF : 0) | ((i1 & 16) ? 0xFFFF0000 : 0)),
+            int(((i2 & 16) ? 0xFFFF : 0) | ((i3 & 16) ? 0xFFFF0000 : 0)),
+            int(((i4 & 16) ? 0xFFFF : 0) | ((i5 & 16) ? 0xFFFF0000 : 0)),
+            int(((i6 & 16) ? 0xFFFF : 0) | ((i7 & 16) ? 0xFFFF0000 : 0)),
+            int(((i8 & 16) ? 0xFFFF : 0) | ((i9 & 16) ? 0xFFFF0000 : 0)),
+            int(((i10& 16) ? 0xFFFF : 0) | ((i11& 16) ? 0xFFFF0000 : 0)),
+            int(((i12& 16) ? 0xFFFF : 0) | ((i13& 16) ? 0xFFFF0000 : 0)),
+            int(((i14& 16) ? 0xFFFF : 0) | ((i15& 16) ? 0xFFFF0000 : 0)) > ();
 
         t1 = _mm256_blendv_epi8(a, b, mask);  // blend
 
         if (mz != 0xFFFF) {
             // zero some elements
             mask = constant8i <
-                (i0  < 0 ? 0 : 0xFFFF) | (i1  < 0 ? 0 : 0xFFFF0000),
-                (i2  < 0 ? 0 : 0xFFFF) | (i3  < 0 ? 0 : 0xFFFF0000),
-                (i4  < 0 ? 0 : 0xFFFF) | (i5  < 0 ? 0 : 0xFFFF0000),
-                (i6  < 0 ? 0 : 0xFFFF) | (i7  < 0 ? 0 : 0xFFFF0000),
-                (i8  < 0 ? 0 : 0xFFFF) | (i9  < 0 ? 0 : 0xFFFF0000),
-                (i10 < 0 ? 0 : 0xFFFF) | (i11 < 0 ? 0 : 0xFFFF0000),
-                (i12 < 0 ? 0 : 0xFFFF) | (i13 < 0 ? 0 : 0xFFFF0000),
-                (i14 < 0 ? 0 : 0xFFFF) | (i15 < 0 ? 0 : 0xFFFF0000) > ();
+                int((i0  < 0 ? 0 : 0xFFFF) | (i1  < 0 ? 0 : 0xFFFF0000)),
+                int((i2  < 0 ? 0 : 0xFFFF) | (i3  < 0 ? 0 : 0xFFFF0000)),
+                int((i4  < 0 ? 0 : 0xFFFF) | (i5  < 0 ? 0 : 0xFFFF0000)),
+                int((i6  < 0 ? 0 : 0xFFFF) | (i7  < 0 ? 0 : 0xFFFF0000)),
+                int((i8  < 0 ? 0 : 0xFFFF) | (i9  < 0 ? 0 : 0xFFFF0000)),
+                int((i10 < 0 ? 0 : 0xFFFF) | (i11 < 0 ? 0 : 0xFFFF0000)),
+                int((i12 < 0 ? 0 : 0xFFFF) | (i13 < 0 ? 0 : 0xFFFF0000)),
+                int((i14 < 0 ? 0 : 0xFFFF) | (i15 < 0 ? 0 : 0xFFFF0000)) > ();
             return _mm256_and_si256(t1, mask);
         }
         return t1;
@@ -4197,14 +4197,14 @@ static inline Vec16s blend16s(Vec16s const & a, Vec16s const & b) {
         if (mz != 0xFFFF) {
             // zero some elements
             mask = constant8i <
-                (i0  < 0 ? 0 : 0xFFFF) | (i1  < 0 ? 0 : 0xFFFF0000),
-                (i2  < 0 ? 0 : 0xFFFF) | (i3  < 0 ? 0 : 0xFFFF0000),
-                (i4  < 0 ? 0 : 0xFFFF) | (i5  < 0 ? 0 : 0xFFFF0000),
-                (i6  < 0 ? 0 : 0xFFFF) | (i7  < 0 ? 0 : 0xFFFF0000),
-                (i8  < 0 ? 0 : 0xFFFF) | (i9  < 0 ? 0 : 0xFFFF0000),
-                (i10 < 0 ? 0 : 0xFFFF) | (i11 < 0 ? 0 : 0xFFFF0000),
-                (i12 < 0 ? 0 : 0xFFFF) | (i13 < 0 ? 0 : 0xFFFF0000),
-                (i14 < 0 ? 0 : 0xFFFF) | (i15 < 0 ? 0 : 0xFFFF0000) > ();
+                int((i0  < 0 ? 0 : 0xFFFF) | (i1  < 0 ? 0 : 0xFFFF0000)),
+                int((i2  < 0 ? 0 : 0xFFFF) | (i3  < 0 ? 0 : 0xFFFF0000)),
+                int((i4  < 0 ? 0 : 0xFFFF) | (i5  < 0 ? 0 : 0xFFFF0000)),
+                int((i6  < 0 ? 0 : 0xFFFF) | (i7  < 0 ? 0 : 0xFFFF0000)),
+                int((i8  < 0 ? 0 : 0xFFFF) | (i9  < 0 ? 0 : 0xFFFF0000)),
+                int((i10 < 0 ? 0 : 0xFFFF) | (i11 < 0 ? 0 : 0xFFFF0000)),
+                int((i12 < 0 ? 0 : 0xFFFF) | (i13 < 0 ? 0 : 0xFFFF0000)),
+                int((i14 < 0 ? 0 : 0xFFFF) | (i15 < 0 ? 0 : 0xFFFF0000)) > ();
             return _mm256_and_si256(t1, mask);
         }
         return t1;
@@ -4220,14 +4220,14 @@ static inline Vec16s blend16s(Vec16s const & a, Vec16s const & b) {
         if (mz != 0xFFFF) {
             // zero some elements
             mask = constant8i <
-                (i0  < 0 ? 0 : 0xFFFF) | (i1  < 0 ? 0 : 0xFFFF0000),
-                (i2  < 0 ? 0 : 0xFFFF) | (i3  < 0 ? 0 : 0xFFFF0000),
-                (i4  < 0 ? 0 : 0xFFFF) | (i5  < 0 ? 0 : 0xFFFF0000),
-                (i6  < 0 ? 0 : 0xFFFF) | (i7  < 0 ? 0 : 0xFFFF0000),
-                (i8  < 0 ? 0 : 0xFFFF) | (i9  < 0 ? 0 : 0xFFFF0000),
-                (i10 < 0 ? 0 : 0xFFFF) | (i11 < 0 ? 0 : 0xFFFF0000),
-                (i12 < 0 ? 0 : 0xFFFF) | (i13 < 0 ? 0 : 0xFFFF0000),
-                (i14 < 0 ? 0 : 0xFFFF) | (i15 < 0 ? 0 : 0xFFFF0000) > ();
+                int((i0  < 0 ? 0 : 0xFFFF) | (i1  < 0 ? 0 : 0xFFFF0000)),
+                int((i2  < 0 ? 0 : 0xFFFF) | (i3  < 0 ? 0 : 0xFFFF0000)),
+                int((i4  < 0 ? 0 : 0xFFFF) | (i5  < 0 ? 0 : 0xFFFF0000)),
+                int((i6  < 0 ? 0 : 0xFFFF) | (i7  < 0 ? 0 : 0xFFFF0000)),
+                int((i8  < 0 ? 0 : 0xFFFF) | (i9  < 0 ? 0 : 0xFFFF0000)),
+                int((i10 < 0 ? 0 : 0xFFFF) | (i11 < 0 ? 0 : 0xFFFF0000)),
+                int((i12 < 0 ? 0 : 0xFFFF) | (i13 < 0 ? 0 : 0xFFFF0000)),
+                int((i14 < 0 ? 0 : 0xFFFF) | (i15 < 0 ? 0 : 0xFFFF0000)) > ();
             return _mm256_and_si256(t1, mask);
         }
         return t1;
@@ -4255,14 +4255,14 @@ static inline Vec16s blend16s(Vec16s const & a, Vec16s const & b) {
     }
     // no zeroing, need to blend
     mask = constant8i <
-        ((i0 & 16) ? 0xFFFF : 0) | ((i1 & 16) ? 0xFFFF0000 : 0),
-        ((i2 & 16) ? 0xFFFF : 0) | ((i3 & 16) ? 0xFFFF0000 : 0),
-        ((i4 & 16) ? 0xFFFF : 0) | ((i5 & 16) ? 0xFFFF0000 : 0),
-        ((i6 & 16) ? 0xFFFF : 0) | ((i7 & 16) ? 0xFFFF0000 : 0),
-        ((i8 & 16) ? 0xFFFF : 0) | ((i9 & 16) ? 0xFFFF0000 : 0),
-        ((i10& 16) ? 0xFFFF : 0) | ((i11& 16) ? 0xFFFF0000 : 0),
-        ((i12& 16) ? 0xFFFF : 0) | ((i13& 16) ? 0xFFFF0000 : 0),
-        ((i14& 16) ? 0xFFFF : 0) | ((i15& 16) ? 0xFFFF0000 : 0) > ();
+        int(((i0 & 16) ? 0xFFFF : 0) | ((i1 & 16) ? 0xFFFF0000 : 0)),
+        int(((i2 & 16) ? 0xFFFF : 0) | ((i3 & 16) ? 0xFFFF0000 : 0)),
+        int(((i4 & 16) ? 0xFFFF : 0) | ((i5 & 16) ? 0xFFFF0000 : 0)),
+        int(((i6 & 16) ? 0xFFFF : 0) | ((i7 & 16) ? 0xFFFF0000 : 0)),
+        int(((i8 & 16) ? 0xFFFF : 0) | ((i9 & 16) ? 0xFFFF0000 : 0)),
+        int(((i10& 16) ? 0xFFFF : 0) | ((i11& 16) ? 0xFFFF0000 : 0)),
+        int(((i12& 16) ? 0xFFFF : 0) | ((i13& 16) ? 0xFFFF0000 : 0)),
+        int(((i14& 16) ? 0xFFFF : 0) | ((i15& 16) ? 0xFFFF0000 : 0)) > ();
 
     return _mm256_blendv_epi8(ta, tb, mask);  // blend
 }
@@ -4320,28 +4320,28 @@ static inline Vec32c blend32c(Vec32c const & a, Vec32c const & b) {
         (i28<0||(i28&31)==28) && (i29<0||(i29&31)==29) && (i30<0||(i30&31)==30) && (i31<0||(i31&31)==31) ) {
 
         mask = constant8i <
-            ((i0 <<2)&0x80) | ((i1 <<10)&0x8000) | ((i2 <<18)&0x800000) | (uint32_t(i3 <<26)&0x80000000) ,
-            ((i4 <<2)&0x80) | ((i5 <<10)&0x8000) | ((i6 <<18)&0x800000) | (uint32_t(i7 <<26)&0x80000000) ,
-            ((i8 <<2)&0x80) | ((i9 <<10)&0x8000) | ((i10<<18)&0x800000) | (uint32_t(i11<<26)&0x80000000) ,
-            ((i12<<2)&0x80) | ((i13<<10)&0x8000) | ((i14<<18)&0x800000) | (uint32_t(i15<<26)&0x80000000) ,
-            ((i16<<2)&0x80) | ((i17<<10)&0x8000) | ((i18<<18)&0x800000) | (uint32_t(i19<<26)&0x80000000) ,
-            ((i20<<2)&0x80) | ((i21<<10)&0x8000) | ((i22<<18)&0x800000) | (uint32_t(i23<<26)&0x80000000) ,
-            ((i24<<2)&0x80) | ((i25<<10)&0x8000) | ((i26<<18)&0x800000) | (uint32_t(i27<<26)&0x80000000) ,
-            ((i28<<2)&0x80) | ((i29<<10)&0x8000) | ((i30<<18)&0x800000) | (uint32_t(i31<<26)&0x80000000) > ();
+            int(((i0 <<2)&0x80) | ((i1 <<10)&0x8000) | ((i2 <<18)&0x800000) | (uint32_t(i3 <<26)&0x80000000)) ,
+            int(((i4 <<2)&0x80) | ((i5 <<10)&0x8000) | ((i6 <<18)&0x800000) | (uint32_t(i7 <<26)&0x80000000)) ,
+            int(((i8 <<2)&0x80) | ((i9 <<10)&0x8000) | ((i10<<18)&0x800000) | (uint32_t(i11<<26)&0x80000000)) ,
+            int(((i12<<2)&0x80) | ((i13<<10)&0x8000) | ((i14<<18)&0x800000) | (uint32_t(i15<<26)&0x80000000)) ,
+            int(((i16<<2)&0x80) | ((i17<<10)&0x8000) | ((i18<<18)&0x800000) | (uint32_t(i19<<26)&0x80000000)) ,
+            int(((i20<<2)&0x80) | ((i21<<10)&0x8000) | ((i22<<18)&0x800000) | (uint32_t(i23<<26)&0x80000000)) ,
+            int(((i24<<2)&0x80) | ((i25<<10)&0x8000) | ((i26<<18)&0x800000) | (uint32_t(i27<<26)&0x80000000)) ,
+            int(((i28<<2)&0x80) | ((i29<<10)&0x8000) | ((i30<<18)&0x800000) | (uint32_t(i31<<26)&0x80000000)) > ();
 
         t1 = _mm256_blendv_epi8(a, b, mask);  // blend
 
         if (mz != -1) {
             // zero some elements
             const __m256i maskz = constant8i <
-                (i0 <0?0:0xFF) | (i1 <0?0:0xFF00) | (i2 <0?0:0xFF0000) | (i3 <0?0:0xFF000000),
-                (i4 <0?0:0xFF) | (i5 <0?0:0xFF00) | (i6 <0?0:0xFF0000) | (i7 <0?0:0xFF000000),
-                (i8 <0?0:0xFF) | (i9 <0?0:0xFF00) | (i10<0?0:0xFF0000) | (i11<0?0:0xFF000000),
-                (i12<0?0:0xFF) | (i13<0?0:0xFF00) | (i14<0?0:0xFF0000) | (i15<0?0:0xFF000000),
-                (i16<0?0:0xFF) | (i17<0?0:0xFF00) | (i18<0?0:0xFF0000) | (i19<0?0:0xFF000000),
-                (i20<0?0:0xFF) | (i21<0?0:0xFF00) | (i22<0?0:0xFF0000) | (i23<0?0:0xFF000000),
-                (i24<0?0:0xFF) | (i25<0?0:0xFF00) | (i26<0?0:0xFF0000) | (i27<0?0:0xFF000000),
-                (i28<0?0:0xFF) | (i29<0?0:0xFF00) | (i30<0?0:0xFF0000) | (i31<0?0:0xFF000000) > ();
+                int((i0 <0?0:0xFF) | (i1 <0?0:0xFF00) | (i2 <0?0:0xFF0000) | (i3 <0?0:0xFF000000)),
+                int((i4 <0?0:0xFF) | (i5 <0?0:0xFF00) | (i6 <0?0:0xFF0000) | (i7 <0?0:0xFF000000)),
+                int((i8 <0?0:0xFF) | (i9 <0?0:0xFF00) | (i10<0?0:0xFF0000) | (i11<0?0:0xFF000000)),
+                int((i12<0?0:0xFF) | (i13<0?0:0xFF00) | (i14<0?0:0xFF0000) | (i15<0?0:0xFF000000)),
+                int((i16<0?0:0xFF) | (i17<0?0:0xFF00) | (i18<0?0:0xFF0000) | (i19<0?0:0xFF000000)),
+                int((i20<0?0:0xFF) | (i21<0?0:0xFF00) | (i22<0?0:0xFF0000) | (i23<0?0:0xFF000000)),
+                int((i24<0?0:0xFF) | (i25<0?0:0xFF00) | (i26<0?0:0xFF0000) | (i27<0?0:0xFF000000)),
+                int((i28<0?0:0xFF) | (i29<0?0:0xFF00) | (i30<0?0:0xFF0000) | (i31<0?0:0xFF000000)) > ();
             return _mm256_and_si256(t1, maskz);
         }
         return t1;
@@ -4364,14 +4364,14 @@ static inline Vec32c blend32c(Vec32c const & a, Vec32c const & b) {
         if (mz != -1) {
             // zero some elements
             const __m256i maskz = constant8i <
-                (i0 <0?0:0xFF) | (i1 <0?0:0xFF00) | (i2 <0?0:0xFF0000) | (i3 <0?0:0xFF000000),
-                (i4 <0?0:0xFF) | (i5 <0?0:0xFF00) | (i6 <0?0:0xFF0000) | (i7 <0?0:0xFF000000),
-                (i8 <0?0:0xFF) | (i9 <0?0:0xFF00) | (i10<0?0:0xFF0000) | (i11<0?0:0xFF000000),
-                (i12<0?0:0xFF) | (i13<0?0:0xFF00) | (i14<0?0:0xFF0000) | (i15<0?0:0xFF000000),
-                (i16<0?0:0xFF) | (i17<0?0:0xFF00) | (i18<0?0:0xFF0000) | (i19<0?0:0xFF000000),
-                (i20<0?0:0xFF) | (i21<0?0:0xFF00) | (i22<0?0:0xFF0000) | (i23<0?0:0xFF000000),
-                (i24<0?0:0xFF) | (i25<0?0:0xFF00) | (i26<0?0:0xFF0000) | (i27<0?0:0xFF000000),
-                (i28<0?0:0xFF) | (i29<0?0:0xFF00) | (i30<0?0:0xFF0000) | (i31<0?0:0xFF000000) > ();
+                int((i0 <0?0:0xFF) | (i1 <0?0:0xFF00) | (i2 <0?0:0xFF0000) | (i3 <0?0:0xFF000000)),
+                int((i4 <0?0:0xFF) | (i5 <0?0:0xFF00) | (i6 <0?0:0xFF0000) | (i7 <0?0:0xFF000000)),
+                int((i8 <0?0:0xFF) | (i9 <0?0:0xFF00) | (i10<0?0:0xFF0000) | (i11<0?0:0xFF000000)),
+                int((i12<0?0:0xFF) | (i13<0?0:0xFF00) | (i14<0?0:0xFF0000) | (i15<0?0:0xFF000000)),
+                int((i16<0?0:0xFF) | (i17<0?0:0xFF00) | (i18<0?0:0xFF0000) | (i19<0?0:0xFF000000)),
+                int((i20<0?0:0xFF) | (i21<0?0:0xFF00) | (i22<0?0:0xFF0000) | (i23<0?0:0xFF000000)),
+                int((i24<0?0:0xFF) | (i25<0?0:0xFF00) | (i26<0?0:0xFF0000) | (i27<0?0:0xFF000000)),
+                int((i28<0?0:0xFF) | (i29<0?0:0xFF00) | (i30<0?0:0xFF0000) | (i31<0?0:0xFF000000)) > ();
             return _mm256_and_si256(t1, maskz);
         }
         return t1;
@@ -4393,14 +4393,14 @@ static inline Vec32c blend32c(Vec32c const & a, Vec32c const & b) {
         if (mz != -1) {
             // zero some elements
             const __m256i maskz = constant8i <
-                (i0 <0?0:0xFF) | (i1 <0?0:0xFF00) | (i2 <0?0:0xFF0000) | (i3 <0?0:0xFF000000),
-                (i4 <0?0:0xFF) | (i5 <0?0:0xFF00) | (i6 <0?0:0xFF0000) | (i7 <0?0:0xFF000000),
-                (i8 <0?0:0xFF) | (i9 <0?0:0xFF00) | (i10<0?0:0xFF0000) | (i11<0?0:0xFF000000),
-                (i12<0?0:0xFF) | (i13<0?0:0xFF00) | (i14<0?0:0xFF0000) | (i15<0?0:0xFF000000),
-                (i16<0?0:0xFF) | (i17<0?0:0xFF00) | (i18<0?0:0xFF0000) | (i19<0?0:0xFF000000),
-                (i20<0?0:0xFF) | (i21<0?0:0xFF00) | (i22<0?0:0xFF0000) | (i23<0?0:0xFF000000),
-                (i24<0?0:0xFF) | (i25<0?0:0xFF00) | (i26<0?0:0xFF0000) | (i27<0?0:0xFF000000),
-                (i28<0?0:0xFF) | (i29<0?0:0xFF00) | (i30<0?0:0xFF0000) | (i31<0?0:0xFF000000) > ();
+                int((i0 <0?0:0xFF) | (i1 <0?0:0xFF00) | (i2 <0?0:0xFF0000) | (i3 <0?0:0xFF000000)),
+                int((i4 <0?0:0xFF) | (i5 <0?0:0xFF00) | (i6 <0?0:0xFF0000) | (i7 <0?0:0xFF000000)),
+                int((i8 <0?0:0xFF) | (i9 <0?0:0xFF00) | (i10<0?0:0xFF0000) | (i11<0?0:0xFF000000)),
+                int((i12<0?0:0xFF) | (i13<0?0:0xFF00) | (i14<0?0:0xFF0000) | (i15<0?0:0xFF000000)),
+                int((i16<0?0:0xFF) | (i17<0?0:0xFF00) | (i18<0?0:0xFF0000) | (i19<0?0:0xFF000000)),
+                int((i20<0?0:0xFF) | (i21<0?0:0xFF00) | (i22<0?0:0xFF0000) | (i23<0?0:0xFF000000)),
+                int((i24<0?0:0xFF) | (i25<0?0:0xFF00) | (i26<0?0:0xFF0000) | (i27<0?0:0xFF000000)),
+                int((i28<0?0:0xFF) | (i29<0?0:0xFF00) | (i30<0?0:0xFF0000) | (i31<0?0:0xFF000000)) > ();
             return _mm256_and_si256(t1, maskz);
         }
         return t1;
@@ -4436,14 +4436,14 @@ static inline Vec32c blend32c(Vec32c const & a, Vec32c const & b) {
     }
     // no zeroing, need to blend
     mask = constant8i <
-        ((i0 <<2)&0x80) | ((i1 <<10)&0x8000) | ((i2 <<18)&0x800000) | (uint32_t(i3 <<26)&0x80000000) ,
-        ((i4 <<2)&0x80) | ((i5 <<10)&0x8000) | ((i6 <<18)&0x800000) | (uint32_t(i7 <<26)&0x80000000) ,
-        ((i8 <<2)&0x80) | ((i9 <<10)&0x8000) | ((i10<<18)&0x800000) | (uint32_t(i11<<26)&0x80000000) ,
-        ((i12<<2)&0x80) | ((i13<<10)&0x8000) | ((i14<<18)&0x800000) | (uint32_t(i15<<26)&0x80000000) ,
-        ((i16<<2)&0x80) | ((i17<<10)&0x8000) | ((i18<<18)&0x800000) | (uint32_t(i19<<26)&0x80000000) ,
-        ((i20<<2)&0x80) | ((i21<<10)&0x8000) | ((i22<<18)&0x800000) | (uint32_t(i23<<26)&0x80000000) ,
-        ((i24<<2)&0x80) | ((i25<<10)&0x8000) | ((i26<<18)&0x800000) | (uint32_t(i27<<26)&0x80000000) ,
-        ((i28<<2)&0x80) | ((i29<<10)&0x8000) | ((i30<<18)&0x800000) | (uint32_t(i31<<26)&0x80000000) > ();
+        int(((i0 <<2)&0x80) | ((i1 <<10)&0x8000) | ((i2 <<18)&0x800000) | (uint32_t(i3 <<26)&0x80000000)) ,
+        int(((i4 <<2)&0x80) | ((i5 <<10)&0x8000) | ((i6 <<18)&0x800000) | (uint32_t(i7 <<26)&0x80000000)) ,
+        int(((i8 <<2)&0x80) | ((i9 <<10)&0x8000) | ((i10<<18)&0x800000) | (uint32_t(i11<<26)&0x80000000)) ,
+        int(((i12<<2)&0x80) | ((i13<<10)&0x8000) | ((i14<<18)&0x800000) | (uint32_t(i15<<26)&0x80000000)) ,
+        int(((i16<<2)&0x80) | ((i17<<10)&0x8000) | ((i18<<18)&0x800000) | (uint32_t(i19<<26)&0x80000000)) ,
+        int(((i20<<2)&0x80) | ((i21<<10)&0x8000) | ((i22<<18)&0x800000) | (uint32_t(i23<<26)&0x80000000)) ,
+        int(((i24<<2)&0x80) | ((i25<<10)&0x8000) | ((i26<<18)&0x800000) | (uint32_t(i27<<26)&0x80000000)) ,
+        int(((i28<<2)&0x80) | ((i29<<10)&0x8000) | ((i30<<18)&0x800000) | (uint32_t(i31<<26)&0x80000000)) > ();
 
     return _mm256_blendv_epi8(ta, tb, mask);  // blend
 }

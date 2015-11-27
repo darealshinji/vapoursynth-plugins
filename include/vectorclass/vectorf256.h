@@ -1,8 +1,8 @@
 /****************************  vectorf256.h   *******************************
 * Author:        Agner Fog
 * Date created:  2012-05-30
-* Last modified: 2015-07-31
-* Version:       1.17
+* Last modified: 2015-11-07
+* Version:       1.19
 * Project:       vector classes
 * Description:
 * Header file defining 256-bit floating point vector classes as interface
@@ -27,7 +27,7 @@
 *
 * For detailed instructions, see VectorClass.pdf
 *
-* (c) Copyright 2012 - 2014 GNU General Public License http://www.gnu.org/licenses
+* (c) Copyright 2012 - 2015 GNU General Public License http://www.gnu.org/licenses
 *****************************************************************************/
 
 // check combination of header files
@@ -1292,8 +1292,8 @@ static inline Vec8f nan8f(int n = 0x10) {
 template <int i0, int i1, int i2, int i3, int i4, int i5, int i6, int i7>
 static inline Vec8f change_sign(Vec8f const & a) {
     if ((i0 | i1 | i2 | i3 | i4 | i5 | i6 | i7) == 0) return a;
-    __m256 mask = constant8f<i0 ? 0x80000000 : 0, i1 ? 0x80000000 : 0, i2 ? 0x80000000 : 0, i3 ? 0x80000000 : 0,
-        i4 ? 0x80000000 : 0, i5 ? 0x80000000 : 0, i6 ? 0x80000000 : 0, i7 ? 0x80000000 : 0> ();
+    __m256 mask = constant8f<i0 ? (int)0x80000000 : 0, i1 ? (int)0x80000000 : 0, i2 ? (int)0x80000000 : 0, i3 ? (int)0x80000000 : 0,
+        i4 ? (int)0x80000000 : 0, i5 ? (int)0x80000000 : 0, i6 ? (int)0x80000000 : 0, i7 ? (int)0x80000000 : 0> ();
     return _mm256_xor_ps(a, mask);
 }
 
@@ -2085,7 +2085,7 @@ static inline Vec4d nan4d(int n = 0x10) {
 template <int i0, int i1, int i2, int i3>
 static inline Vec4d change_sign(Vec4d const & a) {
     if ((i0 | i1 | i2 | i3) == 0) return a;
-    __m256 mask = constant8f<0, i0 ? 0x80000000 : 0, 0, i1 ? 0x80000000 : 0, 0, i2 ? 0x80000000 : 0, 0, i3 ? 0x80000000 : 0> ();
+    __m256 mask = constant8f<0, i0 ? (int)0x80000000 : 0, 0, i1 ? (int)0x80000000 : 0, 0, i2 ? (int)0x80000000 : 0, 0, i3 ? (int)0x80000000 : 0> ();
     return _mm256_xor_pd(a, _mm256_castps_pd(mask));
 }
 
