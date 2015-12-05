@@ -1,8 +1,8 @@
 /****************************  vectori512.h   *******************************
 * Author:        Agner Fog
 * Date created:  2014-07-23
-* Last modified: 2014-10-16
-* Version:       1.16
+* Last modified: 2015-12-04
+* Version:       1.20
 * Project:       vector classes
 * Description:
 * Header file defining integer vector classes as interface to intrinsic 
@@ -1360,10 +1360,22 @@ static inline Vec8q & operator -- (Vec8q & a) {
 
 // vector operator * : multiply element by element
 static inline Vec8q operator * (Vec8q const & a, Vec8q const & b) {
-#if defined (GCC_VERSION) && GCC_VERSION < 41100 && !defined(__INTEL_COMPILER) && !defined(__clang__)
-    return Vec8q(a.get_low() * b.get_low(), a.get_high() * b.get_high());  // _mm512_mullox_epi64 missing in gcc 4.10.
+#if defined (__INTEL_COMPILER)
+    return _mm512_mullox_epi64(a, b);                      // _mm512_mullox_epi64 missing in gcc
 #else
-    return _mm512_mullox_epi64(a, b);
+    // return Vec8q(a.get_low() * b.get_low(), a.get_high() * b.get_high());
+
+    // instruction does not exist. Split into 32-bit multiplies
+    //__m512i ahigh = _mm512_shuffle_epi32(a, 0xB1);       // swap H<->L
+    __m512i ahigh   = _mm512_srli_epi64(a, 32);            // high 32 bits of each a
+    __m512i bhigh   = _mm512_srli_epi64(b, 32);            // high 32 bits of each b
+    __m512i prodahb = _mm512_mul_epu32(ahigh, b);          // ahigh*b
+    __m512i prodbha = _mm512_mul_epu32(bhigh, a);          // bhigh*a
+    __m512i prodhl  = _mm512_add_epi64(prodahb, prodbha);  // sum of high*low products
+    __m512i prodhi  = _mm512_slli_epi64(prodhl, 32);       // same, shifted high
+    __m512i prodll  = _mm512_mul_epu32(a, b);              // alow*blow = 64 bit unsigned products
+    __m512i prod    = _mm512_add_epi64(prodll, prodhi);    // low*low+(high*low)<<32
+    return  prod;
 #endif
 }
 

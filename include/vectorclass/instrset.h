@@ -1,8 +1,8 @@
 /****************************  instrset.h   **********************************
 * Author:        Agner Fog
 * Date created:  2012-05-30
-* Last modified: 2014-10-22
-* Version:       1.16
+* Last modified: 2015-12-04
+* Version:       1.20
 * Project:       vector classes
 * Description:
 * Header file for various compiler-specific tasks and other common tasks to 
@@ -14,11 +14,11 @@
 * > defines template class to represent compile-time integer constant
 * > defines template for compile-time error messages
 *
-* (c) Copyright 2012 - 2014 GNU General Public License www.gnu.org/licenses
+* (c) Copyright 2012 - 2015 GNU General Public License www.gnu.org/licenses
 ******************************************************************************/
 
 #ifndef INSTRSET_H
-#define INSTRSET_H 116
+#define INSTRSET_H 120
 
 // Detect 64 bit mode
 #if (defined(_M_AMD64) || defined(_M_X64) || defined(__amd64) ) && ! defined(__x86_64__)
