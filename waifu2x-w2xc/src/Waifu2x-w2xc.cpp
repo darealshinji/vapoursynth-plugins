@@ -207,7 +207,7 @@ static const VSFrameRef *VS_CC waifu2xGetFrame(int n, int activationReason, void
         pluginPath = pluginPath.substr(0, pluginPath.find_last_of('/'));
         if (d->vi.format->colorFamily == cmRGB) {
             if (d->photo)
-                pluginPath = pluginPath.append("/models/ukbench");
+                pluginPath = pluginPath.append("/models/photo");
             else
                 pluginPath = pluginPath.append("/models/anime_style_art_rgb");
         } else {

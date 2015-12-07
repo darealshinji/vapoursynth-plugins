@@ -27,9 +27,9 @@ Usage
 
 * block: The block size for dividing the image during processing. Smaller value results in lower VRAM usage, while larger value may give faster speed. The optimal value may vary according to different graphics card and image size.
 
-* photo: When set to false, the anime model will be used for both denoising and upscaling. When set to true, the photo model will be used only for upscaling. Currently there is no photo model released for denoising yet, so the anime model will be used for denoising at the moment, which may give inferior results. There are two sets of models for anime, one is trained under RGB, the other is trained under Y (luma only). The RGB model will be used when the color family of the input is RGB, and the Y model will be used for all the other color family. Note that the photo model is only available for RGB, so this parameter has no effect for non-RGB input.
+* photo: When set to false, it uses the anime-style model. When set to true, the photo model will be used instead. There are two sets of anime-style models, one is trained under RGB, the other is trained under Y (luma only). The RGB model will be used when the color family of the input is RGB, and the Y model will be used for all the other color family. Note that the photo model is only available for RGB, so this parameter has no effect for non-RGB input.
 
-* processor: Sets target processor. Supersedes the choice from `gpu`, except any negative value. Use `list_proc` to get the index of the processors.
+* processor: Sets target processor. Any non-negative value supersedes the choice from `gpu`. Use `list_proc` to get the index of the available processors.
 
 * gpu: Controls the environment to use.
   * 0 = disable GPU
