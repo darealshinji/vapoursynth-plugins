@@ -26,10 +26,82 @@
 #include <sstream>
 #include <vector>
 #include <cmath>
+#include <cassert>
 #include <vapoursynth/VapourSynth.h>
 #include <vapoursynth/VSHelper.h>
 #include "Type.h"
 #include "Specification.h"
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Instruction intrinsics
+
+
+#if defined(__AVX2__) || defined(__AVX__)
+#include <immintrin.h>
+#elif defined(__SSE4_2__)
+#include <nmmintrin.h>
+#elif defined(__SSE4_1__)
+#include <smmintrin.h>
+#elif defined(__SSSE3__)
+#include <tmmintrin.h>
+#elif defined(__SSE3__)
+#include <pmmintrin.h>
+#elif defined(__SSE2__)
+#include <emmintrin.h>
+#elif defined(__SSE__)
+#include <xmmintrin.h>
+#endif
+
+
+#if defined(__INTRIN_H_) && (defined(_M_IX86) || defined(_M_X64))
+class ClockCounter
+{
+public:
+    void Clear()
+    {
+        _point = 0;
+        _elapse = 0;
+        _total_elapse = 0;
+        _loop = 0;
+    }
+
+    void Start()
+    {
+        _point = __rdtsc();
+    }
+
+    void End()
+    {
+        uint64_t cur_point = __rdtsc();
+        _elapse = cur_point - _point;
+        _point = cur_point;
+        _total_elapse += _elapse;
+        ++_loop;
+    }
+
+    void ShowCurrent() const
+    {
+        std::cout << "Current elapse: " << _elapse << " cycles.\n";
+    }
+
+    void ShowTotal() const
+    {
+        std::cout << "Total elapse: " << _total_elapse << " cycles.\n";
+    }
+
+    void ShowTotalAvg() const
+    {
+        std::cout << "Total average elapse: " << static_cast<double>(_total_elapse) / _loop << " cycles.\n";
+    }
+
+private:
+    uint64_t _point = 0;
+    uint64_t _elapse = 0;
+    uint64_t _total_elapse = 0;
+    uint64_t _loop = 0;
+};
+#endif
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -41,7 +113,7 @@
 #define DEBUG_FAIL(mesg) __debugbreak(); _STD _DEBUG_ERROR(mesg);
 #else
 #define DEBUG_BREAK exit(EXIT_FAILURE);
-#define DEBUG_FAIL(mesg) std::cerr << mesg << std::endl; exit(EXIT_FAILURE);
+#define DEBUG_FAIL(mesg) std::cerr << mesg << std::endl; std::cin.get();
 #endif
 
 
@@ -62,7 +134,7 @@ std::string GetStr(const _Ty &src)
 // Memory allocation
 
 
-const size_t MEMORY_ALIGNMENT = 32;
+const size_t MEMORY_ALIGNMENT = 64;
 
 
 template < typename _Ty >
@@ -102,6 +174,11 @@ void MatCopy(_Dt1 *dstp, const _St1 *srcp, PCType height, PCType width, PCType d
 template < typename _Ty >
 void MatCopy(_Ty *dstp, const _Ty *srcp, PCType height, PCType width, PCType dst_stride, PCType src_stride)
 {
+    if (dstp == srcp)
+    {
+        return;
+    }
+
     if (height > 0)
     {
         if (src_stride == dst_stride && src_stride == width)
@@ -335,19 +412,19 @@ _Ty AbsSub(const _Ty &a, const _Ty &b)
 
 
 template < typename _Ty >
-_Ty _RoundDiv(_Ty dividend, _Ty divisor, const std::false_type &)
+_Ty _RoundDiv(const _Ty &dividend, const _Ty &divisor, const std::false_type &)
 {
     return (dividend + divisor / 2) / divisor;
 }
 
 template < typename _Ty >
-_Ty _RoundDiv(_Ty dividend, _Ty divisor, const std::true_type &)
+_Ty _RoundDiv(const _Ty &dividend, const _Ty &divisor, const std::true_type &)
 {
     return dividend / divisor;
 }
 
 template < typename _Ty >
-_Ty RoundDiv(_Ty dividend, _Ty divisor)
+_Ty RoundDiv(const _Ty &dividend, const _Ty &divisor)
 {
     return _RoundDiv(dividend, divisor, _IsFloat<_Ty>());
 }

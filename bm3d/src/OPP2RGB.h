@@ -56,7 +56,8 @@ public:
             setError(out, "Invalid input clip, only constant format input supported");
             return 1;
         }
-        if (vi->format->sampleType == stFloat && vi->format->bitsPerSample != 32)
+        if ((vi->format->sampleType == stInteger && vi->format->bitsPerSample > 16)
+            || (vi->format->sampleType == stFloat && vi->format->bitsPerSample != 32))
         {
             setError(out, "Invalid input clip, only 8-16 bit int or 32 bit float formats supported");
             return 1;
@@ -164,6 +165,7 @@ protected:
         // Set output frame properties
         VSMap *dst_map = vsapi->getFramePropsRW(dst);
 
+        vsapi->propSetInt(dst_map, "_Matrix", 0, paReplace);
         vsapi->propDeleteKey(dst_map, "BM3D_OPP");
     }
 };

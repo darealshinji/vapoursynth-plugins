@@ -50,7 +50,7 @@ sudo apt-get install vapoursynth-extra-plugins
 [awarpsharp2 1](https://github.com/dubhater/vapoursynth-awarpsharp2)<br>
 [bifrost 2.2](https://github.com/dubhater/vapoursynth-bifrost)<br>
 [bilateral r3](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Bilateral)<br>
-[bm3d r3+git20150528](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-BM3D)<br>
+[bm3d r4](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-BM3D)<br>
 [combmask 0.0.1](https://github.com/chikuzen/CombMask)<br>
 [convo2d 0.2.0](https://github.com/chikuzen/convo2d)<br>
 [ctmf r2](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-CTMF)<br>

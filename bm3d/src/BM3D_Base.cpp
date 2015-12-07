@@ -38,9 +38,10 @@ int BM3D_Data_Base::arguments_process(const VSMap *in, VSMap *out)
         setError(out, "Invalid input clip, only constant format input supported");
         return 1;
     }
-    if (vi->format->sampleType == stFloat && vi->format->bitsPerSample != 32)
+    if ((vi->format->sampleType == stInteger && vi->format->bitsPerSample > 16)
+        || (vi->format->sampleType == stFloat && vi->format->bitsPerSample != 32))
     {
-        setError(out, "Invalid input clip, only 8-16 bit int or 32 bit float formats supported");
+        setError(out, "Invalid input clip, only 8-16 bit integer or 32 bit float formats supported");
         return 1;
     }
 
@@ -68,12 +69,12 @@ int BM3D_Data_Base::arguments_process(const VSMap *in, VSMap *out)
             setError(out, "input clip and clip \"ref\" must be of the same format");
             return 1;
         }
-        if (vi->width != rvi->width || vi->height != rvi->height)
+        if (rvi->width != vi->width || rvi->height != vi->height)
         {
             setError(out, "input clip and clip \"ref\" must be of the same width and height");
             return 1;
         }
-        if (vi->numFrames != rvi->numFrames)
+        if (rvi->numFrames != vi->numFrames)
         {
             setError(out, "input clip and clip \"ref\" must have the same number of frames");
             return 1;
@@ -95,7 +96,7 @@ int BM3D_Data_Base::arguments_process(const VSMap *in, VSMap *out)
     if (para.profile != "fast" && para.profile != "lc" && para.profile != "np"
         && para.profile != "high" && para.profile != "vn")
     {
-        setError(out, "Unrecognized \"profile\" specified, should be \"fast\", \"lc\", \"np\", \"high\" or \"vn\"\n");
+        setError(out, "Unrecognized \"profile\" specified, should be \"fast\", \"lc\", \"np\", \"high\" or \"vn\"");
         return 1;
     }
 
@@ -241,7 +242,7 @@ int BM3D_Data_Base::arguments_process(const VSMap *in, VSMap *out)
     // process
     for (int i = 0; i < VSMaxPlaneCount; i++)
     {
-        if (para.sigma[i] == 0)
+        if (vi->format->colorFamily != cmRGB && para.sigma[i] == 0)
         {
             process[i] = 0;
         }
