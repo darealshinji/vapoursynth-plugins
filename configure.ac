@@ -16,6 +16,7 @@ AC_PROG_CXX
 AC_PROG_CC
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
+AC_PROG_LN_S
 AX_PROG_NASM([nasm_avail="no"])
 AX_PROG_YASM([yasm_avail="no"])
 

@@ -55,7 +55,7 @@ SUBDIRS = \
 	yadifmod \
 	zimg
 
-plugins = $(libdir)/vapoursynth/
+plugins := $(libdir)/vapoursynth
 dist-packages := $(prefix)/lib/python3/dist-packages
 
 ifeq ($(V), 1)
@@ -97,9 +97,14 @@ install:
 	$(INSTALL_DATA) fmtconv/doc/vapourdoc.css $(DESTDIR)$(docdir)
 
 	$(INSTALL_DATA) nnedi3/src/nnedi3_weights.bin $(DESTDIR)$(prefix)/share/nnedi3
-	$(INSTALL_DATA) waifu2x-models/noise1_model.json $(DESTDIR)$(plugins)
-	$(INSTALL_DATA) waifu2x-models/noise2_model.json $(DESTDIR)$(plugins)
-	$(INSTALL_DATA) waifu2x-models/scale2.0x_model.json $(DESTDIR)$(plugins)
+
+	$(foreach DIR,anime_style_art anime_style_art_rgb photo,\
+		$(INSTALL) -d $(DESTDIR)$(plugins)/models/$(DIR) $(NL)\
+		$(INSTALL_DATA) waifu2x-models/$(DIR)/noise1_model.json $(DESTDIR)$(plugins)/models/$(DIR) $(NL)\
+		$(INSTALL_DATA) waifu2x-models/$(DIR)/noise2_model.json $(DESTDIR)$(plugins)/models/$(DIR) $(NL)\
+		$(INSTALL_DATA) waifu2x-models/$(DIR)/scale2.0x_model.json $(DESTDIR)$(plugins)/models/$(DIR) $(NL))
+	$(foreach MDL,noise1_model.json noise2_model.json scale2.0x_model.json,\
+		$(LN_S) models/anime_style_art/$(MDL) $(DESTDIR)$(plugins)/$(MDL) $(NL))
 
 clean:
 	$(foreach DIR,$(SUBDIRS),$(MAKE) -C $(DIR) clean || true $(NL))
