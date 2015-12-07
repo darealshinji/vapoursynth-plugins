@@ -38,6 +38,7 @@
 ##     AssumeCombed
 ################################################################################################################################
 ## Helper functions:
+##     CheckVersion
 ##     GetMatrix
 ##     zDepth
 ##     GetPlane
@@ -52,6 +53,7 @@ import math
 ################################################################################################################################
 
 
+MvsFuncVersion = 5
 VSMaxPlaneNum = 3
 
 
@@ -394,6 +396,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
         # Apply matrix conversion for YUV or YCoCg input
         if matrix == "OPP":
             clip = core.fmtc.matrix(clip, fulls=fulls, fulld=fulld, coef=[1,1,2/3,0, 1,0,-4/3,0, 1,-1,2/3,0], col_fam=vs.RGB)
+            clip = SetColorSpace(clip, Matrix=0)
         elif matrix == "2020cl":
             clip = core.fmtc.matrix2020cl(clip, full=fulls)
         else:
@@ -603,6 +606,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
         # Apply matrix conversion for RGB input
         if matrix == "OPP":
             clip = core.fmtc.matrix(clip, fulls=fulls, fulld=fulld, coef=[1/3,1/3,1/3,0, 1/2,0,-1/2,0, 1/4,-1/2,1/4,0], col_fam=vs.YUV)
+            clip = SetColorSpace(clip, Matrix=2)
         elif matrix == "2020cl":
             clip = core.fmtc.matrix2020cl(clip, full=fulld)
         else:
@@ -662,7 +666,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
 ##     psample {int}: internal processed precision
 ##         - 0: 16-bit integer, less accuracy, less memory consumption
 ##         - 1: 32-bit float, more accuracy, more memory consumption
-##         default: 0 for integer input, 1 for float input
+##         default: 1
 ################################################################################################################################
 ## Parameters of input properties
 ##     matrix {int|str}: color matrix of input clip, only makes sense for YUV/YCoCg input
@@ -756,7 +760,7 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
     
     # Get properties of internal processed clip
     if psample is None:
-        psample = sSType
+        psample = vs.FLOAT
     elif not isinstance(psample, int):
         raise TypeError(funcName + ': \"psample\" must be an int!')
     elif psample != vs.INTEGER and psample != vs.FLOAT:
@@ -958,17 +962,17 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
     
     # Final estimate
     for i in range(0, refine):
-        if radius1 < 1:
+        if radius2 < 1:
             # Apply BM3D final estimate
-            flt = core.bm3d.Basic(clip, ref=flt, profile=profile2, sigma=sigma, \
+            flt = core.bm3d.Final(clip, ref=flt, profile=profile2, sigma=sigma, \
             block_size=block_size2, block_step=block_step2, group_size=group_size2, \
             bm_range=bm_range2, bm_step=bm_step2, th_mse=th_mse2, matrix=100)
         else:
             # Apply V-BM3D final estimate
-            flt = core.bm3d.VBasic(clip, ref=flt, profile=profile2, sigma=sigma, radius=radius2, \
+            flt = core.bm3d.VFinal(clip, ref=flt, profile=profile2, sigma=sigma, radius=radius2, \
             block_size=block_size2, block_step=block_step2, group_size=group_size2, \
             bm_range=bm_range2, bm_step=bm_step2, ps_num=ps_num2, ps_range=ps_range2, ps_step=ps_step2, \
-            th_mse=th_mse2, matrix=100).bm3d.VAggregate(radius=radius1, sample=pSType)
+            th_mse=th_mse2, matrix=100).bm3d.VAggregate(radius=radius2, sample=pSType)
             # Shuffle Y plane back if not processed
             if not onlyY and sigma[0] <= 0:
                 flt = core.std.ShufflePlanes([clip,flt,flt], [0,1,2], vs.YUV)
@@ -2031,13 +2035,42 @@ def AssumeCombed(clip, combed=True):
 
 
 ################################################################################################################################
-## Helper function: GetMatrix()
+## Helper function: CheckVersion()
 ################################################################################################################################
-## Return str or int format parameter "matrix"
+## Check if the version of mvsfunc matches the specified version requirements.
+## For example, if you write a script requires at least mvsfunc-r5, use mvf.CheckVersion(5) to make sure r5 or later version is used.
 ################################################################################################################################
 ## Parameters
-##     clip: the source clip
-##     matrix: explicitly specify matrix in int or str format, not case-sensitive
+##     version {int} (mandatory): specify the required version number
+##     less {bool}: if False, raise error when this mvsfunc's version is less than the specified version
+##         default: False
+##     equal {bool}: if False, raise error when this mvsfunc's version is equal to the specified version
+##         default: True
+##     greater {bool}: if False, raise error when this mvsfunc's version is greater than the specified version
+##         default: True
+################################################################################################################################
+def CheckVersion(version, less=False, equal=True, greater=True):
+    funcName = 'CheckVersion'
+    
+    if not less and MvsFuncVersion < version:
+        raise ImportWarning('mvsfunc version(={0}) is less than the version(={1}) specified!'.format(MvsFuncVersion, version))
+    if not equal and MvsFuncVersion == version:
+        raise ImportWarning('mvsfunc version(={0}) is equal to the version(={1}) specified!'.format(MvsFuncVersion, version))
+    if not greater and MvsFuncVersion > version:
+        raise ImportWarning('mvsfunc version(={0}) is greater than the version(={1}) specified!'.format(MvsFuncVersion, version))
+    
+    return True
+################################################################################################################################
+
+
+################################################################################################################################
+## Helper function: GetMatrix()
+################################################################################################################################
+## Return str or int format parameter "matrix".
+################################################################################################################################
+## Parameters
+##     clip {clip}: the source clip
+##     matrix {int|str}: explicitly specify matrix in int or str format, not case-sensitive
 ##         - 0 | "RGB"
 ##         - 1 | "709" | "bt709"
 ##         - 2 | "Unspecified": same as not specified (None)
@@ -2152,7 +2185,7 @@ def GetMatrix(clip, matrix=None, dIsRGB=None, id=False):
 ################################################################################################################################
 ## Helper function: zDepth()
 ################################################################################################################################
-## Smart function to utilize the depth conversion for both 1.0 and 2.0 API of vszimg
+## Smart function to utilize the depth conversion for both 1.0 and 2.0 API of vszimg.
 ################################################################################################################################
 def zDepth(clip, sample=None, depth=None, range=None, range_in=None, dither_type=None, cpu_type=None):
     # Set VS core and function name
@@ -2195,7 +2228,7 @@ def zDepth(clip, sample=None, depth=None, range=None, range_in=None, dither_type
 ################################################################################################################################
 ## Helper function: GetPlane()
 ################################################################################################################################
-## Extract specific plane and store it in a Gray clip
+## Extract specific plane and store it in a Gray clip.
 ################################################################################################################################
 ## Parameters
 ##     clip {clip}: the source clip
