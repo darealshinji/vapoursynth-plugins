@@ -13,8 +13,7 @@ else
 VSASFLAGS += -DARCH_X86_64=0
 endif
 
-#reminder: we keep our own copies of x86inc.asm and x86util.asm
-# because of compatibility issues
+#reminder: we keep our own copy of x86inc.asm because of compatibility issues
 
 %.o: %.asm
 	$(asmcompile)
