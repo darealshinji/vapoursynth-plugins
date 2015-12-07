@@ -1,8 +1,12 @@
 
 include ../global.inc
 
-$(LIB): $(CXXOBJS)
-	$(CXXLD_silent)$(CXX) $(VSLDFLAGS) -o $@ $(CXXOBJS) $(LIBADD) $(LIBS)
+ifeq ($(HAVE_YASM),yes)
+_ASMOBJS = $(ASMOBJS)
+endif
+
+$(LIB): $(CXXOBJS) $(_ASMOBJS)
+	$(CXXLD_silent)$(CXX) $(VSLDFLAGS) -o $@ $^ $(LIBADD) $(LIBS)
 
 %.o: %.cpp
 	$(CXX_silent)$(CXX) $(VSCXXFLAGS) -o $@ $^
