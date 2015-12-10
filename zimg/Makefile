@@ -28,14 +28,11 @@ CXXSRCS = src/API/zimg.cpp \
 		src/Resize/resize_impl_avx2.cpp \
 		src/Colorspace/operation_impl_f16c.cpp
 
-%_avx2.o: %_avx2.cpp
-	$(CXX_silent)$(CXX) $(VSCXXFLAGS) -mavx2 -mfma -mf16c -o $@ $^
-
-%_f16c.o: %_f16c.cpp
-	$(CXX_silent)$(CXX) $(VSCXXFLAGS) -mf16c -o $@ $^
+%_avx2.o: VSCXXFLAGS+=-mavx2 -mfma -mf16c
+%_f16c.o: VSCXXFLAGS+=-mf16c
 
 src/vszimg/vszimg.o: src/vszimg/vszimg.c
-	$(CXX_silent)$(CC) $(VSCFLAGS) -Isrc/API -o $@ $^
+	$(CC_silent)$(CC) $(VSCFLAGS) -Isrc/API -o $@ $^
 
 %.o: %.cpp
 	$(CXX_silent)$(CXX) $(VSCXXFLAGS) -o $@ $^
