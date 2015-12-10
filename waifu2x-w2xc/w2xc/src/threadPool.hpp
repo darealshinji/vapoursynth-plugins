@@ -24,9 +24,9 @@ typedef HANDLE event_t;
 namespace w2xc {
 
 void notify_event(event_t ev);
+void wait_event(event_t ev);
 event_t create_event(void);
 void delete_event(event_t ev);
-void notify_event(event_t ev);
 
 struct ThreadPool;
 
