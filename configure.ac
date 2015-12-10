@@ -30,10 +30,15 @@ AX_CXX_COMPILE_STDCXX_11([noext],[mandatory])
 
 # architecture
 AS_CASE([$host_cpu],
-        [i?86], [have_i686="yes"],
-        [x86_64], [have_x86_64="yes"])
+        [i?86], [have_i686="yes" bits="32"],
+        [x86_64], [have_x86_64="yes" bits="64"])
 AS_IF([test "x$have_i686" = "xyes"],   [AC_SUBST([HAVE_I686], [yes])])
 AS_IF([test "x$have_x86_64" = "xyes"], [AC_SUBST([HAVE_X86_64], [yes])])
+AS_IF([test $build != $host], [
+  CFLAGS="-m$bits $CFLAGS"
+  CXXFLAGS="-m$bits $CXXFLAGS"
+  LDFLAGS="-m$bits $LDFLAGS"
+])
 
 # libraries
 AX_CHECK_CL

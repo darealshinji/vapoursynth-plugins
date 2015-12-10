@@ -13,5 +13,9 @@ VSASFLAGS = -DARCH_X86_64=1 -DPIC -f elf64
 endif #HAVE_YASM
 endif #x86_64
 
+ifeq ($(HAVE_I686),yes)
+NOASM = yes
+endif
+
 include ../cc.inc
 

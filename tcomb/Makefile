@@ -11,5 +11,9 @@ VSASFLAGS = -Dprivate_prefix=tcomb -DARCH_X86_64=1 -DPIC -f elf64
 
 endif
 
+ifeq ($(HAVE_I686),yes)
+NOASM = yes
+endif
+
 include ../cc.inc
 
