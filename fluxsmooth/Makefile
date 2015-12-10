@@ -2,7 +2,7 @@ include ../config.mak
 
 LIB = libfluxsmooth.so
 
-ifeq ($(shell uname -p),x86_64)
+ifeq ($(HAVE_X86_64),yes)
 ifeq ($(HAVE_YASM),yes)
 
 VSASFLAGS = -DARCH_X86_64=1 -DPIC -f elf64

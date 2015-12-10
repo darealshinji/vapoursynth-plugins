@@ -7,7 +7,7 @@ LIB = libmvtools.so
 LIBADD = -lfftw3f
 
 VSASFLAGS = -Dprivate_prefix=mvtools -DHIGH_BIT_DEPTH=0 -DBIT_DEPTH=8 -f elf
-ifeq ($(shell uname -p),x86_64)
+ifeq ($(HAVE_X86_64),yes)
 VSASFLAGS += -DARCH_X86_64=1 -DPIC -m amd64
 else
 VSASFLAGS += -DARCH_X86_64=0

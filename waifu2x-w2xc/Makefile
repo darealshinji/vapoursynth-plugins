@@ -9,8 +9,9 @@ $(LIB): $(W2XC)
 local_CXXFLAGS = -I./w2xc/src
 LIBS = $(W2XC) $(shell pkg-config --libs opencv) -fopenmp -ldl
 
+# parallel building doesn't work
 $(W2XC):
-	$(MAKE) -C w2xc
+	$(MAKE) -C w2xc -j1
 endif
 
 clean-local:

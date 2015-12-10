@@ -9,7 +9,7 @@ local_CXXFLAGS = -Wno-unused-variable -DPACKAGE_VERSION='"$(PACKAGE_VERSION)"' -
 ifeq ($(HAVE_YASM),yes)
 
 VSASFLAGS = -f elf -Dprivate_prefix=nnedi3
-ifeq ($(shell uname -p),x86_64)
+ifeq ($(HAVE_X86_64),yes)
 VSASFLAGS += -DARCH_X86_64=1 -DPIC -m amd64
 else
 VSASFLAGS += -DARCH_X86_64=0

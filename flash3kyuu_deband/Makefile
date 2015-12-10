@@ -1,5 +1,6 @@
+include ../config.mak
 
-ifeq ($(shell uname -p),x86_64)
+ifeq ($(HAVE_X86_64),yes)
 LIB = libf3kdb.so
 local_CXXFLAGS = -Isrc/include -DHAVE_ALIGNAS=1
 endif

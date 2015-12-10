@@ -2,11 +2,14 @@
 
 m4_include([include/ac/ax_check_cl.m4])
 m4_include([include/ac/ax_cxx_compile_stdcxx_11.m4])
+m4_include([include/ac/ax_check_gnu_make.m4])
 m4_include([include/ac/ax_prog_nasm.m4])
 m4_include([include/ac/ax_prog_yasm.m4])
 
 AC_INIT([vapoursynth-extra-plugins], [0], [https://github.com/darealshinji/vapoursynth-plugins])
 AC_CONFIG_AUX_DIR([include/build-aux])
+
+AC_CANONICAL_HOST
 
 : ${CFLAGS="-O3"}
 : ${CXXFLAGS="-O3"}
@@ -16,11 +19,21 @@ AC_PROG_CXX
 AC_PROG_CC
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
+AX_CHECK_GNU_MAKE
+AS_IF([test "x$ax_cv_gnu_make_command" != "xmake"],
+       AC_MSG_WARN([`make' is not a GNU make command]))
 AC_PROG_LN_S
 AX_PROG_NASM([nasm_avail="no"])
 AX_PROG_YASM([yasm_avail="no"])
 
 AX_CXX_COMPILE_STDCXX_11([noext],[mandatory])
+
+# architecture
+AS_CASE([$host_cpu],
+        [i?86], [have_i686="yes"],
+        [x86_64], [have_x86_64="yes"])
+AS_IF([test "x$have_i686" = "xyes"],   [AC_SUBST([HAVE_I686], [yes])])
+AS_IF([test "x$have_x86_64" = "xyes"], [AC_SUBST([HAVE_X86_64], [yes])])
 
 # libraries
 AX_CHECK_CL

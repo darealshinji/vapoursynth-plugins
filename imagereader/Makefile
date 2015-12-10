@@ -46,7 +46,8 @@ $(turbodir)/simd/libsimd.la: $(turbodir)/Makefile
 $(turbodir)/Makefile: $(turbodir)/configure
 	cd $(turbodir) && \
 	CFLAGS="$(CFLAGS) -Wno-attributes -Wno-unused-but-set-variable" CPPFLAGS="$(CPPFLAGS)" \
-	./configure --disable-silent-rules --enable-static --disable-shared --with-pic --with-jpeg8
+	./configure --build=$(BUILD) --host=$(HOST) --disable-silent-rules \
+		--enable-static --disable-shared --with-pic --with-jpeg8
 
 $(turbodir)/configure:
 	mkdir -p $(turbodir)/m4

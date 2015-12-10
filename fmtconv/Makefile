@@ -1,7 +1,8 @@
+include ../config.mak
 
 LIB = libfmtconv.so
 
-ifeq ($(shell uname -p),x86_64)
+ifeq ($(HAVE_X86_64),yes)
 local_CXXFLAGS = -mcx16
 endif
 

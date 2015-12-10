@@ -3,6 +3,11 @@ PACKAGE_TARNAME = @PACKAGE_TARNAME@
 
 shell = @SHELL@
 
+HOST = @host@
+BUILD = @build@
+HAVE_I686 = @HAVE_I686@
+HAVE_X86_64 = @HAVE_X86_64@
+
 srcdir = @srcdir@
 top_srcdir = @top_srcdir@
 VPATH = @srcdir@
@@ -29,7 +34,7 @@ oldincludedir = /usr/include
 # imagereader
 HAVE_NASM = @HAVE_NASM@
 
-# fluxsmooth, imagereader, mvtools, nnedi3
+# fluxsmooth, imagereader, mvtools, nnedi3, tcomd
 HAVE_YASM = @HAVE_YASM@
 
 # imagereader
