@@ -1,0 +1,14 @@
+Source: vapoursynth-waifu2x-models
+Section: misc
+Priority: optional
+Maintainer: Marshall Banana <djcj@gmx.de>
+Build-Depends: debhelper (>= 9),
+Standards-Version: 3.9.5
+Homepage: https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Waifu2x-w2xc/
+
+Package: vapoursynth-waifu2x-models
+Architecture: all
+Depends: ${misc:Depends}
+Recommends: libvapoursynth
+Description: models files for the waifu2x VapourSynth plugin
+ This package provides models files for the waifu2x VapourSynth plugin.

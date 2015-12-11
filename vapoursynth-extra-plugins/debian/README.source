@@ -1,1 +1,2 @@
-The nnedi3_weights.bin file was moved to a different source package to reduce size.
+The nnedi3_weights.bin file and the waifu2x models were moved to a different
+source package to reduce size.
