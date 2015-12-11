@@ -1,39 +1,9 @@
-#!/usr/bin/env bash
+#!/bin/sh
 
-CC=gcc
-fftw3_minimal=${1}
-
-db() { ( printf " db, ";for _i;do printf "%s" "$_i";done;printf "\n" ) >&2 ; }
-db() { : ; }
-
-vercmp()
-{
-  local a1 b1 c1 a2 b2 c2
-  db "input 1 \"$1\", 2 \"$2\" " 
-  v1=$1
-  v2=$2
-  db "v1 $v1, v2 $v2"
-  set -- $( echo "$v1" | sed 's/\./ /g' )
-  a1=$1 b1=$2 c1=$3
-  set -- $( echo "$v2" | sed 's/\./ /g' )
-  a2=$1 b2=$2 c2=$3
-  db "a1,b1,c1 $a1,$b1,$c1 ; a2,b2,c2 $a2,$b2,$c2"
-  ret=$(( (a1-a2)*1000000+(b1-b2)*1000+c1-c2 ))
-  db "ret is $ret"
-  if [ $ret -lt 0 ] ; then
-    v=-1
-  elif [ $ret -eq 0 ] ; then
-    v=0
-  else
-    v=1
-  fi
-  printf "%d" $v
-  return
-}
-
+fftw3_minimal="$1"
+compile="$2"
 
 rm -f test test.c
-
 cat << EOF > test.c
 #include <stdio.h>
 #include <fftw3.h>
@@ -44,17 +14,16 @@ int main() {
 }
 EOF
 
-$CC $CFLAGS $CPPFLAGS $LDFLAGS test.c -o test -lfftw3  2>/dev/null
+if $compile test.c -o test -lfftw3 2>/dev/null >/dev/null; then
+  fftw3_version=$( ./test | sed 's/fftw//; s/sse.//; s/sse//; s/avx.//; s/avx//; s/-//g;' )
 
-fftw3_version=$( ./test | sed 's/fftw//; s/sse.//; s/sse//; s/avx.//; s/avx//; s/-//g;' )
-
-v=$( vercmp $fftw3_version $fftw3_minimal )
-if [ $v -lt 0 ] ; then
-  echo "1"
+  verlte() {
+    [ "$1" = "`echo -e "$1\n$2" | sort -V | head -n1`" ]
+  }
+  verlte $fftw3_version $fftw3_minimal && echo "yes" || echo "no"
 else
-  echo "0"
+  echo "no"
 fi
 
 rm -f test test.c
-
 exit 0

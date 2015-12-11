@@ -1,5 +1,3 @@
-# TODO: write a real macro for the HAVE_FFTW3F_NEWER check
-
 m4_include([include/ac/ax_check_cl.m4])
 m4_include([include/ac/ax_cxx_compile_stdcxx_11.m4])
 m4_include([include/ac/ax_check_gnu_make.m4])
@@ -52,17 +50,17 @@ AC_CHECK_LIB([avresample], [avresample_version], ,     [avresample_avail="no"])
 AC_CHECK_LIB([avutil],     [avutil_version], ,         [avutil_avail="no"])
 AC_CHECK_LIB([swscale],    [swscale_version], ,        [swscale_avail="no"])
 AC_CHECK_LIB([sndfile],    [sf_seek], ,                [sndfile_avail="no"])
+AC_CHECK_LIB([opencv_core],[main], ,                   [opencv_avail="no"])
+AC_CHECK_LIB([xvidcore],   [xvid_encore], ,            [xvid_avail="no"])
 AC_CHECK_LIB([fftw3f],     [fftwf_destroy_plan], ,     [fftw3f_avail="no"])
 AS_IF([test "x$fftw3f_avail" != "xno"], [
   fftw3_minimal="3.3.4"
-  printf "checking for fftw >= ${fftw3_minimal}... "
-  AS_IF([test `include/ac/check-fftw3-version.sh ${fftw3_minimal}` -eq 0],
-        [fftw3f_newer_avail="yes"],
-        [fftw3f_newer_avail="no"])
+  printf "checking for fftw >= $fftw3_minimal... "
+  fftw3_version=$($srcdir/include/ac/check-fftw3-version.sh $fftw3_minimal "$CC $CFLAGS $LDFLAGS")
+  AS_IF([test "x$fftw3_version" = "xyes"],
+        [fftw3f_newer_avail="yes"], [fftw3f_newer_avail="no"])
   printf "$fftw3f_newer_avail\n"
 ])
-AC_CHECK_LIB([opencv_core],[main], ,                   [opencv_avail="no"])
-AC_CHECK_LIB([xvidcore],   [xvid_encore], ,            [xvid_avail="no"])
 
 # config
 AS_IF([test "x$nasm_avail" != "xno"],         [AC_SUBST([HAVE_NASM], [yes])])
@@ -77,10 +75,10 @@ AS_IF([test "x$avresample_avail" != "xno"],   [AC_SUBST([HAVE_AVRESAMPLE], [yes]
 AS_IF([test "x$avutil_avail" != "xno"],       [AC_SUBST([HAVE_AVUTIL], [yes])])
 AS_IF([test "x$swscale_avail" != "xno"],      [AC_SUBST([HAVE_SWSCALE], [yes])])
 AS_IF([test "x$sndfile_avail" != "xno"],      [AC_SUBST([HAVE_SNDFILE], [yes])])
-AS_IF([test "x$fftw3f_avail" != "xno"],       [AC_SUBST([HAVE_FFTW3F], [yes])])
-AS_IF([test "x$fftw3f_newer_avail" != "xno"], [AC_SUBST([HAVE_FFTW3F_NEWER], [yes])])
 AS_IF([test "x$opencv_avail" != "xno"],       [AC_SUBST([HAVE_OPENCV], [yes])])
 AS_IF([test "x$xvid_avail" != "xno"],         [AC_SUBST([HAVE_XVID], [yes])])
+AS_IF([test "x$fftw3f_avail" != "xno"],       [AC_SUBST([HAVE_FFTW3F], [yes])])
+AS_IF([test "x$fftw3f_newer_avail" != "xno"], [AC_SUBST([HAVE_FFTW3F_NEWER], [yes])])
 
 AC_CONFIG_FILES([config.mak])
 AC_OUTPUT
