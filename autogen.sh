@@ -6,16 +6,26 @@ type autoreconf >/dev/null 2>&1 || { echo >&2 "Cannot find \`autoreconf'.  Abort
 
 mkdir -p include/build-aux
 
-echo "autoconf"; autoconf
+echo "running autoconf"; autoconf
 test -x configure || { echo >&2 "\`configure' was not generated.  Aborting."; exit 1; }
 
 # use automake only to copy files
-echo "automake --add-missing --copy"; automake --add-missing --copy 2>/dev/null >/dev/null
+echo "copy needed files to include/build-aux"
+automake --add-missing --copy 2>/dev/null >/dev/null
 
-echo "autoreconf --install imagereader/libjpeg-turbo"
+echo "running autoreconf on imagereader/libjpeg-turbo"
 autoreconf --install imagereader/libjpeg-turbo 2>/dev/null >/dev/null
 
-if type git >/dev/null 2>&1 && [ -d ".git" ]; then
-   git submodule init
-   git submodule update --depth 1
+if [ ! -d ffms2/src ]; then
+  type git >/dev/null 2>&1 || { echo >&2 "Cannot find \`git'.  Aborting."; exit 1; }
+  echo "cloning ffms2 sources into ffms2/src"
+  git clone -q --depth 1 "https://github.com/FFMS/ffms2.git" ffms2/src
+  rm -rf ffms2/src/.git
+fi
+
+if [ ! -d lsmashsource/ffmpeg ]; then
+  type git >/dev/null 2>&1 || { echo >&2 "Cannot find \`git'.  Aborting."; exit 1; }
+  echo "cloning ffmpeg sources into lsmashsource/ffmpeg"
+  git clone -q --depth 1 "git://source.ffmpeg.org/ffmpeg.git" lsmashsource/ffmpeg
+  rm -rf lsmashsource/ffmpeg/.git
 fi

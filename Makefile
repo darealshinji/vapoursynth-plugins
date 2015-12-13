@@ -16,6 +16,7 @@ SUBDIRS = \
 	delogo \
 	dfttest \
 	eedi2 \
+	ffms2 \
 	fft3dfilter \
 	fieldhint \
 	fillborders \
@@ -73,7 +74,6 @@ endef
 
 all:
 	$(foreach DIR,$(SUBDIRS),$(MAKE) -C $(DIR) $(NL))
-	$(MAKE) -C ffms2 || true
 
 install:
 	$(INSTALL) -d $(DESTDIR)$(plugins)
@@ -109,16 +109,19 @@ install:
 
 clean:
 	$(foreach DIR,$(SUBDIRS),$(MAKE) -C $(DIR) clean || true $(NL))
-	$(MAKE) -C ffms2 clean || true
 
 distclean: clean
 	$(foreach DIR,$(SUBDIRS),$(MAKE) -C $(DIR) distclean || true $(NL))
-	$(MAKE) -C ffms2 distclean || true
-	rm -f config.mak
+	rm -f config.log config.status config.mak
 
-autoclean: distclean
-	rm -rf autom4te.cache include/build-aux
-	rm -f config.log config.status configure
+maintainer-clean: distclean
+	cd imagereader/libjpeg-turbo && rm -rf autom4te.cache
+	rm -rf autom4te.cache
+
+autoclean: maintainer-clean
+	rm -rf ffms2/src lsmashsource/ffmpeg
+	rm -rf include/build-aux
+	rm -f configure
 	cd imagereader/libjpeg-turbo && rm -rf autom4te.cache build-aux m4
 	cd imagereader/libjpeg-turbo && rm -f aclocal.m4 config.h.in* configure install-sh Makefile.in md5/Makefile.in simd/Makefile.in
 

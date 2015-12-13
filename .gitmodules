@@ -1,6 +1,0 @@
-[submodule "ffms2/src"]
-	path = ffms2/src
-	url = https://github.com/FFMS/ffms2.git
-[submodule "lsmashsource/ffmpeg"]
-	path = lsmashsource/ffmpeg
-	url = git://source.ffmpeg.org/ffmpeg.git

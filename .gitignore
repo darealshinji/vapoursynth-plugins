@@ -28,21 +28,24 @@ stamp-h2
 
 Makefile.in
 
+/ffms2/src/
+/lsmashsource/ffmpeg/
+
 libjpeg.map
 jconfig.h
 tjbenchtest
-imagereader/libjpeg-turbo/configure
-imagereader/libjpeg-turbo/Makefile
-imagereader/libjpeg-turbo/config.h
-imagereader/libjpeg-turbo/md5/Makefile
-imagereader/libjpeg-turbo/m4/
-imagereader/libjpeg-turbo/simd/Makefile
+/imagereader/libjpeg-turbo/configure
+/imagereader/libjpeg-turbo/Makefile
+/imagereader/libjpeg-turbo/config.h
+/imagereader/libjpeg-turbo/md5/Makefile
+/imagereader/libjpeg-turbo/m4/
+/imagereader/libjpeg-turbo/simd/Makefile
 
 liblsmash.pc
-lsmashsource/libs/
-lsmashsource/lsmash/cli/boxdumper
-lsmashsource/lsmash/cli/muxer
-lsmashsource/lsmash/cli/remuxer
-lsmashsource/lsmash/cli/timelineeditor
-lsmashsource/lsmash/config.h
-lsmashsource/lsmash/config.mak2
+/lsmashsource/libs/
+/lsmashsource/lsmash/cli/boxdumper
+/lsmashsource/lsmash/cli/muxer
+/lsmashsource/lsmash/cli/remuxer
+/lsmashsource/lsmash/cli/timelineeditor
+/lsmashsource/lsmash/config.h
+/lsmashsource/lsmash/config.mak2
