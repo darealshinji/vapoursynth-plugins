@@ -3,6 +3,12 @@ include ../config.mak
 MAKE = make
 OPTFLAGS = -O2
 
+ifeq ($(HAVE_X86_64),yes)
+BITS = 64
+else
+BITS = 32
+endif
+
 ifeq ($(V), 1)
 verbose = V=1
 ffverbose = V=1
@@ -32,10 +38,12 @@ libs/lib/ffmpeg_stamp: ffmpeg/config.mak
 lsmash/config.mak:
 	cd lsmash && ./configure \
 		--prefix="$(CURDIR)/libs" \
-		--extra-cflags="$(OPTFLAGS) -Werror=format-security -fPIC -DPIC -fstack-protector-all -fno-strict-aliasing -mfpmath=sse -msse2 -D_FORTIFY_SOURCE=2"
+		--extra-cflags="-m$(BITS) $(OPTFLAGS) -Werror=format-security -fPIC -DPIC -fstack-protector-all -fno-strict-aliasing -mfpmath=sse -msse2 -D_FORTIFY_SOURCE=2" \
+		--extra-ldflags="-m$(BITS)"
 
 ffmpeg/config.mak:
-	cd ffmpeg && CFLAGS="-Wno-deprecated-declarations" CPPFLAGS="" \
+	cd ffmpeg && CFLAGS="-m$(BITS) -Wno-deprecated-declarations" \
+	CPPFLAGS="" LDFLAGS="-m$(BITS)" \
 	./configure --prefix="$(CURDIR)/libs" \
 		--enable-pic \
 		--disable-debug \
