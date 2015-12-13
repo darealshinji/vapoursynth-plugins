@@ -17,5 +17,5 @@ autoreconf --install imagereader/libjpeg-turbo 2>/dev/null >/dev/null
 
 if type git >/dev/null 2>&1 && [ -d ".git" ]; then
    git submodule init
-   git submodule update
+   git submodule update --depth 1
 fi

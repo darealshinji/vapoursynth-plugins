@@ -27,6 +27,7 @@ SUBDIRS = \
 	imagereader \
 	it \
 	knlmeanscl \
+	lsmashsource \
 	msmoosh \
 	mvtools \
 	nnedi3 \

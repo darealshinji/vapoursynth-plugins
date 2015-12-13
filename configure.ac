@@ -41,6 +41,7 @@ AS_IF([test $build != $host], [
 # libraries
 AX_CHECK_CL
 AC_CHECK_LIB([m],          [sqrt], ,                   [exit 1])
+AC_CHECK_LIB([pthread],    [pthread_create], ,         [exit 1])
 AC_CHECK_LIB([jpeg],       [jpeg_start_decompress], ,  [jpeg_avail="no"])
 AC_CHECK_LIB([png],        [png_create_read_struct], , [png_avail="no"])
 AC_CHECK_LIB([z],          [inflate], ,                [zlib_avail="no"])
