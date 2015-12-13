@@ -115,8 +115,7 @@ distclean: clean
 	rm -f config.log config.status config.mak
 
 maintainer-clean: distclean
-	cd imagereader/libjpeg-turbo && rm -rf autom4te.cache
-	rm -rf autom4te.cache
+	rm -rf autom4te.cache imagereader/libjpeg-turbo/autom4te.cache
 
 autoclean: maintainer-clean
 	rm -rf ffms2/src lsmashsource/ffmpeg
