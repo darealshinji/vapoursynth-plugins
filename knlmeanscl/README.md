@@ -17,6 +17,9 @@ For end user KNLMeansCL is a plugin for [AviSynth](http://avisynth.nl) / [AviSyn
 
 
 ## Change Log ##
+**- v0.7.4**
+  - Workaround for GeForce 900 Series.
+
 **- v0.7.3**
   - Removed 'default' and 'all' device_type.
   - More controls of the OpenCL platform.
