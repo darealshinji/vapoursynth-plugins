@@ -1,6 +1,6 @@
 ##==========================================================
-## 2015.11.9			vsTAAmbk 0.3.2					
-##			Port from TAAmbk 0.7.0 by Evalyn
+## 2015.11.9			vsTAAmbk 0.4					
+##			Ported from TAAmbk 0.7.0 by Evalyn
 ##			Email: pov@mahou-shoujo.moe			
 ##			Thanks (author)kewenyu for help				
 ##==========================================================
@@ -23,11 +23,10 @@
 ##	#### Only YUV colorfmaily is supported ! 	
 ##	#### And input bitdepth must be 8 or 16 INT ! 
 ##														
-##	"mtype" and "mtype2" = 5 are completely useless.	
 ##	 Add lsb[bool] to control nnedi3 input bitdepth.
 ##	"False" means input depth for nnedi3 is always 8bit.
 ##	"thin" and "dark" are now removed.
-##  add aatype 7 using sangnom					
+##  add aatype 7 using pure sangnom					
 ##		 												
 ##==========================================================	 												
 ##		 												
@@ -56,6 +55,11 @@ def TAAmbk(input, aatype=1, lsb=False, preaa=0, sharp=0, postaa=None, mtype=None
 	uph4 = (round(h*0.09375)*16) # mod16(h*1.5)
 	downw4 = (round(w*0.046875)*16) # mod16(w*0.75)
 	downh4 = (round(h*0.046875)*16) # mod16(h*0.75)
+	
+	if input.format.num_planes == 1:
+		GRAY = True
+	else:
+		GRAY = False
 	
 	# border to add for SangNomMod when aatype = 6 or 7
 	if aatype == 6 or aatype == 7:
@@ -193,10 +197,6 @@ def TAAmbk(input, aatype=1, lsb=False, preaa=0, sharp=0, postaa=None, mtype=None
 		raise ValueError(funcname + ': \"stabilize\" (int: -3~3) invalid !')
 	if showmask and mtype == 0:
 		raise ValueError(funcname + ': There is NO mask to show when \"mtype\" = 0 !')
-		
-	###bugs
-	if mtype == 5 or mtype2 == 5:
-		raise ValueError(funcname + ': \"mtype\" or \"mtype2\" = 5 (Roberts) unavailable now !')
 		
 	###################################
 	###  Small functions ##############
@@ -500,50 +500,48 @@ def TAAmbk(input, aatype=1, lsb=False, preaa=0, sharp=0, postaa=None, mtype=None
 	
 	#Internal functions
 	def TAAmbk_mask(input, mtype=mtype, mthr=mthr, w=w, mtype2=mtype2, mthr2=mthr2, auxmthr=auxmthr):
-	
+		bits = input.format.bits_per_sample
+		shift = bits - 8
+		neutral = 128 << shift
+		peak = (1 << bits) - 1
+		multiple = peak / 255
 		#generate edge_mask_1
 		if mtype == 1:
 			edge_mask_1 = core.tcanny.TCanny(input, sigma=auxmthr, mode=1, op=2, planes=0)
-			exprY = "x "+str(mthr)+" <= x 2 / x 2 * ?"
-			if input.format.num_planes == 1:
-				edge_mask_1 = core.std.Expr(edge_mask_1, expr=[exprY])
-			else:
-				edge_mask_1 = core.std.Expr(edge_mask_1, expr=[exprY,""])
+			exprY = "x "+str(mthr*multiple)+" <= x 2 / x 2 * ?"
+			edge_mask_1 = core.std.Expr(edge_mask_1, [exprY] if GRAY else [exprY,""])
 			if w > 1100:
-				edge_mask_1 = core.rgvs.RemoveGrain(edge_mask_1, mode=20)
+				edge_mask_1 = core.rgvs.RemoveGrain(edge_mask_1, [20] if GRAY else [20,0])
 			else:
-				edge_mask_1 = core.rgvs.RemoveGrain(edge_mask_1, mode=11)
+				edge_mask_1 = core.rgvs.RemoveGrain(edge_mask_1, [11] if GRAY else [11,0])
 			edge_mask_1 = core.generic.Inflate(edge_mask_1, planes=0)
 		elif mtype == 3:
 			edge_mask_1 = core.generic.TEdge(input, min=auxmthr, planes=0)
-			exprY = "x "+str(mthr//5)+" <= x 2 / x 16 * ?"
-			if input.format.num_planes == 1:
-				edge_mask_1 = core.std.Expr(edge_mask_1, expr=[exprY])
-			else:
-				edge_mask_1 = core.std.Expr(edge_mask_1, expr=[exprY,""])
+			exprY = "x "+str(mthr*multiple/5)+" <= x 2 / x 16 * ?"
+			edge_mask_1 = core.std.Expr(edge_mask_1, [exprY] if GRAY else [exprY,""])
 			edge_mask_1 = core.generic.Deflate(edge_mask_1, planes=0)
 			if w > 1100:
-				edge_mask_1 = core.rgvs.RemoveGrain(edge_mask_1, mode=20)
+				edge_mask_1 = core.rgvs.RemoveGrain(edge_mask_1, [20] if GRAY else [20,0])
 			else:
-				edge_mask_1 = core.rgvs.RemoveGrain(edge_mask_1, mode=11)
+				edge_mask_1 = core.rgvs.RemoveGrain(edge_mask_1, [11] if GRAY else [11,0])
 		elif mtype == 2:
 			edge_mask_1 = core.msmoosh.MSharpen(input, threshold=mthr//5, strength=0, mask=True, planes=0)
 		elif mtype == 4:
 			edge_mask_1 = core.generic.Sobel(input, min=5, max=7, planes=0)
 			edge_mask_1 = core.generic.Inflate(edge_mask_1, planes=0)
 		elif mtype == 5:
-		#=======================
-			edge_mask_1 = input # roberts kernel unavailable
+			edge_mask_1 = core.std.Convolution(input,[0, 0, 0, 0, 2, -1, 0, -1, 0],planes=0)
 			edge_mask_1 = core.generic.Inflate(edge_mask_1, planes=0)
-		#=======================
 		elif mtype == 6:
-			edge_mask_1 = core.generic.Prewitt(input, min=0, max=255, planes=0)
-			exprY = "x "+str(mthr)+" <= x 2 / x 2.639015821545 * ?"
-			if input.format.num_planes == 1:
-				edge_mask_1 = core.std.Expr(edge_mask_1, expr=[exprY])
-			else:
-				edge_mask_1 = core.std.Expr(edge_mask_1, expr=[exprY,""])
-			edge_mask_1 = core.rgvs.RemoveGrain(edge_mask_1, mode=4)
+			edgemask1 = core.std.Convolution(input,[1, 1, 0, 1, 0, -1, 0, -1, -1],divisor=1,saturate=False,planes=0)
+			edgemask2 = core.std.Convolution(input,[1, 1, 1, 0, 0, 0, -1, -1, -1],divisor=1,saturate=False,planes=0)
+			edgemask3 = core.std.Convolution(input,[1, 0, -1, 1, 0, -1, 1, 0, -1],divisor=1,saturate=False,planes=0)
+			edgemask4 = core.std.Convolution(input,[0, -1, -1, 1, 0, -1, 1, 1, 0],divisor=1,saturate=False,planes=0)
+			mt = "x y max z max a max"
+			edge_mask_1 = core.std.Expr([edgemask1,edgemask2,edgemask3,edgemask4],[mt] if GRAY else [mt,""])
+			exprY = "x "+str(mthr*multiple)+" <= x 2 / x 2.639015821545 * ?"
+			edge_mask_1 = core.std.Expr(edge_mask_1, [exprY] if GRAY else [exprY,""])
+			edge_mask_1 = core.rgvs.RemoveGrain(edge_mask_1, [4] if GRAY else [4,0])
 			edge_mask_1 = core.generic.Inflate(edge_mask_1, planes=0)
 		else:
 			edge_mask_1 == None
@@ -553,66 +551,71 @@ def TAAmbk(input, aatype=1, lsb=False, preaa=0, sharp=0, postaa=None, mtype=None
 			edge_mask_2 = None
 		elif mtype2 == 1:
 			edge_mask_2 = core.tcanny.TCanny(input, sigma=1.2, mode=1, op=0, planes=0)
-			exprY = "x "+str(mthr2)+" <= x 2 / x 2 * ?"
-			if input.format.num_planes == 1:
-				edge_mask_2 = core.std.Expr(edge_mask_2, expr=[exprY])
-			else:
-				edge_mask_2 = core.std.Expr(edge_mask_2, expr=[exprY,""])
+			exprY = "x "+str(mthr2*multiple)+" <= x 2 / x 2 * ?"
+			edge_mask_2 = core.std.Expr(edge_mask_2, [exprY] if GRAY else [exprY,""])
 			if w > 1100:
-				edge_mask_2 = core.rgvs.RemoveGrain(edge_mask_2, mode=20)
+				edge_mask_2 = core.rgvs.RemoveGrain(edge_mask_2, [20] if GRAY else [20,0])
 			else:
-				edge_mask_2 = core.rgvs.RemoveGrain(edge_mask_2, mode=11)
+				edge_mask_2 = core.rgvs.RemoveGrain(edge_mask_2, [11] if GRAY else [11,0])
 			edge_mask_1 = core.generic.Inflate(edge_mask_2, planes=0)
 		elif mtype2 == 3:
 			edge_mask_2 = core.generic.TEdge(input, planes=0)
-			exprY = "x "+str(mthr2//5)+" <= x 2 / x 16 * ?"
-			if input.format.num_planes == 1:
-				edge_mask_2 = core.std.Expr(edge_mask_2, expr=[exprY])
-			else:
-				edge_mask_2 = core.std.Expr(edge_mask_2, expr=[exprY,""])
+			exprY = "x "+str(mthr2*multiple/5)+" <= x 2 / x 16 * ?"
+			edge_mask_2 = core.std.Expr(edge_mask_2, [exprY] if GRAY else [exprY,""])
 			edge_mask_2 = core.generic.Deflate(edge_mask_2, planes=0)
 			if w > 1100:
-				edge_mask_2 = core.rgvs.RemoveGrain(edge_mask_2, mode=20)
+				edge_mask_2 = core.rgvs.RemoveGrain(edge_mask_2, [20] if GRAY else [20,0])
 			else:
-				edge_mask_2 = core.rgvs.RemoveGrain(edge_mask_2, mode=11)
+				edge_mask_2 = core.rgvs.RemoveGrain(edge_mask_2, [11] if GRAY else [11,0])
 		elif mtype2 == 2:
 			edge_mask_2 = core.msmoosh.MSharpen(input, threshold=mthr2//5, strength=0, mask=True, planes=0)
 		elif mtype2 == 4:
 			edge_mask_2 = core.generic.Sobel(input, min=5, max=7, planes=0)
 			edge_mask_2 = core.generic.Inflate(edge_mask_2, planes=0)
 		elif mtype2 == 5:
-		#=======================
-			edge_mask_2 = input
+			edge_mask_1 = core.std.Convolution(input,[0, 0, 0, 0, 2, -1, 0, -1, 0],planes=0)
 			edge_mask_2 = core.generic.Inflate(edge_mask_2, planes=0)
-		#=======================
 		else:
-			edge_mask_2 = core.generic.Prewitt(input, min=0, max=255, planes=0)
-			exprY = "x "+str(mthr2)+" <= x 2 / x 2.639015821545 * ?"
-			edge_mask_2 = core.std.Expr(edge_mask_2, expr=[exprY])
-			edge_mask_2 = core.rgvs.RemoveGrain(edge_mask_2, mode=4)
+			edgemask1 = core.std.Convolution(input,[1, 1, 0, 1, 0, -1, 0, -1, -1],divisor=1,saturate=False,planes=0)
+			edgemask2 = core.std.Convolution(input,[1, 1, 1, 0, 0, 0, -1, -1, -1],divisor=1,saturate=False,planes=0)
+			edgemask3 = core.std.Convolution(input,[1, 0, -1, 1, 0, -1, 1, 0, -1],divisor=1,saturate=False,planes=0)
+			edgemask4 = core.std.Convolution(input,[0, -1, -1, 1, 0, -1, 1, 1, 0],divisor=1,saturate=False,planes=0)
+			mt = "x y max z max a max"
+			edge_mask_2 = core.std.Expr([edgemask1,edgemask2,edgemask3,edgemask4],[mt] if GRAY else [mt,""])
+			exprY = "x "+str(mthr2*multiple)+" <= x 2 / x 2.639015821545 * ?"
+			edge_mask_2 = core.std.Expr(edge_mask_2, [exprY] if GRAY else [exprY,""])
+			edge_mask_2 = core.rgvs.RemoveGrain(edge_mask_2, [4] if GRAY else [4,0])
 			edge_mask_2 = core.generic.Inflate(edge_mask_2, planes=0)
 			
 		#generate final_mask
 		if mtype2 == 0:
 			final_mask = edge_mask_1
 		else:
-			final_mask = core.std.Expr(clips=[edge_mask_1,edge_mask_2], expr=["x y max"])
+			final_mask = core.std.Expr([edge_mask_1,edge_mask_2], ["x y max"] if GRAY else ["x y max",""])
 			
 		return final_mask
 	
 	
 	#temporal stabilizer of sharped clip
 	def Soothe(sharp, origin, keep=24):
+		bits = sharp.format.bits_per_sample
+		shift = bits - 8
+		neutral = 128 << shift
+		peak = (1 << bits) - 1
+		multiple = peak / 255
+		const = 100 * multiple
 		if keep > 100:
 			keep = 100
 		if keep < 0:
 			keep = 0
-		KP = str(keep)
-		diff = core.std.Expr(clips=[origin,sharp], expr=["x y - 128 +"])
+		KP = keep*multiple
+		mt1 = 'x y - {neutral} +'.format(neutral=neutral)
+		diff = core.std.Expr(clips=[origin,sharp], expr=[mt1])
 		diff2 = core.focus.TemporalSoften(diff, radius=1, luma_threshold=255, chroma_threshold=255, scenechange=32, mode=2)
-		expr = "x 128 - y 128 - * 0 < x 128 - 100 / "+KP+" * 128 + x 128 - abs y 128 - abs > x "+KP+" * y 100 "+KP+" - * + 100 / x ? ?"
+		expr = 'x {neutral} - y {neutral} - * 0 < x {neutral} - {const} / {KP} * {neutral} + x {neutral} - abs y {neutral} - abs > x {KP} * y {const} {KP} - * + {const} / x ? ?'.format(neutral=neutral, const=const, KP=KP)
 		diff3 = core.std.Expr(clips=[diff,diff2], expr=[expr])
-		return core.std.Expr(clips=[origin,diff3], expr=["x y 128 - -"])
+		mt2 = 'x y {neutral} - -'.format(neutral=neutral)
+		return core.std.Expr(clips=[origin,diff3], expr=[mt2])
 		
 	#internal functions
 	def TAAmbk_stabilize(input, aaedsharp, stabilize):
@@ -640,11 +643,14 @@ def TAAmbk(input, aatype=1, lsb=False, preaa=0, sharp=0, postaa=None, mtype=None
 				stabilized_diff = core.mv.Degrain3(aadiff,diffsuper,bv1,fv1,bv2,fv2,bv3,fv3)
 			else:
 				stabilized_diff = None
-			aadiff_stab = core.std.Expr(clips=[aadiff,stabilized_diff], expr=["x 128 - abs y 128 - abs < x y ?"])
-			if aadiff_stab.format.num_planes == 1:
-				aadiff_stab = core.std.Merge(aadiff_stab, stabilized_diff, weight=[0.6])
-			else:
-				aadiff_stab = core.std.Merge(aadiff_stab, stabilized_diff, weight=[0.6,0])
+			bits = aadiff.format.bits_per_sample
+			shift = bits - 8
+			neutral = 128 << shift
+			peak = (1 << bits) - 1
+			multiple = peak / 255
+			mt = 'x {neutral} - abs y {neutral} - abs < x y ?'.format(neutral=neutral)
+			aadiff_stab = core.std.Expr(clips=[aadiff,stabilized_diff], expr=[mt])
+			aadiff_stab = core.std.Merge(aadiff_stab, stabilized_diff, [0.6] if GRAY else [0.6,0])
 		aaed_stab = core.std.MakeDiff(Depth(input,16), aadiff_stab)
 		
 		return aaed_stab

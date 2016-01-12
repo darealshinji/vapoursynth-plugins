@@ -1,4 +1,4 @@
-# vsTAAmbk 0.3.2
+# vsTAAmbk 0.4.0
 A ported AA-script from Avisynth
 
 
@@ -39,4 +39,4 @@ Output is always 16bit INTEGER.
 
 "mtype" and "mtype2" = 5 are DISABLED.
 
-add "aatype 7" using sangnom
+add "aatype 7" using "pure" sangnom.
