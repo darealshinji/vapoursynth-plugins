@@ -44,6 +44,9 @@
 #include "vectorclass/vectorclass.h"
 #endif
 
+//////////////////////////////////////////
+// TDeintMod
+
 struct TDeintModData {
     VSNodeRef * node, * node2, * propNode, * mask, * edeint;
     VSVideoInfo vi;
@@ -54,14 +57,6 @@ struct TDeintModData {
     std::vector<int8_t> vlut;
     std::vector<int> tmmlut16;
     int ten, twenty, thirty, forty, fifty, sixty, seventy;
-};
-
-struct IsCombedData {
-    VSNodeRef * node;
-    const VSVideoInfo * vi;
-    int cthresh, blockx, blocky, MI, metric;
-    bool chroma;
-    int xhalf, yhalf, xshift, yshift, cthresh6, cthreshsq;
 };
 
 static inline void memset16(void * ptr, const int value, size_t num) {
@@ -775,7 +770,7 @@ static void threshMask(const VSFrameRef * src, VSFrameRef * dst, const TDeintMod
         const T * srcp = reinterpret_cast<const T *>(vsapi->getReadPtr(src, plane));
         T * VS_RESTRICT dstp0 = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
         T * VS_RESTRICT dstp1 = dstp0 + stride * height;
-        if (sizeof(T) == 1) {
+        if (sizeof(T) == sizeof(uint8_t)) {
             if (plane == 0 && d->mtqL > -1 && d->mthL > -1) {
                 memset(dstp0, d->mtqL, stride * height);
                 memset(dstp1, d->mthL, stride * height);
@@ -1054,7 +1049,7 @@ static void threshMask(const VSFrameRef * src, VSFrameRef * dst, const TDeintMod
                 dstp1 += stride;
             }
         }
-        if (sizeof(T) == 1) {
+        if (sizeof(T) == sizeof(uint8_t)) {
             if (plane == 0 && d->mtqL > -1)
                 memset(vsapi->getWritePtr(dst, plane), d->mtqL, stride * height);
             else if (plane == 0 && d->mthL > -1)
@@ -1122,7 +1117,7 @@ static void motionMask(const VSFrameRef * src1, const VSFrameRef * msk1, const V
 #else
 template<typename T>
 static void motionMask(const VSFrameRef * src1, const VSFrameRef * msk1, const VSFrameRef * src2, const VSFrameRef * msk2, VSFrameRef * dst, const TDeintModData * d, const VSAPI * vsapi) {
-    const T peak = (sizeof(T) == 1) ? UINT8_MAX : UINT16_MAX;
+    const T peak = (sizeof(T) == sizeof(uint8_t)) ? UINT8_MAX : UINT16_MAX;
     for (int plane = 0; plane < d->vi.format->numPlanes; plane++) {
         const int width = vsapi->getFrameWidth(src1, plane);
         const int height = vsapi->getFrameHeight(src1, plane);
@@ -1202,7 +1197,7 @@ static void andMasks(const VSFrameRef * src1, const VSFrameRef * src2, VSFrameRe
 
 template<typename T>
 static void combineMasks(const VSFrameRef * src, VSFrameRef * dst, const TDeintModData * d, const VSAPI * vsapi) {
-    const T peak = (sizeof(T) == 1) ? UINT8_MAX : UINT16_MAX;
+    const T peak = (sizeof(T) == sizeof(uint8_t)) ? UINT8_MAX : UINT16_MAX;
     for (int plane = 0; plane < d->vi.format->numPlanes; plane++) {
         const int width = vsapi->getFrameWidth(src, plane);
         const int height = vsapi->getFrameHeight(dst, plane);
@@ -1274,7 +1269,7 @@ static void buildMask(VSFrameRef ** csrc, VSFrameRef ** osrc, VSFrameRef * dst, 
             }
         }
         T * VS_RESTRICT dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
-        if (sizeof(T) == 1) {
+        if (sizeof(T) == sizeof(uint8_t)) {
             if (field == 1) {
                 for (int j = 0; j < height; j += 2)
                     memset(dstp + stride * j, d->ten, width);
@@ -1348,7 +1343,7 @@ static void setMaskForUpsize(VSFrameRef * msk, const int field, const TDeintModD
         const int stride = vsapi->getStride(msk, plane) / sizeof(T) * 2;
         T * VS_RESTRICT maskwc = reinterpret_cast<T *>(vsapi->getWritePtr(msk, plane));
         T * VS_RESTRICT maskwn = maskwc + stride / 2;
-        if (sizeof(T) == 1) {
+        if (sizeof(T) == sizeof(uint8_t)) {
             if (field == 1) {
                 for (int y = 0; y < height - 1; y++) {
                     memset(maskwc, d->ten, width);
@@ -1488,355 +1483,6 @@ static void cubicDeint(VSFrameRef * dst, const VSFrameRef * mask, const VSFrameR
     }
 }
 
-template<typename T>
-static int64_t checkCombed(const VSFrameRef * src, VSFrameRef * cmask, int * VS_RESTRICT cArray, const IsCombedData * d, const VSAPI * vsapi) {
-    const T peak = (sizeof(T) == 1) ? UINT8_MAX : UINT16_MAX;
-    for (int plane = 0; plane < (d->chroma ? 3 : 1); plane++) {
-        const int width = vsapi->getFrameWidth(src, plane);
-        const int height = vsapi->getFrameHeight(src, plane);
-        const int stride = vsapi->getStride(src, plane) / sizeof(T);
-        const T * srcp = reinterpret_cast<const T *>(vsapi->getReadPtr(src, plane));
-        const T * srcpp = srcp - stride;
-        const T * srcppp = srcpp - stride;
-        const T * srcpn = srcp + stride;
-        const T * srcpnn = srcpn + stride;
-        T * VS_RESTRICT cmkp = reinterpret_cast<T *>(vsapi->getWritePtr(cmask, plane));
-        if (d->cthresh < 0) {
-            memset(cmkp, 255, vsapi->getStride(src, plane) * height);
-            continue;
-        }
-        memset(cmkp, 0, vsapi->getStride(src, plane) * height);
-        if (d->metric == 0) {
-            for (int x = 0; x < width; x++) {
-                const int sFirst = srcp[x] - srcpn[x];
-                if ((sFirst > d->cthresh || sFirst < -d->cthresh) && std::abs(srcpnn[x] + (srcp[x] << 2) + srcpnn[x] - (3 * (srcpn[x] + srcpn[x]))) > d->cthresh6)
-                    cmkp[x] = peak;
-            }
-            srcppp += stride;
-            srcpp += stride;
-            srcp += stride;
-            srcpn += stride;
-            srcpnn += stride;
-            cmkp += stride;
-            for (int x = 0; x < width; x++) {
-                const int sFirst = srcp[x] - srcpp[x];
-                const int sSecond = srcp[x] - srcpn[x];
-                if (((sFirst > d->cthresh && sSecond > d->cthresh) || (sFirst < -d->cthresh && sSecond < -d->cthresh)) &&
-                    std::abs(srcpnn[x] + (srcp[x] << 2) + srcpnn[x] - (3 * (srcpp[x] + srcpn[x]))) > d->cthresh6)
-                    cmkp[x] = peak;
-            }
-            srcppp += stride;
-            srcpp += stride;
-            srcp += stride;
-            srcpn += stride;
-            srcpnn += stride;
-            cmkp += stride;
-            for (int y = 2; y < height - 2; y++) {
-                for (int x = 0; x < width; x++) {
-                    const int sFirst = srcp[x] - srcpp[x];
-                    const int sSecond = srcp[x] - srcpn[x];
-                    if (((sFirst > d->cthresh && sSecond > d->cthresh) || (sFirst < -d->cthresh && sSecond < -d->cthresh)) &&
-                        std::abs(srcppp[x] + (srcp[x] << 2) + srcpnn[x] - (3 * (srcpp[x] + srcpn[x]))) > d->cthresh6)
-                        cmkp[x] = peak;
-                }
-                srcppp += stride;
-                srcpp += stride;
-                srcp += stride;
-                srcpn += stride;
-                srcpnn += stride;
-                cmkp += stride;
-            }
-            for (int x = 0; x < width; x++) {
-                const int sFirst = srcp[x] - srcpp[x];
-                const int sSecond = srcp[x] - srcpn[x];
-                if (((sFirst > d->cthresh && sSecond > d->cthresh) || (sFirst < -d->cthresh && sSecond < -d->cthresh)) &&
-                    std::abs(srcppp[x] + (srcp[x] << 2) + srcppp[x] - (3 * (srcpp[x] + srcpn[x]))) > d->cthresh6)
-                    cmkp[x] = peak;
-            }
-            srcppp += stride;
-            srcpp += stride;
-            srcp += stride;
-            srcpn += stride;
-            srcpnn += stride;
-            cmkp += stride;
-            for (int x = 0; x < width; x++) {
-                const int sFirst = srcp[x] - srcpp[x];
-                if ((sFirst > d->cthresh || sFirst < -d->cthresh) && std::abs(srcppp[x] + (srcp[x] << 2) + srcppp[x] - (3 * (srcpp[x] + srcpp[x]))) > d->cthresh6)
-                    cmkp[x] = peak;
-            }
-        } else {
-            for (int x = 0; x < width; x++) {
-                if ((srcp[x] - srcpn[x]) * (srcp[x] - srcpn[x]) > d->cthreshsq)
-                    cmkp[x] = peak;
-            }
-            srcpp += stride;
-            srcp += stride;
-            srcpn += stride;
-            cmkp += stride;
-            for (int y = 1; y < height - 1; y++) {
-                for (int x = 0; x < width; x++) {
-                    if ((srcp[x] - srcpp[x]) * (srcp[x] - srcpn[x]) > d->cthreshsq)
-                        cmkp[x] = peak;
-                }
-                srcpp += stride;
-                srcp += stride;
-                srcpn += stride;
-                cmkp += stride;
-            }
-            for (int x = 0; x < width; x++) {
-                if ((srcp[x] - srcpp[x]) * (srcp[x] - srcpp[x]) > d->cthreshsq)
-                    cmkp[x] = peak;
-            }
-        }
-    }
-    if (d->chroma) {
-        const int width = vsapi->getFrameWidth(cmask, 2);
-        const int height = vsapi->getFrameHeight(cmask, 2);
-        const int stride = vsapi->getStride(cmask, 0) / sizeof(T);
-        const int strideY = stride << d->vi->format->subSamplingH;
-        const int strideUV = vsapi->getStride(cmask, 2) / sizeof(T);
-        T * VS_RESTRICT cmkp = reinterpret_cast<T *>(vsapi->getWritePtr(cmask, 0));
-        const T * cmkpU = reinterpret_cast<const T *>(vsapi->getReadPtr(cmask, 1));
-        const T * cmkpV = reinterpret_cast<const T *>(vsapi->getReadPtr(cmask, 2));
-        T * VS_RESTRICT cmkpp3 = cmkp - stride * 3;
-        T * VS_RESTRICT cmkpp2 = cmkp - stride * 2;
-        T * VS_RESTRICT cmkpp = cmkp - stride;
-        T * VS_RESTRICT cmkpn = cmkp + stride;
-        T * VS_RESTRICT cmkpn2 = cmkp + stride * 2;
-        T * VS_RESTRICT cmkpn3 = cmkp + stride * 3;
-        T * VS_RESTRICT cmkpn4 = cmkp + stride * 4;
-        T * VS_RESTRICT cmkpn5 = cmkp + stride * 5;
-        T * VS_RESTRICT cmkpn6 = cmkp + stride * 6;
-        const T * cmkppU = cmkpU - strideUV;
-        const T * cmkpnU = cmkpU + strideUV;
-        const T * cmkppV = cmkpV - strideUV;
-        const T * cmkpnV = cmkpV + strideUV;
-        for (int y = 1; y < height - 1; y++) {
-            cmkpp3 += strideY;
-            cmkpp2 += strideY;
-            cmkpp += strideY;
-            cmkp += strideY;
-            cmkpn += strideY;
-            cmkpn2 += strideY;
-            cmkpn3 += strideY;
-            cmkpn4 += strideY;
-            cmkpn5 += strideY;
-            cmkpn6 += strideY;
-            cmkppU += strideUV;
-            cmkpU += strideUV;
-            cmkpnU += strideUV;
-            cmkppV += strideUV;
-            cmkpV += strideUV;
-            cmkpnV += strideUV;
-            for (int x = 1; x < width - 1; x++) {
-                if ((cmkpU[x] == peak && (cmkpU[x - 1] == peak || cmkpU[x + 1] == peak ||
-                     cmkppU[x - 1] == peak || cmkppU[x] == peak || cmkppU[x + 1] == peak ||
-                     cmkpnU[x - 1] == peak || cmkpnU[x] == peak || cmkpnU[x + 1] == peak)) ||
-                    (cmkpV[x] == peak && (cmkpV[x - 1] == peak || cmkpV[x + 1] == peak ||
-                     cmkppV[x - 1] == peak || cmkppV[x] == peak || cmkppV[x + 1] == peak ||
-                     cmkpnV[x - 1] == peak || cmkpnV[x] == peak || cmkpnV[x + 1] == peak))) {
-                    if (d->vi->format->subSamplingW == 0) {
-                        cmkp[x] = peak;
-                        if (d->vi->format->subSamplingH > 0) {
-                            cmkpn[x] = peak;
-                            (y & 1 ? cmkpp : cmkpn2)[x] = peak;
-                            if (d->vi->format->subSamplingH == 2) {
-                                if (y & 1) {
-                                    cmkpp2[x] = peak;
-                                    cmkpp3[x] = peak;
-                                } else {
-                                    cmkpn3[x] = peak;
-                                    cmkpn4[x] = peak;
-                                    cmkpn5[x] = peak;
-                                    cmkpn6[x] = peak;
-                                }
-                            }
-                        }
-                    } else if (d->vi->format->subSamplingW == 1) {
-                        if (sizeof(T) == 1) {
-                            reinterpret_cast<uint16_t *>(cmkp)[x] = UINT16_MAX;
-                            if (d->vi->format->subSamplingH > 0) {
-                                reinterpret_cast<uint16_t *>(cmkpn)[x] = UINT16_MAX;
-                                reinterpret_cast<uint16_t *>(y & 1 ? cmkpp : cmkpn2)[x] = UINT16_MAX;
-                                if (d->vi->format->subSamplingH == 2) {
-                                    if (y & 1) {
-                                        reinterpret_cast<uint16_t *>(cmkpp2)[x] = UINT16_MAX;
-                                        reinterpret_cast<uint16_t *>(cmkpp3)[x] = UINT16_MAX;
-                                    } else {
-                                        reinterpret_cast<uint16_t *>(cmkpn3)[x] = UINT16_MAX;
-                                        reinterpret_cast<uint16_t *>(cmkpn4)[x] = UINT16_MAX;
-                                        reinterpret_cast<uint16_t *>(cmkpn5)[x] = UINT16_MAX;
-                                        reinterpret_cast<uint16_t *>(cmkpn6)[x] = UINT16_MAX;
-                                    }
-                                }
-                            }
-                        } else {
-                            reinterpret_cast<uint32_t *>(cmkp)[x] = UINT32_MAX;
-                            if (d->vi->format->subSamplingH > 0) {
-                                reinterpret_cast<uint32_t *>(cmkpn)[x] = UINT32_MAX;
-                                reinterpret_cast<uint32_t *>(y & 1 ? cmkpp : cmkpn2)[x] = UINT32_MAX;
-                                if (d->vi->format->subSamplingH == 2) {
-                                    if (y & 1) {
-                                        reinterpret_cast<uint32_t *>(cmkpp2)[x] = UINT32_MAX;
-                                        reinterpret_cast<uint32_t *>(cmkpp3)[x] = UINT32_MAX;
-                                    } else {
-                                        reinterpret_cast<uint32_t *>(cmkpn3)[x] = UINT32_MAX;
-                                        reinterpret_cast<uint32_t *>(cmkpn4)[x] = UINT32_MAX;
-                                        reinterpret_cast<uint32_t *>(cmkpn5)[x] = UINT32_MAX;
-                                        reinterpret_cast<uint32_t *>(cmkpn6)[x] = UINT32_MAX;
-                                    }
-                                }
-                            }
-                        }
-                    } else {
-                        if (sizeof(T) == 1) {
-                            reinterpret_cast<uint32_t *>(cmkp)[x] = UINT32_MAX;
-                            if (d->vi->format->subSamplingH > 0) {
-                                reinterpret_cast<uint32_t *>(cmkpn)[x] = UINT32_MAX;
-                                reinterpret_cast<uint32_t *>(y & 1 ? cmkpp : cmkpn2)[x] = UINT32_MAX;
-                                if (d->vi->format->subSamplingH == 2) {
-                                    if (y & 1) {
-                                        reinterpret_cast<uint32_t *>(cmkpp2)[x] = UINT32_MAX;
-                                        reinterpret_cast<uint32_t *>(cmkpp3)[x] = UINT32_MAX;
-                                    } else {
-                                        reinterpret_cast<uint32_t *>(cmkpn3)[x] = UINT32_MAX;
-                                        reinterpret_cast<uint32_t *>(cmkpn4)[x] = UINT32_MAX;
-                                        reinterpret_cast<uint32_t *>(cmkpn5)[x] = UINT32_MAX;
-                                        reinterpret_cast<uint32_t *>(cmkpn6)[x] = UINT32_MAX;
-                                    }
-                                }
-                            }
-                        } else {
-                            reinterpret_cast<uint64_t *>(cmkp)[x] = UINT64_MAX;
-                            if (d->vi->format->subSamplingH > 0) {
-                                reinterpret_cast<uint64_t *>(cmkpn)[x] = UINT64_MAX;
-                                reinterpret_cast<uint64_t *>(y & 1 ? cmkpp : cmkpn2)[x] = UINT64_MAX;
-                                if (d->vi->format->subSamplingH == 2) {
-                                    if (y & 1) {
-                                        reinterpret_cast<uint64_t *>(cmkpp2)[x] = UINT64_MAX;
-                                        reinterpret_cast<uint64_t *>(cmkpp3)[x] = UINT64_MAX;
-                                    } else {
-                                        reinterpret_cast<uint64_t *>(cmkpn3)[x] = UINT64_MAX;
-                                        reinterpret_cast<uint64_t *>(cmkpn4)[x] = UINT64_MAX;
-                                        reinterpret_cast<uint64_t *>(cmkpn5)[x] = UINT64_MAX;
-                                        reinterpret_cast<uint64_t *>(cmkpn6)[x] = UINT64_MAX;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    const int width = vsapi->getFrameWidth(cmask, 0);
-    const int height = vsapi->getFrameHeight(cmask, 0);
-    const int stride = vsapi->getStride(cmask, 0) / sizeof(T);
-    const T * cmkp = reinterpret_cast<const T *>(vsapi->getReadPtr(cmask, 0)) + stride;
-    const T * cmkpp = cmkp - stride;
-    const T * cmkpn = cmkp + stride;
-    const int xblocks = ((width + d->xhalf) >> d->xshift) + 1;
-    const int xblocks4 = xblocks * 4;
-    const int yblocks = ((height + d->yhalf) >> d->yshift) + 1;
-    const int arraySize = (xblocks * yblocks) * 4;
-    memset(cArray, 0, arraySize * sizeof(int));
-    const int widtha = (width >> (d->xshift - 1)) << (d->xshift - 1);
-    int heighta = (height >> (d->yshift - 1)) << (d->yshift - 1);
-    if (heighta == height)
-        heighta = height - d->yhalf;
-    for (int y = 1; y < d->yhalf; y++) {
-        const int temp1 = (y >> d->yshift) * xblocks4;
-        const int temp2 = ((y + d->yhalf) >> d->yshift) * xblocks4;
-        for (int x = 0; x < width; x++) {
-            if (cmkpp[x] == peak && cmkp[x] == peak && cmkpn[x] == peak) {
-                const int box1 = (x >> d->xshift) << 2;
-                const int box2 = ((x + d->xhalf) >> d->xshift) << 2;
-                ++cArray[temp1 + box1];
-                ++cArray[temp1 + box2 + 1];
-                ++cArray[temp2 + box1 + 2];
-                ++cArray[temp2 + box2 + 3];
-            }
-        }
-        cmkpp += stride;
-        cmkp += stride;
-        cmkpn += stride;
-    }
-    for (int y = d->yhalf; y < heighta; y += d->yhalf) {
-        const int temp1 = (y >> d->yshift) * xblocks4;
-        const int temp2 = ((y + d->yhalf) >> d->yshift) * xblocks4;
-        for (int x = 0; x < widtha; x += d->xhalf) {
-            const T * cmkppT = cmkpp;
-            const T * cmkpT = cmkp;
-            const T * cmkpnT = cmkpn;
-            int sum = 0;
-            for (int u = 0; u < d->yhalf; u++) {
-                for (int v = 0; v < d->xhalf; v++) {
-                    if (cmkppT[x + v] == peak && cmkpT[x + v] == peak && cmkpnT[x + v] == peak)
-                        sum++;
-                }
-                cmkppT += stride;
-                cmkpT += stride;
-                cmkpnT += stride;
-            }
-            if (sum) {
-                const int box1 = (x >> d->xshift) << 2;
-                const int box2 = ((x + d->xhalf) >> d->xshift) << 2;
-                cArray[temp1 + box1] += sum;
-                cArray[temp1 + box2 + 1] += sum;
-                cArray[temp2 + box1 + 2] += sum;
-                cArray[temp2 + box2 + 3] += sum;
-            }
-        }
-        for (int x = widtha; x < width; x++) {
-            const T * cmkppT = cmkpp;
-            const T * cmkpT = cmkp;
-            const T * cmkpnT = cmkpn;
-            int sum = 0;
-            for (int u = 0; u < d->yhalf; u++) {
-                if (cmkppT[x] == peak && cmkpT[x] == peak && cmkpnT[x] == peak)
-                    sum++;
-                cmkppT += stride;
-                cmkpT += stride;
-                cmkpnT += stride;
-            }
-            if (sum) {
-                const int box1 = (x >> d->xshift) << 2;
-                const int box2 = ((x + d->xhalf) >> d->xshift) << 2;
-                cArray[temp1 + box1] += sum;
-                cArray[temp1 + box2 + 1] += sum;
-                cArray[temp2 + box1 + 2] += sum;
-                cArray[temp2 + box2 + 3] += sum;
-            }
-        }
-        cmkpp += stride * d->yhalf;
-        cmkp += stride * d->yhalf;
-        cmkpn += stride * d->yhalf;
-    }
-    for (int y = heighta; y < height - 1; y++) {
-        const int temp1 = (y >> d->yshift) * xblocks4;
-        const int temp2 = ((y + d->yhalf) >> d->yshift) * xblocks4;
-        for (int x = 0; x < width; x++) {
-            if (cmkpp[x] == peak && cmkp[x] == peak && cmkpn[x] == peak) {
-                const int box1 = (x >> d->xshift) << 2;
-                const int box2 = ((x + d->xhalf) >> d->xshift) << 2;
-                ++cArray[temp1 + box1];
-                ++cArray[temp1 + box2 + 1];
-                ++cArray[temp2 + box1 + 2];
-                ++cArray[temp2 + box2 + 3];
-            }
-        }
-        cmkpp += stride;
-        cmkp += stride;
-        cmkpn += stride;
-    }
-    int MIC = 0;
-    for (int x = 0; x < arraySize; x++) {
-        if (cArray[x] > MIC)
-            MIC = cArray[x];
-    }
-    return MIC > d->MI;
-}
-
 static bool invokeCache(VSNodeRef ** node, VSMap * out, VSPlugin * stdPlugin, const VSAPI * vsapi) {
     VSMap * args = vsapi->createMap();
     vsapi->propSetNode(args, "clip", *node, paReplace);
@@ -1857,11 +1503,6 @@ static bool invokeCache(VSNodeRef ** node, VSMap * out, VSPlugin * stdPlugin, co
 static void VS_CC tdeintmodInit(VSMap *in, VSMap *out, void **instanceData, VSNode *node, VSCore *core, const VSAPI *vsapi) {
     TDeintModData * d = static_cast<TDeintModData *>(*instanceData);
     vsapi->setVideoInfo(&d->vi, 1, node);
-}
-
-static void VS_CC iscombedInit(VSMap *in, VSMap *out, void **instanceData, VSNode *node, VSCore *core, const VSAPI *vsapi) {
-    IsCombedData * d = static_cast<IsCombedData *>(*instanceData);
-    vsapi->setVideoInfo(d->vi, 1, node);
 }
 
 static const VSFrameRef *VS_CC tdeintmodCreateMMGetFrame(int n, int activationReason, void **instanceData, void **frameData, VSFrameContext *frameCtx, VSCore *core, const VSAPI *vsapi) {
@@ -2113,8 +1754,10 @@ static const VSFrameRef *VS_CC tdeintmodGetFrame(int n, int activationReason, vo
                 cubicDeint<uint16_t>(dst, mask, prv, src, nxt, d, vsapi);
         }
 
+        VSMap * props = vsapi->getFramePropsRW(dst);
+        vsapi->propSetInt(props, "_FieldBased", 0, paReplace);
+
         if (d->mode == 1) {
-            VSMap * props = vsapi->getFramePropsRW(dst);
             int errNum, errDen;
             int64_t durationNum = vsapi->propGetInt(props, "_DurationNum", 0, &errNum);
             int64_t durationDen = vsapi->propGetInt(props, "_DurationDen", 0, &errDen);
@@ -2129,36 +1772,6 @@ static const VSFrameRef *VS_CC tdeintmodGetFrame(int n, int activationReason, vo
         vsapi->freeFrame(prv);
         vsapi->freeFrame(src);
         vsapi->freeFrame(nxt);
-        return dst;
-    }
-
-    return nullptr;
-}
-
-static const VSFrameRef *VS_CC iscombedGetFrame(int n, int activationReason, void **instanceData, void **frameData, VSFrameContext *frameCtx, VSCore *core, const VSAPI *vsapi) {
-    const IsCombedData * d = static_cast<const IsCombedData *>(*instanceData);
-
-    if (activationReason == arInitial) {
-        vsapi->requestFrameFilter(n, d->node, frameCtx);
-    } else if (activationReason == arAllFramesReady) {
-        int * cArray = vs_aligned_malloc<int>((((d->vi->width + d->xhalf) >> d->xshift) + 1) * (((d->vi->height + d->yhalf) >> d->yshift) + 1) * 4 * sizeof(int), 32);
-        if (!cArray) {
-            vsapi->setFilterError("IsCombed: malloc failure (cArray)", frameCtx);
-            return nullptr;
-        }
-
-        const VSFrameRef * src = vsapi->getFrameFilter(n, d->node, frameCtx);
-        VSFrameRef * cmask = vsapi->newVideoFrame(d->vi->format, d->vi->width, d->vi->height, nullptr, core);
-        VSFrameRef * dst = vsapi->copyFrame(src, core);
-
-        if (d->vi->format->bitsPerSample == 8)
-            vsapi->propSetInt(vsapi->getFramePropsRW(dst), "_Combed", checkCombed<uint8_t>(src, cmask, cArray, d, vsapi), paReplace);
-        else
-            vsapi->propSetInt(vsapi->getFramePropsRW(dst), "_Combed", checkCombed<uint16_t>(src, cmask, cArray, d, vsapi), paReplace);
-
-        vs_aligned_free(cArray);
-        vsapi->freeFrame(src);
-        vsapi->freeFrame(cmask);
         return dst;
     }
 
@@ -2187,21 +1800,15 @@ static void VS_CC tdeintmodFree(void *instanceData, VSCore *core, const VSAPI *v
     delete d;
 }
 
-static void VS_CC iscombedFree(void *instanceData, VSCore *core, const VSAPI *vsapi) {
-    IsCombedData * d = static_cast<IsCombedData *>(instanceData);
-    vsapi->freeNode(d->node);
-    delete d;
-}
-
 static void VS_CC tdeintmodCreate(const VSMap *in, VSMap *out, void *userData, VSCore *core, const VSAPI *vsapi) {
     TDeintModData d;
     int err;
 
-    d.order = !!vsapi->propGetInt(in, "order", 0, nullptr);
-    d.field = !!vsapi->propGetInt(in, "field", 0, &err);
+    d.order = int64ToIntS(vsapi->propGetInt(in, "order", 0, nullptr));
+    d.field = int64ToIntS(vsapi->propGetInt(in, "field", 0, &err));
     if (err)
         d.field = -1;
-    d.mode = !!vsapi->propGetInt(in, "mode", 0, &err);
+    d.mode = int64ToIntS(vsapi->propGetInt(in, "mode", 0, &err));
     d.length = int64ToIntS(vsapi->propGetInt(in, "length", 0, &err));
     if (err)
         d.length = 10;
@@ -2237,6 +1844,18 @@ static void VS_CC tdeintmodCreate(const VSMap *in, VSMap *out, void *userData, V
         d.cstr = 4;
     d.show = !!vsapi->propGetInt(in, "show", 0, &err);
 
+    if (d.order < 0 || d.order > 1) {
+        vsapi->setError(out, "TDeintMod: order must be 0 or 1");
+        return;
+    }
+    if (d.field < -1 || d.field > 1) {
+        vsapi->setError(out, "TDeintMod: field must be -1, 0 or 1");
+        return;
+    }
+    if (d.mode < 0 || d.mode > 1) {
+        vsapi->setError(out, "TDeintMod: mode must be 0 or 1");
+        return;
+    }
     if (d.length < 6 || d.length > 30) {
         vsapi->setError(out, "TDeintMod: length must be between 6 and 30 (inclusive)");
         return;
@@ -2504,6 +2123,407 @@ static void VS_CC tdeintmodCreate(const VSMap *in, VSMap *out, void *userData, V
     vsapi->createFilter(in, out, "TDeintMod", tdeintmodInit, tdeintmodGetFrame, tdeintmodFree, fmParallel, 0, data, core);
 }
 
+//////////////////////////////////////////
+// IsCombed
+
+struct IsCombedData {
+    VSNodeRef * node;
+    const VSVideoInfo * vi;
+    int cthresh, blockx, blocky, MI, metric;
+    bool chroma;
+    int xhalf, yhalf, xshift, yshift, cthresh6, cthreshsq;
+};
+
+template<typename T>
+static int64_t checkCombed(const VSFrameRef * src, VSFrameRef * cmask, int * VS_RESTRICT cArray, const IsCombedData * d, const VSAPI * vsapi) {
+    const T peak = (sizeof(T) == sizeof(uint8_t)) ? UINT8_MAX : UINT16_MAX;
+    for (int plane = 0; plane < (d->chroma ? 3 : 1); plane++) {
+        const int width = vsapi->getFrameWidth(src, plane);
+        const int height = vsapi->getFrameHeight(src, plane);
+        const int stride = vsapi->getStride(src, plane) / sizeof(T);
+        const T * srcp = reinterpret_cast<const T *>(vsapi->getReadPtr(src, plane));
+        const T * srcpp = srcp - stride;
+        const T * srcppp = srcpp - stride;
+        const T * srcpn = srcp + stride;
+        const T * srcpnn = srcpn + stride;
+        T * VS_RESTRICT cmkp = reinterpret_cast<T *>(vsapi->getWritePtr(cmask, plane));
+        if (d->cthresh < 0) {
+            memset(cmkp, 255, vsapi->getStride(src, plane) * height);
+            continue;
+        }
+        memset(cmkp, 0, vsapi->getStride(src, plane) * height);
+        if (d->metric == 0) {
+            for (int x = 0; x < width; x++) {
+                const int sFirst = srcp[x] - srcpn[x];
+                if ((sFirst > d->cthresh || sFirst < -d->cthresh) && std::abs(srcpnn[x] + (srcp[x] << 2) + srcpnn[x] - (3 * (srcpn[x] + srcpn[x]))) > d->cthresh6)
+                    cmkp[x] = peak;
+            }
+            srcppp += stride;
+            srcpp += stride;
+            srcp += stride;
+            srcpn += stride;
+            srcpnn += stride;
+            cmkp += stride;
+            for (int x = 0; x < width; x++) {
+                const int sFirst = srcp[x] - srcpp[x];
+                const int sSecond = srcp[x] - srcpn[x];
+                if (((sFirst > d->cthresh && sSecond > d->cthresh) || (sFirst < -d->cthresh && sSecond < -d->cthresh)) &&
+                    std::abs(srcpnn[x] + (srcp[x] << 2) + srcpnn[x] - (3 * (srcpp[x] + srcpn[x]))) > d->cthresh6)
+                    cmkp[x] = peak;
+            }
+            srcppp += stride;
+            srcpp += stride;
+            srcp += stride;
+            srcpn += stride;
+            srcpnn += stride;
+            cmkp += stride;
+            for (int y = 2; y < height - 2; y++) {
+                for (int x = 0; x < width; x++) {
+                    const int sFirst = srcp[x] - srcpp[x];
+                    const int sSecond = srcp[x] - srcpn[x];
+                    if (((sFirst > d->cthresh && sSecond > d->cthresh) || (sFirst < -d->cthresh && sSecond < -d->cthresh)) &&
+                        std::abs(srcppp[x] + (srcp[x] << 2) + srcpnn[x] - (3 * (srcpp[x] + srcpn[x]))) > d->cthresh6)
+                        cmkp[x] = peak;
+                }
+                srcppp += stride;
+                srcpp += stride;
+                srcp += stride;
+                srcpn += stride;
+                srcpnn += stride;
+                cmkp += stride;
+            }
+            for (int x = 0; x < width; x++) {
+                const int sFirst = srcp[x] - srcpp[x];
+                const int sSecond = srcp[x] - srcpn[x];
+                if (((sFirst > d->cthresh && sSecond > d->cthresh) || (sFirst < -d->cthresh && sSecond < -d->cthresh)) &&
+                    std::abs(srcppp[x] + (srcp[x] << 2) + srcppp[x] - (3 * (srcpp[x] + srcpn[x]))) > d->cthresh6)
+                    cmkp[x] = peak;
+            }
+            srcppp += stride;
+            srcpp += stride;
+            srcp += stride;
+            srcpn += stride;
+            srcpnn += stride;
+            cmkp += stride;
+            for (int x = 0; x < width; x++) {
+                const int sFirst = srcp[x] - srcpp[x];
+                if ((sFirst > d->cthresh || sFirst < -d->cthresh) && std::abs(srcppp[x] + (srcp[x] << 2) + srcppp[x] - (3 * (srcpp[x] + srcpp[x]))) > d->cthresh6)
+                    cmkp[x] = peak;
+            }
+        } else {
+            for (int x = 0; x < width; x++) {
+                if ((srcp[x] - srcpn[x]) * (srcp[x] - srcpn[x]) > d->cthreshsq)
+                    cmkp[x] = peak;
+            }
+            srcpp += stride;
+            srcp += stride;
+            srcpn += stride;
+            cmkp += stride;
+            for (int y = 1; y < height - 1; y++) {
+                for (int x = 0; x < width; x++) {
+                    if ((srcp[x] - srcpp[x]) * (srcp[x] - srcpn[x]) > d->cthreshsq)
+                        cmkp[x] = peak;
+                }
+                srcpp += stride;
+                srcp += stride;
+                srcpn += stride;
+                cmkp += stride;
+            }
+            for (int x = 0; x < width; x++) {
+                if ((srcp[x] - srcpp[x]) * (srcp[x] - srcpp[x]) > d->cthreshsq)
+                    cmkp[x] = peak;
+            }
+        }
+    }
+    if (d->chroma) {
+        const int width = vsapi->getFrameWidth(cmask, 2);
+        const int height = vsapi->getFrameHeight(cmask, 2);
+        const int stride = vsapi->getStride(cmask, 0) / sizeof(T);
+        const int strideY = stride << d->vi->format->subSamplingH;
+        const int strideUV = vsapi->getStride(cmask, 2) / sizeof(T);
+        T * VS_RESTRICT cmkp = reinterpret_cast<T *>(vsapi->getWritePtr(cmask, 0));
+        const T * cmkpU = reinterpret_cast<const T *>(vsapi->getReadPtr(cmask, 1));
+        const T * cmkpV = reinterpret_cast<const T *>(vsapi->getReadPtr(cmask, 2));
+        T * VS_RESTRICT cmkpp3 = cmkp - stride * 3;
+        T * VS_RESTRICT cmkpp2 = cmkp - stride * 2;
+        T * VS_RESTRICT cmkpp = cmkp - stride;
+        T * VS_RESTRICT cmkpn = cmkp + stride;
+        T * VS_RESTRICT cmkpn2 = cmkp + stride * 2;
+        T * VS_RESTRICT cmkpn3 = cmkp + stride * 3;
+        T * VS_RESTRICT cmkpn4 = cmkp + stride * 4;
+        T * VS_RESTRICT cmkpn5 = cmkp + stride * 5;
+        T * VS_RESTRICT cmkpn6 = cmkp + stride * 6;
+        const T * cmkppU = cmkpU - strideUV;
+        const T * cmkpnU = cmkpU + strideUV;
+        const T * cmkppV = cmkpV - strideUV;
+        const T * cmkpnV = cmkpV + strideUV;
+        for (int y = 1; y < height - 1; y++) {
+            cmkpp3 += strideY;
+            cmkpp2 += strideY;
+            cmkpp += strideY;
+            cmkp += strideY;
+            cmkpn += strideY;
+            cmkpn2 += strideY;
+            cmkpn3 += strideY;
+            cmkpn4 += strideY;
+            cmkpn5 += strideY;
+            cmkpn6 += strideY;
+            cmkppU += strideUV;
+            cmkpU += strideUV;
+            cmkpnU += strideUV;
+            cmkppV += strideUV;
+            cmkpV += strideUV;
+            cmkpnV += strideUV;
+            for (int x = 1; x < width - 1; x++) {
+                if ((cmkpU[x] == peak && (cmkpU[x - 1] == peak || cmkpU[x + 1] == peak ||
+                     cmkppU[x - 1] == peak || cmkppU[x] == peak || cmkppU[x + 1] == peak ||
+                     cmkpnU[x - 1] == peak || cmkpnU[x] == peak || cmkpnU[x + 1] == peak)) ||
+                    (cmkpV[x] == peak && (cmkpV[x - 1] == peak || cmkpV[x + 1] == peak ||
+                     cmkppV[x - 1] == peak || cmkppV[x] == peak || cmkppV[x + 1] == peak ||
+                     cmkpnV[x - 1] == peak || cmkpnV[x] == peak || cmkpnV[x + 1] == peak))) {
+                    if (d->vi->format->subSamplingW == 0) {
+                        cmkp[x] = peak;
+                        if (d->vi->format->subSamplingH > 0) {
+                            cmkpn[x] = peak;
+                            (y & 1 ? cmkpp : cmkpn2)[x] = peak;
+                            if (d->vi->format->subSamplingH == 2) {
+                                if (y & 1) {
+                                    cmkpp2[x] = peak;
+                                    cmkpp3[x] = peak;
+                                } else {
+                                    cmkpn3[x] = peak;
+                                    cmkpn4[x] = peak;
+                                    cmkpn5[x] = peak;
+                                    cmkpn6[x] = peak;
+                                }
+                            }
+                        }
+                    } else if (d->vi->format->subSamplingW == 1) {
+                        if (sizeof(T) == sizeof(uint8_t)) {
+                            reinterpret_cast<uint16_t *>(cmkp)[x] = UINT16_MAX;
+                            if (d->vi->format->subSamplingH > 0) {
+                                reinterpret_cast<uint16_t *>(cmkpn)[x] = UINT16_MAX;
+                                reinterpret_cast<uint16_t *>(y & 1 ? cmkpp : cmkpn2)[x] = UINT16_MAX;
+                                if (d->vi->format->subSamplingH == 2) {
+                                    if (y & 1) {
+                                        reinterpret_cast<uint16_t *>(cmkpp2)[x] = UINT16_MAX;
+                                        reinterpret_cast<uint16_t *>(cmkpp3)[x] = UINT16_MAX;
+                                    } else {
+                                        reinterpret_cast<uint16_t *>(cmkpn3)[x] = UINT16_MAX;
+                                        reinterpret_cast<uint16_t *>(cmkpn4)[x] = UINT16_MAX;
+                                        reinterpret_cast<uint16_t *>(cmkpn5)[x] = UINT16_MAX;
+                                        reinterpret_cast<uint16_t *>(cmkpn6)[x] = UINT16_MAX;
+                                    }
+                                }
+                            }
+                        } else {
+                            reinterpret_cast<uint32_t *>(cmkp)[x] = UINT32_MAX;
+                            if (d->vi->format->subSamplingH > 0) {
+                                reinterpret_cast<uint32_t *>(cmkpn)[x] = UINT32_MAX;
+                                reinterpret_cast<uint32_t *>(y & 1 ? cmkpp : cmkpn2)[x] = UINT32_MAX;
+                                if (d->vi->format->subSamplingH == 2) {
+                                    if (y & 1) {
+                                        reinterpret_cast<uint32_t *>(cmkpp2)[x] = UINT32_MAX;
+                                        reinterpret_cast<uint32_t *>(cmkpp3)[x] = UINT32_MAX;
+                                    } else {
+                                        reinterpret_cast<uint32_t *>(cmkpn3)[x] = UINT32_MAX;
+                                        reinterpret_cast<uint32_t *>(cmkpn4)[x] = UINT32_MAX;
+                                        reinterpret_cast<uint32_t *>(cmkpn5)[x] = UINT32_MAX;
+                                        reinterpret_cast<uint32_t *>(cmkpn6)[x] = UINT32_MAX;
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        if (sizeof(T) == sizeof(uint8_t)) {
+                            reinterpret_cast<uint32_t *>(cmkp)[x] = UINT32_MAX;
+                            if (d->vi->format->subSamplingH > 0) {
+                                reinterpret_cast<uint32_t *>(cmkpn)[x] = UINT32_MAX;
+                                reinterpret_cast<uint32_t *>(y & 1 ? cmkpp : cmkpn2)[x] = UINT32_MAX;
+                                if (d->vi->format->subSamplingH == 2) {
+                                    if (y & 1) {
+                                        reinterpret_cast<uint32_t *>(cmkpp2)[x] = UINT32_MAX;
+                                        reinterpret_cast<uint32_t *>(cmkpp3)[x] = UINT32_MAX;
+                                    } else {
+                                        reinterpret_cast<uint32_t *>(cmkpn3)[x] = UINT32_MAX;
+                                        reinterpret_cast<uint32_t *>(cmkpn4)[x] = UINT32_MAX;
+                                        reinterpret_cast<uint32_t *>(cmkpn5)[x] = UINT32_MAX;
+                                        reinterpret_cast<uint32_t *>(cmkpn6)[x] = UINT32_MAX;
+                                    }
+                                }
+                            }
+                        } else {
+                            reinterpret_cast<uint64_t *>(cmkp)[x] = UINT64_MAX;
+                            if (d->vi->format->subSamplingH > 0) {
+                                reinterpret_cast<uint64_t *>(cmkpn)[x] = UINT64_MAX;
+                                reinterpret_cast<uint64_t *>(y & 1 ? cmkpp : cmkpn2)[x] = UINT64_MAX;
+                                if (d->vi->format->subSamplingH == 2) {
+                                    if (y & 1) {
+                                        reinterpret_cast<uint64_t *>(cmkpp2)[x] = UINT64_MAX;
+                                        reinterpret_cast<uint64_t *>(cmkpp3)[x] = UINT64_MAX;
+                                    } else {
+                                        reinterpret_cast<uint64_t *>(cmkpn3)[x] = UINT64_MAX;
+                                        reinterpret_cast<uint64_t *>(cmkpn4)[x] = UINT64_MAX;
+                                        reinterpret_cast<uint64_t *>(cmkpn5)[x] = UINT64_MAX;
+                                        reinterpret_cast<uint64_t *>(cmkpn6)[x] = UINT64_MAX;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    const int width = vsapi->getFrameWidth(cmask, 0);
+    const int height = vsapi->getFrameHeight(cmask, 0);
+    const int stride = vsapi->getStride(cmask, 0) / sizeof(T);
+    const T * cmkp = reinterpret_cast<const T *>(vsapi->getReadPtr(cmask, 0)) + stride;
+    const T * cmkpp = cmkp - stride;
+    const T * cmkpn = cmkp + stride;
+    const int xblocks = ((width + d->xhalf) >> d->xshift) + 1;
+    const int xblocks4 = xblocks * 4;
+    const int yblocks = ((height + d->yhalf) >> d->yshift) + 1;
+    const int arraySize = (xblocks * yblocks) * 4;
+    memset(cArray, 0, arraySize * sizeof(int));
+    const int widtha = (width >> (d->xshift - 1)) << (d->xshift - 1);
+    int heighta = (height >> (d->yshift - 1)) << (d->yshift - 1);
+    if (heighta == height)
+        heighta = height - d->yhalf;
+    for (int y = 1; y < d->yhalf; y++) {
+        const int temp1 = (y >> d->yshift) * xblocks4;
+        const int temp2 = ((y + d->yhalf) >> d->yshift) * xblocks4;
+        for (int x = 0; x < width; x++) {
+            if (cmkpp[x] == peak && cmkp[x] == peak && cmkpn[x] == peak) {
+                const int box1 = (x >> d->xshift) << 2;
+                const int box2 = ((x + d->xhalf) >> d->xshift) << 2;
+                ++cArray[temp1 + box1];
+                ++cArray[temp1 + box2 + 1];
+                ++cArray[temp2 + box1 + 2];
+                ++cArray[temp2 + box2 + 3];
+            }
+        }
+        cmkpp += stride;
+        cmkp += stride;
+        cmkpn += stride;
+    }
+    for (int y = d->yhalf; y < heighta; y += d->yhalf) {
+        const int temp1 = (y >> d->yshift) * xblocks4;
+        const int temp2 = ((y + d->yhalf) >> d->yshift) * xblocks4;
+        for (int x = 0; x < widtha; x += d->xhalf) {
+            const T * cmkppT = cmkpp;
+            const T * cmkpT = cmkp;
+            const T * cmkpnT = cmkpn;
+            int sum = 0;
+            for (int u = 0; u < d->yhalf; u++) {
+                for (int v = 0; v < d->xhalf; v++) {
+                    if (cmkppT[x + v] == peak && cmkpT[x + v] == peak && cmkpnT[x + v] == peak)
+                        sum++;
+                }
+                cmkppT += stride;
+                cmkpT += stride;
+                cmkpnT += stride;
+            }
+            if (sum) {
+                const int box1 = (x >> d->xshift) << 2;
+                const int box2 = ((x + d->xhalf) >> d->xshift) << 2;
+                cArray[temp1 + box1] += sum;
+                cArray[temp1 + box2 + 1] += sum;
+                cArray[temp2 + box1 + 2] += sum;
+                cArray[temp2 + box2 + 3] += sum;
+            }
+        }
+        for (int x = widtha; x < width; x++) {
+            const T * cmkppT = cmkpp;
+            const T * cmkpT = cmkp;
+            const T * cmkpnT = cmkpn;
+            int sum = 0;
+            for (int u = 0; u < d->yhalf; u++) {
+                if (cmkppT[x] == peak && cmkpT[x] == peak && cmkpnT[x] == peak)
+                    sum++;
+                cmkppT += stride;
+                cmkpT += stride;
+                cmkpnT += stride;
+            }
+            if (sum) {
+                const int box1 = (x >> d->xshift) << 2;
+                const int box2 = ((x + d->xhalf) >> d->xshift) << 2;
+                cArray[temp1 + box1] += sum;
+                cArray[temp1 + box2 + 1] += sum;
+                cArray[temp2 + box1 + 2] += sum;
+                cArray[temp2 + box2 + 3] += sum;
+            }
+        }
+        cmkpp += stride * d->yhalf;
+        cmkp += stride * d->yhalf;
+        cmkpn += stride * d->yhalf;
+    }
+    for (int y = heighta; y < height - 1; y++) {
+        const int temp1 = (y >> d->yshift) * xblocks4;
+        const int temp2 = ((y + d->yhalf) >> d->yshift) * xblocks4;
+        for (int x = 0; x < width; x++) {
+            if (cmkpp[x] == peak && cmkp[x] == peak && cmkpn[x] == peak) {
+                const int box1 = (x >> d->xshift) << 2;
+                const int box2 = ((x + d->xhalf) >> d->xshift) << 2;
+                ++cArray[temp1 + box1];
+                ++cArray[temp1 + box2 + 1];
+                ++cArray[temp2 + box1 + 2];
+                ++cArray[temp2 + box2 + 3];
+            }
+        }
+        cmkpp += stride;
+        cmkp += stride;
+        cmkpn += stride;
+    }
+    int MIC = 0;
+    for (int x = 0; x < arraySize; x++) {
+        if (cArray[x] > MIC)
+            MIC = cArray[x];
+    }
+    return MIC > d->MI;
+}
+
+static void VS_CC iscombedInit(VSMap *in, VSMap *out, void **instanceData, VSNode *node, VSCore *core, const VSAPI *vsapi) {
+    IsCombedData * d = static_cast<IsCombedData *>(*instanceData);
+    vsapi->setVideoInfo(d->vi, 1, node);
+}
+
+static const VSFrameRef *VS_CC iscombedGetFrame(int n, int activationReason, void **instanceData, void **frameData, VSFrameContext *frameCtx, VSCore *core, const VSAPI *vsapi) {
+    const IsCombedData * d = static_cast<const IsCombedData *>(*instanceData);
+
+    if (activationReason == arInitial) {
+        vsapi->requestFrameFilter(n, d->node, frameCtx);
+    } else if (activationReason == arAllFramesReady) {
+        int * cArray = vs_aligned_malloc<int>((((d->vi->width + d->xhalf) >> d->xshift) + 1) * (((d->vi->height + d->yhalf) >> d->yshift) + 1) * 4 * sizeof(int), 32);
+        if (!cArray) {
+            vsapi->setFilterError("IsCombed: malloc failure (cArray)", frameCtx);
+            return nullptr;
+        }
+
+        const VSFrameRef * src = vsapi->getFrameFilter(n, d->node, frameCtx);
+        VSFrameRef * cmask = vsapi->newVideoFrame(d->vi->format, d->vi->width, d->vi->height, nullptr, core);
+        VSFrameRef * dst = vsapi->copyFrame(src, core);
+
+        if (d->vi->format->bitsPerSample == 8)
+            vsapi->propSetInt(vsapi->getFramePropsRW(dst), "_Combed", checkCombed<uint8_t>(src, cmask, cArray, d, vsapi), paReplace);
+        else
+            vsapi->propSetInt(vsapi->getFramePropsRW(dst), "_Combed", checkCombed<uint16_t>(src, cmask, cArray, d, vsapi), paReplace);
+
+        vs_aligned_free(cArray);
+        vsapi->freeFrame(src);
+        vsapi->freeFrame(cmask);
+        return dst;
+    }
+
+    return nullptr;
+}
+
+static void VS_CC iscombedFree(void *instanceData, VSCore *core, const VSAPI *vsapi) {
+    IsCombedData * d = static_cast<IsCombedData *>(instanceData);
+    vsapi->freeNode(d->node);
+    delete d;
+}
+
 static void VS_CC iscombedCreate(const VSMap *in, VSMap *out, void *userData, VSCore *core, const VSAPI *vsapi) {
     IsCombedData d;
     int err;
@@ -2521,7 +2541,7 @@ static void VS_CC iscombedCreate(const VSMap *in, VSMap *out, void *userData, VS
     d.MI = int64ToIntS(vsapi->propGetInt(in, "mi", 0, &err));
     if (err)
         d.MI = 64;
-    d.metric = !!vsapi->propGetInt(in, "metric", 0, &err);
+    d.metric = int64ToIntS(vsapi->propGetInt(in, "metric", 0, &err));
 
     if (d.blockx < 4 || d.blockx > 2048 || !isPowerOf2(d.blockx)) {
         vsapi->setError(out, "IsCombed: illegal blockx size");
@@ -2529,6 +2549,10 @@ static void VS_CC iscombedCreate(const VSMap *in, VSMap *out, void *userData, VS
     }
     if (d.blocky < 4 || d.blocky > 2048 || !isPowerOf2(d.blocky)) {
         vsapi->setError(out, "IsCombed: illegal blocky size");
+        return;
+    }
+    if (d.metric < 0 || d.metric > 1) {
+        vsapi->setError(out, "IsCombed: metric must be 0 or 1");
         return;
     }
 

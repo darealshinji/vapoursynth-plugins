@@ -11,13 +11,14 @@ Only a few functionality of TDeint is kept in TDeintMod, either because some use
 Usage
 =====
 
-    tdm.TDeintMod(clip clip, int order[, int field=order, int mode=0, int length=10, int mtype=1, int ttype=1, int mtql=-1, int mthl=-1, int mtqc=-1, int mthc=-1, int nt=2, int minthresh=4, int maxthresh=75, int cstr=4, bint show=False, clip edeint])
+    tdm.TDeintMod(clip clip, int order[, int field=-1, int mode=0, int length=10, int mtype=1, int ttype=1, int mtql=-1, int mthl=-1, int mtqc=-1, int mthc=-1, int nt=2, int minthresh=4, int maxthresh=75, int cstr=4, bint show=False, clip edeint])
 
 * order: Sets the field order of the video. The filter will use the field order specified in the source frames and will only fall back to the specified order if not present.
   * 0 = bottom field first (bff)
   * 1 = top field first (tff)
 
-* field: When in mode 0, this sets the field to be interpolated. When in mode 1, this setting does nothing. If omitted, it is set equal to `order`.
+* field: When in mode 0, this sets the field to be interpolated. When in mode 1, this setting does nothing.
+  * -1 = set field equal to order
   * 0 = interpolate top field (keep bottom field)
   * 1 = interpolate bottom field (keep top field)
 
