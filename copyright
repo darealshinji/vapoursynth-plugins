@@ -128,7 +128,7 @@ Files: histogram/*
        nnedi3/*
        tcomb/*
        wwxd/*
-Copyright: 2012-2015 dubhater
+Copyright: 2012-2016 dubhater
 License: GPL-2+
 
 Files: knlmeanscl/*
