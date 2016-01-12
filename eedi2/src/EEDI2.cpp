@@ -191,7 +191,7 @@ static void removeSmallHorzGaps(const VSFrameRef * msk, VSFrameRef * dst, const 
 
 template<typename T>
 static void calcDirections(const VSFrameRef * src, const VSFrameRef * msk, VSFrameRef * dst, const int plane, const EEDI2Data * d, const VSAPI * vsapi) {
-    const T median = 1 << (d->vi->format->bitsPerSample - 1);
+    const T neutral = 1 << (d->vi->format->bitsPerSample - 1);
     const T peak = (1 << d->vi->format->bitsPerSample) - 1;
     const int shift2 = 2 + (d->vi->format->bitsPerSample - 8);
     const int width = vsapi->getFrameWidth(src, plane);
@@ -200,7 +200,7 @@ static void calcDirections(const VSFrameRef * src, const VSFrameRef * msk, VSFra
     const T * srcp = reinterpret_cast<const T *>(vsapi->getReadPtr(src, plane));
     const T * mskp = reinterpret_cast<const T *>(vsapi->getReadPtr(msk, plane));
     T * VS_RESTRICT dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
-    if (sizeof(T) == 1)
+    if (sizeof(T) == sizeof(uint8_t))
         memset(dstp, peak, stride * height);
     else
         memset16(dstp, peak, stride * height);
@@ -289,9 +289,9 @@ static void calcDirections(const VSFrameRef * src, const VSFrameRef * msk, VSFra
                         sum += order[i];
                     }
                 }
-                dstp[x] = (count > 1) ? median + (static_cast<int>(static_cast<float>(sum) / count) << shift2) : median;
+                dstp[x] = (count > 1) ? neutral + (static_cast<int>(static_cast<float>(sum) / count) << shift2) : neutral;
             } else {
-                dstp[x] = median;
+                dstp[x] = neutral;
             }
         }
         src2p += stride;
@@ -308,7 +308,7 @@ static void calcDirections(const VSFrameRef * src, const VSFrameRef * msk, VSFra
 
 template<typename T>
 static void filterMap(const VSFrameRef * msk, const VSFrameRef * dmsk, VSFrameRef * dst, const int plane, const EEDI2Data * d, const VSAPI * vsapi) {
-    const T median = 1 << (d->vi->format->bitsPerSample - 1);
+    const T neutral = 1 << (d->vi->format->bitsPerSample - 1);
     const T peak = (1 << d->vi->format->bitsPerSample) - 1;
     const int shift = d->vi->format->bitsPerSample - 8;
     const int twleve = 12 << shift;
@@ -328,7 +328,7 @@ static void filterMap(const VSFrameRef * msk, const VSFrameRef * dmsk, VSFrameRe
         for (int x = 1; x < width - 1; x++) {
             if (dmskp[x] == peak || mskp[x] != peak)
                 continue;
-            int dir = (dmskp[x] - median) >> 2;
+            int dir = (dmskp[x] - neutral) >> 2;
             const int lim = std::max(std::abs(dir) * 2, twleve);
             dir >>= shift;
             bool ict = false, icb = false;
@@ -389,7 +389,7 @@ static void filterMap(const VSFrameRef * msk, const VSFrameRef * dmsk, VSFrameRe
 
 template<typename T>
 static void filterDirMap(const VSFrameRef * msk, const VSFrameRef * dmsk, VSFrameRef * dst, const int plane, const EEDI2Data * d, const VSAPI * vsapi) {
-    const T median = 1 << (d->vi->format->bitsPerSample - 1);
+    const T neutral = 1 << (d->vi->format->bitsPerSample - 1);
     const T peak = (1 << d->vi->format->bitsPerSample) - 1;
     const int shift2 = 2 + (d->vi->format->bitsPerSample - 8);
     const int width = vsapi->getFrameWidth(msk, plane);
@@ -423,7 +423,7 @@ static void filterDirMap(const VSFrameRef * msk, const VSFrameRef * dmsk, VSFram
             }
             std::sort(order, order + u);
             const int mid = (u & 1) ? order[u >> 1] : (order[(u - 1) >> 1] + order[u >> 1] + 1) >> 1;
-            const int lim = d->limlut2[std::abs(mid - median) >> shift2];
+            const int lim = d->limlut2[std::abs(mid - neutral) >> shift2];
             int sum = 0, count = 0;
             for (int i = 0; i < u; i++) {
                 if (std::abs(order[i] - mid) <= lim) {
@@ -447,7 +447,7 @@ static void filterDirMap(const VSFrameRef * msk, const VSFrameRef * dmsk, VSFram
 
 template<typename T>
 static void filterDirMap2X(const VSFrameRef * msk, const VSFrameRef * dmsk, VSFrameRef * dst, const int plane, const int field, const EEDI2Data * d, const VSAPI * vsapi) {
-    const T median = 1 << (d->vi->format->bitsPerSample - 1);
+    const T neutral = 1 << (d->vi->format->bitsPerSample - 1);
     const T peak = (1 << d->vi->format->bitsPerSample) - 1;
     const int shift2 = 2 + (d->vi->format->bitsPerSample - 8);
     const int width = vsapi->getFrameWidth(msk, plane);
@@ -486,7 +486,7 @@ static void filterDirMap2X(const VSFrameRef * msk, const VSFrameRef * dmsk, VSFr
             }
             std::sort(order, order + u);
             const int mid = (u & 1) ? order[u >> 1] : (order[(u - 1) >> 1] + order[u >> 1] + 1) >> 1;
-            const int lim = d->limlut2[std::abs(mid - median) >> shift2];
+            const int lim = d->limlut2[std::abs(mid - neutral) >> shift2];
             int sum = 0, count = 0;
             for (int i = 0; i < u; i++) {
                 if (std::abs(order[i] - mid) <= lim) {
@@ -511,7 +511,7 @@ static void filterDirMap2X(const VSFrameRef * msk, const VSFrameRef * dmsk, VSFr
 
 template<typename T>
 static void expandDirMap(const VSFrameRef * msk, const VSFrameRef * dmsk, VSFrameRef * dst, const int plane, const EEDI2Data * d, const VSAPI * vsapi) {
-    const T median = 1 << (d->vi->format->bitsPerSample - 1);
+    const T neutral = 1 << (d->vi->format->bitsPerSample - 1);
     const T peak = (1 << d->vi->format->bitsPerSample) - 1;
     const int shift2 = 2 + (d->vi->format->bitsPerSample - 8);
     const int width = vsapi->getFrameWidth(msk, plane);
@@ -541,7 +541,7 @@ static void expandDirMap(const VSFrameRef * msk, const VSFrameRef * dmsk, VSFram
             if (u < 5) continue;
             std::sort(order, order + u);
             const int mid = (u & 1) ? order[u >> 1] : (order[(u - 1) >> 1] + order[u >> 1] + 1) >> 1;
-            const int lim = d->limlut2[std::abs(mid - median) >> shift2];
+            const int lim = d->limlut2[std::abs(mid - neutral) >> shift2];
             int sum = 0, count = 0;
             for (int i = 0; i < u; i++) {
                 if (std::abs(order[i] - mid) <= lim) {
@@ -562,7 +562,7 @@ static void expandDirMap(const VSFrameRef * msk, const VSFrameRef * dmsk, VSFram
 
 template<typename T>
 static void expandDirMap2X(const VSFrameRef * msk, const VSFrameRef * dmsk, VSFrameRef * dst, const int plane, const int field, const EEDI2Data * d, const VSAPI * vsapi) {
-    const T median = 1 << (d->vi->format->bitsPerSample - 1);
+    const T neutral = 1 << (d->vi->format->bitsPerSample - 1);
     const T peak = (1 << d->vi->format->bitsPerSample) - 1;
     const int shift2 = 2 + (d->vi->format->bitsPerSample - 8);
     const int width = vsapi->getFrameWidth(msk, plane);
@@ -597,7 +597,7 @@ static void expandDirMap2X(const VSFrameRef * msk, const VSFrameRef * dmsk, VSFr
             if (u < 5) continue;
             std::sort(order, order + u);
             const int mid = (u & 1) ? order[u >> 1] : (order[(u - 1) >> 1] + order[u >> 1] + 1) >> 1;
-            const int lim = d->limlut2[std::abs(mid - median) >> shift2];
+            const int lim = d->limlut2[std::abs(mid - neutral) >> shift2];
             int sum = 0, count = 0;
             for (int i = 0; i < u; i++) {
                 if (std::abs(order[i] - mid) <= lim) {
@@ -619,7 +619,7 @@ static void expandDirMap2X(const VSFrameRef * msk, const VSFrameRef * dmsk, VSFr
 
 template<typename T>
 static void fillGaps2X(const VSFrameRef * msk, const VSFrameRef * dmsk, VSFrameRef * dst, const int plane, const int field, const EEDI2Data * d, const VSAPI * vsapi) {
-    const T median = 1 << (d->vi->format->bitsPerSample - 1);
+    const T neutral = 1 << (d->vi->format->bitsPerSample - 1);
     const T peak = (1 << d->vi->format->bitsPerSample) - 1;
     const int eight = 8 << (d->vi->format->bitsPerSample - 8);
     const int twenty = 20 << (d->vi->format->bitsPerSample - 8);
@@ -686,8 +686,8 @@ static void fillGaps2X(const VSFrameRef * msk, const VSFrameRef * dmsk, VSFrameR
             }
             if (maxt == -twenty) maxt = mint = twenty;
             if (maxb == -twenty) maxb = minb = twenty;
-            const int thresh = std::max(std::max(std::max(std::abs(forward - median), std::abs(back - median)) >> 2, eight), std::max(std::abs(mint - maxt), std::abs(minb - maxb)));
-            const int flim = std::min(std::max(std::abs(forward - median), std::abs(back - median)) >> shift2, 6);
+            const int thresh = std::max(std::max(std::max(std::abs(forward - neutral), std::abs(back - neutral)) >> 2, eight), std::max(std::abs(mint - maxt), std::abs(minb - maxb)));
+            const int flim = std::min(std::max(std::abs(forward - neutral), std::abs(back - neutral)) >> shift2, 6);
             if (std::abs(forward - back) <= thresh && (v - u - 1 <= flim || tc || bc)) {
                 const double step = static_cast<double>(forward - back) / (v - u);
                 for (int j = 0; j < v - u - 1; j++)
@@ -712,7 +712,7 @@ static inline void upscaleBy2(const VSFrameRef * src, VSFrameRef * dst, const in
 
 template<typename T>
 static void markDirections2X(const VSFrameRef * msk, const VSFrameRef * dmsk, VSFrameRef * dst, const int plane, const int field, const EEDI2Data * d, const VSAPI * vsapi) {
-    const T median = 1 << (d->vi->format->bitsPerSample - 1);
+    const T neutral = 1 << (d->vi->format->bitsPerSample - 1);
     const T peak = (1 << d->vi->format->bitsPerSample) - 1;
     const int shift2 = 2 + (d->vi->format->bitsPerSample - 8);
     const int width = vsapi->getFrameWidth(msk, plane);
@@ -721,7 +721,7 @@ static void markDirections2X(const VSFrameRef * msk, const VSFrameRef * dmsk, VS
     const T * mskp = reinterpret_cast<const T *>(vsapi->getReadPtr(msk, plane));
     const T * dmskp = reinterpret_cast<const T *>(vsapi->getReadPtr(dmsk, plane));
     T * VS_RESTRICT dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
-    if (sizeof(T) == 1)
+    if (sizeof(T) == sizeof(uint8_t))
         memset(dstp, peak, stride * height);
     else
         memset16(dstp, peak, stride * height);
@@ -745,7 +745,7 @@ static void markDirections2X(const VSFrameRef * msk, const VSFrameRef * dmsk, VS
             } else {
                 std::sort(order, order + v);
                 const int mid = (v & 1) ? order[v >> 1] : (order[(v - 1) >> 1] + order[v >> 1] + 1) >> 1;
-                const int lim = d->limlut2[std::abs(mid - median) >> shift2];
+                const int lim = d->limlut2[std::abs(mid - neutral) >> shift2];
                 int u = 0;
                 if (std::abs(dmskp[x - 1] - dmskpn[x - 1]) <= lim || dmskp[x - 1] == peak || dmskpn[x - 1] == peak) u++;
                 if (std::abs(dmskp[x] - dmskpn[x]) <= lim || dmskp[x] == peak || dmskpn[x] == peak) u++;
@@ -772,7 +772,7 @@ static void markDirections2X(const VSFrameRef * msk, const VSFrameRef * dmsk, VS
 
 template<typename T>
 static void interpolateLattice(const VSFrameRef * omsk, VSFrameRef * dmsk, VSFrameRef * dst, const int plane, const int field, const EEDI2Data * d, const VSAPI * vsapi) {
-    const T median = 1 << (d->vi->format->bitsPerSample - 1);
+    const T neutral = 1 << (d->vi->format->bitsPerSample - 1);
     const T peak = (1 << d->vi->format->bitsPerSample) - 1;
     const int shift = d->vi->format->bitsPerSample - 8;
     const int three = 3 << shift;
@@ -797,11 +797,11 @@ static void interpolateLattice(const VSFrameRef * omsk, VSFrameRef * dmsk, VSFra
     for (int y = 2 - field; y < height - 1; y += 2) {
         for (int x = 0; x < width; x++) {
             int dir = dmskp[x];
-            const int lim = d->limlut2[std::abs(dir - median) >> shift2];
+            const int lim = d->limlut2[std::abs(dir - neutral) >> shift2];
             if (dir == peak || (std::abs(dmskp[x] - dmskp[x - 1]) > lim && std::abs(dmskp[x] - dmskp[x + 1]) > lim)) {
                 dstpn[x] = (dstp[x] + dstpnn[x] + 1) >> 1;
                 if (dir != peak)
-                    dmskp[x] = median;
+                    dmskp[x] = neutral;
                 continue;
             }
             if (lim < nine) {
@@ -821,10 +821,10 @@ static void interpolateLattice(const VSFrameRef * omsk, VSFrameRef * dmsk, VSFra
                 (dstp[x] > std::min(dstp[x - 2], dstp[x - 1]) + three && dstp[x] > std::min(dstp[x + 2], dstp[x + 1]) + three &&
                  dstpnn[x] > std::min(dstpnn[x - 2], dstpnn[x - 1]) + three && dstpnn[x] > std::min(dstpnn[x + 2], dstpnn[x + 1]) + three)) {
                 dstpn[x] = (dstp[x] + dstpnn[x] + 1) >> 1;
-                dmskp[x] = median;
+                dmskp[x] = neutral;
                 continue;
             }
-            dir = (dir - median + (1 << (shift2 - 1))) >> shift2;
+            dir = (dir - neutral + (1 << (shift2 - 1))) >> shift2;
             int val = (dstp[x] + dstpnn[x] + 1) >> 1;
             const int startu = (dir - 2 < 0) ? std::max(-x + 1, std::max(dir - 2, -width + 2 + x)) : std::min(x - 1, std::min(dir - 2, width - 2 - x));
             const int stopu = (dir + 2 < 0) ? std::max(-x + 1, std::max(dir + 2, -width + 2 + x)) : std::min(x - 1, std::min(dir + 2, width - 2 - x));
@@ -859,7 +859,7 @@ static void interpolateLattice(const VSFrameRef * omsk, VSFrameRef * dmsk, VSFra
             }
             if (min != 8 * d->nt) {
                 dstpn[x] = val;
-                dmskp[x] = median + (dir << shift2);
+                dmskp[x] = neutral + (dir << shift2);
             } else {
                 const int minm = std::min(dstp[x], dstpnn[x]);
                 const int maxm = std::max(dstp[x], dstpnn[x]);
@@ -883,7 +883,7 @@ static void interpolateLattice(const VSFrameRef * omsk, VSFrameRef * dmsk, VSFra
                     }
                 }
                 dstpn[x] = val;
-                dmskp[x] = (min == 7 * d->nt) ? median : median + (dir << shift2);
+                dmskp[x] = (min == 7 * d->nt) ? neutral : neutral + (dir << shift2);
             }
         }
         omskp += stride * 2;
@@ -897,7 +897,7 @@ static void interpolateLattice(const VSFrameRef * omsk, VSFrameRef * dmsk, VSFra
 
 template<typename T>
 static void postProcess(const VSFrameRef * nmsk, const VSFrameRef * omsk, VSFrameRef * dst, const int plane, const int field, const EEDI2Data * d, const VSAPI * vsapi) {
-    const T median = 1 << (d->vi->format->bitsPerSample - 1);
+    const T neutral = 1 << (d->vi->format->bitsPerSample - 1);
     const T peak = (1 << d->vi->format->bitsPerSample) - 1;
     const int shift2 = 2 + (d->vi->format->bitsPerSample - 8);
     const int width = vsapi->getFrameWidth(nmsk, plane);
@@ -913,8 +913,8 @@ static void postProcess(const VSFrameRef * nmsk, const VSFrameRef * omsk, VSFram
     const T * srcpn = dstp + stride;
     for (int y = 2 - field; y < height - 1; y += 2) {
         for (int x = 0; x < width; x++) {
-            const int lim = d->limlut2[std::abs(nmskp[x] - median) >> shift2];
-            if (std::abs(nmskp[x] - omskp[x]) > lim && omskp[x] != peak && omskp[x] != median)
+            const int lim = d->limlut2[std::abs(nmskp[x] - neutral) >> shift2];
+            if (std::abs(nmskp[x] - omskp[x]) > lim && omskp[x] != peak && omskp[x] != neutral)
                 dstp[x] = (srcpp[x] + srcpn[x] + 1) >> 1;
         }
         nmskp += stride * 2;
@@ -928,7 +928,7 @@ static void postProcess(const VSFrameRef * nmsk, const VSFrameRef * omsk, VSFram
 template<typename T>
 static void postProcessCorner(const VSFrameRef * msk, VSFrameRef * dst, const int * x2, const int * y2, const int * xy,
                               const int plane, const int field, const int bitsPerSample, const VSAPI * vsapi) {
-    const T median = 1 << (bitsPerSample - 1);
+    const T neutral = 1 << (bitsPerSample - 1);
     const T peak = (1 << bitsPerSample) - 1;
     const int width = vsapi->getFrameWidth(msk, plane);
     const int height = vsapi->getFrameHeight(msk, plane);
@@ -947,7 +947,7 @@ static void postProcessCorner(const VSFrameRef * msk, VSFrameRef * dst, const in
     const int * xyn = xy + stride;
     for (int y = 8 - field; y < height - 7; y += 2) {
         for (int x = 4; x < width - 4; x++) {
-            if (mskp[x] == peak || mskp[x] == median)
+            if (mskp[x] == peak || mskp[x] == neutral)
                 continue;
             const int c1 = static_cast<int>(x2[x] * y2[x] - xy[x] * xy[x] - 0.09 * (x2[x] + y2[x]) * (x2[x] + y2[x]));
             const int c2 = static_cast<int>(x2n[x] * y2n[x] - xyn[x] * xyn[x] - 0.09 * (x2n[x] + y2n[x]) * (x2n[x] + y2n[x]));
@@ -1325,7 +1325,7 @@ static void EEDI2(const VSFrameRef * src, VSFrameRef * dst, VSFrameRef * msk, VS
                 postProcess<T>(tmp2, *tmp2_2, dst2, plane, field, d, vsapi);
             }
             if (d->pp == 2 || d->pp == 3) {
-                if (sizeof(T) == 1)
+                if (sizeof(T) == sizeof(uint8_t))
                     gaussianBlur1<T, int32_t>(src, tmp, dst, plane, vsapi);
                 else
                     gaussianBlur1<T, int64_t>(src, tmp, dst, plane, vsapi);
