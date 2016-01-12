@@ -15,6 +15,7 @@ aclocal.m4
 install-sh
 libtool
 
+/autogen-cleanup.sh
 /configure
 /config.h
 config.h.in

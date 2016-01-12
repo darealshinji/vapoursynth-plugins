@@ -117,13 +117,6 @@ distclean: clean
 maintainer-clean: distclean
 	rm -rf autom4te.cache imagereader/libjpeg-turbo/autom4te.cache
 
-autoclean: maintainer-clean
-	rm -rf ffms2/src lsmashsource/ffmpeg
-	rm -rf include/build-aux
-	rm -f configure
-	cd imagereader/libjpeg-turbo && rm -rf autom4te.cache build-aux m4
-	cd imagereader/libjpeg-turbo && rm -f aclocal.m4 config.h.in* configure install-sh Makefile.in md5/Makefile.in simd/Makefile.in
-
 config.mak:
 	./configure
 
