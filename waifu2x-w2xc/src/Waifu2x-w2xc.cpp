@@ -35,6 +35,7 @@ struct Waifu2xData {
     bool photo, log;
     W2XConvGPUMode gpu;
     int iterTimesTwiceScaling;
+    W2XConv * conv;
 };
 
 static inline bool isPowerOf2(const int i) {
@@ -42,7 +43,7 @@ static inline bool isPowerOf2(const int i) {
 }
 
 static bool Waifu2x(const VSFrameRef * src, VSFrameRef * dst, float * VS_RESTRICT srcInterleaved, float * VS_RESTRICT dstInterleaved, float * VS_RESTRICT buffer,
-                    W2XConv * conv, const Waifu2xData * d, const VSAPI * vsapi) {
+                    const Waifu2xData * d, const VSAPI * vsapi) {
     if (d->vi.format->colorFamily == cmRGB) {
         const int width = vsapi->getFrameWidth(src, 0);
         const int height = vsapi->getFrameHeight(src, 0);
@@ -67,7 +68,7 @@ static bool Waifu2x(const VSFrameRef * src, VSFrameRef * dst, float * VS_RESTRIC
             srcpB += srcStride;
         }
 
-        if (w2xconv_convert_rgb_f32(conv, reinterpret_cast<unsigned char *>(dstInterleaved), d->vi.width * 3 * sizeof(float),
+        if (w2xconv_convert_rgb_f32(d->conv, reinterpret_cast<unsigned char *>(dstInterleaved), d->vi.width * 3 * sizeof(float),
                                     reinterpret_cast<unsigned char *>(srcInterleaved), width * 3 * sizeof(float), width, height, d->noise, d->scale, d->block) < 0)
             return false;
 
@@ -115,11 +116,11 @@ static bool Waifu2x(const VSFrameRef * src, VSFrameRef * dst, float * VS_RESTRIC
 
             if (d->noise != 0) {
                 if (plane == 0) {
-                    if (w2xconv_apply_filter_y(conv, static_cast<W2XConvFilterType>(d->noise - 1), reinterpret_cast<unsigned char *>(dstp), vsapi->getStride(dst, plane),
+                    if (w2xconv_apply_filter_y(d->conv, static_cast<W2XConvFilterType>(d->noise - 1), reinterpret_cast<unsigned char *>(dstp), vsapi->getStride(dst, plane),
                                                const_cast<unsigned char *>(reinterpret_cast<const unsigned char *>(srcp)), vsapi->getStride(src, plane), width, height, d->block) < 0)
                         return false;
                 } else {
-                    if (w2xconv_apply_filter_y(conv, static_cast<W2XConvFilterType>(d->noise - 1), reinterpret_cast<unsigned char *>(dstp), vsapi->getStride(dst, plane),
+                    if (w2xconv_apply_filter_y(d->conv, static_cast<W2XConvFilterType>(d->noise - 1), reinterpret_cast<unsigned char *>(dstp), vsapi->getStride(dst, plane),
                                                reinterpret_cast<unsigned char *>(buffer), width * sizeof(float), width, height, d->block) < 0)
                         return false;
                 }
@@ -147,7 +148,7 @@ static bool Waifu2x(const VSFrameRef * src, VSFrameRef * dst, float * VS_RESTRIC
                         input += dstStride;
                     }
 
-                    if (w2xconv_apply_filter_y(conv, W2XCONV_FILTER_SCALE2x, reinterpret_cast<unsigned char *>(dstp), vsapi->getStride(dst, plane),
+                    if (w2xconv_apply_filter_y(d->conv, W2XCONV_FILTER_SCALE2x, reinterpret_cast<unsigned char *>(dstp), vsapi->getStride(dst, plane),
                                                reinterpret_cast<unsigned char *>(buffer), currentWidth2 * sizeof(float), currentWidth2, currentHeight2, d->block) < 0)
                         return false;
                 }
@@ -203,40 +204,13 @@ static const VSFrameRef *VS_CC waifu2xGetFrame(int n, int activationReason, void
             }
         }
 
-        std::string pluginPath(vsapi->getPluginPath(vsapi->getPluginById("com.holywu.waifu2x", core)));
-        pluginPath = pluginPath.substr(0, pluginPath.find_last_of('/'));
-        if (d->vi.format->colorFamily == cmRGB) {
-            if (d->photo)
-                pluginPath = pluginPath.append("/models/photo");
-            else
-                pluginPath = pluginPath.append("/models/anime_style_art_rgb");
-        } else {
-            pluginPath = pluginPath.append("/models/anime_style_art");
-        }
-
-        W2XConv * conv;
-        if (d->processor > -1)
-            conv = w2xconv_init_with_processor(d->processor, 0, d->log);
-        else
-            conv = w2xconv_init(d->gpu, 0, d->log);
-
-        if (w2xconv_load_models(conv, pluginPath.c_str()) < 0) {
-            char * err = w2xconv_strerror(&conv->last_error);
+        if (!Waifu2x(src, dst, srcInterleaved, dstInterleaved, buffer, d, vsapi)) {
+            char * err = w2xconv_strerror(&d->conv->last_error);
             vsapi->setFilterError(std::string("Waifu2x: ").append(err).c_str(), frameCtx);
             vsapi->freeFrame(src);
             vsapi->freeFrame(dst);
             w2xconv_free(err);
-            w2xconv_fini(conv);
-            return nullptr;
-        }
-
-        if (!Waifu2x(src, dst, srcInterleaved, dstInterleaved, buffer, conv, d, vsapi)) {
-            char * err = w2xconv_strerror(&conv->last_error);
-            vsapi->setFilterError(std::string("Waifu2x: ").append(err).c_str(), frameCtx);
-            vsapi->freeFrame(src);
-            vsapi->freeFrame(dst);
-            w2xconv_free(err);
-            w2xconv_fini(conv);
+            w2xconv_fini(d->conv);
             return nullptr;
         }
 
@@ -244,7 +218,6 @@ static const VSFrameRef *VS_CC waifu2xGetFrame(int n, int activationReason, void
         vs_aligned_free(srcInterleaved);
         vs_aligned_free(dstInterleaved);
         vs_aligned_free(buffer);
-        w2xconv_fini(conv);
         return dst;
     }
 
@@ -254,6 +227,7 @@ static const VSFrameRef *VS_CC waifu2xGetFrame(int n, int activationReason, void
 static void VS_CC waifu2xFree(void *instanceData, VSCore *core, const VSAPI *vsapi) {
     Waifu2xData * d = static_cast<Waifu2xData *>(instanceData);
     vsapi->freeNode(d->node);
+    w2xconv_fini(d->conv);
     delete d;
 }
 
@@ -381,6 +355,7 @@ static void VS_CC waifu2xCreate(const VSMap *in, VSMap *out, void *userData, VSC
     VSPlugin * fmtcPlugin = vsapi->getPluginById("fmtconv", core);
     if (d.scale != 1 && d.vi.format->subSamplingW != 0 && !fmtcPlugin) {
         vsapi->setError(out, "Waifu2x: the fmtconv plugin is required for fixing horizontal chroma shift");
+        vsapi->freeNode(d.node);
         return;
     }
 
@@ -388,6 +363,31 @@ static void VS_CC waifu2xCreate(const VSMap *in, VSMap *out, void *userData, VSC
         d.vi.width *= d.scale;
         d.vi.height *= d.scale;
         d.iterTimesTwiceScaling = static_cast<int>(std::log2(d.scale));
+    }
+
+    std::string pluginPath(vsapi->getPluginPath(vsapi->getPluginById("com.holywu.waifu2x", core)));
+    pluginPath = pluginPath.substr(0, pluginPath.find_last_of('/'));
+    if (d.vi.format->colorFamily == cmRGB) {
+        if (d.photo)
+            pluginPath = pluginPath.append("/models/photo");
+        else
+            pluginPath = pluginPath.append("/models/anime_style_art_rgb");
+    } else {
+        pluginPath = pluginPath.append("/models/anime_style_art");
+    }
+
+    if (d.processor > -1)
+        d.conv = w2xconv_init_with_processor(d.processor, 0, d.log);
+    else
+        d.conv = w2xconv_init(d.gpu, 0, d.log);
+
+    if (w2xconv_load_models(d.conv, pluginPath.c_str()) < 0) {
+        char * err = w2xconv_strerror(&d.conv->last_error);
+        vsapi->setError(out, std::string("Waifu2x: ").append(err).c_str());
+        vsapi->freeNode(d.node);
+        w2xconv_free(err);
+        w2xconv_fini(d.conv);
+        return;
     }
 
     Waifu2xData * data = new Waifu2xData(d);
