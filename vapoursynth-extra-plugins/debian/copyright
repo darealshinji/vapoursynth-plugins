@@ -128,12 +128,28 @@ Files: histogram/*
        nnedi3/*
        tcomb/*
        wwxd/*
-Copyright: 2012-2015 dubhater
+Copyright: 2012-2016 dubhater
 License: GPL-2+
 
 Files: knlmeanscl/*
 Copyright: 2014-2015 Edoardo "Khanattila" Brunetti
 License: GPL-3+
+
+Files: lsmashsource/ffmpeg/*
+Copyright: 2000-2015 FFmpeg maintainers
+License: LGPL-2.1
+Comment:
+ Some other files have MIT/X11/BSD-style licenses. In combination the LGPL v2.1+
+ applies to FFmpeg.
+ Some optional parts of FFmpeg are licensed under the GNU General Public
+ License version 2 or later (GPL v2+).
+
+Files: lsmashsource/*
+Copyright: 2010-2015 L-SMASH project
+License: ISC
+Comment:
+ The plugin will be linked against static FFmpeg libraries, so the resulting
+ binary will be LGPL-2.1.
 
 Files: nnedi3/src/nnedi3.c
 Copyright: 2010-2011 Kevin Eliot Stone <kes25c@mail.missouri.edu>
@@ -233,7 +249,7 @@ Copyright: 2009-2010 Cybozu Labs, Inc.
 License: BSD-2-clause
 
 Files: waifu2x-w2xc/*
-Copyright: 2015 HolyWu
+Copyright: 2015-2016 HolyWu
 License: MIT
 
 Files: waifu2x-w2xc/w2xc/*
@@ -334,7 +350,7 @@ License: GPL-3+
 
 Files: debian/*
        *
-Copyright: 2014-2015 djcj <djcj@gmx.de>
+Copyright: 2014-2016 djcj <djcj@gmx.de>
 License: MIT
 
 
