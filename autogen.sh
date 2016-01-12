@@ -37,7 +37,7 @@ forcedelete="ffms2/src/ lsmashsource/ffmpeg/"
 cleanscript="autogen-cleanup.sh"
 
 if [ -f $cleanscript ]; then
-	echo "warning: autgen clean-up script found!"
+	echo "warning: autogen clean-up script found!"
 	echo "run \`./$cleanscript' first"
 	exit 1
 fi
