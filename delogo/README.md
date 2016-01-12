@@ -1,8 +1,8 @@
 # VapourSynth-DeLogo
 
-VS_DELOGO 005a.0.2 Copyright(C) 2003 MakKi, 2014 msg7086
+VS_DELOGO 005a.0.4 Copyright(C) 2003 MakKi, 2014-2015 msg7086
 
-VapourSynth Plugin - DeLogo (YV12 Only, delogo-005a base)
+VapourSynth Plugin - DeLogo (YV12 and YV24 Only, delogo-005a base)
 
 - Original plugin: delogo_avisynth 0.05a by MakKi
 - All credits go to him.
@@ -42,20 +42,32 @@ VapourSynth Plugin - DeLogo (YV12 Only, delogo-005a base)
 
 ```python
 v = core.std.BlankClip(format=vs.YUV420P8, color=[40,60,240], fpsnum=30000, fpsden=1001)
-v = core.delogo.eraselogo(v, r"CCAV 1440x1080.lgd", start = 5, end = 95, fadein = 10, fadeout = 10)
+v = core.delogo.EraseLogo(v, r"CCAV 1440x1080.lgd", start = 5, end = 95, fadein = 10, fadeout = 10)
 ```
 
 ## Caution
 
 This is a partial porting.
 
-- Only YV12 is ported and supported.
+- Only YV12 and YV24 is ported and supported.
 - 64bit has not been tested yet.
 - Source code is rarely changed, and some function calls are replaced by inline functions in mock object.
 - You are welcome to send PR if want to improve this.
 
 ## ChangeLog
 
-- v0.2  14/10/14 Code clean ups. Rename functions to PascalCase.
-- v0.11 14/10/03 Replace some code with VSHelper's
-- v0.1  14/10/03 Initial porting
+- v0.4  15-12-23
+    Parameter `end` defaults to number of frames in clip to correctly fade out (pingplug).
+    Normalize configure script (sl1pkn07).
+    Fix memory leak (pingplug).
+    Add YUV444P8 support.
+- v0.3  15-03-11
+    Fix warning messages (pingplug & darealshinji).
+    Update colorspace conversion and quarter pixel offset function (pingplug).
+- v0.2  14-10-14
+    Code clean ups.
+    Rename functions to PascalCase.
+- v0.11 14-10-03
+    Replace some code with VSHelper's
+- v0.1  14-10-03
+    Initial porting
