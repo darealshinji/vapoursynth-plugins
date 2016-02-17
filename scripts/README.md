@@ -2,7 +2,7 @@
 [adjust git20150322](https://github.com/dubhater/vapoursynth-adjust)<br>
 [havsfunc r21](http://forum.doom9.org/showthread.php?t=166582)<br>
 [maskdetail git20141221](https://github.com/MonoS/VS-MaskDetail)<br>
-[mvsfunc r5+2015.12](https://github.com/HomeOfVapourSynthEvolution/mvsfunc)<br>
+[mvsfunc r6](https://github.com/HomeOfVapourSynthEvolution/mvsfunc)<br>
 [vapoursynth-modules git20131225](https://github.com/4re/vapoursynth-modules)<br>
 [vsTAAmbk 0.4.0](https://github.com/HomeOfVapourSynthEvolution/vsTAAmbk)<br>
 
