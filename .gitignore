@@ -29,8 +29,8 @@ stamp-h2
 
 Makefile.in
 
+/ffmpeg_libs/
 /plugins/ffms2/src/
-/plugins/lsmashsource/ffmpeg/
 
 libjpeg.map
 jconfig.h
