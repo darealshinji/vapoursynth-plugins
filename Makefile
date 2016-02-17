@@ -111,9 +111,11 @@ install:
 		$(LN_S) models/anime_style_art/$(MDL) $(DESTDIR)$(plugins)/$(MDL) $(NL))
 
 clean:
+	$(MAKE) -f ffmpeg.mak $@
 	$(foreach DIR,$(PLUGINS),$(MAKE) -C plugins/$(DIR) clean || true $(NL))
 
 distclean: clean
+	$(MAKE) -f ffmpeg.mak $@
 	$(foreach DIR,$(PLUGINS),$(MAKE) -C plugins/$(DIR) distclean || true $(NL))
 	rm -f config.log config.status config.mak
 

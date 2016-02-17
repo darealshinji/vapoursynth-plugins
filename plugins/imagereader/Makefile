@@ -21,6 +21,8 @@ else
 MAKE = make V=0
 AUTORECONF = autoreconf -i
 SILENTRULES = --enable-silent-rules
+silent_config = @ echo 'CONFIGURE  turbo-jpeg';
+silent_conf_out = >/dev/null
 endif
 
 turbodir = libjpeg-turbo
@@ -47,10 +49,17 @@ $(turbodir)/simd/libsimd.la: $(turbodir)/Makefile
 	$(MAKE) -C $(turbodir)/simd
 
 $(turbodir)/Makefile: $(turbodir)/configure
-	cd $(turbodir) && \
-	CFLAGS="$(CFLAGS) -Wno-attributes -Wno-unused-but-set-variable" CPPFLAGS="$(CPPFLAGS)" \
-	./configure --build=$(BUILD) --host=$(HOST) $(SILENTRULES) \
-		--enable-static --disable-shared --with-pic --with-jpeg8
+	$(silent_config)cd $(turbodir) && \
+	CFLAGS="$(CFLAGS) -Wno-attributes -Wno-unused-but-set-variable" \
+	CPPFLAGS="$(CPPFLAGS)" \
+	./configure --build=$(BUILD) \
+		--host=$(HOST) \
+		$(SILENTRULES) \
+		--enable-static \
+		--disable-shared \
+		--with-pic \
+		--with-jpeg8 \
+		$(silent_conf_out)
 
 $(turbodir)/configure:
 	mkdir -p $(turbodir)/m4

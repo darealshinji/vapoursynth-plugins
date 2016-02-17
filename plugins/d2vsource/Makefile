@@ -1,16 +1,25 @@
 include ../../config.mak
 
-ifeq ($(HAVE_AVCODEC),yes)
-ifeq ($(HAVE_AVFORMAT),yes)
-ifeq ($(HAVE_AVUTIL),yes)
+MAKE = make
+
+ifeq ($(V), 1)
+verbose = V=1
+else
+verbose = V=0
+endif
 
 LIBNAME = d2vsource
-local_CXXFLAGS = -Wno-sign-compare
-LIBADD = -lavcodec -lavformat -lavutil
+LIB = $(LIBNAME).so
 
-endif
-endif
-endif
 
-include ../../cxx.inc
+all: $(LIB)
+
+$(LIB): ../../ffmpeg_libs/lib/ffmpeg_stamp
+	$(MAKE) -f $(LIBNAME).mak $(verbose)
+
+../../ffmpeg_libs/lib/ffmpeg_stamp:
+	$(MAKE) -C ../.. -f ffmpeg.mak
+
+clean distclean:
+	$(MAKE) -f $(LIBNAME).mak $@ $(verbose)
 

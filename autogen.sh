@@ -24,15 +24,15 @@ autogen () {
 		rm -rf ffms2/src/.git
 	fi
 
-	if [ ! -d plugins/lsmashsource/ffmpeg ]; then
+	if [ ! -d ffmpeg ]; then
 		type git >/dev/null 2>&1 || { echo >&2 "Cannot find \`git'.  Aborting."; exit 1; }
-		echo "cloning ffmpeg sources into plugins/lsmashsource/ffmpeg"
-		git clone -q --depth 1 "git://source.ffmpeg.org/ffmpeg.git" plugins/lsmashsource/ffmpeg
-		rm -rf plugins/lsmashsource/ffmpeg/.git
+		echo "cloning ffmpeg sources into ./ffmpeg"
+		git clone -q --depth 1 "git://source.ffmpeg.org/ffmpeg.git" ffmpeg
+		rm -rf ffmpeg/.git
 	fi
 }
 
-forcedelete="plugins/ffms2/src/ plugins/lsmashsource/ffmpeg/"
+forcedelete="plugins/ffms2/src/ ffmpeg/"
 
 cleanscript="autogen-cleanup.sh"
 

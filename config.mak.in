@@ -46,21 +46,6 @@ HAVE_PNG = @HAVE_PNG@
 # ffms2, imagereader
 HAVE_ZLIB = @HAVE_ZLIB@
 
-# d2vsource, ffms2
-HAVE_AVCODEC = @HAVE_AVCODEC@
-
-# d2vsource, ffms2
-HAVE_AVFORMAT = @HAVE_AVFORMAT@
-
-# ffms2
-HAVE_AVRESAMPLE = @HAVE_AVRESAMPLE@
-
-# d2vsource, ffms2
-HAVE_AVUTIL = @HAVE_AVUTIL@
-
-# ffms2
-HAVE_SWSCALE = @HAVE_SWSCALE@
-
 # damb
 HAVE_SNDFILE = @HAVE_SNDFILE@
 
