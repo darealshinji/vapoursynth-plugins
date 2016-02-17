@@ -40,7 +40,9 @@ extern "C"
 #include "audio_output.h"
 #include "lwlibav_dec.h"
 #include "lwlibav_video.h"
+#include "lwlibav_video_internal.h"
 #include "lwlibav_audio.h"
+#include "lwlibav_audio_internal.h"
 #include "progress.h"
 #include "lwindex.h"
 
@@ -57,6 +59,7 @@ typedef struct
     int                         vc1_wmv3;       /* 0: neither VC-1 nor WMV3
                                                  * 1: either VC-1 or WMV3
                                                  * 2: either VC-1 or WMV3 encapsulated in ASF */
+    int                         is_allocated_buffer;
     int                         buffer_size;
     uint8_t                    *buffer;
 #if LIBAVCODEC_VERSION_MICRO < 100
@@ -161,7 +164,13 @@ static inline int lineup_seek_base_candidates
          : SEEK_DTS_BASED | SEEK_PTS_BASED | SEEK_POS_CORRECTION;
 }
 
-static void mpeg12_video_vc1_genarate_pts
+/* This function generates PTSs from DTSs by picture types.
+ * Note that this function does not work for MPEG-4 Video Part2 with
+ * packed bitstream since P-picture precedes B-pictures whithin packet
+ * and the libavcodec's parser recognizes the packet as a P-picture.
+ * The bitstream filter mpeg4_unpack_bframes unpacks B-pictures from
+ * packed bitstream and is a solution to this problem. */
+static void mpeg124_video_vc1_genarate_pts
 (
     lwlibav_video_decode_handler_t *vdhp
 )
@@ -514,6 +523,7 @@ static int decide_video_seek_method
     int no_pts_loss = !!(vdhp->lw_seek_flags & SEEK_PTS_BASED);
     if( (lwhp->raw_demuxer || ((vdhp->lw_seek_flags & SEEK_DTS_BASED) && !(vdhp->lw_seek_flags & SEEK_PTS_BASED)))
      && (vdhp->codec_id == AV_CODEC_ID_MPEG1VIDEO || vdhp->codec_id == AV_CODEC_ID_MPEG2VIDEO
+      || vdhp->codec_id == AV_CODEC_ID_MPEG4    /* MPEG-4 Video (Part2) */
       || vdhp->codec_id == AV_CODEC_ID_VC1        || vdhp->codec_id == AV_CODEC_ID_WMV3
       || vdhp->codec_id == AV_CODEC_ID_VC1IMAGE   || vdhp->codec_id == AV_CODEC_ID_WMV3IMAGE) )
     {
@@ -521,7 +531,7 @@ static int decide_video_seek_method
         if( !(vdhp->lw_seek_flags & SEEK_DTS_BASED) )
             interpolate_dts( &info[1], vdhp->frame_count, vdhp->time_base );
         /* Generate PTS from DTS. */
-        mpeg12_video_vc1_genarate_pts( vdhp );
+        mpeg124_video_vc1_genarate_pts( vdhp );
         vdhp->lw_seek_flags |= SEEK_PTS_GENERATED;
         no_pts_loss = 1;
     }
@@ -531,8 +541,7 @@ static int decide_video_seek_method
         /* Generate PTS. */
         if( poc_genarate_pts( vdhp, vdhp->codec_id == AV_CODEC_ID_H264 ? 32 : 15 ) < 0 )
         {
-            if( vdhp->lh.show_log )
-                vdhp->lh.show_log( &vdhp->lh, LW_LOG_FATAL, "Failed to allocate memory for PTS generation." );
+            lw_log_show( &vdhp->lh, LW_LOG_FATAL, "Failed to allocate memory for PTS generation." );
             return -1;
         }
         vdhp->lw_seek_flags |= SEEK_PTS_GENERATED;
@@ -546,16 +555,14 @@ static int decide_video_seek_method
         vdhp->order_converter = (order_converter_t *)lw_malloc_zero( (sample_count + 1) * sizeof(order_converter_t) );
         if( !vdhp->order_converter )
         {
-            if( vdhp->lh.show_log )
-                vdhp->lh.show_log( &vdhp->lh, LW_LOG_FATAL, "Failed to allocate memory." );
+            lw_log_show( &vdhp->lh, LW_LOG_FATAL, "Failed to allocate memory." );
             return -1;
         }
         sort_info_presentation_order( &info[1], sample_count );
         video_timestamp_t *timestamp = (video_timestamp_t *)lw_malloc_zero( (sample_count + 1) * sizeof(video_timestamp_t) );
         if( !timestamp )
         {
-            if( vdhp->lh.show_log )
-                vdhp->lh.show_log( &vdhp->lh, LW_LOG_FATAL, "Failed to allocate memory of video timestamps." );
+            lw_log_show( &vdhp->lh, LW_LOG_FATAL, "Failed to allocate memory of video timestamps." );
             return -1;
         }
         for( uint32_t i = 1; i <= sample_count; i++ )
@@ -792,10 +799,9 @@ static void compute_stream_duration
             uint64_t duration = info[i].pts - info[i - 1].pts;
             if( duration == 0 )
             {
-                if( vdhp->lh.show_log )
-                    vdhp->lh.show_log( &vdhp->lh, LW_LOG_WARNING,
-                                       "Detected PTS %"PRId64" duplication at frame %"PRIu32,
-                                       info[i].pts, i );
+                lw_log_show( &vdhp->lh, LW_LOG_WARNING,
+                             "Detected PTS %"PRId64" duplication at frame %"PRIu32,
+                             info[i].pts, i );
                 goto fail;
             }
             if( vdhp->strict_cfr && duration != first_duration )
@@ -845,10 +851,9 @@ static void compute_stream_duration
             uint64_t duration = info[curr].dts - info[prev].dts;
             if( duration == 0 )
             {
-                if( vdhp->lh.show_log )
-                    vdhp->lh.show_log( &vdhp->lh, LW_LOG_WARNING,
-                                       "Detected DTS %"PRId64" duplication at frame %"PRIu32,
-                                       info[curr].dts, curr );
+                lw_log_show( &vdhp->lh, LW_LOG_WARNING,
+                             "Detected DTS %"PRId64" duplication at frame %"PRIu32,
+                             info[curr].dts, curr );
                 goto fail;
             }
             if( vdhp->strict_cfr && duration != first_duration )
@@ -990,8 +995,7 @@ static void create_video_frame_order_list
     lw_video_frame_order_t *order_list = (lw_video_frame_order_t *)lw_malloc_zero( (order_count + 2) * sizeof(lw_video_frame_order_t) );
     if( !order_list )
     {
-        if( vdhp->lh.show_log )
-            vdhp->lh.show_log( &vdhp->lh, LW_LOG_FATAL, "Failed to allocate memory to the frame order list for video." );
+        lw_log_show( &vdhp->lh, LW_LOG_FATAL, "Failed to allocate memory to the frame order list for video." );
         goto disable_repeat;
     }
     int64_t  correction_ts = 0;
@@ -1070,10 +1074,9 @@ static void create_video_frame_order_list
     vohp->frame_order_count    = order_count;
     vohp->frame_order_list     = order_list;
     vohp->frame_count          = vohp->frame_order_count;
-    if( vdhp->lh.show_log )
-        vdhp->lh.show_log( &vdhp->lh, LW_LOG_INFO,
-                           "Enable repeat control. frame_count = %u, order_count = %u, t_count = %u, b_count = %u",
-                           frame_count, order_count, t_count, b_count );
+    lw_log_show( &vdhp->lh, LW_LOG_INFO,
+                 "Enable repeat control. frame_count = %u, order_count = %u, t_count = %u, b_count = %u",
+                 frame_count, order_count, t_count, b_count );
     return;
 disable_repeat:
     vohp->repeat_control       = 0;
@@ -1083,8 +1086,8 @@ disable_repeat:
     vohp->frame_count          = vdhp->frame_count;
     if( opt->vfr2cfr.active )
         vfr2cfr_settings( vdhp, vohp, opt );
-    if( vdhp->lh.show_log && opt->apply_repeat_flag )
-        vdhp->lh.show_log( &vdhp->lh, LW_LOG_INFO, "Disable repeat control." );
+    if( opt->apply_repeat_flag )
+        lw_log_show( &vdhp->lh, LW_LOG_INFO, "Disable repeat control." );
     return;
 }
 
@@ -1120,8 +1123,7 @@ static void create_video_visible_frame_list
         order_list = (lw_video_frame_order_t *)lw_malloc_zero( (vdhp->frame_count + 1) * sizeof(lw_video_frame_order_t) );
         if( !order_list )
         {
-            if( vdhp->lh.show_log )
-                vdhp->lh.show_log( &vdhp->lh, LW_LOG_FATAL, "Failed to allocate memory to the frame order list for video." );
+            lw_log_show( &vdhp->lh, LW_LOG_FATAL, "Failed to allocate memory to the frame order list for video." );
             goto disable_repeat;
         }
         uint32_t visible_number = 0;
@@ -1140,8 +1142,7 @@ static void create_video_visible_frame_list
         order_list = (lw_video_frame_order_t *)lw_malloc_zero( (visible_count + 1) * sizeof(lw_video_frame_order_t) );
         if( !order_list )
         {
-            if( vdhp->lh.show_log )
-                vdhp->lh.show_log( &vdhp->lh, LW_LOG_FATAL, "Failed to allocate memory to the frame order list for video." );
+            lw_log_show( &vdhp->lh, LW_LOG_FATAL, "Failed to allocate memory to the frame order list for video." );
             goto disable_repeat;
         }
         uint32_t order_count = 0;
@@ -1169,8 +1170,7 @@ disable_repeat:
     vohp->frame_order_list     = NULL;
     if( !vohp->vfr2cfr )
         vohp->frame_count = vdhp->frame_count;
-    if( vdhp->lh.show_log )
-        vdhp->lh.show_log( &vdhp->lh, LW_LOG_INFO, "Failed to create invisible frame control." );
+    lw_log_show( &vdhp->lh, LW_LOG_INFO, "Failed to create invisible frame control." );
     return;
 }
 
@@ -1298,6 +1298,9 @@ static lwindex_helper_t *get_index_helper
             }
             else if( ctx->codec_id == AV_CODEC_ID_AAC && stream->nb_frames == 0 )
                 helper->bsf = av_bitstream_filter_init( "aac_adtstoasc" );
+            else if( ctx->codec_id == AV_CODEC_ID_MPEG4 )
+                /* This is needed to make mpeg124_video_vc1_genarate_pts() work properly for packed bitstream. */
+                helper->bsf = av_bitstream_filter_init( "mpeg4_unpack_bframes" );
         }
         /* For audio, prepare the decoder and the parser to get frame length.
          * For MPEG-1/2 Video and VC-1/WMV3, prepare the decoder to get picture type properly. */
@@ -1512,17 +1515,18 @@ static inline uint8_t *make_parsable_format
         *size = pkt->size;
         return pkt->data;
     }
-    /* Convert frame data into parsable bitstream format. */
-    if( helper->buffer )
-        av_freep( &helper->buffer );
-    helper->buffer_size = 0;
-    if( av_bitstream_filter_filter( helper->bsf, ctx, NULL,
-                                    &helper->buffer, &helper->buffer_size,
-                                    pkt->data, pkt->size, 0 ) < 0 )
+    /* Convert frame data into parsable bitstream format.
+     * Allocated memory block in the buffer which the index helper handles will be freed by free_read_packet(). */
+    int ret = av_bitstream_filter_filter( helper->bsf, ctx, NULL,
+                                          &helper->buffer, &helper->buffer_size,
+                                          pkt->data, pkt->size, 0 );
+    if( ret < 0 )
     {
         *size = 0;
         return NULL;
     }
+    else
+        helper->is_allocated_buffer = (ret > 0);
     *size = helper->buffer_size;
     return helper->buffer;
 }
@@ -1739,14 +1743,10 @@ static void write_audio_extradata
 
 static void disable_video_stream( lwlibav_video_decode_handler_t *vdhp )
 {
-    if( vdhp->frame_list )
-        lw_freep( &vdhp->frame_list );
-    if( vdhp->keyframe_list )
-        lw_freep( &vdhp->keyframe_list );
-    if( vdhp->order_converter )
-        lw_freep( &vdhp->order_converter );
-    if( vdhp->index_entries )
-        av_freep( &vdhp->index_entries );
+    lw_freep( &vdhp->frame_list );
+    lw_freep( &vdhp->keyframe_list );
+    lw_freep( &vdhp->order_converter );
+    av_freep( &vdhp->index_entries );
     vdhp->stream_index        = -1;
     vdhp->index_entries_count = 0;
     vdhp->frame_count         = 0;
@@ -1759,25 +1759,39 @@ static void cleanup_index_helpers( AVFormatContext *format_ctx )
         lwindex_helper_t *helper = (lwindex_helper_t *)format_ctx->streams[stream_index]->codec->opaque;
         if( !helper )
             continue;
-        if( helper->parser_ctx )
-            av_parser_close( helper->parser_ctx );
-        if( helper->bsf )
-            av_bitstream_filter_close( helper->bsf );
-        if( helper->picture )
-            av_frame_free( &helper->picture );
-        if( helper->buffer )
-            av_free( helper->buffer );
+        av_parser_close( helper->parser_ctx );
+        av_bitstream_filter_close( helper->bsf );
+        av_frame_free( &helper->picture );
+        av_freep( &helper->buffer );
         lwlibav_extradata_handler_t *list = &helper->exh;
         if( list->entries )
         {
             for( int i = 0; i < list->entry_count; i++ )
-                if( list->entries[i].extradata )
-                    av_free( list->entries[i].extradata );
+                av_freep( &list->entries[i].extradata );
             free( list->entries );
         }
         /* Free an index helper. */
         lw_freep( &format_ctx->streams[stream_index]->codec->opaque );
     }
+}
+
+static void free_read_packet
+(
+    AVPacket         *pkt,
+    lwindex_helper_t *helper
+)
+{
+    /* Free the buffer allocated by the bitstream filter if any. */
+    if( helper )
+    {
+        if( helper->is_allocated_buffer )
+        {
+            helper->is_allocated_buffer = 0;
+            av_freep( &helper->buffer );
+        }
+        helper->buffer_size = 0;
+    }
+    av_packet_unref( pkt );
 }
 
 static void create_index
@@ -1895,7 +1909,7 @@ static void create_index
         int extradata_index = append_extradata_if_new( helper, pkt_ctx, &pkt );
         if( extradata_index < 0 )
         {
-            av_packet_unref( &pkt );
+            free_read_packet( &pkt, helper );
             goto fail_index;
         }
         if( pkt_ctx->codec_type == AVMEDIA_TYPE_VIDEO )
@@ -1945,7 +1959,7 @@ static void create_index
             int pict_type = get_picture_type( helper, pkt_ctx, &pkt );
             if( pict_type < 0 )
             {
-                av_packet_unref( &pkt );
+                free_read_packet( &pkt, helper );
                 goto fail_index;
             }
             /* Get Picture Order Count. */
@@ -2042,7 +2056,7 @@ static void create_index
                     video_frame_info_t *temp = (video_frame_info_t *)realloc( video_info, video_info_count * sizeof(video_frame_info_t) );
                     if( !temp )
                     {
-                        av_packet_unref( &pkt );
+                        free_read_packet( &pkt, helper );
                         goto fail_index;
                     }
                     video_info = temp;
@@ -2129,7 +2143,7 @@ static void create_index
                         audio_frame_info_t *temp = (audio_frame_info_t *)realloc( audio_info, audio_info_count * sizeof(audio_frame_info_t) );
                         if( !temp )
                         {
-                            av_packet_unref( &pkt );
+                            free_read_packet( &pkt, helper );
                             goto fail_index;
                         }
                         audio_info = temp;
@@ -2196,12 +2210,12 @@ static void create_index
                              + 0.5);
             const char *message = index ? "Creating Index file" : "Parsing input file";
             int abort = indicator->update( php, message, percent );
-            av_packet_unref( &pkt );
+            free_read_packet( &pkt, helper );
             if( abort )
                 goto fail_index;
         }
         else
-            av_packet_unref( &pkt );
+            free_read_packet( &pkt, helper );
     }
     /* Handle delay derived from the audio decoder. */
     for( unsigned int stream_index = 0; stream_index < format_ctx->nb_streams; stream_index++ )
@@ -2996,25 +3010,11 @@ int lwlibav_construct_index
     progress_handler_t             *php
 )
 {
-    /* Allocate frame buffer. */
-    vdhp->frame_buffer = av_frame_alloc();
-    if( !vdhp->frame_buffer )
-        return -1;
-    adhp->frame_buffer = av_frame_alloc();
-    if( !adhp->frame_buffer )
-    {
-        av_frame_free( &vdhp->frame_buffer );
-        return -1;
-    }
     /* Try to open the index file. */
     int file_path_length = strlen( opt->file_path );
     char *index_file_path = (char *)lw_malloc_zero(file_path_length + 5);
     if( !index_file_path )
-    {
-        av_frame_free( &vdhp->frame_buffer );
-        av_frame_free( &adhp->frame_buffer );
         return -1;
-    }
     memcpy( index_file_path, opt->file_path, file_path_length );
     const char *ext = file_path_length >= 5 ? &opt->file_path[file_path_length - 4] : NULL;
     int has_lwi_ext = ext && !strncmp( ext, ".lwi", strlen( ".lwi" ) );
@@ -3075,10 +3075,6 @@ int lwlibav_construct_index
     adhp->ctx = NULL;
     return 0;
 fail:
-    if( vdhp->frame_buffer )
-        av_frame_free( &vdhp->frame_buffer );
-    if( adhp->frame_buffer )
-        av_frame_free( &adhp->frame_buffer );
     if( lwhp->file_path )
         lw_freep( &lwhp->file_path );
     return -1;

@@ -22,12 +22,16 @@
 
 #define REPEAT_CONTROL_CACHE_NUM 2
 
-typedef int func_get_buffer_t( struct AVCodecContext *, AVFrame *, int );
+#define LW_FRAME_PROP_CHANGE_FLAG_WIDTH        (1<<0)
+#define LW_FRAME_PROP_CHANGE_FLAG_HEIGHT       (1<<1)
+#define LW_FRAME_PROP_CHANGE_FLAG_PIXEL_FORMAT (1<<2)
+#define LW_FRAME_PROP_CHANGE_FLAG_COLORSPACE   (1<<3)
+#define LW_FRAME_PROP_CHANGE_FLAG_YUV_RANGE    (1<<4)
 
 typedef struct
 {
-    int                enabled;
-    int                flags;
+    int                scaler_flags;
+    int                frame_prop_change_flags;
     int                input_width;
     int                input_height;
     enum AVPixelFormat input_pixel_format;
@@ -48,8 +52,6 @@ typedef struct
     lw_video_scaler_handler_t scaler;
     int                       output_width;
     int                       output_height;
-    int                       output_linesize;
-    uint32_t                  output_frame_size;
     /* VFR->CFR conversion */
     int                       vfr2cfr;
     uint32_t                  cfr_num;
@@ -69,25 +71,25 @@ typedef struct
 
 int avoid_yuv_scale_conversion( enum AVPixelFormat *pixel_format );
 
-int initialize_scaler_handler
+void setup_video_rendering
 (
-    lw_video_scaler_handler_t *vshp,
-    AVCodecContext            *ctx,
-    int                        enabled,
-    int                        flags,
-    enum AVPixelFormat         output_pixel_format
+    lw_video_output_handler_t *vohp,
+    int                        scaler_flags,
+    int                        width,
+    int                        height,
+    enum AVPixelFormat         output_pixel_format,
+    struct AVCodecContext     *ctx,
+    int (*dr_get_buffer)( struct AVCodecContext *, AVFrame *, int )
 );
 
-struct SwsContext *update_scaler_configuration
+/* Return 0 if no update.
+ * Return 1 if any update.
+ * Retunr a negative value otherwise. */
+int update_scaler_configuration_if_needed
 (
-    struct SwsContext *sws_ctx,
-    int                flags,
-    int                width,
-    int                height,
-    enum AVPixelFormat input_pixel_format,
-    enum AVPixelFormat output_pixel_format,
-    enum AVColorSpace  colorspace,
-    int                yuv_range
+    lw_video_scaler_handler_t *vshp,
+    lw_log_handler_t          *lhp,
+    const AVFrame             *av_frame
 );
 
 void lw_cleanup_video_output_handler
