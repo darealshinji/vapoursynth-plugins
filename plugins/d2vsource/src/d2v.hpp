@@ -37,6 +37,7 @@ extern "C" {
 using namespace std;
 
 enum streamtype {
+    UNSET      = -1,
     ELEMENTARY = 0,
     PROGRAM    = 1,
     TRANSPORT  = 2,

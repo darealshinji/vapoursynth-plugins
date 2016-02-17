@@ -32,7 +32,6 @@ extern "C" {
 #include "d2vsource.hpp"
 #include "decode.hpp"
 #include "directrender.hpp"
-#include "libavversion.h"
 
 void VS_CC d2vInit(VSMap *in, VSMap *out, void **instanceData, VSNode *node, VSCore *core, const VSAPI *vsapi)
 {
@@ -44,14 +43,15 @@ const VSFrameRef *VS_CC d2vGetFrame(int n, int activationReason, void **instance
                                     VSFrameContext *frameCtx, VSCore *core, const VSAPI *vsapi)
 {
     d2vData *d = (d2vData *) *instanceData;
-    VSFrameRef *s, *f;
+    const VSFrameRef *s;
+    VSFrameRef *f;
+    VSMap *props;
     string msg;
     int ret;
+    int plane;
 
-#if !defined(USE_OLD_FFAPI)
     /* Unreference the previously decoded frame. */
     av_frame_unref(d->frame);
-#endif
 
     ret = decodeframe(n, d->d2v, d->dec, d->frame, msg);
     if (ret < 0) {
@@ -60,7 +60,7 @@ const VSFrameRef *VS_CC d2vGetFrame(int n, int activationReason, void **instance
     }
 
     /* Grab our direct-rendered frame. */
-    s = (VSFrameRef *) d->frame->opaque;
+    s = (const VSFrameRef *) d->frame->opaque;
     if (!s) {
         vsapi->setFilterError("Seek pattern broke d2vsource! Please send a sample.", frameCtx);
         return NULL;
@@ -68,19 +68,64 @@ const VSFrameRef *VS_CC d2vGetFrame(int n, int activationReason, void **instance
 
     /* If our width and height are the same, just return it. */
     if (d->vi.width == d->aligned_width && d->vi.height == d->aligned_height) {
-        f = (VSFrameRef *) vsapi->cloneFrameRef(s);
-        return f;
+        f = vsapi->copyFrame(s, core);
+    } else {
+        f = vsapi->newVideoFrame(d->vi.format, d->vi.width, d->vi.height, NULL, core);
+
+        /* Copy into VS's buffers. */
+        for (plane = 0; plane < d->vi.format->numPlanes; plane++) {
+            uint8_t *dstp = vsapi->getWritePtr(f, plane);
+            const uint8_t *srcp = vsapi->getReadPtr(s, plane);
+            int dst_stride = vsapi->getStride(f, plane);
+            int src_stride = vsapi->getStride(s, plane);
+            int width = vsapi->getFrameWidth(f, plane);
+            int height = vsapi->getFrameHeight(f, plane);
+
+            vs_bitblt(dstp, dst_stride, srcp, src_stride, width * d->vi.format->bytesPerSample, height);
+        }
     }
 
-    f = vsapi->newVideoFrame(d->vi.format, d->vi.width, d->vi.height, NULL, core);
+    props = vsapi->getFramePropsRW(f);
 
-    /* Copy into VS's buffers. */
-    vs_bitblt(vsapi->getWritePtr(f, 0), vsapi->getStride(f, 0), vsapi->getWritePtr(s, 0), vsapi->getStride(s, 0),
-              d->vi.width, d->vi.height);
-    vs_bitblt(vsapi->getWritePtr(f, 1), vsapi->getStride(f, 1), vsapi->getWritePtr(s, 1), vsapi->getStride(s, 1),
-              d->vi.width >> d->vi.format->subSamplingW, d->vi.height >> d->vi.format->subSamplingH);
-    vs_bitblt(vsapi->getWritePtr(f, 2), vsapi->getStride(f, 2), vsapi->getWritePtr(s, 2), vsapi->getStride(s, 2),
-              d->vi.width >> d->vi.format->subSamplingW, d->vi.height >> d->vi.format->subSamplingH);
+    /*
+     * The DGIndex manual simply says:
+     *     "The matrix field displays the currently applicable matrix_coefficients value (colorimetry)."
+     *
+     * I can only assume this lines up with the tables VS uses correctly.
+     */
+    vsapi->propSetInt(props, "_Matrix", d->d2v->gops[d->d2v->frames[n].gop].matrix, paReplace);
+    vsapi->propSetInt(props, "_DurationNum", d->d2v->fps_den, paReplace);
+    vsapi->propSetInt(props, "_DurationDen", d->d2v->fps_num, paReplace);
+    vsapi->propSetFloat(props, "_AbsoluteTime",
+                        (static_cast<double>(d->d2v->fps_den) * n) / static_cast<double>(d->d2v->fps_num), paReplace);
+
+    if (d->d2v->yuvrgb_scale == PC)
+        vsapi->propSetInt(props, "_ColorRange", 0, paReplace);
+    else if (d->d2v->yuvrgb_scale == TV)
+        vsapi->propSetInt(props, "_ColorRange", 1, paReplace);
+
+    switch (d->frame->pict_type) {
+    case AV_PICTURE_TYPE_I:
+        vsapi->propSetData(props, "_PictType", "I", 1, paReplace);
+        break;
+    case AV_PICTURE_TYPE_P:
+        vsapi->propSetData(props, "_PictType", "P", 1, paReplace);
+        break;
+    case AV_PICTURE_TYPE_B:
+        vsapi->propSetData(props, "_PictType", "B", 1, paReplace);
+        break;
+    default:
+        break;
+    }
+
+    int fieldbased;
+    if (d->d2v->gops[d->d2v->frames[n].gop].flags[d->d2v->frames[n].offset] & FRAME_FLAG_PROGRESSIVE)
+        fieldbased = 0;
+    else
+        fieldbased = 1 + !!(d->d2v->gops[d->d2v->frames[n].gop].flags[d->d2v->frames[n].offset] & FRAME_FLAG_TFF);
+    vsapi->propSetInt(props, "_FieldBased", fieldbased, paReplace);
+
+    vsapi->propSetInt(props, "_ChromaLocation", d->d2v->mpeg_type == 1 ? 1 : 0, paReplace);
 
     return f;
 }
@@ -90,9 +135,7 @@ void VS_CC d2vFree(void *instanceData, VSCore *core, const VSAPI *vsapi)
     d2vData *d = (d2vData *) instanceData;
     d2vfreep(&d->d2v);
     decodefreep(&d->dec);
-#if !defined(USE_OLD_FFAPI)
     av_frame_unref(d->frame);
-#endif
     av_freep(&d->frame);
     free(d);
 }
@@ -143,12 +186,7 @@ void VS_CC d2vCreate(const VSMap *in, VSMap *out, void *userData, VSCore *core, 
      * set our custom get/release_buffer funcs.
      */
     data->dec->avctx->opaque         = (void *) data;
-#if defined(USE_OLD_FFAPI)
-    data->dec->avctx->get_buffer     = VSGetBuffer;
-    data->dec->avctx->release_buffer = VSReleaseBuffer;
-#else
     data->dec->avctx->get_buffer2    = VSGetBuffer;
-#endif
 
     /* Last frame is crashy right now. */
     data->vi.numFrames = data->d2v->frames.size();
@@ -168,11 +206,7 @@ void VS_CC d2vCreate(const VSMap *in, VSMap *out, void *userData, VSCore *core, 
     data->aligned_width  = FFALIGN(data->vi.width, 16);
     data->aligned_height = FFALIGN(data->vi.height, 32);
 
-#if defined(USE_OLD_FFAPI)
-    data->frame = avcodec_alloc_frame();
-#else
     data->frame = av_frame_alloc();
-#endif
     if (!data->frame) {
         vsapi->setError(out, "Cannot allocate AVFrame.");
         d2vfreep(&data->d2v);
@@ -193,11 +227,7 @@ void VS_CC d2vCreate(const VSMap *in, VSMap *out, void *userData, VSCore *core, 
         vsapi->setError(out, msg.c_str());
         d2vfreep(&data->d2v);
         decodefreep(&data->dec);
-#if defined(USE_OLD_FFAPI)
-        avcodec_get_frame_defaults(data->frame);
-#else
         av_frame_unref(data->frame);
-#endif
         av_freep(&data->frame);
         free(data);
         return;
@@ -213,7 +243,7 @@ void VS_CC d2vCreate(const VSMap *in, VSMap *out, void *userData, VSCore *core, 
         data->vi.height = data->aligned_height;
     }
 
-    vsapi->createFilter(in, out, "d2vsource", d2vInit, d2vGetFrame, d2vFree, fmSerial, 0, data, core);
+    vsapi->createFilter(in, out, "d2vsource", d2vInit, d2vGetFrame, d2vFree, fmUnordered, nfMakeLinear, data, core);
 
     rff = !!vsapi->propGetInt(in, "rff", 0, &err);
     if (err)
@@ -250,11 +280,7 @@ void VS_CC d2vCreate(const VSMap *in, VSMap *out, void *userData, VSCore *core, 
             vsapi->freeMap(ret);
             d2vfreep(&data->d2v);
             decodefreep(&data->dec);
-#if defined(USE_OLD_FFAPI)
-            avcodec_get_frame_defaults(data->frame);
-#else
             av_frame_unref(data->frame);
-#endif
             av_freep(&data->frame);
             free(data);
             return;

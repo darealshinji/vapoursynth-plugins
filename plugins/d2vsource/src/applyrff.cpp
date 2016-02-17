@@ -43,11 +43,13 @@ void VS_CC rffInit(VSMap *in, VSMap *out, void **instanceData, VSNode *node, VSC
 const VSFrameRef *VS_CC rffGetFrame(int n, int activationReason, void **instanceData, void **frameData,
                                     VSFrameContext *frameCtx, VSCore *core, const VSAPI *vsapi)
 {
-    rffData *d = (rffData *) *instanceData;
-    VSFrameRef *st, *sb, *f;
+    const rffData *d = (const rffData *) *instanceData;
+    const VSFrameRef *st, *sb;
+    VSFrameRef *f;
+    VSMap *props;
     string msg;
     int top, bottom;
-    int dst_stride[3], srct_stride[3], srcb_stride[3];
+    int fieldbased;
     int i;
     bool samefields;
 
@@ -63,7 +65,7 @@ const VSFrameRef *VS_CC rffGetFrame(int n, int activationReason, void **instance
             vsapi->requestFrameFilter(top, d->node, frameCtx);
         } else {
             vsapi->requestFrameFilter(min(top, bottom), d->node, frameCtx);
-            vsapi->requestFrameFilter(max(bottom, bottom), d->node, frameCtx);
+            vsapi->requestFrameFilter(max(top, bottom), d->node, frameCtx);
         }
         return NULL;
     }
@@ -73,52 +75,48 @@ const VSFrameRef *VS_CC rffGetFrame(int n, int activationReason, void **instance
         return NULL;
 
     /* Source and destination frames. */
-    st = (VSFrameRef *) vsapi->getFrameFilter(top, d->node, frameCtx);
-    sb = samefields ? NULL : (VSFrameRef *) vsapi->getFrameFilter(bottom, d->node, frameCtx);
-    f  = vsapi->newVideoFrame(d->vi.format, d->vi.width, d->vi.height, NULL, core);
-
-    /* Stash our strides for convenience. */
-    for(i = 0; i < 3; i++) {
-        dst_stride[i]  = vsapi->getStride(f, i);
-        srct_stride[i] = vsapi->getStride(st, i);
-        srcb_stride[i] = samefields ? 0 : vsapi->getStride(sb, i);
-    }
+    st = vsapi->getFrameFilter(top, d->node, frameCtx);
+    sb = samefields ? NULL : vsapi->getFrameFilter(bottom, d->node, frameCtx);
 
     /* Copy into VS's buffers. */
     if (samefields) {
-        /* Luma. */
-        vs_bitblt(vsapi->getWritePtr(f, 0), dst_stride[0], vsapi->getWritePtr(st, 0), srct_stride[0],
-                  d->vi.width, d->vi.height);
-
-        /* Chroma. */
-        vs_bitblt(vsapi->getWritePtr(f, 1), dst_stride[1], vsapi->getWritePtr(st, 1), srct_stride[1],
-                  d->vi.width >> d->vi.format->subSamplingW, d->vi.height >> d->vi.format->subSamplingH);
-        vs_bitblt(vsapi->getWritePtr(f, 2), dst_stride[2], vsapi->getWritePtr(st, 2), srct_stride[2],
-                  d->vi.width >> d->vi.format->subSamplingW, d->vi.height >> d->vi.format->subSamplingH);
+        f = vsapi->copyFrame(st, core);
     } else {
-        /* Luma. */
-        vs_bitblt(vsapi->getWritePtr(f, 0), dst_stride[0] * 2,
-                  vsapi->getWritePtr(st, 0), srct_stride[0] * 2,
-                  d->vi.width, d->vi.height / 2);
-        vs_bitblt(vsapi->getWritePtr(f, 0) + dst_stride[0], dst_stride[0] * 2,
-                  vsapi->getWritePtr(sb, 0) + srcb_stride[0], srcb_stride[0] * 2,
-                  d->vi.width, d->vi.height / 2);
+        int dst_stride[3], srct_stride[3], srcb_stride[3];
 
-        /* Chroma. */
-        vs_bitblt(vsapi->getWritePtr(f, 1), dst_stride[1] * 2,
-                  vsapi->getWritePtr(st, 1), srct_stride[1] * 2,
-                  d->vi.width >> d->vi.format->subSamplingW, (d->vi.height >> d->vi.format->subSamplingH) / 2);
-        vs_bitblt(vsapi->getWritePtr(f, 1) + dst_stride[1], dst_stride[1] * 2,
-                  vsapi->getWritePtr(sb, 1) + srcb_stride[1], srcb_stride[1] * 2,
-                  d->vi.width >> d->vi.format->subSamplingW, (d->vi.height >> d->vi.format->subSamplingH) / 2);
+        f  = vsapi->newVideoFrame(d->vi.format, d->vi.width, d->vi.height, NULL, core);
 
-        vs_bitblt(vsapi->getWritePtr(f, 2), dst_stride[2] * 2,
-                  vsapi->getWritePtr(st, 2), srct_stride[2] * 2,
-                  d->vi.width >> d->vi.format->subSamplingW, (d->vi.height >> d->vi.format->subSamplingH) / 2);
-        vs_bitblt(vsapi->getWritePtr(f, 2) + dst_stride[2], dst_stride[2] * 2,
-                  vsapi->getWritePtr(sb, 2) + srcb_stride[2], srcb_stride[2] * 2,
-                  d->vi.width >> d->vi.format->subSamplingW, (d->vi.height >> d->vi.format->subSamplingH) / 2);
+        for (i = 0; i < d->vi.format->numPlanes; i++) {
+            dst_stride[i]  = vsapi->getStride(f, i);
+            srct_stride[i] = vsapi->getStride(st, i);
+            srcb_stride[i] = vsapi->getStride(sb, i);
+
+            uint8_t *dstp = vsapi->getWritePtr(f, i);
+            const uint8_t *srctp = vsapi->getReadPtr(st, i);
+            const uint8_t *srcbp = vsapi->getReadPtr(sb, i);
+            int width = vsapi->getFrameWidth(f, i);
+            int height = vsapi->getFrameHeight(f, i);
+
+            vs_bitblt(dstp, dst_stride[i] * 2,
+                      srctp, srct_stride[i] * 2,
+                      width * d->vi.format->bytesPerSample, height / 2);
+
+            vs_bitblt(dstp + dst_stride[i], dst_stride[i] * 2,
+                      srcbp + srcb_stride[i], srcb_stride[i] * 2,
+                      width * d->vi.format->bytesPerSample, height / 2);
+        }
     }
+
+    /* Set field order. */
+    props      = vsapi->getFramePropsRW(f);
+    fieldbased = 1;
+    if (samefields) {
+        frame top_f  = d->d2v->frames[top];
+        fieldbased  += !!(d->d2v->gops[top_f.gop].flags[top_f.offset] & FRAME_FLAG_TFF);
+    } else {
+        fieldbased += (top < bottom);
+    }
+    vsapi->propSetInt(props, "_FieldBased", fieldbased, paReplace);
 
     vsapi->freeFrame(st);
     if (!samefields)
@@ -139,14 +137,12 @@ void VS_CC rffFree(void *instanceData, VSCore *core, const VSAPI *vsapi)
 void VS_CC rffCreate(const VSMap *in, VSMap *out, void *userData, VSCore *core, const VSAPI *vsapi)
 {
     rffData *data;
-    VSVideoInfo *vi;
     fieldFrame ff = { -1, -1 };
     string msg;
-    int total_fields;
     int i;
 
     /* Allocate our private data. */
-    data = new rffData;
+    data = new(nothrow) rffData;
     if (!data) {
         vsapi->setError(out, "Cannot allocate private data.");
         return;
@@ -156,69 +152,105 @@ void VS_CC rffCreate(const VSMap *in, VSMap *out, void *userData, VSCore *core, 
     data->d2v = d2vparse((char *) vsapi->propGetData(in, "d2v", 0, 0), msg);
     if (!data->d2v) {
         vsapi->setError(out, msg.c_str());
+        delete data;
         return;
     }
 
     /* Get our frame info and copy it, so we can modify it after. */
     data->node = vsapi->propGetNode(in, "clip", 0, 0);
-    vi         = (VSVideoInfo *) vsapi->getVideoInfo(data->node);
-    data->vi   = *vi;
+    data->vi   = *vsapi->getVideoInfo(data->node);
 
     /*
      * Parse all the RFF flags to figure out which fields go
      * with which frames, and out total number of frames after
      * apply the RFF flags.
      */
-    total_fields = 0;
     data->frames.push_back(ff);
     for(i = 0; i < data->vi.numFrames; i++) {
-        frame f = data->d2v->frames[i];
-        int rff = data->d2v->gops[f.gop].flags[f.offset] & FRAME_FLAG_RFF;
-        int pos = data->frames.size() - 1;
+        frame f  = data->d2v->frames[i];
+        bool rff = !!(data->d2v->gops[f.gop].flags[f.offset] & FRAME_FLAG_RFF);
+        bool tff = !!(data->d2v->gops[f.gop].flags[f.offset] & FRAME_FLAG_TFF);
+        int pos  = data->frames.size() - 1;
 
-        if (rff) {
-            if (data->frames[pos].top == -1) {
-                data->frames[pos].top    = i;
-                data->frames[pos].bottom = i;
+        int progressive_sequence = !!(data->d2v->gops[f.gop].info & GOP_FLAG_PROGRESSIVE_SEQUENCE);
 
-                ff.top    = i;
-                ff.bottom = -1;
-            } else if (data->frames[pos].bottom == -1) {
-                data->frames[pos].bottom = i;
+        if (progressive_sequence) {
+            /*
+             * We repeat whole frames instead of fields, to turn one
+             * coded progressive frame into either two or three
+             * identical progressive frames.
+             */
+            ff.top = ff.bottom = i;
 
-                ff.top    = i;
-                ff.bottom = i;
-            } else {
-                ff.top    = i;
-                ff.bottom = i;
-
+            if (pos == 0)
+                data->frames[0] = ff;
+            else
                 data->frames.push_back(ff);
 
-                ff.bottom = -1;
+            if (rff) {
+                data->frames.push_back(ff);
+
+                if (tff)
+                    data->frames.push_back(ff);
             }
         } else {
-            if (data->frames[pos].top == -1) {
-                data->frames[pos].top    = i;
-                data->frames[pos].bottom = i;
+            /* Sequence is not progressive. Repeat fields. */
 
-                ff.top    = -1;
-                ff.bottom = -1;
-            } else if (data->frames[pos].bottom == -1) {
-                data->frames[pos].bottom = i;
-
-                ff.top    = i;
-                ff.bottom = -1;
+            int *pos_first, *pos_second, *ff_first, *ff_second;
+            if (tff) {
+                pos_first = &data->frames[pos].top;
+                pos_second = &data->frames[pos].bottom;
+                ff_first = &ff.top;
+                ff_second = &ff.bottom;
             } else {
-                ff.top    = i;
-                ff.bottom = i;
+                pos_first = &data->frames[pos].bottom;
+                pos_second = &data->frames[pos].top;
+                ff_first = &ff.bottom;
+                ff_second = &ff.top;
             }
-        }
-        data->frames.push_back(ff);
 
-        total_fields += 2 + rff;
+            if (rff) {
+                if (*pos_first == -1) {
+                    *pos_first  = i;
+                    *pos_second = i;
+
+                    *ff_first  = i;
+                    *ff_second = -1;
+                } else if (*pos_second == -1) {
+                    *pos_second = i;
+
+                    *ff_first  = i;
+                    *ff_second = i;
+                } else {
+                    *ff_first  = i;
+                    *ff_second = i;
+
+                    data->frames.push_back(ff);
+
+                    *ff_second = -1;
+                }
+            } else {
+                if (*pos_first == -1) {
+                    *pos_first  = i;
+                    *pos_second = i;
+
+                    *ff_first  = -1;
+                    *ff_second = -1;
+                } else if (*pos_second == -1) {
+                    *pos_second = i;
+
+                    *ff_first  = i;
+                    *ff_second = -1;
+                } else {
+                    *ff_first  = i;
+                    *ff_second = i;
+                }
+            }
+            data->frames.push_back(ff);
+        }
     }
 
-    data->vi.numFrames = total_fields / 2;
+    data->vi.numFrames = (int)data->frames.size() - 1;
 
-    vsapi->createFilter(in, out, "applyrff", rffInit, rffGetFrame, rffFree, fmSerial, 0, data, core);
+    vsapi->createFilter(in, out, "applyrff", rffInit, rffGetFrame, rffFree, fmParallel, 0, data, core);
 }

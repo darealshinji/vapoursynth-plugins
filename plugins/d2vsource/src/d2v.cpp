@@ -94,6 +94,9 @@ d2vcontext *d2vparse(const char *filename, string& err)
 
     /* Zero the context to aid in conditional freeing later. */
     memset(ret, 0, sizeof(*ret));
+    ret->stream_type   = UNSET;
+    ret->ts_pid        = -1;
+    ret->loc.startfile = -1;
 
 #ifdef _WIN32
     wchar_t wide_filename[_MAX_PATH];
@@ -183,11 +186,11 @@ d2vcontext *d2vparse(const char *filename, string& err)
             ret->height = atoi(r.substr(pos + 1, r.length() - 1).c_str());
         } else if (l == "Frame_Rate") {
             size_t start = r.find("(") + 1;
-            size_t mid   = r.find("/");
+            size_t sep   = r.find("/");
             size_t end   = r.find(")");
 
-            ret->fps_num = atoi(r.substr(  start, mid).c_str());
-            ret->fps_den = atoi(r.substr(mid + 1, end).c_str());
+            ret->fps_num = atoi(r.substr(  start, sep).c_str());
+            ret->fps_den = atoi(r.substr(sep + 1, end).c_str());
         } else if (l == "Location") {
             size_t pos1 = r.find(",");
             size_t pos2 = r.find(",", pos1 + 1);
@@ -200,6 +203,28 @@ d2vcontext *d2vparse(const char *filename, string& err)
         }
 
         d2vgetline(input, line);
+    }
+
+    /* Some basic validation of input headers. */
+    if (ret->fps_num <= 0 || ret->fps_den <= 0) {
+        err = "Invalid framerate in D2V header.";
+        goto fail;
+    } else if (ret->mpeg_type != 1 && ret->mpeg_type != 2) {
+        err = "Invalid MPEG type in D2V header.";
+        goto fail;
+    } else if (ret->width <= 0 || ret->height <= 0) {
+        err = "Invalid dimensions in D2V header.";
+        goto fail;
+    } else if (ret->stream_type == TRANSPORT && ret->ts_pid < 0) {
+        err = "Invalid PID in D2V header.";
+        goto fail;
+    } else if (ret->stream_type == UNSET) {
+        err = "Invalid stream type in D2V header.";
+        goto fail;
+    } else if (ret->loc.startfile < 0 || ret->loc.startoffset < 0 ||
+               ret->loc.endfile < ret->loc.startfile || ret->loc.endoffset < ret->loc.startoffset) {
+        err = "Invalid location in D2V header.";
+        goto fail;
     }
 
     /* Read in all GOPs. */
@@ -254,6 +279,11 @@ d2vcontext *d2vparse(const char *filename, string& err)
     }
 
     input.close();
+
+    if (!ret->frames.size() || !ret->gops.size()) {
+        err = "No frames in D2V file!";
+        goto fail;
+    }
 
     return ret;
 

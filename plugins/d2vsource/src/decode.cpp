@@ -34,7 +34,6 @@ extern "C" {
 #include "d2v.hpp"
 #include "decode.hpp"
 #include "gop.hpp"
-#include "libavversion.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -131,7 +130,7 @@ void decodefreep(decodecontext **ctx)
         return;
 
     av_freep(&lctx->in);
-    av_free_packet(&lctx->inpkt);
+    av_packet_unref(&lctx->inpkt);
 
     if (lctx->fctx) {
         if (lctx->fctx->pb)
@@ -249,10 +248,8 @@ decodecontext *decodeinit(d2vcontext *dctx, int threads, string& err)
      */
     ret->avctx->flags |= CODEC_FLAG_EMU_EDGE;
 
-#if !defined(USE_OLD_FFAPI)
     /* Use refcounted frames. */
     ret->avctx->refcounted_frames = 1;
-#endif
 
     /* Open it. */
     av_ret = avcodec_open2(ret->avctx, ret->incodec, NULL);
@@ -313,7 +310,7 @@ int decodeframe(int frame_num, d2vcontext *ctx, decodecontext *dctx, AVFrame *ou
              * that require of the previous GOP when the
              * first GOP is open.
              */
-            while(!(g.flags[n] & GOP_FLAG_PROGRESSIVE))
+            while(!(g.flags[n] & FRAME_FLAG_DECODABLE_WITHOUT_PREVIOUS_GOP))
                 n++;
 
             /*
@@ -350,7 +347,7 @@ int decodeframe(int frame_num, d2vcontext *ctx, decodecontext *dctx, AVFrame *ou
              */
             n = 0;
             if (!(g.info & GOP_FLAG_CLOSED))
-                while(!(g.flags[n] & GOP_FLAG_PROGRESSIVE))
+                while(!(g.flags[n] & FRAME_FLAG_DECODABLE_WITHOUT_PREVIOUS_GOP))
                     n++;
 
             offset += t.offset + 1 - n;
@@ -435,7 +432,7 @@ int decodeframe(int frame_num, d2vcontext *ctx, decodecontext *dctx, AVFrame *ou
         avformat_find_stream_info(dctx->fctx, NULL);
 
         /* Free and re-initialize any existing packet. */
-        av_free_packet(&dctx->inpkt);
+        av_packet_unref(&dctx->inpkt);
         av_init_packet(&dctx->inpkt);
     }
 
@@ -444,7 +441,7 @@ int decodeframe(int frame_num, d2vcontext *ctx, decodecontext *dctx, AVFrame *ou
      * Set it to the stream that matches our MPEG-TS PID if applicable.
      */
     if (dctx->stream_index == -1) {
-        if (ctx->ts_pid) {
+        if (ctx->ts_pid > 0) {
             for(i = 0; i < dctx->fctx->nb_streams; i++)
                 if (dctx->fctx->streams[i]->id == ctx->ts_pid)
                     break;
@@ -455,7 +452,7 @@ int decodeframe(int frame_num, d2vcontext *ctx, decodecontext *dctx, AVFrame *ou
         }
 
         if (i >= dctx->fctx->nb_streams) {
-            if (ctx->ts_pid)
+            if (ctx->ts_pid > 0)
                 err = "PID does not exist in source file.";
             else
                 err = "No video stream found.";
@@ -476,17 +473,21 @@ int decodeframe(int frame_num, d2vcontext *ctx, decodecontext *dctx, AVFrame *ou
     /* If we're decoding linearly, there is obviously no offset. */
     o = next ? 0 : offset;
     for(j = 0; j <= o; j++) {
+        int latency;
+
         while(dctx->inpkt.stream_index != dctx->stream_index) {
-            av_free_packet(&dctx->inpkt);
+            av_packet_unref(&dctx->inpkt);
             av_read_frame(dctx->fctx, &dctx->inpkt);
         }
 
         /*
-         * Handle the last frame of the file, which is tramsitted
-         * with one frame of latency in libavcodec.
+         * Handle the last few frames of the file, which may be transmitted
+         * with some latency in libavcodec.
          */
-        if ((unsigned int) frame_num == ctx->frames.size() - 1) {
-            av_free_packet(&dctx->inpkt);
+        latency = dctx->avctx->has_b_frames + dctx->avctx->delay;
+
+        if ((unsigned int) frame_num > ctx->frames.size() - 1 - latency && j > o - latency) {
+            av_packet_unref(&dctx->inpkt);
             avcodec_decode_video2(dctx->avctx, out, &av_ret, &dctx->inpkt);
             break;
         }
@@ -515,18 +516,14 @@ int decodeframe(int frame_num, d2vcontext *ctx, decodecontext *dctx, AVFrame *ou
             dctx->inpkt = orig;
 
             do {
-                av_free_packet(&dctx->inpkt);
+                av_packet_unref(&dctx->inpkt);
                 av_read_frame(dctx->fctx, &dctx->inpkt);
             } while(dctx->inpkt.stream_index != dctx->stream_index);
         }
 
         /* Unreference all but the last frame. */
         if (j != o)
-#if defined(USE_OLD_FFAPI)
-            avcodec_get_frame_defaults(out);
-#else
             av_frame_unref(out);
-#endif
     }
 
     /*

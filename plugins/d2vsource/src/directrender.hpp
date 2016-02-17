@@ -28,12 +28,7 @@ extern "C" {
 }
 
 #include "d2v.hpp"
-#include "libavversion.h"
 
-#if defined(USE_OLD_FFAPI)
-int VSGetBuffer(AVCodecContext *avctx, AVFrame *pic);
-void VSReleaseBuffer(AVCodecContext *avctx, AVFrame *pic);
-#else
 typedef struct VSData {
     VSFrameRef *vs_frame;
     d2vData *d2v;
@@ -41,6 +36,5 @@ typedef struct VSData {
 
 int VSGetBuffer(AVCodecContext *avctx, AVFrame *pic, int flag);
 void VSReleaseBuffer(void *opaque, uint8_t *data);
-#endif
 
 #endif

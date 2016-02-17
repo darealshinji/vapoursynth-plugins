@@ -48,13 +48,12 @@ Parameters:
 Known Limitations & Bugs
 ------------------------
 
-* Only works with D2V files created by DGIndex (version flag 16).
+* Only works with D2V files created by DGIndex (version flag 16) or D2VWitch
+  (https://github.com/dubhater/D2VWitch).
 * Not all the IDCT algorithms in DGDecode are in libavcodec, so I've tried to
   map them as best I could. See idct_algo_conv in d2v.hpp for more info.
 * Does not support user specified cropping. Would be easy to add, but I disagree
   with the premise. Use VapourSynth's cropping.
-* There is no native way to create D2V files on Linux or OS X right now. I hope
-  to tackle this at some point. Use WINE for now.
 * Needs the full path to the D2V file.
 * Probably more I'm forgetting!
 
@@ -69,7 +68,7 @@ On Windows (Visual Studio):
     This assumes that you have the proper dependency paths in %INCLUDE% and %LIB%,
     and that you have built FFmpeg with Visual Studio as well.
 
-    cl /c /O2 /MT /EHsc /Icore /Ivs core/d2v.cpp core/compat.cpp core/decode.cpp vs/directrender.cpp vs/applyrff.cpp vs/d2vsource.cpp vs/vapoursynth.cpp
+    cl /c /O2 /MT /EHsc /Icore /Ivs src/core/d2v.cpp src/core/compat.cpp src/core/decode.cpp src/vs/directrender.cpp src/vs/applyrff.cpp src/vs/d2vsource.cpp src/vs/vapoursynth.cpp
     link /dll /out:d2vsource.dll directrender.obj applyrff.obj d2vsource.obj d2v.obj compat.obj decode.obj vapoursynth.obj libavutil.a libavformat.a libavcodec.a advapi32.lib ws2_32.lib
 
     Please note that MinGW-build FFmpeg will be faster than one build with Visual
@@ -78,6 +77,7 @@ On Windows (Visual Studio):
 
 On Linux, Mac OS X, or MinGW:
 
+    ./autogen.sh
     ./configure
     make
     make install
