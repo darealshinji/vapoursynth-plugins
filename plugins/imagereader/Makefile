@@ -2,13 +2,11 @@ include ../../config.mak
 
 ifeq ($(HAVE_NASM),yes)
 ifeq ($(HAVE_YASM),yes)
-ifeq ($(HAVE_JPEG),yes)
 ifeq ($(HAVE_PNG),yes)
 ifeq ($(HAVE_ZLIB),yes)
 IMAGEREADER = yes
 endif #HAVE_ZLIB
 endif #HAVE_PNG
-endif #HAVE_JPEG
 endif #HAVE_YASM
 endif #HAVE_NASM
 

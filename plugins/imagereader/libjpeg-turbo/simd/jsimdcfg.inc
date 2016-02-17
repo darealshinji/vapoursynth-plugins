@@ -90,5 +90,3 @@
 %define JSIMD_3DNOW 0x02
 %define JSIMD_SSE 0x04
 %define JSIMD_SSE2 0x08
-; Short forms of external names for systems with brain-damaged linkers.
-;
