@@ -9,7 +9,6 @@ So don't expect this build system to work on anything else than Linux on x86 arc
 libtool
 pkg-config
 libfftw3-dev
-libjpeg-dev
 libpng-dev
 libsndfile1-dev
 libxvidcore-dev

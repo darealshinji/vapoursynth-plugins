@@ -38,9 +38,6 @@ HAVE_NASM = @HAVE_NASM@
 HAVE_YASM = @HAVE_YASM@
 
 # imagereader
-HAVE_JPEG = @HAVE_JPEG@
-
-# imagereader
 HAVE_PNG = @HAVE_PNG@
 
 # ffms2, imagereader
