@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2012-2015 Fredrik Mellbin
+* Copyright (c) 2012-2016 Fredrik Mellbin
 *
 * This file is part of VapourSynth.
 *
@@ -24,13 +24,17 @@
 #include <stdint.h>
 
 #define VAPOURSYNTH_API_MAJOR 3
-#define VAPOURSYNTH_API_MINOR 2
+#define VAPOURSYNTH_API_MINOR 4
 #define VAPOURSYNTH_API_VERSION ((VAPOURSYNTH_API_MAJOR << 16) | (VAPOURSYNTH_API_MINOR))
 
 /* Convenience for C++ users. */
 #ifdef __cplusplus
 #    define VS_EXTERN_C extern "C"
-#    define VS_NOEXCEPT noexcept
+#    if __cplusplus >= 201103L || (defined(_MSC_VER) && _MSC_VER >= 1900)
+#        define VS_NOEXCEPT noexcept
+#    else
+#        define VS_NOEXCEPT
+#    endif
 #else
 #    define VS_EXTERN_C
 #    define VS_NOEXCEPT
@@ -150,8 +154,9 @@ typedef struct VSFormat {
 } VSFormat;
 
 typedef enum VSNodeFlags {
-    nfNoCache = 1,
-    nfIsCache = 2
+    nfNoCache    = 1,
+    nfIsCache    = 2,
+    nfMakeLinear = 4 /* api 3.3 */
 } VSNodeFlags;
 
 typedef enum VSPropTypes {
@@ -191,7 +196,7 @@ typedef struct VSVideoInfo {
     int64_t fpsDen;
     int width;
     int height;
-    int numFrames;
+    int numFrames; /* api 3.2 - no longer allowed to be 0 */
     int flags;
 } VSVideoInfo;
 
@@ -305,7 +310,6 @@ struct VSAPI {
     int (VS_CC *propSetFrame)(VSMap *map, const char *key, const VSFrameRef *f, int append) VS_NOEXCEPT;
     int (VS_CC *propSetFunc)(VSMap *map, const char *key, VSFuncRef *func, int append) VS_NOEXCEPT;
 
-    /* mixed functions added after API R3.0 */
     int64_t (VS_CC *setMaxCacheSize)(int64_t bytes, VSCore *core) VS_NOEXCEPT;
     int (VS_CC *getOutputIndex)(VSFrameContext *frameCtx) VS_NOEXCEPT;
     VSFrameRef *(VS_CC *newVideoFrame2)(const VSFormat *format, int width, int height, const VSFrameRef **planeSrc, const int *planes, const VSFrameRef *propSrc, VSCore *core) VS_NOEXCEPT;
@@ -314,11 +318,15 @@ struct VSAPI {
 
     const char *(VS_CC *getPluginPath)(const VSPlugin *plugin) VS_NOEXCEPT;
 
+    /* api 3.1 */
     const int64_t *(VS_CC *propGetIntArray)(const VSMap *map, const char *key, int *error) VS_NOEXCEPT;
     const double *(VS_CC *propGetFloatArray)(const VSMap *map, const char *key, int *error) VS_NOEXCEPT;
 
     int (VS_CC *propSetIntArray)(VSMap *map, const char *key, const int64_t *i, int size) VS_NOEXCEPT;
     int (VS_CC *propSetFloatArray)(VSMap *map, const char *key, const double *d, int size) VS_NOEXCEPT;
+
+    /* api 3.4 */
+    void (VS_CC *logMessage)(int msgType, const char *msg) VS_NOEXCEPT;
 };
 
 VS_API(const VSAPI *) getVapourSynthAPI(int version) VS_NOEXCEPT;
