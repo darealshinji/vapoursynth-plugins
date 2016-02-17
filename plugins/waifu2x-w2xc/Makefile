@@ -1,21 +1,29 @@
 include ../../config.mak
 
-ifeq ($(HAVE_OPENCV),yes)
-LIBNAME = waifu2x-w2xc
-W2XC    = w2xc/libw2xc.a
+MAKE = make
 
-$(LIB): $(W2XC)
-
-local_CXXFLAGS = -I./w2xc/src
-LIBS = $(W2XC) $(shell pkg-config --libs opencv) -fopenmp -ldl
-
-# parallel building doesn't work
-$(W2XC):
-	$(MAKE) -C w2xc -j1
+ifeq ($(V), 1)
+verbose = V=1
 endif
 
-clean-local:
-	$(MAKE) -C w2xc clean
+LIBNAME = waifu2x-w2xc
+LIB = $(LIBNAME).so
 
-include ../../cxx.inc
+
+ifeq ($(HAVE_OPENCV),yes)
+
+all: $(LIB)
+
+$(LIB): waifu2x/libw2xc.a
+	$(MAKE) -f $(LIBNAME).mak $(verbose)
+
+waifu2x/libw2xc.a:
+	$(MAKE) -f libw2xc.mak
+
+endif
+
+clean distclean:
+	$(MAKE) -f libw2xc.mak $@ $(verbose)
+	$(MAKE) -f $(LIBNAME).mak $@ $(verbose)
+	rm -rf libs
 

@@ -4,6 +4,7 @@ YASM   := yasm
 ASMINC := -I. -I../../include/asm
 
 ifneq ($(V),1)
+GEN_silent    = @ echo '  GEN      '$@;
 CXXLD_silent  = @ echo '  CXXLD    '$@;
 CXX_silent    = @ echo '  CXX      '$@;
 CCLD_silent   = @ echo '  CCLD     '$@;

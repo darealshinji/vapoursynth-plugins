@@ -91,7 +91,7 @@ sudo apt-get install vapoursynth-extra-plugins
 [vautodeint git20130608](https://github.com/gnaggnoyil/VAutoDeint)<br>
 [videoscope 1.0](https://github.com/dubhater/vapoursynth-videoscope)<br>
 [waifu2x-opt r1+20150829](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-waifu2x-opt)<br>
-[waifu2x-w2xc r4](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Waifu2x-w2xc)<br>
+[waifu2x-w2xc r5](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Waifu2x-w2xc)<br>
 [wwxd 1.0](https://github.com/dubhater/vapoursynth-wwxd)<br>
 [yadifmod r8](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Yadifmod)<br>
 [zimg git20141102](https://github.com/dubhater/zimg)

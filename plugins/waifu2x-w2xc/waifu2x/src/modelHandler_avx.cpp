@@ -4,15 +4,13 @@
 #include "filters.hpp"
 #include "sec.hpp"
 
-#define HAVE_FMA
 #define HAVE_AVX
 
 typedef __m256 v256_t;
-
 static inline __m256
 madd256(__m256 v0, __m256 v1, __m256 v2)
 {
-	return _mm256_fmadd_ps(v0, v1, v2);
+	return _mm256_add_ps(_mm256_mul_ps(v0, v1), v2);
 }
 
 #define load_broadcast _mm256_broadcast_ss
@@ -24,7 +22,6 @@ madd256(__m256 v0, __m256 v1, __m256 v2)
 #define zero _mm256_setzero_ps
 #define set1 _mm256_set1_ps
 #define mul256 _mm256_mul_ps
-
 
 static inline float
 hadd8(__m256 v)
@@ -38,8 +35,6 @@ hadd8(__m256 v)
 	return v0 + v1;
 }
 
-
-
 #include "modelHandler_avx_func.hpp"
 
 
@@ -51,22 +46,27 @@ typedef __m256 vreg_t;
 #else
 #define UNROLL 2
 #endif
-
 #define store_vreg(ptr,val) _mm256_store_ps((float*)(ptr), val)
 #define load_vreg(ptr) _mm256_load_ps((float*)(ptr))
 #define load_vreg_broadcast(ptr) _mm256_broadcast_ss((float*)(ptr))
-#define madd_vreg _mm256_fmadd_ps // a*b + c
+static inline __m256
+madd_vreg(__m256 a, __m256 b, __m256 c)
+{
+    return _mm256_add_ps(_mm256_mul_ps(a,b), c);
+}
 #define add_vreg _mm256_add_ps
 #define zero_vreg _mm256_setzero_ps
 #define min_vreg _mm256_min_ps
 #define max_vreg _mm256_max_ps
 #define set1_vreg _mm256_set1_ps
 
+#define SIMD_OPLANE
+
 #include "modelHandler_simd.hpp"
 
 namespace w2xc {
 void
-filter_FMA_impl(ComputeEnv *env,
+filter_AVX_impl(ComputeEnv *env,
 		const float *packed_input,
 		float *packed_output,
 		int nInputPlanes,

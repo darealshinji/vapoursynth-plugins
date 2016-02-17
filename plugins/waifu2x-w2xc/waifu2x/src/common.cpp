@@ -1,5 +1,12 @@
 #include "common.hpp"
 #include <math.h>
+#include <stdint.h>
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <sys/stat.h>
+#endif
+
 
 void
 pack_mat(float *out,
@@ -114,9 +121,9 @@ void unpack_mat_bgr(W2Mat &outputMat,
 		const float *packed_line = in + (yi * w * 3);
 
 		for (int xi=0; xi<w; xi++) {
-			mat_line[xi*3 + 2] = (unsigned char)std::max(0.0f, std::min(255.0f, roundf(packed_line[xi*3 + 0] * 255.0f)));
-			mat_line[xi*3 + 1] = (unsigned char)std::max(0.0f, std::min(255.0f, roundf(packed_line[xi*3 + 1] * 255.0f)));
-			mat_line[xi*3 + 0] = (unsigned char)std::max(0.0f, std::min(255.0f, roundf(packed_line[xi*3 + 2] * 255.0f)));
+			mat_line[xi*3 + 2] = (unsigned char)(std::max)(0.0f, (std::min)(255.0f, roundf(packed_line[xi*3 + 0] * 255.0f)));
+			mat_line[xi*3 + 1] = (unsigned char)(std::max)(0.0f, (std::min)(255.0f, roundf(packed_line[xi*3 + 1] * 255.0f)));
+			mat_line[xi*3 + 0] = (unsigned char)(std::max)(0.0f, (std::min)(255.0f, roundf(packed_line[xi*3 + 2] * 255.0f)));
 		}
 	}
 }
@@ -131,9 +138,9 @@ void unpack_mat_rgb(W2Mat &outputMat,
 		const float *packed_line = in + (yi * w * 3);
 
 		for (int xi=0; xi<w; xi++) {
-			mat_line[xi*3 + 0] = (unsigned char)std::max(0.0f, std::min(255.0f, roundf(packed_line[xi*3 + 0] * 255.0f)));
-			mat_line[xi*3 + 1] = (unsigned char)std::max(0.0f, std::min(255.0f, roundf(packed_line[xi*3 + 1] * 255.0f)));
-			mat_line[xi*3 + 2] = (unsigned char)std::max(0.0f, std::min(255.0f, roundf(packed_line[xi*3 + 2] * 255.0f)));
+			mat_line[xi*3 + 0] = (unsigned char)(std::max)(0.0f, (std::min)(255.0f, roundf(packed_line[xi*3 + 0] * 255.0f)));
+			mat_line[xi*3 + 1] = (unsigned char)(std::max)(0.0f, (std::min)(255.0f, roundf(packed_line[xi*3 + 1] * 255.0f)));
+			mat_line[xi*3 + 2] = (unsigned char)(std::max)(0.0f, (std::min)(255.0f, roundf(packed_line[xi*3 + 2] * 255.0f)));
 		}
 	}
 }
@@ -148,9 +155,58 @@ void unpack_mat_rgb_f32(W2Mat &outputMat,
 		const float *packed_line = in + (yi * w * 3);
 
 		for (int xi=0; xi<w; xi++) {
-			mat_line[xi*3 + 0] = std::max(0.0f, std::min(1.0f, packed_line[xi*3 + 0]));
-			mat_line[xi*3 + 1] = std::max(0.0f, std::min(1.0f, packed_line[xi*3 + 1]));
-			mat_line[xi*3 + 2] = std::max(0.0f, std::min(1.0f, packed_line[xi*3 + 2]));
+			mat_line[xi*3 + 0] = (std::max)(0.0f, (std::min)(1.0f, packed_line[xi*3 + 0]));
+			mat_line[xi*3 + 1] = (std::max)(0.0f, (std::min)(1.0f, packed_line[xi*3 + 1]));
+			mat_line[xi*3 + 2] = (std::max)(0.0f, (std::min)(1.0f, packed_line[xi*3 + 2]));
 		}
 	}
+}
+
+/* return true if A is newer than B */
+bool
+update_test(const char *dst_path,
+	    const char *src_path)
+{
+#if (defined _WIN32)
+	WIN32_FIND_DATA dst_st;
+	HANDLE finder = FindFirstFile(dst_path, &dst_st);
+	if (finder == INVALID_HANDLE_VALUE) {
+		return true;
+	}
+
+	FindClose(finder);
+
+	WIN32_FIND_DATA src_st;
+	finder = FindFirstFile(src_path, &src_st);
+	FindClose(finder);
+
+	bool old = false;
+	uint64_t dst_time = (((uint64_t)dst_st.ftLastWriteTime.dwHighDateTime)<<32) |
+		((uint64_t)dst_st.ftLastWriteTime.dwLowDateTime);
+	uint64_t src_time = (((uint64_t)src_st.ftLastWriteTime.dwHighDateTime)<<32) |
+		((uint64_t)src_st.ftLastWriteTime.dwLowDateTime);
+
+	return  src_time > dst_time;
+
+#else
+	struct stat dst_st;
+	int r = stat(dst_path, &dst_st);
+	if (r == -1) {
+		return true;
+	}
+
+	struct stat src_st;
+	stat(src_path, &src_st);
+
+	if (src_st.st_mtim.tv_sec > dst_st.st_mtim.tv_sec) {
+		return true;
+	}
+
+	if (src_st.st_mtim.tv_nsec > dst_st.st_mtim.tv_nsec) {
+		return true;
+	}
+
+	return false;
+#endif
+
 }

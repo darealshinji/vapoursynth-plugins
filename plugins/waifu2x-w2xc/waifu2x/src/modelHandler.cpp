@@ -1,11 +1,8 @@
 /*
  * modelHandler.cpp
- *   (ここにファイルの簡易説明を記入)
  *
  *  Created on: 2015/05/24
  *      Author: wlamigo
- * 
- *   (ここにファイルの説明を記入)
  */
 
 #include "modelHandler.hpp"
@@ -13,6 +10,7 @@
 #include "cvwrap.hpp"
 #include <fstream>
 #include <thread>
+#include <atomic>
 #include "sec.hpp"
 //#include "threadPool.hpp"
 #include "common.hpp"
@@ -35,11 +33,10 @@ Model::filter_CV(ComputeEnv *env,
 		 Buffer *packed_output_buf,
 		 const W2Size &size)
 {
-#ifdef HAVE_OPENCV
 	size_t in_size = sizeof(float) * size.width * size.height * nInputPlanes;
-
 	const float *packed_input = (float*)packed_input_buf->get_read_ptr_host(env, in_size);
 	float *packed_output = (float*)packed_output_buf->get_write_ptr_host(env);
+#if 0 // HAVE_OPENCV
 
 	std::vector<cv::Mat> outputPlanes;
 	std::vector<cv::Mat> inputPlanes;
@@ -93,9 +90,107 @@ Model::filter_CV(ComputeEnv *env,
 
 	return true;
 #else
-	abort();
+	std::atomic<int> yi_shared(0);
+
+	auto thread_func = [&](){
+		int w = size.width;
+		int h = size.height;
+
+		while (1) {
+			int yi = yi_shared++;
+
+			if (yi >= h) {
+				break;
+			}
+
+			float *out_line = packed_output + w*nOutputPlanes * yi;
+
+			int yi0 = yi-1;
+			int yi1 = yi;
+			int yi2 = yi+1;
+
+			if (yi == 0) {
+				yi0 = 0;
+			}
+			if (yi == h-1) {
+				yi2 = yi1;
+			}
+
+			const float *in_line0 = packed_input + w * nInputPlanes * yi0;
+			const float *in_line1 = packed_input + w * nInputPlanes * yi1;
+			const float *in_line2 = packed_input + w * nInputPlanes * yi2;
+
+			for (int xi=0; xi<w; xi++) {
+				int x0 = xi-1;
+				int x1 = xi;
+				int x2 = xi+1;
+
+				if (xi == 0) {
+					x0 = 0;
+				}
+
+				if (xi == w-1) {
+					x2 = x1;
+				}
+
+				const float *in00 = in_line0 + x0 * nInputPlanes;
+				const float *in01 = in_line0 + x1 * nInputPlanes;
+				const float *in02 = in_line0 + x2 * nInputPlanes;
+
+				const float *in10 = in_line1 + x0 * nInputPlanes;
+				const float *in11 = in_line1 + x1 * nInputPlanes;
+				const float *in12 = in_line1 + x2 * nInputPlanes;
+
+				const float *in20 = in_line2 + x0 * nInputPlanes;
+				const float *in21 = in_line2 + x1 * nInputPlanes;
+				const float *in22 = in_line2 + x2 * nInputPlanes;
+
+				for (int oi=0; oi<nOutputPlanes; oi++) {
+					float sum = 0;
+
+					for (int ii=0; ii<nInputPlanes; ii++) {
+						int wMatIndex = nInputPlanes * oi + ii;
+						const float *w = weights[wMatIndex].ptr<float>(0);
+
+						sum += in00[ii] * w[0];
+						sum += in01[ii] * w[1];
+						sum += in02[ii] * w[2];
+
+						sum += in10[ii] * w[3];
+						sum += in11[ii] * w[4];
+						sum += in12[ii] * w[5];
+
+						sum += in20[ii] * w[6];
+						sum += in21[ii] * w[7];
+						sum += in22[ii] * w[8];
+					}
+
+					float v = sum;
+					v += biases[oi];
+					float mtz = (std::max)(v, 0.0f);
+					float ltz = (std::min)(v, 0.0f);
+					v = ltz*0.1f + mtz;
+
+					out_line[xi*nOutputPlanes + oi] = v;
+				}
+			}
+		}
+	};
+
+	int w = size.width;
+	int h = size.height;
+	std::vector<std::thread> workerThreads;
+	int nJob = modelUtility::getInstance().getNumberOfJobs();
+	for (int ji=0; ji<nJob; ji++) {
+		workerThreads.emplace_back(std::thread(thread_func));
+	}
+
+	for (auto&th : workerThreads) {
+		th.join();
+	}
 
 #endif
+	return true;
 }
 
 //#define COMPARE_RESULT
@@ -251,28 +346,34 @@ bool Model::filter_AVX_OpenCL(W2XConv *conv,
 			}
 		}
 	} else {
-		bool simd_available = false;
+		bool simd_oplane = false;
+		bool simd_iplane = false;
 		int simd_vec_width = 0;
 		if (proc->type == W2XCONV_PROC_HOST) {
 			switch (proc->sub_type) {
 			case W2XCONV_PROC_HOST_SSE3:
+				simd_vec_width = 4;
+				simd_oplane = true;
+				break;
+
 			case W2XCONV_PROC_HOST_NEON:
 				simd_vec_width = 4;
-				simd_available = true;
+				simd_oplane = true;
 				break;
 
 
 			case W2XCONV_PROC_HOST_AVX:
 			case W2XCONV_PROC_HOST_FMA:
 				simd_vec_width = 8;
-				simd_available = true;
+				simd_oplane = true;
 				break;
 			}
 		}
 
-		simd_available = simd_available && (nInputPlanes%(simd_vec_width*4) == 0) && (nOutputPlanes%(simd_vec_width*2) == 0);
+		simd_oplane = simd_oplane && (nInputPlanes%(simd_vec_width*4) == 0) && (nOutputPlanes%(simd_vec_width*2) == 0);
+		simd_iplane = simd_iplane && (nInputPlanes%(simd_vec_width*4) == 0) && (nOutputPlanes%(simd_vec_width*2) == 0);
 
-		if (simd_available) {
+		if (simd_oplane || simd_iplane) {
 			/* 
 			 * weight_chunk (16x32x3x4 = 6144[Byte])
 			 * (where op_block_size=16, ip_block_size=32)
@@ -284,8 +385,17 @@ bool Model::filter_AVX_OpenCL(W2XConv *conv,
 			 *                                                iplane xnInputPlane_block
 			 *                                                vert   x3
 			 */
-			int ip_block_size = (simd_vec_width*4);
-			int op_block_size = (simd_vec_width*2);
+			int ip_block_size;
+			int op_block_size;
+
+			if (simd_oplane) {
+				ip_block_size = (simd_vec_width*4);
+				op_block_size = (simd_vec_width*2);
+			} else {
+				ip_block_size = (simd_vec_width*2);
+				op_block_size = (simd_vec_width*4);
+			}
+
 			int nInputPlane_block = nInputPlanes/ip_block_size;
 			int nOutputPlane_block = nOutputPlanes/op_block_size;
 
@@ -295,34 +405,39 @@ bool Model::filter_AVX_OpenCL(W2XConv *conv,
 				for (int ii0=0; ii0<nInputPlane_block; ii0++) {
 					for (int oi0=0; oi0<nOutputPlane_block; oi0++) {
 						for (int dposx=0; dposx<3; dposx++) {
-							for (int ii1=0; ii1<ip_block_size; ii1++) {
+							if (simd_oplane) {
+								for (int ii1=0; ii1<ip_block_size; ii1++) {
+									for (int oi1=0; oi1<op_block_size; oi1++) {
+										int ii = ii0*ip_block_size + ii1;
+										int oi = oi0*op_block_size + oi1;
+										int mi = oi*nInputPlanes + ii;
+
+										W2Mat &wm = weights[mi];
+										float &src = wm.at<float>(dposy, dposx);
+										*dst = src;
+
+										dst++;
+									}
+								}
+							} else {
 								for (int oi1=0; oi1<op_block_size; oi1++) {
-									int ii = ii0*ip_block_size + ii1;
-									int oi = oi0*op_block_size + oi1;
-									int mi = oi*nInputPlanes + ii;
+									for (int ii1=0; ii1<ip_block_size; ii1++) {
+										int ii = ii0*ip_block_size + ii1;
+										int oi = oi0*op_block_size + oi1;
+										int mi = oi*nInputPlanes + ii;
 
-									W2Mat &wm = weights[mi];
-									float &src = wm.at<float>(dposy, dposx);
-									*dst = src;
+										W2Mat &wm = weights[mi];
+										float &src = wm.at<float>(dposy, dposx);
+										*dst = src;
 
-									dst++;
+										dst++;
+									}
 								}
 							}
 						}
 					}
 				}
 			}
-
-			//for (int i=0; i<nInputPlanes*nOutputPlanes; i++) {
-			//	W2Mat &wm = weights[i];
-			//
-			//	for (int yi=0; yi<3; yi++) {
-			//		for (int xi=0; xi<3; xi++) {
-			//			float v = wm.at<float>(yi,xi);
-			//			printf("%f\n", v);
-			//		}
-			//	}
-			//}
 		} else {
 			/* | i0        | i1        | i2 .. iN-1|   i0      | i1        | ..
 			 * |o0 o1 o2 o3|o0 o1 o2 o3| ....      |o4 o5 o6 o7|o4 o5 o6 o7| ..
@@ -753,6 +868,15 @@ bool modelUtility::generateModelFromJSON(const std::string &fileName,
 
 	std::string binpath = fileName + ".bin";
 	FILE *binfp = fopen(binpath.c_str(), "rb");
+
+	if (binfp) {
+		bool need_update = update_test(binpath.c_str(), fileName.c_str());
+
+		if (need_update) {
+			fclose(binfp);
+			binfp = NULL;
+		}
+	}
 
 	if (binfp) {
 		uint32_t nModel;

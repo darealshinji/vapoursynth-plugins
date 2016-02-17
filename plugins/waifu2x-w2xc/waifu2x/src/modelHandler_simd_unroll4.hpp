@@ -37,9 +37,217 @@ for (int dposx=0; dposx<3; dposx++) {
     const unsigned char *input_cur_x1 = in + off1;
     const unsigned char *input_cur_x2 = in + off2;
     const unsigned char *input_cur_x3 = in + off3;
+    uintptr_t addr_off = 0;
 
 #if (defined USE_SSE3)
     for (int ii1=0; ii1<IP_BLOCK_SIZE; ii1+=4) {
+#if defined __x86_64
+        /* ** silvermont(4cycle) **
+         *
+         *   <decode>
+         *   movss  i0, mem 
+         *   shufps i0, i0
+         *
+         *   mov    i1, i0
+         *   mul    i0, wreg
+         *
+         *   add    o0, i0
+         *   mul    i1, wreg
+         *
+         *   add    o1, i1
+         *
+         *
+         *   <issue>
+         *   FP0    FP1     Mem
+         *   shups  mul0    load
+         *   mov    mul0        
+         *   add    mul1        
+         *          mul1        
+         *
+         *
+         * ** other(2cycle) **
+         *   shuf, load, mul, add
+         *               mul, add
+         *
+         */
+
+
+#define OP_0_0(OFF)           "movss   " #OFF "(%[PTR0],%[ADDR_OFF]), %%xmm0\n\t"
+#define OP_0_1(OFF)           "shufps  $0, %%xmm0, %%xmm0\n\t"
+#define OP_0_2(OFF)           "movaps  %%xmm0, %%xmm1\n\t"
+#define OP_0_3(OFF)           "mulps   %%xmm2, %%xmm0\n\t"
+#define OP_0_4(OFF)           "addps   %%xmm0, %[OREG00]\n\t"
+#define OP_0_5(OFF)           "mulps   %%xmm3, %%xmm1\n\t"
+#define OP_0_6(OFF)           "addps   %%xmm1, %[OREG01]\n\t"
+
+#define OP_1_0(OFF)           "movss   " #OFF "(%[PTR1],%[ADDR_OFF]), %%xmm4\n\t"
+#define OP_1_1(OFF)           "shufps  $0, %%xmm4, %%xmm4\n\t"
+#define OP_1_2(OFF)           "movaps  %%xmm4, %%xmm5\n\t"
+#define OP_1_3(OFF)           "mulps   %%xmm2, %%xmm4\n\t"
+#define OP_1_4(OFF)           "addps   %%xmm4, %[OREG10]\n\t"
+#define OP_1_5(OFF)           "mulps   %%xmm3, %%xmm5\n\t"
+#define OP_1_6(OFF)           "addps   %%xmm5, %[OREG11]\n\t"
+
+#define OP_2_0(OFF)           "movss   " #OFF "(%[PTR2],%[ADDR_OFF]), %%xmm0\n\t"
+#define OP_2_1(OFF)           "shufps  $0, %%xmm0, %%xmm0\n\t"
+#define OP_2_2(OFF)           "movaps  %%xmm0, %%xmm1\n\t"
+#define OP_2_3(OFF)           "mulps   %%xmm2, %%xmm0\n\t"
+#define OP_2_4(OFF)           "addps   %%xmm0, %[OREG20]\n\t"
+#define OP_2_5(OFF)           "mulps   %%xmm3, %%xmm1\n\t"
+#define OP_2_6(OFF)           "addps   %%xmm1, %[OREG21]\n\t"
+
+#define OP_3_0(OFF)           "movss   " #OFF "(%[PTR3],%[ADDR_OFF]), %%xmm4\n\t"
+#define OP_3_1(OFF)           "shufps  $0, %%xmm4, %%xmm4\n\t"
+#define OP_3_2(OFF)           "movaps  %%xmm4, %%xmm5\n\t"
+#define OP_3_3(OFF)           "mulps   %%xmm2, %%xmm4\n\t"
+#define OP_3_4(OFF)           "addps   %%xmm4, %[OREG30]\n\t"
+#define OP_3_5(OFF)           "mulps   %%xmm3, %%xmm5\n\t"
+#define OP_3_6(OFF)           "addps   %%xmm5, %[OREG31]\n\t"
+
+                              /* 0: mov    ld-> 0  <1>
+                               * 1: shuf   0 -> 0  <2,3>
+                               * 2: mov    0 -> 1  <5>
+                               * 3: mul  2,0 -> 0  <4>
+                               * 4: add  0,D -> D  D
+                               * 5: mul  3,1 -> 1  <6>
+                               * 6: add  1,D -> D  D
+                               */
+
+
+#define OP_BLOCK_0(OFF,NOFF)                      \
+                              OP_0_0(OFF)         \
+                              OP_1_0(OFF)         \
+                              OP_0_1(OFF)         \
+                              OP_1_1(OFF)         \
+                              OP_0_2(OFF)         \
+                              OP_1_2(OFF)         \
+                              OP_0_3(OFF)         \
+                              OP_1_3(OFF)         \
+                              OP_0_4(OFF)         \
+                              OP_2_0(OFF)         \
+                              OP_1_4(OFF)         \
+                              OP_3_0(OFF)         \
+                              OP_0_5(OFF)         \
+                              OP_2_1(OFF)         \
+                              OP_1_5(OFF)         \
+                              OP_3_1(OFF)         \
+                              OP_0_6(OFF)         \
+                              OP_2_2(OFF)         \
+                              OP_1_6(OFF)         \
+                              OP_3_2(OFF)         \
+                                                  \
+                              OP_2_3(OFF)         \
+                              OP_3_3(OFF)         \
+                              OP_2_4(OFF)         \
+                              OP_0_0(NOFF)        \
+                              OP_3_4(OFF)         \
+                              OP_1_0(NOFF)        \
+                              OP_2_5(OFF)         \
+                              OP_0_1(NOFF)        \
+                              OP_3_5(OFF)         \
+                              OP_1_1(NOFF)        \
+                              OP_2_6(OFF)         \
+                              OP_3_6(OFF)
+
+#define OP_BLOCK(OFF,NOFF)                        \
+                              OP_0_2(OFF)         \
+                              OP_1_2(OFF)         \
+                              OP_0_3(OFF)         \
+                              OP_1_3(OFF)         \
+                              OP_0_4(OFF)         \
+                              OP_2_0(OFF)         \
+                              OP_1_4(OFF)         \
+                              OP_3_0(OFF)         \
+                              OP_0_5(OFF)         \
+                              OP_2_1(OFF)         \
+                              OP_1_5(OFF)         \
+                              OP_3_1(OFF)         \
+                              OP_0_6(OFF)         \
+                              OP_2_2(OFF)         \
+                              OP_1_6(OFF)         \
+                              OP_3_2(OFF)         \
+                                                  \
+                              OP_2_3(OFF)         \
+                              OP_3_3(OFF)         \
+                              OP_2_4(OFF)         \
+                              OP_0_0(NOFF)        \
+                              OP_3_4(OFF)         \
+                              OP_1_0(NOFF)        \
+                              OP_2_5(OFF)         \
+                              OP_0_1(NOFF)        \
+                              OP_3_5(OFF)         \
+                              OP_1_1(NOFF)        \
+                              OP_2_6(OFF)         \
+                              OP_3_6(OFF)
+
+
+#define OP_BLOCK_LAST(OFF)                        \
+                              OP_0_2(OFF)         \
+                              OP_1_2(OFF)         \
+                              OP_0_3(OFF)         \
+                              OP_1_3(OFF)         \
+                              OP_0_4(OFF)         \
+                              OP_2_0(OFF)         \
+                              OP_1_4(OFF)         \
+                              OP_3_0(OFF)         \
+                              OP_0_5(OFF)         \
+                              OP_2_1(OFF)         \
+                              OP_1_5(OFF)         \
+                              OP_3_1(OFF)         \
+                              OP_0_6(OFF)         \
+                              OP_2_2(OFF)         \
+                              OP_1_6(OFF)         \
+                              OP_3_2(OFF)         \
+                                                  \
+                              OP_2_3(OFF)         \
+                              OP_3_3(OFF)         \
+                              OP_2_4(OFF)         \
+                              OP_3_4(OFF)         \
+                              OP_2_5(OFF)         \
+                              OP_3_5(OFF)         \
+                              OP_2_6(OFF)         \
+                              OP_3_6(OFF)
+
+
+        __asm__ __volatile__ ("movaps  16*0(%[W_CUR]), %%xmm2\n\t"
+                              "movaps  16*1(%[W_CUR]), %%xmm3\n\t"
+
+                              OP_BLOCK_0(0,4)
+
+                              "movaps  16*2(%[W_CUR]), %%xmm2\n\t"
+                              "movaps  16*3(%[W_CUR]), %%xmm3\n\t"
+                              OP_BLOCK(4,8)
+
+                              "movaps  16*4(%[W_CUR]), %%xmm2\n\t"
+                              "movaps  16*5(%[W_CUR]), %%xmm3\n\t"
+                              OP_BLOCK(8,12)
+
+                              "movaps  16*6(%[W_CUR]), %%xmm2\n\t"
+                              "movaps  16*7(%[W_CUR]), %%xmm3\n\t"
+                              OP_BLOCK_LAST(12)
+
+                              :[OREG00]"+x"(oreg00),
+                               [OREG01]"+x"(oreg01),
+                               [OREG10]"+x"(oreg10),
+                               [OREG11]"+x"(oreg11),
+                               [OREG20]"+x"(oreg20),
+                               [OREG21]"+x"(oreg21),
+                               [OREG30]"+x"(oreg30),
+                               [OREG31]"+x"(oreg31)
+
+                              :[PTR0]"r"(input_cur_x0),
+                               [PTR1]"r"(input_cur_x1),
+                               [PTR2]"r"(input_cur_x2),
+                               [PTR3]"r"(input_cur_x3),
+                               [W_CUR]"r"(w_cur),
+                               [ADDR_OFF]"r"(addr_off)
+                              :"xmm0","xmm1","xmm2","xmm3","xmm4","xmm5","xmm6","xmm7"
+            );
+
+        addr_off += 16;
+        w_cur += 128;
+
+#else
         __m128 i0 = _mm_load_ps((float*)input_cur_x0);
         __m128 i1 = _mm_load_ps((float*)input_cur_x1);
         __m128 i2 = _mm_load_ps((float*)input_cur_x2);
@@ -79,9 +287,10 @@ for (int dposx=0; dposx<3; dposx++) {
         ACCUMULATE(1);
         ACCUMULATE(2);
         ACCUMULATE(3);
+#endif
     }
 
-#elif (defined __ARM_NEON)
+#elif (defined __ARM_NEON && !defined __aarch64__)
 
     for (int ii1=0; ii1<IP_BLOCK_SIZE; ii1+=16) {
         /* q0-q3: ireg

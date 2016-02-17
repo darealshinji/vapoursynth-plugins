@@ -7,10 +7,10 @@ You can use this as command-line tool of image noise reduction or/and scaling.
 
 ## Prebuilt binary-form release
 
-Please see [releases](https://github.com/WL-Amigo/waifu2x-converter-cpp/releases) of this repository.
-There is only for-windows binary, now. Sorry.
+- http://int.main.jp/files/waifu2x-converter_x64_1130.zip
+- http://int.main.jp/files/waifu2x-converter_x86_1130.zip
 
-### works using waifu2x-converter
+## works using waifu2x-converter
 
  * [waifu2x_win_koroshell](http://inatsuka.com/extra/koroshell/)
    - waifu2x-converter GUI frontend that is easy to use, and so cute. You need only drag&drop to convert your image. (and also you can set converting mode, noise reduction level, scale ratio, etc..., on GUI)
@@ -70,8 +70,3 @@ Usage of this program can be seen by executing this with `--help` option.
   * You can build it by cmake ($ cmake -D OPENCV_PREFIX=&lt;OpenCV include/lib dir&gt;)
  * [DLL interface](src/w2xconv.h)
   * You can use waifu2x as library. include w2xconv.h & link w2xc.lib.
-
-There are prebuilt binaries for Windows.
-
-- http://int.main.jp/files/waifu2x-converter_x64_0813.zip
-- http://int.main.jp/files/waifu2x-converter_x86_0813.zip

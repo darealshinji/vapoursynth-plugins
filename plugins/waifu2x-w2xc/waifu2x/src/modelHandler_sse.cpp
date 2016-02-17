@@ -1,11 +1,11 @@
 #include <thread>
+#include <immintrin.h>
 #include <atomic>
-#include <arm_neon.h>
 #include "filters.hpp"
 #include "sec.hpp"
 
 struct v256_t {
-	float32x4_t v0, v1;
+	__m128 v0, v1;
 };
 
 
@@ -13,8 +13,8 @@ static inline ALWAYS_INLINE v256_t
 madd256(v256_t const &v0, v256_t const &v1, v256_t const &v2)
 {
 	v256_t ret;
-	ret.v0 = vmlaq_f32(v2.v0, v0.v0, v1.v0);
-	ret.v1 = vmlaq_f32(v2.v1, v0.v1, v1.v1);
+	ret.v0 = _mm_add_ps(_mm_mul_ps(v0.v0,v1.v0), v2.v0);
+	ret.v1 = _mm_add_ps(_mm_mul_ps(v0.v1,v1.v1), v2.v1);
 	return ret;
 }
 
@@ -22,8 +22,8 @@ static inline v256_t
 load_broadcast(const float *p)
 {
 	v256_t ret;
-	ret.v0 = vdupq_n_f32(p[0]);
-	ret.v1 = vdupq_n_f32(p[0]);
+	ret.v0 = _mm_set1_ps(p[0]);
+	ret.v1 = _mm_set1_ps(p[0]);
 	return ret;
 }
 
@@ -31,8 +31,8 @@ static inline v256_t
 load256(const float *p)
 {
 	v256_t ret;
-	ret.v0 = *(float32x4_t*)(p);
-	ret.v1 = *(float32x4_t*)(p+4);
+	ret.v0 = _mm_load_ps(p);
+	ret.v1 = _mm_load_ps(p+4);
 	return ret;
 }
 
@@ -40,16 +40,16 @@ load256(const float *p)
 static inline void
 store256(float *p, v256_t const &v)
 {
-	*(float32x4_t*)(p+0) = v.v0;
-	*(float32x4_t*)(p+4) = v.v1;
+	_mm_storeu_ps(p, v.v0);
+	_mm_storeu_ps(p+4, v.v1);
 }
 
 static inline v256_t
 zero()
 {
 	v256_t ret;
-	ret.v0 = vdupq_n_f32(0);
-	ret.v1 = vdupq_n_f32(0);
+	ret.v0 = _mm_setzero_ps();
+	ret.v1 = _mm_setzero_ps();
 	return ret;
 }
 
@@ -57,24 +57,23 @@ static inline v256_t
 set1(float a)
 {
 	v256_t ret;
-	ret.v0 = vdupq_n_f32(a);
-	ret.v1 = vdupq_n_f32(a);
+	ret.v0 = _mm_set1_ps(a);
+	ret.v1 = _mm_set1_ps(a);
 	return ret;
 }
 
 static inline float
 hadd8(v256_t const &v)
 {
-	float32x4_t sum4 = vaddq_f32(v.v0, v.v1);
-	float32x2_t hi = vget_high_f32(sum4);
-	float32x2_t lo = vget_low_f32(sum4);
-	float32x2_t a = vadd_f32(hi, lo);
-	return vget_lane_f32(a,0) + vget_lane_f32(a,1);
+	__m128 sum4 = _mm_add_ps(v.v0, v.v1);
+	sum4 = _mm_hadd_ps(sum4, sum4);
+	sum4 = _mm_hadd_ps(sum4, sum4);
+	return _mm_cvtss_f32(sum4);
 }
 
-#define NEON_GEN_BINARY(func_name, intrin_name)	\
+#define SSE_GEN_BINARY(func_name, intrin_name)	\
 static inline v256_t				\
-func_name(v256_t const &a, v256_t const &b)	\
+func_name(v256_t const &a, v256_t const &b)			\
 {						\
 	v256_t ret;				\
 	ret.v0 = intrin_name(a.v0, b.v0);	\
@@ -82,36 +81,56 @@ func_name(v256_t const &a, v256_t const &b)	\
 	return ret;				\
 }
 
-NEON_GEN_BINARY(add256, vaddq_f32)
-NEON_GEN_BINARY(mul256, vmulq_f32)
-NEON_GEN_BINARY(max256, vmaxq_f32)
-NEON_GEN_BINARY(min256, vminq_f32)
+SSE_GEN_BINARY(add256, _mm_add_ps)
+SSE_GEN_BINARY(mul256, _mm_mul_ps)
+SSE_GEN_BINARY(max256, _mm_max_ps)
+SSE_GEN_BINARY(min256, _mm_min_ps)
+
 #include "modelHandler_avx_func.hpp"
 
 #undef UNROLL
+
+#define USE_SSE3
+#ifdef __x86_64
 #define UNROLL 4
+#else
+#define UNROLL 2
+#endif
 
-/* arm neon */
-typedef float32x4_t vreg_t;
+/* x86 SSE */
+typedef __m128 vreg_t;
 #define VEC_NELEM 4
-#define store_vreg(ptr,val) (*(float32x4_t*)(ptr))=(val)
-#define load_vreg(ptr) (*(float32x4_t*)(ptr))
-#define load_vreg_broadcast(ptr) vdupq_n_f32(*(float*)ptr)
-#define madd_vreg(a,b,c) vmlaq_f32(c,a,b)
+#define store_vreg(ptr,val) _mm_store_ps((float*)(ptr), val)
+#define load_vreg(ptr) _mm_load_ps((float*)(ptr))
+    
+static inline __m128
+load_vreg_broadcast(const unsigned char *ptr)
+{
+    return _mm_set1_ps(*(float*)ptr);
+}
 
-#define add_vreg vaddq_f32
-#define zero_vreg() vdupq_n_f32(0)
-#define min_vreg vminq_f32
-#define max_vreg vmaxq_f32
-#define set1_vreg vdupq_n_f32
+static inline __m128
+madd_vreg(__m128 a, __m128 b, __m128 c)
+{
+    return _mm_add_ps(_mm_mul_ps(a,b), c);
+}
+
+#define add_vreg _mm_add_ps
+#define zero_vreg _mm_setzero_ps
+#define min_vreg _mm_min_ps
+#define max_vreg _mm_max_ps
+#define set1_vreg _mm_set1_ps
+
+#define SIMD_OPLANE
 
 #include "modelHandler_simd.hpp"
 
+
 namespace w2xc {
 void
-filter_NEON_impl(ComputeEnv *env,
+filter_SSE_impl(ComputeEnv *env,
 		const float *packed_input,
-		 float *packed_output,
+		float *packed_output,
 		int nInputPlanes,
 		int nOutputPlanes,
 		const float *fbiases,

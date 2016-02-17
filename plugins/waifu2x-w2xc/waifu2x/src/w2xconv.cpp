@@ -1,6 +1,8 @@
 #define W2XCONV_IMPL
 #define _WIN32_WINNT 0x0600
 
+#define ENABLE_AVX 1
+
 #include <thread>
 
 #ifdef X86OPT
@@ -18,6 +20,7 @@
 #endif
 #endif
 
+#include <limits.h>
 #include <sstream>
 #include "w2xconv.h"
 #include "sec.hpp"
@@ -77,7 +80,7 @@ global_init2(void)
 
 		x_cpuid(v, 1);
 
-		if ((v[2] & 0x18000000) == 0x18000000) {
+		if (ENABLE_AVX && (v[2] & 0x18000000) == 0x18000000) {
 			if (v[2] & (1<<12)) {
 				host.sub_type = W2XCONV_PROC_HOST_FMA;
 			} else {
@@ -118,10 +121,13 @@ global_init2(void)
 
 
 	/*
+	 * <priority>
 	 * 1: NV CUDA
 	 * 2: OCL GPU
-	 * 3: host
-	 * 4: other
+	 * 3: host AVX
+	 * 4: OCL GPU (intel gen)
+	 * 5: host
+	 * 6: other
 	 *
 	 * && orderd by num_core
 	 */
@@ -708,6 +714,446 @@ apply_scale(struct W2XConv *conv,
 	} // 2x scaling : end
 }
 
+static inline float
+clipf(float min, float v, float max)
+{
+	v = std::max(min,v);
+	v = std::min(max,v);
+
+	return v;
+}
+
+template <typename SRC_TYPE, int src_max, int ridx, int bidx>
+static void
+preproc_rgb2yuv(cv::Mat *dst,
+		cv::Mat *src)
+{
+	int w = src->size().width;
+	int h = src->size().height;
+
+	float div = 1.0f / src_max;
+
+	for (int yi=0; yi<h; yi++) {
+		const SRC_TYPE *src_line = (SRC_TYPE*)src->ptr(yi);
+		float *dst_line = (float*)dst->ptr(yi);
+
+		for (int xi=0; xi<w; xi++) {
+			float b = src_line[xi*3 + bidx] * div;
+			float g = src_line[xi*3 + 1] * div;
+			float r = src_line[xi*3 + ridx] * div;
+
+			float Y = clipf(0.0f, b*0.114f + g*0.587f + r*0.299f, 1.0f);
+			float U = clipf(0.0f, (b-Y) * 0.492f + 0.5f,          1.0f);
+			float V = clipf(0.0f, (r-Y) * 0.877f + 0.5f,          1.0f);
+
+			dst_line[xi*3 + 0] = Y;
+			dst_line[xi*3 + 1] = U;
+			dst_line[xi*3 + 2] = V;
+		}
+	}
+}
+
+template <typename SRC_TYPE, int ridx, int bidx>
+static bool
+set_nearest_nontransparent(float *r, float *g, float *b,
+			   const SRC_TYPE *s,
+			   int xi)
+{
+	SRC_TYPE a = s[xi*4+3];
+	if (a == 0) {
+		return false;
+	}
+
+	*r = (float)s[xi*4+ridx];
+	*g = (float)s[xi*4+1];
+	*b = (float)s[xi*4+bidx];
+
+	return true;
+}
+	    
+
+template <typename SRC_TYPE, int src_max, int ridx, int bidx>
+static void
+preproc_rgba2yuv(cv::Mat *dst_yuv,
+		 cv::Mat *dst_alpha,
+		 cv::Mat *src,
+		 float bkgd_r,
+		 float bkgd_g,
+		 float bkgd_b)
+{
+	int w = src->size().width;
+	int h = src->size().height;
+
+	float div = 1.0f / src_max;
+	float alpha_coef = 1.0f / src_max;
+
+	for (int yi=0; yi<h; yi++) {
+		const SRC_TYPE *src_line = (SRC_TYPE*)src->ptr(yi);
+		const SRC_TYPE *src_line0 = NULL, *src_line2 = NULL;
+
+		if (yi != 0) {
+			src_line0 = (SRC_TYPE*)src->ptr(yi-1);
+		}
+
+		if (yi != h-1) {
+			src_line2 = (SRC_TYPE*)src->ptr(yi+1);
+		}
+
+		float *dst_yuv_line = (float*)dst_yuv->ptr(yi);
+		float *dst_alpha_line = (float*)dst_alpha->ptr(yi);
+
+		for (int xi=0; xi<w; xi++) {
+			float r = src_line[xi*4 + ridx] * div;
+			float g = src_line[xi*4 + 1] * div;
+			float b = src_line[xi*4 + bidx] * div;
+			SRC_TYPE a = src_line[xi*4 + 3];
+			if (a == 0) {
+				r = bkgd_r;
+				g = bkgd_g;
+				b = bkgd_b;
+
+#if 0
+				if (yi == 0 || yi == h-1 || xi == 0 || xi == w-1) {
+					/* xx */
+					r = bkgd_r;
+					g = bkgd_g;
+					b = bkgd_b;
+				} else {
+					/* set nearest non-transparental color */
+					SRC_TYPE near_a;
+					bool set = false;
+
+					if (!set) set = set_nearest_nontransparent<SRC_TYPE,ridx,bidx>(&r, &g, &b, src_line0, xi-1);
+					if (!set) set = set_nearest_nontransparent<SRC_TYPE,ridx,bidx>(&r, &g, &b, src_line0, xi);
+					if (!set) set = set_nearest_nontransparent<SRC_TYPE,ridx,bidx>(&r, &g, &b, src_line0, xi+1);
+
+					if (!set) set = set_nearest_nontransparent<SRC_TYPE,ridx,bidx>(&r, &g, &b, src_line,  xi-1);
+					if (!set) set = set_nearest_nontransparent<SRC_TYPE,ridx,bidx>(&r, &g, &b, src_line,  xi+1);
+
+					if (!set) set = set_nearest_nontransparent<SRC_TYPE,ridx,bidx>(&r, &g, &b, src_line2, xi-1);
+					if (!set) set = set_nearest_nontransparent<SRC_TYPE,ridx,bidx>(&r, &g, &b, src_line2, xi);
+					if (!set) set = set_nearest_nontransparent<SRC_TYPE,ridx,bidx>(&r, &g, &b, src_line2, xi+1);
+
+					if (set) {
+						r *= div;
+						g *= div;
+						b *= div;
+					} else {
+						r = bkgd_r;
+						g = bkgd_g;
+						b = bkgd_b;
+					}
+				}
+#endif
+
+			} else {
+				SRC_TYPE ra = src_max - a;
+				r = r * (a * alpha_coef) + bkgd_r * (ra * alpha_coef);
+				g = g * (a * alpha_coef) + bkgd_g * (ra * alpha_coef);
+				b = b * (a * alpha_coef) + bkgd_b * (ra * alpha_coef);
+			}
+			float Y = clipf(0.0f, b*0.114f + g*0.587f + r*0.299f, 1.0f);
+			float U = clipf(0.0f, (b-Y) * 0.492f + 0.5f,          1.0f);
+			float V = clipf(0.0f, (r-Y) * 0.877f + 0.5f,          1.0f);
+
+			dst_yuv_line[xi*3 + 0] = Y;
+			dst_yuv_line[xi*3 + 1] = U;
+			dst_yuv_line[xi*3 + 2] = V;
+			dst_alpha_line[xi] = a * div;
+		}
+	}
+}
+
+template <typename SRC_TYPE, int src_max, int ridx, int bidx>
+static void
+preproc_rgb2rgb(cv::Mat *dst,
+		cv::Mat *src)
+{
+	int w = src->size().width;
+	int h = src->size().height;
+
+	float div = 1.0f / src_max;
+
+	for (int yi=0; yi<h; yi++) {
+		const SRC_TYPE *src_line = (SRC_TYPE*)src->ptr(yi);
+		float *dst_line = (float*)dst->ptr(yi);
+
+		for (int xi=0; xi<w; xi++) {
+			float r = src_line[xi*3 + ridx] * div;
+			float g = src_line[xi*3 + 1] * div;
+			float b = src_line[xi*3 + bidx] * div;
+
+			dst_line[xi*3 + 0] = r;
+			dst_line[xi*3 + 1] = g;
+			dst_line[xi*3 + 2] = b;
+		}
+	}
+}
+template <typename SRC_TYPE, int src_max, int ridx, int bidx>
+static void
+preproc_rgba2rgb(cv::Mat *dst_rgb,
+		 cv::Mat *dst_alpha,
+		 cv::Mat *src,
+		 float bkgd_r,
+		 float bkgd_g,
+		 float bkgd_b)
+{
+	int w = src->size().width;
+	int h = src->size().height;
+
+	float div = 1.0f / src_max;
+	float alpha_coef = 1.0f / src_max;
+
+	for (int yi=0; yi<h; yi++) {
+		const SRC_TYPE *src_line = (SRC_TYPE*)src->ptr(yi);
+		const SRC_TYPE *src_line0 = NULL, *src_line2 = NULL;
+
+		if (yi != 0) {
+			src_line0 = (SRC_TYPE*)src->ptr(yi-1);
+		}
+
+		if (yi != h-1) {
+			src_line2 = (SRC_TYPE*)src->ptr(yi+1);
+		}
+
+		float *dst_rgb_line = (float*)dst_rgb->ptr(yi);
+		float *dst_alpha_line = (float*)dst_alpha->ptr(yi);
+
+		for (int xi=0; xi<w; xi++) {
+			float r = src_line[xi*4 + ridx] * div;
+			float g = src_line[xi*4 + 1] * div;
+			float b = src_line[xi*4 + bidx] * div;
+			SRC_TYPE a = src_line[xi*4 + 3];
+			if (a == 0) {
+				r = bkgd_r;
+				g = bkgd_g;
+				b = bkgd_b;
+
+#if 0
+				if (yi == 0 || yi == h-1 || xi == 0 || xi == w-1) {
+					/* xx */
+					r = bkgd_r;
+					g = bkgd_g;
+					b = bkgd_b;
+				} else {
+					/* set nearest non-transparental color */
+					SRC_TYPE near_a;
+					bool set = false;
+
+					if (!set) set = set_nearest_nontransparent<SRC_TYPE,ridx,bidx>(&r, &g, &b, src_line0, xi-1);
+					if (!set) set = set_nearest_nontransparent<SRC_TYPE,ridx,bidx>(&r, &g, &b, src_line0, xi);
+					if (!set) set = set_nearest_nontransparent<SRC_TYPE,ridx,bidx>(&r, &g, &b, src_line0, xi+1);
+
+					if (!set) set = set_nearest_nontransparent<SRC_TYPE,ridx,bidx>(&r, &g, &b, src_line,  xi-1);
+					if (!set) set = set_nearest_nontransparent<SRC_TYPE,ridx,bidx>(&r, &g, &b, src_line,  xi+1);
+
+					if (!set) set = set_nearest_nontransparent<SRC_TYPE,ridx,bidx>(&r, &g, &b, src_line2, xi-1);
+					if (!set) set = set_nearest_nontransparent<SRC_TYPE,ridx,bidx>(&r, &g, &b, src_line2, xi);
+					if (!set) set = set_nearest_nontransparent<SRC_TYPE,ridx,bidx>(&r, &g, &b, src_line2, xi+1);
+
+					if (set) {
+						r *= div;
+						g *= div;
+						b *= div;
+					} else {
+						r = bkgd_r;
+						g = bkgd_g;
+						b = bkgd_b;
+					}
+				}
+#endif
+			} else {
+				SRC_TYPE ra = src_max - a;
+				r = r * (a * alpha_coef) + bkgd_r * (ra * alpha_coef);
+				g = g * (a * alpha_coef) + bkgd_g * (ra * alpha_coef);
+				b = b * (a * alpha_coef) + bkgd_b * (ra * alpha_coef);
+
+				r = std::min(1.0f, r);
+				g = std::min(1.0f, g);
+				b = std::min(1.0f, b);
+			}
+			dst_rgb_line[xi*3 + 0] = r;
+			dst_rgb_line[xi*3 + 1] = g;
+			dst_rgb_line[xi*3 + 2] = b;
+			dst_alpha_line[xi] = a * div;
+		}
+	}
+}
+
+
+template <typename DST_TYPE, int dst_max, int ridx, int bidx>
+static void
+postproc_rgb2rgba(cv::Mat *dst,
+		  cv::Mat *src_rgb,
+		  cv::Mat *src_alpha,
+		  float bkgd_r,
+		  float bkgd_g,
+		  float bkgd_b)
+{
+	int w = dst->size().width;
+	int h = dst->size().height;
+
+	for (int yi=0; yi<h; yi++) {
+		const float *src_rgb_line = (float*)src_rgb->ptr(yi);
+		const float *src_alpha_line = (float*)src_alpha->ptr(yi);
+		DST_TYPE *dst_line = (DST_TYPE*)dst->ptr(yi);
+
+		for (int xi=0; xi<w; xi++) {
+			float r = src_rgb_line[xi*3 + 0];
+			float g = src_rgb_line[xi*3 + 1];
+			float b = src_rgb_line[xi*3 + 2];
+			float a = src_alpha_line[xi];
+
+			/*       data = src*alpha + bkgd*(1-alpha)    */
+			/* -src*alpha = bkgd*(1-alpha) - data         */
+			/*  src*alpha = data - bkgd*(1-alpha)         */
+			/*  src*alpha = data - bkgd + bkgd * alpha    */
+			/*        src = (data - bkgd)/alpha+bkgd      */
+
+			r = (r - bkgd_r)/a + bkgd_r;
+			g = (g - bkgd_g)/a + bkgd_g;
+			b = (b - bkgd_b)/a + bkgd_b;
+
+			r = clipf(0.0f, r * dst_max, dst_max);
+			g = clipf(0.0f, g * dst_max, dst_max);
+			b = clipf(0.0f, b * dst_max, dst_max);
+			a = clipf(0.0f, a * dst_max, dst_max);
+
+			dst_line[xi*4 + ridx] = (DST_TYPE)r;
+			dst_line[xi*4 + 1] = (DST_TYPE)g;
+			dst_line[xi*4 + bidx] = (DST_TYPE)b;
+			dst_line[xi*4 + 3] = (DST_TYPE)a;
+		}
+	}
+}
+
+template <typename DST_TYPE, int dst_max, int ridx, int bidx>
+static void
+postproc_rgb2rgb(cv::Mat *dst,
+		 cv::Mat *src_rgb)
+{
+	int w = dst->size().width;
+	int h = dst->size().height;
+
+	for (int yi=0; yi<h; yi++) {
+		const float *src_rgb_line = (float*)src_rgb->ptr(yi);
+		DST_TYPE *dst_line = (DST_TYPE*)dst->ptr(yi);
+
+		for (int xi=0; xi<w; xi++) {
+			float r = src_rgb_line[xi*3 + 0];
+			float g = src_rgb_line[xi*3 + 1];
+			float b = src_rgb_line[xi*3 + 2];
+
+			r = clipf(0.0f, r * dst_max, dst_max);
+			g = clipf(0.0f, g * dst_max, dst_max);
+			b = clipf(0.0f, b * dst_max, dst_max);
+
+			dst_line[xi*3 + ridx] = (DST_TYPE)r;
+			dst_line[xi*3 + 1] = (DST_TYPE)g;
+			dst_line[xi*3 + bidx] = (DST_TYPE)b;
+		}
+	}
+}
+
+template <typename DST_TYPE, int dst_max, int ridx, int bidx>
+static void
+postproc_yuv2rgba(cv::Mat *dst,
+		  cv::Mat *src_yuv,
+		  cv::Mat *src_alpha,
+		  float bkgd_r,
+		  float bkgd_g,
+		  float bkgd_b)
+{
+	int w = dst->size().width;
+	int h = dst->size().height;
+
+	for (int yi=0; yi<h; yi++) {
+		const float *src_yuv_line = (float*)src_yuv->ptr(yi);
+		const float *src_alpha_line = (float*)src_alpha->ptr(yi);
+		DST_TYPE *dst_line = (DST_TYPE*)dst->ptr(yi);
+
+		for (int xi=0; xi<w; xi++) {
+			float a = src_alpha_line[xi];
+			float y = src_yuv_line[xi*3 + 0];
+			float cr = src_yuv_line[xi*3 + 1];
+			float cb = src_yuv_line[xi*3 + 2];
+			float C0 = 2.032f, C1 = -0.395f, C2 = -0.581f, C3 = 1.140f;
+
+			float b = y + (cb-0.5f)*C3;
+			float g = y + (cb-0.5f)*C2 + (cr-0.5f)*C1;
+			float r = y + (cr-0.5f)*C0;
+
+			r = (r - bkgd_r)/a + bkgd_r;
+			g = (g - bkgd_g)/a + bkgd_g;
+			b = (b - bkgd_b)/a + bkgd_b;
+
+			r = clipf(0.0f, r * dst_max, dst_max);
+			g = clipf(0.0f, g * dst_max, dst_max);
+			b = clipf(0.0f, b * dst_max, dst_max);
+			a = clipf(0.0f, a * dst_max, dst_max);
+
+			dst_line[xi*4 + ridx] = (DST_TYPE)r;
+			dst_line[xi*4 + 1] = (DST_TYPE)g;
+			dst_line[xi*4 + bidx] = (DST_TYPE)b;
+			dst_line[xi*4 + 3] = (DST_TYPE)a;
+		}
+	}
+}
+
+template <typename DST_TYPE, int dst_max, int ridx, int bidx>
+static void
+postproc_yuv2rgb(cv::Mat *dst,
+		 cv::Mat *src_yuv)
+{
+	int w = dst->size().width;
+	int h = dst->size().height;
+
+	for (int yi=0; yi<h; yi++) {
+		const float *src_yuv_line = (float*)src_yuv->ptr(yi);
+		DST_TYPE *dst_line = (DST_TYPE*)dst->ptr(yi);
+
+		for (int xi=0; xi<w; xi++) {
+			float y = src_yuv_line[xi*3 + 0];
+			float cr = src_yuv_line[xi*3 + 1];
+			float cb = src_yuv_line[xi*3 + 2];
+
+			float C0 = 2.032f, C1 = -0.395f, C2 = -0.581f, C3 = 1.140f;
+
+			float b = y + (cb-0.5f)*C3;
+			float g = y + (cb-0.5f)*C2 + (cr-0.5f)*C1;
+			float r = y + (cr-0.5f)*C0;
+
+			r = clipf(0.0f, r * dst_max, dst_max);
+			g = clipf(0.0f, g * dst_max, dst_max);
+			b = clipf(0.0f, b * dst_max, dst_max);
+
+			dst_line[xi*3 + ridx] = (DST_TYPE)r;
+			dst_line[xi*3 + 1] = (DST_TYPE)g;
+			dst_line[xi*3 + bidx] = (DST_TYPE)b;
+		}
+	}
+	
+}
+
+
+
+static int
+read_int4(FILE *fp) {
+    unsigned int c0 = fgetc(fp);
+    unsigned int c1 = fgetc(fp);
+    unsigned int c2 = fgetc(fp);
+    unsigned int c3 = fgetc(fp);
+
+    return (c0<<24) | (c1<<16) | (c2<<8) | (c3);
+}
+static int
+read_int2(FILE *fp) {
+    unsigned int c0 = fgetc(fp);
+    unsigned int c1 = fgetc(fp);
+
+    return (c0<<8) | (c1);
+}
+
 int
 w2xconv_convert_file(struct W2XConv *conv,
 		     const char *dst_path,
@@ -719,23 +1165,169 @@ w2xconv_convert_file(struct W2XConv *conv,
 	double time_start = getsec();
 	bool is_rgb = (conv->impl->scale2_models[0]->getNInputPlanes() == 3);
 
-	cv::Mat image = cv::imread(src_path, cv::IMREAD_COLOR);
+	bool png_rgb = false;
+
+	FILE *png_fp = NULL;
+
+	float bkgd_r = 1.0f;
+	float bkgd_g = 1.0f;
+	float bkgd_b = 1.0f;
+
+	{
+		const static unsigned char png[] = {0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A};
+		const static unsigned char ihdr[] = {'I','H','D','R'};
+		const static unsigned char iend[] = {'I','E','N','D'};
+		const static unsigned char bkgd[] = {'b','K','G','D'};
+		char sig[8];
+		png_fp = fopen(src_path, "rb");
+		if (png_fp == NULL) {
+			setPathError(conv,
+				     W2XCONV_ERROR_IMREAD_FAILED,
+				     src_path);
+			return -1;
+		}
+
+		size_t rdsz = fread(sig, 1, 8, png_fp);
+		if (rdsz != 8) {
+			goto next;
+		}
+		if (memcmp(png,sig,8) != 0) {
+			goto next;
+		}
+
+		int ihdr_size = read_int4(png_fp);
+		if (ihdr_size != 13) {
+			goto next;
+		}
+
+		rdsz = fread(sig, 1, 4, png_fp);
+		if (rdsz != 4) {
+			goto next;
+		}
+		if (memcmp(ihdr,sig,4) != 0) {
+			goto next;
+		}
+
+		int width = read_int4(png_fp);
+		int height = read_int4(png_fp);
+		int depth = fgetc(png_fp);
+		int type = fgetc(png_fp);
+		int compress = fgetc(png_fp);
+		int filter = fgetc(png_fp);
+		int interlace = fgetc(png_fp);
+
+		/* use IMREAD_UNCHANGED 
+		 * if png && type == RGBA || depth == 16 
+		 */
+		if (type == 6) {
+			if (depth == 8 || // RGBA 8bit
+			    depth == 16	  // RGBA 16bit
+				)
+			{
+				png_rgb = true;
+			}
+		} else if (depth == 16) { // RGB 16bit
+			png_rgb = true;
+		}
+
+		if (png_rgb) {
+			while (1) {
+				int chunk_size = read_int4(png_fp);
+				rdsz = fread(sig, 1, 4, png_fp);
+				if (rdsz != 4) {
+					break;
+				}
+
+				if (memcmp(sig,iend,4) == 0) {
+					break;
+				}
+
+				if (memcmp(sig,bkgd,4) == 0) {
+					float r = read_int2(png_fp);
+					float g = read_int2(png_fp);
+					float b = read_int2(png_fp);
+
+					if (depth == 8) {
+						bkgd_r = r / 255.0f;
+						bkgd_g = g / 255.0f;
+						bkgd_b = b / 255.0f;
+					} else {
+						bkgd_r = r / 65535.0f;
+						bkgd_g = g / 65535.0f;
+						bkgd_b = b / 65535.0f;
+					}
+
+					break;
+				}
+			}
+		}
+	}
+next:
+	if (png_fp) {
+		fclose(png_fp);
+		png_fp = NULL;
+	}
+
+	cv::Mat image_src, image_dst;
+
+	/* 
+	 * IMREAD_COLOR                 : always BGR
+	 * IMREAD_UNCHANGED + png       : BGR or BGRA
+	 * IMREAD_UNCHANGED + otherwise : ???
+	 */
+	if (png_rgb) {
+		image_src = cv::imread(src_path, cv::IMREAD_UNCHANGED);
+	} else {
+		image_src = cv::imread(src_path, cv::IMREAD_COLOR);
+	}
 	enum w2xc::image_format fmt;
 
-	if (image.data == nullptr) {
-		setPathError(conv,
-			     W2XCONV_ERROR_IMREAD_FAILED,
-			     src_path);
-		return -1;
-	}
+	int src_depth = CV_MAT_DEPTH(image_src.type());
+	int src_cn = CV_MAT_CN(image_src.type());
+	cv::Mat image = cv::Mat(image_src.size(), CV_32FC3);
+	cv::Mat alpha;
 
 	if (is_rgb) {
-		fmt = w2xc::IMAGE_BGR;
+		if (png_rgb) {
+			if (src_cn == 4) {
+				// save alpha
+				alpha = cv::Mat(image_src.size(), CV_32FC1);
+				if (src_depth == CV_16U) {
+					preproc_rgba2rgb<unsigned short, 65535, 2, 0>(&image, &alpha, &image_src,
+										      bkgd_r, bkgd_g, bkgd_b);
+				} else {
+					preproc_rgba2rgb<unsigned char, 255, 2, 0>(&image, &alpha, &image_src,
+										   bkgd_r, bkgd_g, bkgd_b);
+				}
+			} else {
+				preproc_rgb2rgb<unsigned short, 65535, 2, 0>(&image, &image_src);
+			}
+		} else {
+			preproc_rgb2rgb<unsigned char, 255, 2, 0>(&image, &image_src);
+		}
+		fmt = w2xc::IMAGE_RGB_F32;
 	} else {
-		image.convertTo(image, CV_32F, 1.0 / 255.0);
-		cv::cvtColor(image, image, cv::COLOR_RGB2YUV);
+		if (png_rgb) {
+			if (src_cn == 4) {
+				// save alpha
+				alpha = cv::Mat(image_src.size(), CV_32FC1);
+				if (src_depth == CV_16U) {
+					preproc_rgba2yuv<unsigned short, 65535, 2, 0>(&image, &alpha, &image_src,
+										      bkgd_r, bkgd_g, bkgd_b);
+				} else {
+					preproc_rgba2yuv<unsigned char, 255, 2, 0>(&image, &alpha, &image_src,
+										   bkgd_r, bkgd_g, bkgd_b);
+				}
+			} else {
+				preproc_rgb2yuv<unsigned short, 65535, 2, 0>(&image, &image_src);
+			}
+		} else {
+			preproc_rgb2yuv<unsigned char, 255, 2, 0>(&image, &image_src);
+		}
+
 		fmt = w2xc::IMAGE_Y;
 	}
+	image_src.release();
 
 	if (denoise_level != 0) {
 		apply_denoise(conv, image, denoise_level, blockSize, fmt);
@@ -765,13 +1357,59 @@ w2xconv_convert_file(struct W2XConv *conv,
 		}
 	}
 
-	if (is_rgb) {
-	} else {
-		cv::cvtColor(image, image, cv::COLOR_YUV2RGB);
-		image.convertTo(image, CV_8U, 255.0);
+	bool dst_png = false;
+	{
+		size_t len = strlen(dst_path);
+		if (len >= 4) {
+			if (tolower(dst_path[len-4]) == '.' &&
+			    tolower(dst_path[len-3]) == 'p' &&
+			    tolower(dst_path[len-2]) == 'n' &&
+			    tolower(dst_path[len-1]) == 'g')
+			{
+				dst_png = true;
+			}
+		}
 	}
 
-	if (!cv::imwrite(dst_path, image)) {
+	if (alpha.empty() || !dst_png) {
+		image_dst = cv::Mat(image.size(), CV_MAKETYPE(src_depth,3));
+
+		if (is_rgb) {
+			if (src_depth == CV_16U) {
+				postproc_rgb2rgb<unsigned short, 65535, 2, 0>(&image_dst, &image);
+			} else {
+				postproc_rgb2rgb<unsigned char, 255, 2, 0>(&image_dst, &image);
+			}
+		} else {
+			if (src_depth == CV_16U) {
+				postproc_yuv2rgb<unsigned short, 65535, 0, 2>(&image_dst, &image);
+			} else {
+				postproc_yuv2rgb<unsigned char, 255, 0, 2>(&image_dst, &image);
+			}
+		}
+	} else {
+		image_dst = cv::Mat(image.size(), CV_MAKETYPE(src_depth,4));
+
+		if (image.size() != alpha.size()) {
+			cv::resize(alpha, alpha, image.size(), 0, 0, cv::INTER_LINEAR);
+		}
+
+		if (is_rgb) {
+			if (src_depth == CV_16U) {
+				postproc_rgb2rgba<unsigned short, 65535, 2, 0>(&image_dst, &image, &alpha, bkgd_r, bkgd_g, bkgd_b);
+			} else {
+				postproc_rgb2rgba<unsigned char, 255, 2, 0>(&image_dst, &image, &alpha, bkgd_r, bkgd_g, bkgd_b);
+			}
+		} else {
+			if (src_depth == CV_16U) {
+				postproc_yuv2rgba<unsigned short, 65535, 0, 2>(&image_dst, &image, &alpha, bkgd_r, bkgd_g, bkgd_b);
+			} else {
+				postproc_yuv2rgba<unsigned char, 255, 0, 2>(&image_dst, &image, &alpha, bkgd_r, bkgd_g, bkgd_b);
+			}
+		}
+	}
+
+	if (!cv::imwrite(dst_path, image_dst)) {
 		setPathError(conv,
 			     W2XCONV_ERROR_IMWRITE_FAILED,
 			     dst_path);
@@ -936,8 +1574,8 @@ w2xconv_apply_filter_y(struct W2XConv *conv,
 	struct W2XConvImpl *impl = conv->impl;
 	ComputeEnv *env = &impl->env;
 
-	W2Mat dsti(src_h, src_w, CV_32FC1, dst, dst_step_byte);
-	W2Mat srci(src_h, src_w, CV_32FC1, src, src_step_byte);
+	W2Mat dsti(src_w, src_h, CV_32FC1, dst, dst_step_byte);
+	W2Mat srci(src_w, src_h, CV_32FC1, src, src_step_byte);
 
 	std::vector<std::unique_ptr<w2xc::Model> > *mp = NULL;
 
@@ -965,12 +1603,18 @@ w2xconv_apply_filter_y(struct W2XConv *conv,
 
 	for (int yi=0; yi<src_h; yi++) {
 		char *d0 = dsti.ptr<char>(yi);
-		char *s0 = srci.ptr<char>(yi);
+		char *s0 = result.ptr<char>(yi);
 
 		memcpy(d0, s0, src_w * sizeof(float));
 	}
 
 	return 0;
+}
+
+const char *
+w2xconv_version(void)
+{
+	return BUILD_TS;
 }
 
 #ifdef HAVE_OPENCV

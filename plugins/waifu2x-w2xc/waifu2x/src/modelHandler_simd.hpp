@@ -28,8 +28,13 @@ apply_filter_line(unsigned long width,
     const unsigned char *biases = (unsigned char*)fbiases;
     unsigned char *output = (unsigned char*)foutput;
 
+#ifdef SIMD_OPLANE
     int OP_BLOCK_SIZE = VEC_NELEM * 2;
     int IP_BLOCK_SIZE = VEC_NELEM * 4;
+#elif defined SIMD_IPLANE
+    int OP_BLOCK_SIZE = VEC_NELEM * 4;
+    int IP_BLOCK_SIZE = VEC_NELEM * 2;
+#endif
 
     int nOutputPlane_block = nOutputPlanes / OP_BLOCK_SIZE;
     int nInputPlane_block = nInputPlanes / IP_BLOCK_SIZE;
@@ -142,8 +147,8 @@ apply_filter_line(unsigned long width,
                             float bv = ((float*)fbiases)[oi0*OP_BLOCK_SIZE+oi1];
                             float v = ((float*)output_base0)[oi1];
                             v += otmp[oi1] + bv;
-                            float mtz = std::max(v, 0.0f);
-                            float ltz = std::min(v, 0.0f);
+                            float mtz = (std::max)(v, 0.0f);
+                            float ltz = (std::min)(v, 0.0f);
                             v = ltz * 0.1f + mtz;
                             ((float*)output_base0)[oi1] = v;
                         }

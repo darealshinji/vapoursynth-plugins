@@ -243,8 +243,8 @@ Files: plugins/waifu2x-w2xc/*
 Copyright: 2015-2016 HolyWu
 License: MIT
 
-Files: plugins/waifu2x-w2xc/w2xc/*
-Copyright: 2015 amigo(white luckers) <white.luckers@gmail.com>
+Files: plugins/waifu2x-w2xc/waifu2x/*
+Copyright: 2015-2016 amigo(white luckers) <white.luckers@gmail.com>
 License: MIT
 
 Files: plugins/waifu2x-w2xc/include/picojson.h
