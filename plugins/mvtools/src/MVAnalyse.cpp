@@ -45,7 +45,7 @@ typedef struct {
     int pglobal; // penalty factor for global motion predictor
     int pzero; // penalty factor for zero vector
     int divideExtra; // divide blocks on sublocks with median motion
-    int badSAD; //  SAD threshold to make more wide search for bad vectors
+    int64_t badSAD; //  SAD threshold to make more wide search for bad vectors
     int badrange;// range (radius) of wide search
     bool meander; //meander (alternate) scan blocks (even row left to right, odd row right to left
     bool tryMany; // try refine around many predictors
@@ -124,11 +124,11 @@ static const VSFrameRef *VS_CC mvanalyseGetFrame(int n, int activationReason, vo
         GroupOfPlanes *vectorFields = new GroupOfPlanes(d->analysisData.nBlkSizeX, d->analysisData.nBlkSizeY, d->analysisData.nLvCount, d->analysisData.nPel, d->analysisData.nMotionFlags, d->analysisData.nCPUFlags, d->analysisData.nOverlapX, d->analysisData.nOverlapY, d->analysisData.nBlkX, d->analysisData.nBlkY, d->analysisData.xRatioUV, d->analysisData.yRatioUV, d->divideExtra, d->supervi->format->bitsPerSample);
 
 
-        const uint8_t *pSrc[3];
-        const uint8_t *pRef[3];
-        uint8_t *pDst;
-        int nSrcPitch[3];
-        int nRefPitch[3];
+        const uint8_t *pSrc[3] = { nullptr };
+        const uint8_t *pRef[3] = { nullptr };
+        uint8_t *pDst = { nullptr };
+        int nSrcPitch[3] = { 0 };
+        int nRefPitch[3] = { 0 };
 
         int nref;
 

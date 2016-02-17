@@ -517,8 +517,10 @@ void PlaneOfBlocks::SearchMVs(MVFrame *_pSrcFrame, MVFrame *_pRefFrame,
             if ( iblkx < nBlkX-1 )
             {
                 x[0] += (nBlkSizeX - nOverlapX) * blkScanDir;
-                x[1] += ((nBlkSizeX - nOverlapX) >> nLogxRatioUV) * blkScanDir;
-                x[2] += ((nBlkSizeX - nOverlapX) >> nLogxRatioUV) * blkScanDir;
+                if (pSrcFrame->GetMode() & UPLANE)
+                    x[1] += ((nBlkSizeX - nOverlapX) >> nLogxRatioUV) * blkScanDir;
+                if (pSrcFrame->GetMode() & VPLANE)
+                    x[2] += ((nBlkSizeX - nOverlapX) >> nLogxRatioUV) * blkScanDir;
             }
         }
         pBlkData += nBlkX*N_PER_BLOCK;
@@ -526,8 +528,10 @@ void PlaneOfBlocks::SearchMVs(MVFrame *_pSrcFrame, MVFrame *_pRefFrame,
             outfilebuf += nBlkX*4;// 4 short word per block
 
         y[0] += (nBlkSizeY - nOverlapY);
-        y[1] += ((nBlkSizeY - nOverlapY) >> nLogyRatioUV );
-        y[2] += ((nBlkSizeY - nOverlapY) >> nLogyRatioUV );
+        if (pSrcFrame->GetMode() & UPLANE)
+            y[1] += ((nBlkSizeY - nOverlapY) >> nLogyRatioUV );
+        if (pSrcFrame->GetMode() & VPLANE)
+            y[2] += ((nBlkSizeY - nOverlapY) >> nLogyRatioUV );
     }
     if (smallestPlane)
         *pmeanLumaChange = sumLumaChange/nBlkCount; // for all finer planes
@@ -699,11 +703,11 @@ void PlaneOfBlocks::RecalculateMVs(MVClipBalls & mvClip, MVFrame *_pSrcFrame, MV
                 // interpolate
                 int vector1_x = vectorOld1.x*nStepXold + deltaX*(vectorOld2.x - vectorOld1.x); // scaled by nStepXold to skip slow division
                 int vector1_y = vectorOld1.y*nStepXold + deltaX*(vectorOld2.y - vectorOld1.y);
-                int vector1_sad = vectorOld1.sad*nStepXold + deltaX*(vectorOld2.sad - vectorOld1.sad);
+                int64_t vector1_sad = vectorOld1.sad*nStepXold + deltaX*(vectorOld2.sad - vectorOld1.sad);
 
                 int vector2_x = vectorOld3.x*nStepXold + deltaX*(vectorOld4.x - vectorOld3.x);
                 int vector2_y = vectorOld3.y*nStepXold + deltaX*(vectorOld4.y - vectorOld3.y);
-                int vector2_sad = vectorOld3.sad*nStepXold + deltaX*(vectorOld4.sad - vectorOld3.sad);
+                int64_t vector2_sad = vectorOld3.sad*nStepXold + deltaX*(vectorOld4.sad - vectorOld3.sad);
 
                 vectorOld.x = (vector1_x + deltaY*(vector2_x - vector1_x)/nStepYold)/nStepXold;
                 vectorOld.y = (vector1_y + deltaY*(vector2_y - vector1_y)/nStepYold)/nStepXold;
@@ -727,7 +731,7 @@ void PlaneOfBlocks::RecalculateMVs(MVClipBalls & mvClip, MVFrame *_pSrcFrame, MV
             vectorOld.y = (vectorOld.y << nLogPel) >> nLogPelold;
 
             predictor = ClipMV(vectorOld); // predictor
-            predictor.sad =  vectorOld.sad * (nBlkSizeX*nBlkSizeY)/(nBlkSizeXold*nBlkSizeYold); // normalized to new block size
+            predictor.sad = (int64_t)vectorOld.sad * (nBlkSizeX*nBlkSizeY)/(nBlkSizeXold*nBlkSizeYold); // normalized to new block size
 
             bestMV.x = predictor.x;
             bestMV.y = predictor.y;
@@ -751,7 +755,6 @@ void PlaneOfBlocks::RecalculateMVs(MVClipBalls & mvClip, MVFrame *_pSrcFrame, MV
             sad += saduv;
             bestMV.sad = sad;
             nMinCost = sad;
-
 
             if (bestMV.sad > thSAD)// if old interpolated vector is bad
             {
@@ -831,8 +834,10 @@ void PlaneOfBlocks::RecalculateMVs(MVClipBalls & mvClip, MVFrame *_pSrcFrame, MV
             if ( iblkx < nBlkX-1 )
             {
                 x[0] += (nBlkSizeX - nOverlapX) * blkScanDir;
-                x[1] += ((nBlkSizeX - nOverlapX) >> nLogxRatioUV) * blkScanDir;
-                x[2] += ((nBlkSizeX - nOverlapX) >> nLogxRatioUV) * blkScanDir;
+                if (pSrcFrame->GetMode() & UPLANE)
+                    x[1] += ((nBlkSizeX - nOverlapX) >> nLogxRatioUV) * blkScanDir;
+                if (pSrcFrame->GetMode() & VPLANE)
+                    x[2] += ((nBlkSizeX - nOverlapX) >> nLogxRatioUV) * blkScanDir;
             }
         }
         pBlkData += nBlkX*N_PER_BLOCK;
@@ -840,8 +845,10 @@ void PlaneOfBlocks::RecalculateMVs(MVClipBalls & mvClip, MVFrame *_pSrcFrame, MV
             outfilebuf += nBlkX*4;// 4 short word per block
 
         y[0] += (nBlkSizeY - nOverlapY);
-        y[1] += ((nBlkSizeY - nOverlapY) >> nLogyRatioUV );
-        y[2] += ((nBlkSizeY - nOverlapY) >> nLogyRatioUV );
+        if (pSrcFrame->GetMode() & UPLANE)
+            y[1] += ((nBlkSizeY - nOverlapY) >> nLogyRatioUV );
+        if (pSrcFrame->GetMode() & VPLANE)
+            y[2] += ((nBlkSizeY - nOverlapY) >> nLogyRatioUV );
     }
 }
 
