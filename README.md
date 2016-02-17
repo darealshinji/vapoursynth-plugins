@@ -8,15 +8,10 @@ So don't expect this build system to work on anything else than Linux on x86 arc
 `git
 libtool
 pkg-config
-libavformat-dev
-libavcodec-dev
-libavresample-dev
-libavutil-dev
 libfftw3-dev
 libjpeg-dev
 libpng-dev
 libsndfile1-dev
-libswscale-dev
 libxvidcore-dev
 libopencv-dev
 ocl-icd-libopencl1
@@ -54,7 +49,7 @@ sudo apt-get install vapoursynth-extra-plugins
 [combmask 0.0.1](https://github.com/chikuzen/CombMask)<br>
 [convo2d 0.2.0](https://github.com/chikuzen/convo2d)<br>
 [ctmf r2](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-CTMF)<br>
-[d2vsource beta7+git20140717](https://github.com/dwbuiten/d2vsource)<br>
+[d2vsource 16+git20160202](https://github.com/dwbuiten/d2vsource)<br>
 [damb r3](https://github.com/dubhater/vapoursynth-damb)<br>
 [dctfilter r2](https://bitbucket.org/mystery_keeper/vapoursynth-dctfilter)<br>
 [deblock r4](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Deblock)<br>
@@ -73,10 +68,10 @@ sudo apt-get install vapoursynth-extra-plugins
 [imagereader 0.2.1](https://github.com/chikuzen/vsimagereader)<br>
 [it 1.2](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-IT)<br>
 [knlmeanscl 0.7.4](https://github.com/Khanattila/KNLMeansCL)<br>
-[lsmashsource git20151209](https://github.com/VFR-maniac/L-SMASH-Works)<br>
+[lsmashsource git20160131](https://github.com/VFR-maniac/L-SMASH-Works)<br>
 [msmoosh 1.1](https://github.com/dubhater/vapoursynth-msmoosh)<br>
-[mvtools 9+git20160104](https://github.com/dubhater/vapoursynth-mvtools)<br>
-[nnedi3 7](https://github.com/dubhater/vapoursynth-nnedi3)<br>
+[mvtools 11](https://github.com/dubhater/vapoursynth-mvtools)<br>
+[nnedi3 8](https://github.com/dubhater/vapoursynth-nnedi3)<br>
 [rawsource git20130731](https://github.com/chikuzen/vsrawsource)<br>
 [reduceflicker git20150225](https://github.com/VFR-maniac/VapourSynth-ReduceFlicker)<br>
 [retinex r3](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Retinex)<br>
