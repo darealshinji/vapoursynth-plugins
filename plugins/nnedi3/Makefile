@@ -1,6 +1,6 @@
 include ../../config.mak
 
-PACKAGE_VERSION = 7
+PACKAGE_VERSION = 8
 
 LIBNAME = nnedi3
 LIBADD = -lm
