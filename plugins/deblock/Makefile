@@ -1,5 +1,5 @@
 
-LIB = libdeblock.so
+LIBNAME = deblock
 
 include ../../cxx.inc
 

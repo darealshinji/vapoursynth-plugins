@@ -1,6 +1,6 @@
 include ../../config.mak
 
-LIB = libtcomb.so
+LIBNAME = tcomb
 
 ifeq ($(HAVE_X86_64),yes)
 

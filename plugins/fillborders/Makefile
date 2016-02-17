@@ -1,5 +1,5 @@
 
-LIB = libfillborders.so
+LIBNAME = fillborders
 
 include ../../cc.inc
 

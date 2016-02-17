@@ -1,5 +1,5 @@
 
-LIB = libssiq.so
+LIBNAME = ssiq
 LIBADD = -lm
 
 include ../../cc.inc

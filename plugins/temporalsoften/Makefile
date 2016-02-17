@@ -1,5 +1,5 @@
 
-LIB = libtemporalsoften.so
+LIBNAME = temporalsoften
 
 include ../../cc.inc
 

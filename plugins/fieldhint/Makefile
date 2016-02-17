@@ -1,5 +1,5 @@
 
-LIB = libfieldhint.so
+LIBNAME = fieldhint
 
 include ../../cc.inc
 

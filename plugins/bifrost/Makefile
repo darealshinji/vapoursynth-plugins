@@ -1,5 +1,5 @@
 
-LIB = libbifrost.so
+LIBNAME = bifrost
 
 include ../../cc.inc
 

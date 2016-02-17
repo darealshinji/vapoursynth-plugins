@@ -1,5 +1,5 @@
 
-LIB = libctmf.so
+LIBNAME = ctmf
 
 include ../../cxx.inc
 

@@ -1,5 +1,5 @@
 
-LIB = libmsmoosh.so
+LIBNAME = msmoosh
 
 include ../../cxx.inc
 

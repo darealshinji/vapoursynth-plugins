@@ -1,5 +1,5 @@
 
-LIB = libsangnommod.so
+LIBNAME = sangnommod
 
 include ../../cxx.inc
 

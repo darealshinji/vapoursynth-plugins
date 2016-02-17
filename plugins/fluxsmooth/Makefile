@@ -1,6 +1,6 @@
 include ../../config.mak
 
-LIB = libfluxsmooth.so
+LIBNAME = fluxsmooth
 
 ifeq ($(HAVE_X86_64),yes)
 ifeq ($(HAVE_YASM),yes)

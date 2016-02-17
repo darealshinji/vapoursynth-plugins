@@ -1,5 +1,5 @@
 
-LIB = libvautodeint.so
+LIBNAME = vautodeint
 
 local_CFLAGS = -Wno-parentheses
 

@@ -1,5 +1,5 @@
 
-LIB = liblogo.so
+LIBNAME = logo
 
 include ../../cxx.inc
 

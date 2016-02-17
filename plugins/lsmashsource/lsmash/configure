@@ -393,7 +393,7 @@ Cflags: -I${includedir}
 EOF
 
 
-cat >> config.mak << EOF
+cat > config.mak << EOF
 SRCDIR = $SRCDIR
 DESTDIR = $DESTDIR
 prefix = $prefix
@@ -427,11 +427,17 @@ TOOLS = $TOOLS_NAME
 MAJVER = $MAJVER
 EOF
 
+cat > config.mak2 << EOF
+ifneq (\$(V),1)
+CCLD_silent   = @ echo '  CCLD     '\$@;
+endif
+
+EOF
 
 for tool in $TOOLS; do
     cat >> config.mak2 << EOF
 cli/${tool}${EXT}: cli/${tool}.o $OBJ_TOOLS $STATICLIB $SHAREDLIB
-	\$(CC) \$(CFLAGS) \$(LDFLAGS) -o \$@ \$< $OBJ_TOOLS -llsmash \$(LIBS)
+	\$(CCLD_silent)\$(CC) \$(CFLAGS) \$(LDFLAGS) -o \$@ \$< $OBJ_TOOLS -llsmash \$(LIBS)
 	-@ \$(if \$(STRIP), \$(STRIP) \$@)
 
 EOF

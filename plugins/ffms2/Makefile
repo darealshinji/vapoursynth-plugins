@@ -15,7 +15,7 @@ endif #AVCODEC
 
 ifeq ($(FFMS2),yes)
 
-LIB = libffms2.so
+LIBNAME = ffms2
 local_CXXFLAGS = \
 	-Isrc/include \
 	-Isrc/src/config \

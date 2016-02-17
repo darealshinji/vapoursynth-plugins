@@ -1,5 +1,5 @@
 
-LIB = libconvo2d.so
+LIBNAME = convo2d
 
 include ../../cc.inc
 

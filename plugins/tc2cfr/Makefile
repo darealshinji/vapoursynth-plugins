@@ -1,5 +1,5 @@
 
-LIB = libtc2cfr.so
+LIBNAME = tc2cfr
 
 include ../../cxx.inc
 

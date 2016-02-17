@@ -1,4 +1,4 @@
 
-LIB = libretinex.so
+LIBNAME = retinex
 
 include ../../cxx.inc

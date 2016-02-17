@@ -1,5 +1,5 @@
 
-LIB = libwwxd.so
+LIBNAME = wwxd
 
 include ../../cc.inc
 

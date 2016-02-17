@@ -2,7 +2,7 @@ include ../../config.mak
 
 PACKAGE_VERSION = 7
 
-LIB = libnnedi3.so
+LIBNAME = nnedi3
 LIBADD = -lm
 local_CXXFLAGS = -Wno-unused-variable -DPACKAGE_VERSION='"$(PACKAGE_VERSION)"' -DNNEDI3_X86 -DNNEDI3_DATADIR='"$(datarootdir)/nnedi3"'
 

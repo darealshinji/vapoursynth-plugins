@@ -1,5 +1,5 @@
 
-LIB = libit.so
+LIBNAME = it
 
 local_CXXFLAGS = -D__SSE -mssse3
 

@@ -1,6 +1,6 @@
 include ../../config.mak
 
-LIB = libfmtconv.so
+LIBNAME = fmtconv
 
 ifeq ($(HAVE_X86_64),yes)
 local_CXXFLAGS = -mcx16

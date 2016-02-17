@@ -1,4 +1,4 @@
 
-LIB = libtnlmeans.so
+LIBNAME = tnlmeans
 
 include ../../cxx.inc

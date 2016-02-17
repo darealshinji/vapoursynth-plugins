@@ -1,5 +1,5 @@
 
-LIB = libawarpsharp2.so
+LIBNAME = awarpsharp2
 
 local_CXXFLAGS = -DAWARPSHARP2_X86
 

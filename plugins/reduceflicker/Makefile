@@ -1,5 +1,5 @@
 
-LIB = libreduceflicker.so
+LIBNAME = reduceflicker
 
 include ../../config.mak
 

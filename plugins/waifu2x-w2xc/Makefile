@@ -1,8 +1,8 @@
 include ../../config.mak
 
 ifeq ($(HAVE_OPENCV),yes)
-LIB  = libwaifu2x-w2xc.so
-W2XC = w2xc/libw2xc.a
+LIBNAME = waifu2x-w2xc
+W2XC    = w2xc/libw2xc.a
 
 $(LIB): $(W2XC)
 

@@ -1,5 +1,5 @@
 
-LIB = libtcanny.so
+LIBNAME = tcanny
 
 local_CXXFLAGS = -Wno-missing-field-initializers
 

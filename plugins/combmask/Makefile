@@ -1,5 +1,5 @@
 
-LIB = libcombmask.so
+LIBNAME = combmask
 
 include ../../cc.inc
 

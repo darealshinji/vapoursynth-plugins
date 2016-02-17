@@ -16,14 +16,17 @@ endif #HAVE_NASM
 ifeq ($(V), 1)
 MAKE = make V=1
 AUTORECONF = autoreconf -iv
+SILENTRULES = --disable-silent-rules
 else
 MAKE = make V=0
 AUTORECONF = autoreconf -i
+SILENTRULES = --enable-silent-rules
 endif
 
 turbodir = libjpeg-turbo
 ifeq ($(IMAGEREADER),yes)
-LIB = libimagereader.so
+LIBNAME = imagereader
+LIB = $(LIBNAME).so
 endif
 
 
@@ -31,7 +34,7 @@ all: $(LIB)
 
 ifeq ($(IMAGEREADER),yes)
 
-libimagereader.so: $(turbodir)/libturbojpeg.la
+$(LIB): $(turbodir)/libturbojpeg.la
 	$(MAKE) -f imagereader.mk
 
 $(turbodir)/libturbojpeg.la: $(turbodir)/libjpeg.la
@@ -46,7 +49,7 @@ $(turbodir)/simd/libsimd.la: $(turbodir)/Makefile
 $(turbodir)/Makefile: $(turbodir)/configure
 	cd $(turbodir) && \
 	CFLAGS="$(CFLAGS) -Wno-attributes -Wno-unused-but-set-variable" CPPFLAGS="$(CPPFLAGS)" \
-	./configure --build=$(BUILD) --host=$(HOST) --disable-silent-rules \
+	./configure --build=$(BUILD) --host=$(HOST) $(SILENTRULES) \
 		--enable-static --disable-shared --with-pic --with-jpeg8
 
 $(turbodir)/configure:

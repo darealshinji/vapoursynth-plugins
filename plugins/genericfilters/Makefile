@@ -1,5 +1,5 @@
 
-LIB = libgenericfilters.so
+LIBNAME = genericfilters
 
 local_CFLAGS = -Wno-unused-function -DUSE_X86_INTRINSICS \
 	-Isrc/alone -Isrc/common -Isrc/convolution -Isrc/neighbors -Isrc/specific

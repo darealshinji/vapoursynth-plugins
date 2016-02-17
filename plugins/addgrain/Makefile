@@ -1,5 +1,5 @@
 
-LIB = libaddgrain.so
+LIBNAME = addgrain
 
 include ../../cxx.inc
 

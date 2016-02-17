@@ -1,7 +1,7 @@
 include ../../config.mak
 
 ifeq ($(HAVE_OPENCL),yes)
-LIB = libknlmeanscl.so
+LIBNAME = knlmeanscl
 
 local_CXXFLAGS = $(CL_CFLAGS)
 LIBADD = $(CL_LIBS)

@@ -1,7 +1,7 @@
 include ../../config.mak
 
 ifeq ($(HAVE_SNDFILE),yes)
-LIB = libdamb.so
+LIBNAME = damb
 LIBADD = -lsndfile
 endif
 

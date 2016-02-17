@@ -1,5 +1,5 @@
 
-LIB = libtdeintmod.so
+LIBNAME = tdeintmod
 
 include ../../cxx.inc
 

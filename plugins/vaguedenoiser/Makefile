@@ -1,5 +1,5 @@
 
-LIB = libvaguedenoiser.so
+LIBNAME = vaguedenoiser
 
 include ../../cxx.inc
 

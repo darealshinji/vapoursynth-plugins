@@ -1,5 +1,5 @@
 
-LIB = libbilateral.so
+LIBNAME = bilateral
 
 include ../../cxx.inc
 

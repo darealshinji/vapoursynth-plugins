@@ -1,5 +1,5 @@
 
-LIB = libdctfilter.so
+LIBNAME = dctfilter
 LIBADD = -lm
 
 include ../../cc.inc

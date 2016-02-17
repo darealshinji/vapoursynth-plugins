@@ -1,5 +1,5 @@
 
-LIB = libscrawl.so
+LIBNAME = scrawl
 
 include ../../cxx.inc
 

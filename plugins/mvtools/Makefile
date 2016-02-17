@@ -3,7 +3,7 @@ include ../../config.mak
 ifeq ($(HAVE_YASM),yes)
 ifeq ($(HAVE_FFTW3F),yes)
 
-LIB = libmvtools.so
+LIBNAME = mvtools
 LIBADD = -lfftw3f
 
 VSASFLAGS = -Dprivate_prefix=mvtools -DHIGH_BIT_DEPTH=0 -DBIT_DEPTH=8 -f elf

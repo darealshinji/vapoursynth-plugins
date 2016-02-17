@@ -17,12 +17,13 @@ verbose = V=0
 ffverbose = 
 endif
 
-LIB = liblsmashsource.so
+LIBNAME = lsmashsource
+LIB = $(LIBNAME).so
 
 
 all: $(LIB)
 
-liblsmashsource.so: libs/lib/lsmash_stamp libs/lib/ffmpeg_stamp
+$(LIB): libs/lib/lsmash_stamp libs/lib/ffmpeg_stamp
 	$(MAKE) -f lsmashsource.mk $(verbose)
 
 libs/lib/lsmash_stamp: lsmash/config.mak

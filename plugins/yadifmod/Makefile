@@ -1,5 +1,5 @@
 
-LIB = libyadifmod.so
+LIBNAME = yadifmod
 
 include ../../cxx.inc
 

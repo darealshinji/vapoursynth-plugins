@@ -1,5 +1,5 @@
 
-LIB = libvideoscope.so
+LIBNAME = videoscope
 
 include ../../cc.inc
 
