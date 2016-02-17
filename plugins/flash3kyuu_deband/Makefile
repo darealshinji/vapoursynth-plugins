@@ -1,11 +1,11 @@
-include ../config.mak
+include ../../config.mak
 
 ifeq ($(HAVE_X86_64),yes)
 LIB = libf3kdb.so
 local_CXXFLAGS = -Isrc/include -DHAVE_ALIGNAS=1
 endif
 
-include ../global.inc
+include ../../global.inc
 
 CXXSRCS = \
 	src/auto_utils.cpp \

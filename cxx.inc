@@ -1,5 +1,5 @@
 
-include ../global.inc
+include ../../global.inc
 
 ifeq ($(HAVE_YASM),yes)
 ifneq ($(NOASM),yes)

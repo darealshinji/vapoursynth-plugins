@@ -1,4 +1,4 @@
-include ../config.mak
+include ../../config.mak
 
 ifeq ($(HAVE_AVCODEC),yes)
 ifeq ($(HAVE_AVUTIL),yes)
@@ -34,7 +34,7 @@ endif
 endif #FFMS2
 
 
-include ../global.inc
+include ../../global.inc
 
 CXXSRCS = \
 	src/src/core/audiosource.cpp \

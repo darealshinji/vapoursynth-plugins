@@ -1,4 +1,4 @@
-include ../config.mak
+include ../../config.mak
 
 MAKE = make
 OPTFLAGS = -O2

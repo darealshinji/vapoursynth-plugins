@@ -1,4 +1,4 @@
-include ../config.mak
+include ../../config.mak
 
 ifeq ($(HAVE_OPENCV),yes)
 LIB  = libwaifu2x-w2xc.so
@@ -17,5 +17,5 @@ endif
 clean-local:
 	$(MAKE) -C w2xc clean
 
-include ../cxx.inc
+include ../../cxx.inc
 

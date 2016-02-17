@@ -29,7 +29,8 @@ AX_CXX_COMPILE_STDCXX_11([noext],[mandatory])
 # architecture
 AS_CASE([$host_cpu],
         [i?86], [have_i686="yes" bits="32"],
-        [x86_64], [have_x86_64="yes" bits="64"])
+        [x86_64], [have_x86_64="yes" bits="64"],
+        AC_MSG_ERROR([your CPU is currently not supported by this buildsystem: $host_cpu]))
 AS_IF([test "x$have_i686" = "xyes"],   [AC_SUBST([HAVE_I686], [yes])])
 AS_IF([test "x$have_x86_64" = "xyes"], [AC_SUBST([HAVE_X86_64], [yes])])
 AS_IF([test $build != $host], [

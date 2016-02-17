@@ -1,4 +1,4 @@
 
 LIB = libretinex.so
 
-include ../cxx.inc
+include ../../cxx.inc

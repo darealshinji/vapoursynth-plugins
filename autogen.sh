@@ -14,25 +14,25 @@ autogen () {
 	echo "copy needed files to include/build-aux"
 	automake --add-missing --copy 2>/dev/null >/dev/null
 
-	echo "running autoreconf on imagereader/libjpeg-turbo"
-	autoreconf --install imagereader/libjpeg-turbo 2>/dev/null >/dev/null
+	echo "running autoreconf on plugins/imagereader/libjpeg-turbo"
+	autoreconf --install plugins/imagereader/libjpeg-turbo 2>/dev/null >/dev/null
 
-	if [ ! -d ffms2/src ]; then
+	if [ ! -d plugins/ffms2/src ]; then
 		type git >/dev/null 2>&1 || { echo >&2 "Cannot find \`git'.  Aborting."; exit 1; }
-		echo "cloning ffms2 sources into ffms2/src"
-		git clone -q --depth 1 "https://github.com/FFMS/ffms2.git" ffms2/src
+		echo "cloning ffms2 sources into plugins/ffms2/src"
+		git clone -q --depth 1 "https://github.com/FFMS/ffms2.git" plugins/ffms2/src
 		rm -rf ffms2/src/.git
 	fi
 
-	if [ ! -d lsmashsource/ffmpeg ]; then
+	if [ ! -d plugins/lsmashsource/ffmpeg ]; then
 		type git >/dev/null 2>&1 || { echo >&2 "Cannot find \`git'.  Aborting."; exit 1; }
-		echo "cloning ffmpeg sources into lsmashsource/ffmpeg"
-		git clone -q --depth 1 "git://source.ffmpeg.org/ffmpeg.git" lsmashsource/ffmpeg
-		rm -rf lsmashsource/ffmpeg/.git
+		echo "cloning ffmpeg sources into plugins/lsmashsource/ffmpeg"
+		git clone -q --depth 1 "git://source.ffmpeg.org/ffmpeg.git" plugins/lsmashsource/ffmpeg
+		rm -rf plugins/lsmashsource/ffmpeg/.git
 	fi
 }
 
-forcedelete="ffms2/src/ lsmashsource/ffmpeg/"
+forcedelete="plugins/ffms2/src/ plugins/lsmashsource/ffmpeg/"
 
 cleanscript="autogen-cleanup.sh"
 

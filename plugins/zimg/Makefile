@@ -3,7 +3,7 @@ LIB = libzimg.so
 $(LIB): src/vszimg/vszimg.o
 local_CXXFLAGS = -Wno-missing-field-initializers -Isrc/API
 
-include ../global.inc
+include ../../global.inc
 
 CXXSRCS = src/API/zimg.cpp \
 		src/Colorspace/colorspace.cpp \

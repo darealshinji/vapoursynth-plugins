@@ -1,4 +1,4 @@
-include ../config.mak
+include ../../config.mak
 
 ifeq ($(HAVE_YASM),yes)
 ifeq ($(HAVE_FFTW3F),yes)
@@ -21,5 +21,5 @@ endif
 endif #HAVE_FFTW3F
 endif #HAVE_YASM
 
-include ../cxx.inc
+include ../../cxx.inc
 

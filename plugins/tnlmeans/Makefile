@@ -1,4 +1,4 @@
 
 LIB = libtnlmeans.so
 
-include ../cxx.inc
+include ../../cxx.inc

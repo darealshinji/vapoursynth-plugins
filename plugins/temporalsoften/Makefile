@@ -1,5 +1,5 @@
 
 LIB = libtemporalsoften.so
 
-include ../cc.inc
+include ../../cc.inc
 

@@ -1,5 +1,5 @@
 
 LIB = libtdeintmod.so
 
-include ../cxx.inc
+include ../../cxx.inc
 

@@ -1,5 +1,5 @@
 
 LIB = libdeblock.so
 
-include ../cxx.inc
+include ../../cxx.inc
 

@@ -1,4 +1,4 @@
-include ../config.mak
+include ../../config.mak
 
 ifeq ($(HAVE_NASM),yes)
 ifeq ($(HAVE_YASM),yes)

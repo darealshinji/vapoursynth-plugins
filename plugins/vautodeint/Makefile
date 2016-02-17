@@ -3,5 +3,5 @@ LIB = libvautodeint.so
 
 local_CFLAGS = -Wno-parentheses
 
-include ../cc.inc
+include ../../cc.inc
 

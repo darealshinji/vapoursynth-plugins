@@ -1,4 +1,4 @@
-include ../config.mak
+include ../../config.mak
 
 PACKAGE_VERSION = 7
 
@@ -20,5 +20,5 @@ endif
 
 endif #HAVE_YASM
 
-include ../cxx.inc
+include ../../cxx.inc
 

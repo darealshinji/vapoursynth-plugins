@@ -1,5 +1,5 @@
 
 LIB = liblogo.so
 
-include ../cxx.inc
+include ../../cxx.inc
 

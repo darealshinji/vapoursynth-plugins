@@ -1,4 +1,4 @@
-include ../config.mak
+include ../../config.mak
 
 LIB = libfluxsmooth.so
 
@@ -17,5 +17,5 @@ ifeq ($(HAVE_I686),yes)
 NOASM = yes
 endif
 
-include ../cc.inc
+include ../../cc.inc
 

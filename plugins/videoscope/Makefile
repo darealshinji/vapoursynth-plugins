@@ -1,5 +1,5 @@
 
 LIB = libvideoscope.so
 
-include ../cc.inc
+include ../../cc.inc
 

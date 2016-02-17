@@ -1,5 +1,5 @@
 
 LIB = libconvo2d.so
 
-include ../cc.inc
+include ../../cc.inc
 

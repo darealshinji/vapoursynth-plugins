@@ -1,5 +1,5 @@
 
 LIB = libbilateral.so
 
-include ../cxx.inc
+include ../../cxx.inc
 

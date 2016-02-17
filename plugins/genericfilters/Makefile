@@ -6,7 +6,7 @@ local_CFLAGS = -Wno-unused-function -DUSE_X86_INTRINSICS \
 
 LIBADD = -lm
 
-include ../global.inc
+include ../../global.inc
 
 CSRCS = \
 	src/alone/alone.c \

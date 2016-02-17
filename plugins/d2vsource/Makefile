@@ -1,4 +1,4 @@
-include ../config.mak
+include ../../config.mak
 
 ifeq ($(HAVE_AVCODEC),yes)
 ifeq ($(HAVE_AVFORMAT),yes)
@@ -12,5 +12,5 @@ endif
 endif
 endif
 
-include ../cxx.inc
+include ../../cxx.inc
 

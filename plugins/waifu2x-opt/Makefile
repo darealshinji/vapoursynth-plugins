@@ -22,5 +22,5 @@ $(ZIMG):
 	$(AR_silent)ar cru $@ ../zimg/src/*/*.o
 	$(RANLIB_silent)ranlib $@
 
-include ../cxx.inc
+include ../../cxx.inc
 

@@ -1,5 +1,5 @@
 
 LIB = libfieldhint.so
 
-include ../cc.inc
+include ../../cc.inc
 

@@ -1,4 +1,4 @@
-include ../config.mak
+include ../../config.mak
 
 ifeq ($(HAVE_FFTW3F),yes)
 ifeq ($(HAVE_FFTW3F_NEWER),yes)
@@ -8,5 +8,5 @@ LIBADD = -lfftw3f
 endif
 endif
 
-include ../cxx.inc
+include ../../cxx.inc
 

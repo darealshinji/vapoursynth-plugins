@@ -1,5 +1,5 @@
 
 LIB = libbifrost.so
 
-include ../cc.inc
+include ../../cc.inc
 

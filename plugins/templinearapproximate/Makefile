@@ -2,5 +2,5 @@
 LIB = libtemplinearapproximate.so
 LIBADD = -lm
 
-include ../cc.inc
+include ../../cc.inc
 
