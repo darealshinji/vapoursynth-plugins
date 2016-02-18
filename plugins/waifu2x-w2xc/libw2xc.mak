@@ -8,11 +8,12 @@ CC_silent     = @ echo '  CC       '$@;
 AR_silent     = @ echo '  AR       '$@;
 endif
 
-d = waifu2x/
+d = libw2xc/
 
 CPPFLAGS += -DBUILD_TS=\"\" -DHAVE_OPENCV -DX86OPT -Dw2xc_EXPORTS -DPIC
 CXXFLAGS += -Wno-unused-result
-CXXFLAGS += -std=gnu++11 -fPIC -Iwaifu2x -I$(d)src -I$(d)include -I/usr/include/opencv
+CXXFLAGS += -std=gnu++11 -fPIC -fopenmp
+CXXFLAGS += -Iwaifu2x -I$(d) -I$(d)src -I$(d)include -I/usr/include/opencv
 
 SRCS = $(d)src/modelHandler.cpp \
 	$(d)src/modelHandler_avx.cpp \
