@@ -50,8 +50,8 @@ void zimg_set_cpu(int cpu);
 
 #define ZIMG_PIXEL_BYTE  0 /* Unsigned integer, one byte per sample. */
 #define ZIMG_PIXEL_WORD  1 /* Unsigned integer, two bytes per sample. */
-#define ZIMG_PIXEL_HALF  2 /* IEEE-756 half precision (binary16). */
-#define ZIMG_PIXEL_FLOAT 3 /* IEEE-756 single precision (binary32). */
+#define ZIMG_PIXEL_HALF  2 /* IEEE-754 half precision (binary16). */
+#define ZIMG_PIXEL_FLOAT 3 /* IEEE-754 single precision (binary32). */
 
 
 /* Chosen to match ITU-T H.264 and H.265 */
@@ -65,8 +65,8 @@ void zimg_set_cpu(int cpu);
 #define ZIMG_TRANSFER_709      1
 #define ZIMG_TRANSFER_601      6 /* Equivalent to 1. */
 #define ZIMG_TRANSFER_LINEAR   8
-#define ZIMG_TRANSFER_2020_10 14 /* The Rec.709 curve is used for both 2020 10-bit and 12-bit. */
-#define ZIMG_TRANSFER_2020_12 15
+#define ZIMG_TRANSFER_2020_10 14 /* Equivalent to 1. */
+#define ZIMG_TRANSFER_2020_12 15 /* Equivalent to 1. */
 
 #define ZIMG_PRIMARIES_709     1
 #define ZIMG_PRIMARIES_170M    6

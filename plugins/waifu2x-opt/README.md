@@ -4,11 +4,13 @@ Copyright© 2015 mawen1250
 
 waifu2x image super-resolution/denoise filter for VapourSynth, based on the waifu2x-opt library
 
+This plugin is deprecated, use [VapourSynth-Waifu2x-w2xc](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Waifu2x-w2xc) or [VapourSynth-Waifu2x-caffe](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Waifu2x-caffe) instead.
+
 ## Description
 
 It's a high quality image restoration filter for anime, mainly for super-resolution, also contains 2 denoising modes.
 
-This plugin employs [waifu2x-opt library](https://github.com/logicmachine/waifu2x-opt) and [zimg library](https://github.com/sekrit-twc/zimg) for scaling related stuffs. Thanks for their works!
+This plugin employs [waifu2x-opt library](https://github.com/logicmachine/waifu2x-opt) and [zimg library v1.1](https://github.com/sekrit-twc/zimg/tree/v1.1) for scaling related stuffs. Thanks for their works!
 
 Note that the waifu2x-opt is dynamic linked while the zimg is static linked.
 
