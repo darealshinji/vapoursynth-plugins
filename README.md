@@ -31,6 +31,8 @@ make
 make install
 ```
 
+Run `make install INSTALL_MODEL_WEIGHTS=0` to skip the installation of the model weights files.
+
 Ubuntu users can also use my PPA:
 ```
 sudo add-apt-repository ppa:djcj/vapoursynth

@@ -100,6 +100,7 @@ install:
 	$(INSTALL_DATA) plugins/fmtconv/doc/colorspace-subsampling.png $(DESTDIR)$(docdir)
 	$(INSTALL_DATA) plugins/fmtconv/doc/vapourdoc.css $(DESTDIR)$(docdir)
 
+ifneq ($(INSTALL_MODEL_WEIGHTS),0)
 	$(INSTALL_DATA) model-weights/nnedi3_weights.bin $(DESTDIR)$(prefix)/share/nnedi3
 
 	$(foreach DIR,anime_style_art anime_style_art_rgb photo,\
@@ -109,6 +110,7 @@ install:
 		$(INSTALL_DATA) model-weights/waifu2x-models/$(DIR)/scale2.0x_model.json $(DESTDIR)$(plugins)/models/$(DIR) $(NL))
 	$(foreach MDL,noise1_model.json noise2_model.json scale2.0x_model.json,\
 		$(LN_S) models/anime_style_art/$(MDL) $(DESTDIR)$(plugins)/$(MDL) $(NL))
+endif
 
 clean:
 	$(MAKE) -f ffmpeg.mak $@
