@@ -1,6 +1,5 @@
 include ../../config.mak
 
-ifeq ($(HAVE_ZLIB),yes)
 LIBNAME = ffms2
 local_CXXFLAGS = \
 	-Isrc/include \
@@ -14,8 +13,6 @@ local_CXXFLAGS = \
 	-Wno-missing-field-initializers
 
 LIBADD = -L../../ffmpeg_libs/lib -lavcodec -lavutil -lavformat -lswscale -lavresample -lz
-endif
-
 
 include ../../global.inc
 

@@ -3,7 +3,6 @@ include ../../config.mak
 ifeq ($(HAVE_X86_64),yes)
 LIBNAME = f3kdb
 local_CXXFLAGS = -Isrc/include -DHAVE_ALIGNAS=1
-endif
 
 include ../../global.inc
 
@@ -31,4 +30,6 @@ CXXSRCS = \
 
 $(LIB): $(CXXOBJS)
 	$(CXXLD_silent)$(CXX) $(VSLDFLAGS) -o $@ $(CXXOBJS) $(LIBS)
+
+endif #HAVE_X86_64
 

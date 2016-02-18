@@ -1,5 +1,7 @@
 include ../../config.mak
 
+ifeq ($(HAVE_ZLIB),yes)
+
 MAKE = make
 
 ifeq ($(V), 1)
@@ -22,4 +24,6 @@ $(LIB): ../../ffmpeg_libs/lib/ffmpeg_stamp
 
 clean distclean:
 	$(MAKE) -f $(LIBNAME).mak $@ $(verbose)
+
+endif
 
