@@ -21,7 +21,7 @@ autogen () {
 		type git >/dev/null 2>&1 || { echo >&2 "Cannot find \`git'.  Aborting."; exit 1; }
 		echo "cloning ffms2 sources into plugins/ffms2/src"
 		git clone -q --depth 1 "https://github.com/FFMS/ffms2.git" plugins/ffms2/src
-		rm -rf ffms2/src/.git
+		rm -rf plugins/ffms2/src/.git
 	fi
 
 	if [ ! -d ffmpeg ]; then
