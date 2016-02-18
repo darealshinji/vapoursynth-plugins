@@ -16,11 +16,11 @@ override_dh_autoreconf:
 
 override_dh_auto_clean:
 	touch config.mak
-	dh_auto_clean -- autoclean
+	dh_auto_clean -- distclean
+	rm -f config.mak
 
-override_dh_install:
-	dh_install -pvapoursynth-extra-plugins -Xnnedi3_weights.bin -X.json
-	dh_install --remaining-packages
+override_dh_auto_install:
+	install DESTDIR=$(CURDIR)/debian/tmp INSTALL_MODEL_WEIGHTS=0
 
 override_dh_link:
 	sed 's/@DEB_HOST_MULTIARCH@/$(DEB_HOST_MULTIARCH)/g' \

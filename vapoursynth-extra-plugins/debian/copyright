@@ -1,7 +1,7 @@
 Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Source: https://github.com/darealshinji/vapoursynth-plugins
 
-Files: addgrain/*
+Files: plugins/addgrain/*
 Copyright: 2002 Tom Barry
            2006-2010 Foxyshadis <foxyshadis@hotmail.com>
            2010-2012 Firesledge
@@ -9,154 +9,145 @@ Copyright: 2002 Tom Barry
            2014 HolyWu
 License: GPL-2+
 
-Files: adjust/*
+Files: plugins/adjust/*
 Copyright: 2015 dubhater
 License: WTFPL
 
-Files: awarpsharp2/*
+Files: plugins/awarpsharp2/*
 Copyright: 2015 dubhater
 License: ISC
 
-Files: bifrost/*
+Files: plugins/bifrost/*
 Copyright: 2013-2014 dubhater
            2007 Fredrik Mellbin
 License: WTFPL
 
-Files: bilateral/*
+Files: plugins/bilateral/*
        bm3d/*
        retinex/*
        waifu2x-opt/src/*
-Copyright: 2014-2015 mawen1250
+Copyright: 2014-2016 mawen1250
 License: GPL-3+
 
-Files: ctmf/*
+Files: plugins/ctmf/*
 Copyright: 2006 Simon Perreault
            2014 HolyWu
 License: GPL-2+
 
-Files: combmask/*
-       convo2d/*
-       imagereader/*
-       rawsource/*
-       scenechange/*
-       temporalsoften2/*
+Files: plugins/combmask/*
+       plugins/convo2d/*
+       plugins/imagereader/*
+       plugins/rawsource/*
+       plugins/scenechange/*
+       plugins/temporalsoften2/*
 Copyright: 2012-2013, 2015 Oka Motofumi
 License: LGPL-2.1
 
-Files: d2vsource/*
+Files: plugins/d2vsource/*
 Copyright: 2012-2014 Derek Buitenhuis
 License: LGPL-2.1
 
-Files: deblock/*
+Files: plugins/deblock/*
 Copyright: 2004 Manao
            2006 Alexander Balakhnin
            2014 HolyWu
 License: GPL-2+
 
-Files: delogo/*
+Files: plugins/delogo/*
 Copyright: 2003 MakKi
            2014-2015 msg7086
 License: GPL-2+
 
-Files: dfttest/*
+Files: plugins/dfttest/*
 Copyright: 2015 HolyWu
 License: GPL-2+
 
-Files: eedi2/*
+Files: plugins/eedi2/*
 Copyright: 2005-2006 Kevin Eliot Stone <kes25c@mail.missouri.edu>
            2014-2015 HolyWu
 License: GPL-2+
 
-Files: ffms2/*
-Copyright: 2007-2015 Fredrik Mellbin
+Files: plugins/ffms2/*
+Copyright: 2007-2016 Fredrik Mellbin
 License: MIT
 
-Files: fft3dfilter/src/fft3dfilter_c.cpp
+Files: plugins/fft3dfilter/src/fft3dfilter_c.cpp
 Copyright: 2004-2006 A.G.Balakhnin aka Fizick <bag@hotmail.ru>
 License: GPL-2
 
-Files: fft3dfilter/src/FFT3DFilter.*
+Files: plugins/fft3dfilter/src/FFT3DFilter.*
 Copyright: 2004-2006 A.G.Balakhnin aka Fizick <bag@hotmail.ru>
            2015 Yusuke Nakamura <muken.the.vfrmaniac@gmail.com>
 License: GPL-2
 
-Files: fft3dfilter/src/info.h
+Files: plugins/fft3dfilter/src/info.h
 Copyright: 2002 thejam79
            2003 minamina
 License: GPL-2+
 
-Files: fft3dfilter/src/Plugin.cpp
-       reduceflicker/src/Plugin.cpp
-       tnlmeans/src/AlignedMemory.*
-       tnlmeans/src/Plugin.cpp
+Files: plugins/fft3dfilter/src/Plugin.cpp
+       plugins/reduceflicker/src/Plugin.cpp
+       plugins/tnlmeans/src/AlignedMemory.*
+       plugins/tnlmeans/src/Plugin.cpp
 Copyright: 2015 Yusuke Nakamura <muken.the.vfrmaniac@gmail.com>
 License: ISC
 
-Files: fieldhint/*
+Files: plugins/fieldhint/*
 Copyright: 2004 Loren Merritt
            2013-2015 dubhater
 License: GPL-2+
 
-Files: flash3kyuu_deband/*
+Files: plugins/flash3kyuu_deband/*
 Copyright: 2011-2014 Joe Hu <i@sapika.ch>
 License: GPL-3+
 
-Files: fluxsmooth/*
+Files: plugins/fluxsmooth/*
 Copyright: none
 License: public-domain
  The original FluxSmooth author said: "There is no copyright on this code, and
  there are no conditions on its distribution or use. Do with it what you will."
 
-Files: fmtconv/*
+Files: plugins/fmtconv/*
 Copyright: 2012-2015 cretindesalpes
 License: WTFPL
 
-Files: genericfilters/*
+Files: plugins/genericfilters/*
 Copyright: 2012-2013, 2015 Oka Motofumi
            2013-2015 Fredrik Mellbin
 License: LGPL-2.1
 
-Files: it/*
+Files: plugins/it/*
 Copyright: 2002 thejam79
            2003 minamina
            2014 msg7086
 License: GPL-2+
 
-Files: histogram/*
-       msmoosh/*
-       mvtools/*
-       nnedi3/*
-       tcomb/*
-       wwxd/*
+Files: plugins/plugins/histogram/*
+       plugins/msmoosh/*
+       plugins/mvtools/*
+       plugins/nnedi3/*
+       plugins/tcomb/*
+       plugins/wwxd/*
 Copyright: 2012-2016 dubhater
 License: GPL-2+
 
-Files: knlmeanscl/*
+Files: plugins/knlmeanscl/*
 Copyright: 2014-2015 Edoardo "Khanattila" Brunetti
 License: GPL-3+
 
-Files: lsmashsource/ffmpeg/*
-Copyright: 2000-2015 FFmpeg maintainers
-License: LGPL-2.1
-Comment:
- Some other files have MIT/X11/BSD-style licenses. In combination the LGPL v2.1+
- applies to FFmpeg.
- Some optional parts of FFmpeg are licensed under the GNU General Public
- License version 2 or later (GPL v2+).
-
-Files: lsmashsource/*
-Copyright: 2010-2015 L-SMASH project
+Files: plugins/lsmashsource/*
+Copyright: 2010-2016 L-SMASH project
 License: ISC
 Comment:
  The plugin will be linked against static FFmpeg libraries, so the resulting
  binary will be LGPL-2.1.
 
-Files: nnedi3/src/nnedi3.c
+Files: plugins/nnedi3/src/nnedi3.c
 Copyright: 2010-2011 Kevin Eliot Stone <kes25c@mail.missouri.edu>
            2014 dubhater
 License: GPL-2+
 
-Files: nnedi3/src/nnedi3_weights.bin
+Files: plugins/nnedi3/src/nnedi3_weights.bin
 Copyright: none
 License: public-domain
  This file isn't under any license, you can do whatever you want with it.
@@ -164,120 +155,121 @@ Comment:
  This file was created by Kevin Eliot Stone <kes25c@mail.missouri.edu>.
  He doesn't claim any copyright.
 
-Files: reduceflicker/*
+Files: plugins/reduceflicker/*
 Copyright: 2005 Rainer Wittmann <gorw@gmx.de>
            2015 Yusuke Nakamura <muken.the.vfrmaniac@gmail.com>
 License: GPL-2+
 
-Files: sangnommod/*
+Files: plugins/sangnommod/*
 Copyright: 2014 msg7086
 License: GPL-2+
 
-Files: damb/*
-       fillborsers/*
-       scrawl/*
-       videoscope/*
+Files: plugins/damb/*
+       plugins/fillborsers/*
+       plugins/scrawl/*
+       plugins/videoscope/*
 Copyright: 2013-2014 dubhater
 License: WTFPL
 
-Files: scrawl/src/ter-116n.h
+Files: plugins/scrawl/src/ter-116n.h
 Copyright: 2012 Dimitar Toshkov Zhekov
 License: OFL
 
-Files: scxvid/*
+Files: plugins/scxvid/*
 Copyright: Fredrik Mellbin
            2012-2014 dubhater
 License: GPL-2+
 
-Files: ssiq/*
+Files: plugins/ssiq/*
 Copyright: 1999-2000 Donald A. Graft
            2002 Tim Park
            2007 Fredrik Mellbin
            2013 dubhater
 License: GPL-2+
 
-Files: tc2cfr/*
+Files: plugins/tc2cfr/*
 Copyright: 2013 Li Yonggang <gnaggnoyil@gmail.com>
 License: BSD-2-clause
 
-Files: tcanny/*
+Files: plugins/tcanny/*
 Copyright: 2009 Kevin Eliot Stone <kes25c@mail.missouri.edu>
            2015 HolyWu
 License: GPL-2+
 
-Files: tdeintmod/*
+Files: plugins/tdeintmod/*
 Copyright: 2004-2007 Kevin Eliot Stone <kes25c@mail.missouri.edu>
            2014-2015 HolyWu
 License: GPL-2+
 
-Files: temporalsoften/*
+Files: plugins/temporalsoften/*
 Copyright: 2002 Ben Rudiak-Gould et al.
            2012-2013 dubhater
 License: GPL-2+ with linking exception
 
-Files: tnlmeans/src/TNLMeans.*
+Files: plugins/tnlmeans/src/TNLMeans.*
 Copyright: 2006-2007 Kevin Eliot Stone <kes25c@mail.missouri.edu>
            2015 Yusuke Nakamura <muken.the.vfrmaniac@gmail.com>
 License: GPL-2+
 
-Files: dctfilter/*
-       templinearapproximate/*
+Files: plugins/dctfilter/*
+       plugins/templinearapproximate/*
 Copyright: 2014 Aleksey Lyashin <mystkeeper@gmail.com>
 License: MIT
 
-Files: vaguedenoiser/*
+Files: plugins/vaguedenoiser/*
 Copyright: 2015 HolyWu
 License: GPL-2+
 
-Files: vautodeint/*
+Files: plugins/vautodeint/*
 Copyright: 2013 Acfun
            2013 Li Yonggang <gnaggnoyil@gmail.com>
 License: GPL-3+
 
-Files: waifu2x-models/*
+Files: plugins/waifu2x-models/*
 Copyright: 2015 nagadomi <nagadomi@nurs.or.jp>
 License: MIT
 
-Files: waifu2x-opt/waifu2x-opt/*
+Files: plugins/waifu2x-opt/waifu2x-opt/*
 Copyright: 2015 nagadomi <nagadomi@nurs.or.jp>
            2015 Takaaki Hiragushi
 License: MIT
 
-Files: waifu2x-opt/waifu2x-opt/common/picojson.h
+Files: plugins/waifu2x-opt/waifu2x-opt/common/picojson.h
 Copyright: 2009-2010 Cybozu Labs, Inc.
            2011-2014 Kazuho Oku
 License: BSD-2-clause
 
-Files: waifu2x-w2xc/*
+Files: plugins/waifu2x-w2xc/*
 Copyright: 2015-2016 HolyWu
 License: MIT
 
-Files: waifu2x-w2xc/w2xc/*
-Copyright: 2015 amigo(white luckers) <white.luckers@gmail.com>
+Files: plugins/waifu2x-w2xc/waifu2x/*
+Copyright: 2015-2016 amigo(white luckers) <white.luckers@gmail.com>
 License: MIT
 
-Files: waifu2x-w2xc/include/picojson.h
+Files: plugins/waifu2x-w2xc/include/picojson.h
 Copyright: 2009-2010 Cybozu Labs, Inc.
            2011-2015 Kazuho Oku
 License: BSD-2-Clause
 
-Files: waifu2x-w2xc/w2xc/include/tclap/*
+Files: plugins/waifu2x-w2xc/w2xc/include/tclap/*
 Copyright: 2003 Michael E. Smoot
 License: MIT
 
-Files: yadifmod/*
+Files: plugins/yadifmod/*
 Copyright: 2007 Kevin Eliot Stone <kes25c@mail.missouri.edu>
            2007 Alexander G. Balakhnin
            2006 Michael Niedermayer <michaelni@gmx.at>
            2014-2015 HolyWu
 License: GPL-2+
 
-Files: zimg/*
+Files: plugins/zimg/*
+       plugins/waifu2x-opt/libzimg/*
 Copyright: 2013-2014 dubhater
            2013-2014 Stephen R. Savage
 License: WTFPL
 
-Files: imagereader/libjpeg-turbo/*
+Files: plugins/imagereader/libjpeg-turbo/*
 Copyright: 1999-2006 MIYASAKA Masaru
            2004 Landmark Graphics Corporation
            2005-2007 Sun Microsystems, Inc.
@@ -289,7 +281,7 @@ Copyright: 1999-2006 MIYASAKA Masaru
            2010 Nokia Corporation
 License: JPEG
 
-Files: imagereader/libjpeg-turbo/md5/md5.*
+Files: plugins/imagereader/libjpeg-turbo/md5/md5.*
 Copyright: 1991-2, RSA Data Security, Inc.
 License: rsa-md5
 
@@ -320,7 +312,7 @@ License: public-domain
  in any jurisdiction.
 
 Files: include/asm/include/x86inc.asm
-       mvtools/src/asm/include/x86inc.asm
+       plugins/mvtools/src/asm/include/x86inc.asm
 Copyright: 2005-2015 x264 project
            Loren Merritt <lorenm@u.washington.edu>
            Anton Mitrofanov <BugMaster@narod.ru>
@@ -329,7 +321,7 @@ Copyright: 2005-2015 x264 project
 License: ISC
 
 Files: include/asm/include/x86util.asm
-       mvtools/src/asm/include/x86util.asm
+       plugins/mvtools/src/asm/include/x86util.asm
 Copyright: 2008-2015 x264 project
            Holger Lubitz <holger@lubitz.org>
            Loren Merritt <lorenm@u.washington.edu>
@@ -337,7 +329,7 @@ License: GPL-2+
 
 Files: include/vapoursynth/VapourSynth.h
        include/vapoursynth/VSScript.h
-Copyright: 2012-2015 Fredrik Mellbin
+Copyright: 2012-2016 Fredrik Mellbin
 License: LGPL-2.1
 
 Files: include/vapoursynth/VSHelper.h
@@ -347,6 +339,15 @@ License: WTFPL
 Files: include/vectorclass/*
 Copyright: 2012-2015 Agner Fog
 License: GPL-3+
+
+Files: ffmpeg/*
+Copyright: 2000-2016 FFmpeg maintainers
+License: LGPL-2.1
+Comment:
+ Some other files have MIT/X11/BSD-style licenses. In combination the LGPL v2.1+
+ applies to FFmpeg.
+ Some optional parts of FFmpeg are licensed under the GNU General Public
+ License version 2 or later (GPL v2+).
 
 Files: debian/*
        *

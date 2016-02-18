@@ -4,14 +4,7 @@ Priority: optional
 Maintainer: Marshall Banana <djcj@gmx.de>
 Build-Depends:
  debhelper (>= 9),
- dh-autoreconf,
- libavcodec-dev,
- libavformat-dev,
- libavresample-dev,
- libavutil-dev,
- libswscale-dev,
  libfftw3-dev,
- libjpeg-dev,
  libpng12-dev,
  libsndfile1-dev,
  libxvidcore-dev,

@@ -1,5 +1,16 @@
 vapoursynth-extra-plugins (20151211-1~wily) wily; urgency=low
 
+  * Updates: BM3D, d2vsource, DeLogo, KNLMeansCL, mvtools, nnedi3, waifu2x-opt,
+    waifu2x-w2xc, mvsfunc, havsfunc, vsTAAmbk
+  * New plugin: lsmashsource
+  * imagereader: update libjpeg-turbo to v1.4.2
+  * Use embedded jpeg-turbo and ffmpeg libs to avoid possible compatibility
+    issues
+
+ -- Marshall Banana <djcj@gmx.de>  Thu, 18 Feb 2016 12:53:28 +0100
+
+vapoursynth-extra-plugins (20151211-1~wily) wily; urgency=low
+
   * Updates: BM3D, mvsfunc, waifu2x-w2xc
   * Move waifu2x models to a separate source package
 
