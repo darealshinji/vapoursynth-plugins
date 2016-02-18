@@ -1,26 +1,28 @@
+include ../../config.mak
+
+MAKE = make
+
+ifeq ($(V), 1)
+verbose = V=1
+endif
 
 LIBNAME = waifu2x-opt
-ZIMG    = libzimg.a
-W2X     = waifu2x-opt/libwaifu2x.a
+LIB = $(LIBNAME).so
 
-$(LIB): $(W2X) $(ZIMG)
 
-local_CXXFLAGS = -Wno-unused-local-typedefs -Wno-return-type -Iwaifu2x-opt/include -I../zimg/src/API
-local_LDFLAGS  = -fopenmp
-LIBS = $(W2X) $(ZIMG)
+all: $(LIB)
 
-clean-local:
-	$(MAKE) -C ../zimg clean
-	$(MAKE) -C waifu2x-opt clean || true
-	rm -rf $(W2X) $(ZIMG)
+$(LIB): libwaifu2x/libwaifu2x.a libzimg/libzimg.a
+	$(MAKE) -f $(LIBNAME).mak $(verbose)
 
-$(W2X):
-	$(MAKE) -C waifu2x-opt CXXFLAGS='$(CXXFLAGS)' CPPFLAGS='$(CPPFLAGS)' LDFLAGS='$(LDFLAGS)'
+libwaifu2x/libwaifu2x.a:
+	$(MAKE) -f libwaifu2x.mak
 
-$(ZIMG):
-	$(MAKE) -C ../zimg
-	$(AR_silent)ar cru $@ ../zimg/src/*/*.o
-	$(RANLIB_silent)ranlib $@
+libzimg/libzimg.a:
+	$(MAKE) -f libzimg.mak
 
-include ../../cxx.inc
+clean distclean:
+	$(MAKE) -f libwaifu2x.mak $@ $(verbose)
+	$(MAKE) -f libzimg.mak $@ $(verbose)
+	$(MAKE) -f $(LIBNAME).mak $@ $(verbose)
 
