@@ -8,7 +8,7 @@ vapoursynth-extra-plugins (20160219-1~wily) wily; urgency=low
   * Use embedded jpeg-turbo and ffmpeg libs to avoid possible compatibility
     issues
 
- -- Marshall Banana <djcj@gmx.de>  Fri, 19 Feb 2016 09:47:08 +0100
+ -- Marshall Banana <djcj@gmx.de>  Fri, 19 Feb 2016 17:26:54 +0100
 
 vapoursynth-extra-plugins (20151211-1~wily) wily; urgency=low
 

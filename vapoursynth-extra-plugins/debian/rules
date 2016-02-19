@@ -16,7 +16,7 @@ override_dh_auto_clean:
 	rm -f config.mak
 
 override_dh_auto_install:
-	install DESTDIR=$(CURDIR)/debian/tmp INSTALL_MODEL_WEIGHTS=0
+	$(MAKE) install DESTDIR=$(CURDIR)/debian/tmp INSTALL_MODEL_WEIGHTS=0
 
 override_dh_link:
 	sed 's/@DEB_HOST_MULTIARCH@/$(DEB_HOST_MULTIARCH)/g' \

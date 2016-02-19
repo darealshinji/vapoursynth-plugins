@@ -1,0 +1,22 @@
+# upstream version requires latest ffmpeg libs
+vapoursynth-extra-plugins: embedded-library usr/lib/*-linux-gnu/vapoursynth/d2vsource.so: libavutil
+vapoursynth-extra-plugins: embedded-library usr/lib/*-linux-gnu/vapoursynth/lsmashsource.so: libavutil
+
+# if we link the other libraries against the newest ffmpeg, why not this one too?
+# this also enables support for newest codecs
+vapoursynth-extra-plugins: embedded-library usr/lib/*-linux-gnu/vapoursynth/ffms2.so: libavutil
+
+# requires libturbojpeg which is only available as static library but usually without PIC code,
+# so we need to build our own libturbojpeg.a library and to avoid incompatibilities with
+# libjpeg8 let's just link the whole jpeg library statically.
+vapoursynth-extra-plugins: embedded-library usr/lib/*-linux-gnu/vapoursynth/imagereader.so: libjpeg
+
+# caused by ffmpeg's assembler code
+vapoursynth-extra-plugins: shlib-with-non-pic-code usr/lib/i386-linux-gnu/vapoursynth/d2vsource.so
+vapoursynth-extra-plugins: shlib-with-non-pic-code usr/lib/i386-linux-gnu/vapoursynth/ffms2.so
+vapoursynth-extra-plugins: shlib-with-non-pic-code usr/lib/i386-linux-gnu/vapoursynth/lsmashsource.so
+
+# caused by assembler code
+vapoursynth-extra-plugins: shlib-with-non-pic-code usr/lib/i386-linux-gnu/vapoursynth/mvtools.so
+vapoursynth-extra-plugins: shlib-with-non-pic-code usr/lib/i386-linux-gnu/vapoursynth/nnedi3.so
+
