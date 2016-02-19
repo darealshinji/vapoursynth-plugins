@@ -7,7 +7,7 @@ autogen () {
 
 	mkdir -p include/build-aux
 
-	echo "running autoconf"; autoconf
+	echo "running autoreconf"; autoreconf -if
 	test -x configure || { echo >&2 "\`configure' was not generated.  Aborting."; exit 1; }
 
 	# use automake only to copy files
