@@ -1,5 +1,5 @@
 
-LIBNAME = logo
+LIBNAME = delogo
 
 include ../../cxx.inc
 
