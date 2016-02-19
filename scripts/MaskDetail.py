@@ -129,4 +129,4 @@ def maskDetail(clip, final_width, final_height, RGmode=3, cutoff=None,
         mask = core.rgvs.RemoveGrain(mask, mode=[12,0,0])
 
     mask = core.std.ShufflePlanes(mask, planes=0, colorfamily=vs.GRAY)
-    return core.fmtc.bitdepth(mask, bits=depth, mode=1)
+    return core.fmtc.bitdepth(mask, bits=depth, dmode=1)
