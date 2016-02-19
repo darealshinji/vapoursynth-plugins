@@ -1,12 +1,11 @@
-AR ?= ar
-$(CXX) ?= g++
+include ../../config.mak
 
 ifneq ($(V),1)
 CXX_silent    = @ echo '  CXX      '$@;
 AR_silent     = @ echo '  AR       '$@;
 endif
 
-local_CXXFLAGS  = -std=c++11 -c -Wall -Wextra -Werror=format-security -O2 -fPIC -DPIC
+local_CXXFLAGS  = -O3 -Wall -Wextra -Werror=format-security -fPIC -DPIC
 local_CXXFLAGS += -Wno-missing-field-initializers -Wno-unused-parameter -Wno-unused-but-set-parameter
 local_CXXFLAGS += -I$(d) -I$(d)API -I$(d)Colorspace -I$(d)Common -I$(d)Depth -I$(d)Resize -I$(d)Unresize
 local_CXXFLAGS += -mfpmath=sse -msse2 -DZIMG_X86 $(CXXFLAGS) $(CPPFLAGS)
@@ -59,7 +58,7 @@ clean distclean:
 $(LIB): $(OBJS)
 	$(AR_silent)$(AR) cru $@ $^
 
-%_avx2.o: CXXFLAGS+=-mavx2 -mfma -mf16c
+%_avx2.o: local_CXXFLAGS+=-mavx2 -mfma -mf16c
 
 %.o: %.cpp
 	$(CXX_silent)$(CXX) -c $(local_CXXFLAGS) -o $@ $<

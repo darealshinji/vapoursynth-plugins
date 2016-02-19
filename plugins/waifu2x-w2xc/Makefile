@@ -4,25 +4,25 @@ ifeq ($(V), 1)
 verbose = V=1
 endif
 
-LIBNAME = waifu2x-w2xc
-
-
 ifeq ($(HAVE_OPENCV),yes)
 ifeq ($(HAVE_OPENCL),yes)
-
+LIBNAME = waifu2x-w2xc
 LIB = $(LIBNAME).so
+endif
+endif
 
 
 all: $(LIB)
 
+ifeq ($(HAVE_OPENCV),yes)
+ifeq ($(HAVE_OPENCL),yes)
 $(LIB): waifu2x/libw2xc.a
 	$(MAKE) -f $(LIBNAME).mak $(verbose)
 
 waifu2x/libw2xc.a:
 	$(MAKE) -f libw2xc.mak
-
-endif #HAVE_OPENCV
-endif #HAVE_OPENCL
+endif
+endif
 
 clean distclean:
 	$(MAKE) -f libw2xc.mak $@ $(verbose)

@@ -12,11 +12,11 @@ endif #HAVE_NASM
 
 
 ifeq ($(V), 1)
-MAKE = make V=1
+verbose = V=1
 AUTORECONF = autoreconf -iv
 SILENTRULES = --disable-silent-rules
 else
-MAKE = make V=0
+verbose = V=0
 AUTORECONF = autoreconf -i
 SILENTRULES = --enable-silent-rules
 silent_config = @ echo 'CONFIGURE  turbo-jpeg';
@@ -35,16 +35,16 @@ all: $(LIB)
 ifeq ($(IMAGEREADER),yes)
 
 $(LIB): $(turbodir)/libturbojpeg.la
-	$(MAKE) -f imagereader.mk
+	$(MAKE) -f imagereader.mk $(verbose)
 
 $(turbodir)/libturbojpeg.la: $(turbodir)/libjpeg.la
-	$(MAKE) -C $(turbodir) libturbojpeg.la
+	$(MAKE) -C $(turbodir) libturbojpeg.la $(verbose)
 
 $(turbodir)/libjpeg.la: $(turbodir)/simd/libsimd.la
-	$(MAKE) -C $(turbodir) libjpeg.la
+	$(MAKE) -C $(turbodir) libjpeg.la $(verbose)
 
 $(turbodir)/simd/libsimd.la: $(turbodir)/Makefile
-	$(MAKE) -C $(turbodir)/simd
+	$(MAKE) -C $(turbodir)/simd $(verbose)
 
 $(turbodir)/Makefile: $(turbodir)/configure
 	$(silent_config)cd $(turbodir) && \
@@ -66,10 +66,10 @@ $(turbodir)/configure:
 endif #IMAGEREADER
 
 clean:
-	$(MAKE) -C $(turbodir) clean || true
-	$(MAKE) -f imagereader.mk clean
+	$(MAKE) -C $(turbodir) clean $(verbose) || true
+	$(MAKE) -f imagereader.mk clean $(verbose)
 
 distclean:
-	$(MAKE) -C $(turbodir) distclean || true
-	$(MAKE) -f imagereader.mk distclean
+	$(MAKE) -C $(turbodir) distclean $(verbose) || true
+	$(MAKE) -f imagereader.mk distclean $(verbose)
 

@@ -1,7 +1,5 @@
 include ../../config.mak
 
-MAKE = make
-
 ifeq ($(HAVE_X86_64),yes)
 BITS = 64
 else

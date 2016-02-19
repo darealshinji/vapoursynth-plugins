@@ -10,10 +10,12 @@ endif
 
 d = libw2xc/
 
-CPPFLAGS += -DBUILD_TS=\"\" -DHAVE_OPENCV -DX86OPT -Dw2xc_EXPORTS -DPIC
-CXXFLAGS += -Wno-unused-result
-CXXFLAGS += -std=gnu++11 -fPIC -fopenmp
-CXXFLAGS += -Iwaifu2x -I$(d) -I$(d)src -I$(d)include -I/usr/include/opencv
+local_CXXFLAGS  = -O3 -Wall -Wextra -Werror=format-security -fPIC -DPIC -fopenmp
+local_CXXFLAGS += -Wno-switch -Wno-sign-compare -Wno-maybe-uninitialized -Wno-unused-parameter
+local_CXXFLAGS += -Wno-unused-variable -Wno-unused-but-set-variable -Wno-unused-result
+local_CXXFLAGS += -DBUILD_TS=\"\" -DHAVE_OPENCV -DX86OPT -Dw2xc_EXPORTS
+local_CXXFLAGS += -Iwaifu2x -I$(d) -I$(d)src -I$(d)include -I/usr/include/opencv
+local_CXXFLAGS += $(CXXFLAGS) $(CPPFLAGS)
 
 SRCS = $(d)src/modelHandler.cpp \
 	$(d)src/modelHandler_avx.cpp \
@@ -44,11 +46,11 @@ $(d)libw2xc.a: $(OBJS)
 $(OBJS): $(d)modelHandler_OpenCL.cl.h
 
 %.o: %.cpp
-	$(CXX_silent)$(CXX) -c $(CXXFLAGS) $(CPPFLAGS) -o $@ $<
+	$(CXX_silent)$(CXX) -c $(local_CXXFLAGS) -o $@ $<
 
-$(d)src/modelHandler_avx.o: CXXFLAGS+=-mavx
-$(d)src/modelHandler_fma.o: CXXFLAGS+=-mfma
-$(d)src/modelHandler_sse.o: CXXFLAGS+=-save-temps -msse3
+$(d)src/modelHandler_avx.o: local_CXXFLAGS+=-mavx
+$(d)src/modelHandler_fma.o: local_CXXFLAGS+=-mfma
+$(d)src/modelHandler_sse.o: local_CXXFLAGS+=-save-temps -msse3
 
 $(d)modelHandler_OpenCL.cl.h: $(d)conv
 	$(GEN_silent)$< $(d)src/modelHandler_OpenCL.cl $@ str

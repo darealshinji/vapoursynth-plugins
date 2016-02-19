@@ -18,8 +18,8 @@ endif
 %.o: %.asm
 	$(asmcompile)
 
-include ../../cxx.inc
-
 endif #HAVE_FFTW3F
 endif #HAVE_YASM
+
+include ../../cxx.inc
 

@@ -17,11 +17,14 @@ AC_CANONICAL_HOST
 # programs
 AC_PROG_CXX
 AC_PROG_CC
+AC_CHECK_TOOL([AR], [ar])
+AS_IF([test "x$AR" = "x"], [exit 1])
+AC_PROG_RANLIB
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
 AX_CHECK_GNU_MAKE
-AS_IF([test "x$ax_cv_gnu_make_command" != "xmake"],
-       AC_MSG_WARN([`make' is not a GNU make command]))
+AS_IF([test "x$ax_cv_gnu_make_command" = "x"], [exit 1],
+      [AC_SUBST([MAKE], [$ax_cv_gnu_make_command])])
 AX_PROG_NASM([nasm_avail="no"])
 AX_PROG_YASM([yasm_avail="no"])
 

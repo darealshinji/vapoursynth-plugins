@@ -18,7 +18,9 @@ define asmcompile
 	$(YASM_silent)$(YASM) $(VSASFLAGS) $(ASMINC) $(ASFLAGS) -o $@ $<
 endef
 
+ifneq ($(LIBNAME),)
 LIB = $(LIBNAME).so
+endif
 
 commonflags  = -c -Wall -Wextra -Wno-unused-parameter -Wno-unused-result -Werror=format-security
 commonflags += -fPIC -fno-strict-aliasing -mfpmath=sse -msse2

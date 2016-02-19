@@ -5,7 +5,7 @@ LIBNAME = knlmeanscl
 
 local_CXXFLAGS = $(CL_CFLAGS)
 LIBADD = $(CL_LIBS)
+endif
 
 include ../../cxx.inc
-endif
 

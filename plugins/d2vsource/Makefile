@@ -1,7 +1,5 @@
 include ../../config.mak
 
-MAKE = make
-
 ifeq ($(V), 1)
 verbose = V=1
 else

@@ -1,6 +1,7 @@
 include ../../config.mak
 
 ifeq ($(HAVE_X86_64),yes)
+
 LIBNAME = f3kdb
 local_CXXFLAGS = -Isrc/include -DHAVE_ALIGNAS=1
 
@@ -30,6 +31,11 @@ CXXSRCS = \
 
 $(LIB): $(CXXOBJS)
 	$(CXXLD_silent)$(CXX) $(VSLDFLAGS) -o $@ $(CXXOBJS) $(LIBS)
+
+else #HAVE_X86_64
+
+# adds clean targets and dummy "all" target
+include ../../cxx.inc
 
 endif #HAVE_X86_64
 
