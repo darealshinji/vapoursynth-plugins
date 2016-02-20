@@ -8,6 +8,7 @@ Build-Depends:
  libpng12-dev,
  libsndfile1-dev,
  libxvidcore-dev,
+ libopencv-dev,
  ocl-icd-libopencl1,
  opencl-headers,
  nasm,
