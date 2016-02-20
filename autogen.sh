@@ -22,6 +22,8 @@ autogen () {
 		echo "cloning ffms2 sources into plugins/ffms2/src"
 		git clone -q --depth 1 "https://github.com/FFMS/ffms2.git" plugins/ffms2/src
 		rm -rf plugins/ffms2/src/.git
+		rm -f plugins/ffms2/src/src/vapoursynth/VapourSynth.h
+		rm -f plugins/ffms2/src/src/vapoursynth/VSHelper.h
 	fi
 
 	if [ ! -d ffmpeg ]; then
