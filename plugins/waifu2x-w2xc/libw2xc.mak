@@ -36,7 +36,7 @@ OBJS = $(SRCS:.cpp=.o)
 
 all: $(d)libw2xc.a
 
-clean:
+clean distclean:
 	rm -f $(d)*.a $(d)*.o $(d)src/*.o $(d)conv
 	rm -f modelHandler_sse.ii modelHandler_sse.s $(d)modelHandler_OpenCL.cl.h
 
