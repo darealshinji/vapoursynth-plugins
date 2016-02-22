@@ -49,9 +49,8 @@ ifneq ($(INSTALL_MODEL_WEIGHTS),0)
 
 	$(foreach DIR,anime_style_art anime_style_art_rgb photo,\
 		$(INSTALL) -d $(DESTDIR)$(pluginsdir)/models/$(DIR) $(NL)\
-		$(INSTALL_DATA) model-weights/waifu2x-models/$(DIR)/noise1_model.json $(DESTDIR)$(pluginsdir)/models/$(DIR) $(NL)\
-		$(INSTALL_DATA) model-weights/waifu2x-models/$(DIR)/noise2_model.json $(DESTDIR)$(pluginsdir)/models/$(DIR) $(NL)\
-		$(INSTALL_DATA) model-weights/waifu2x-models/$(DIR)/scale2.0x_model.json $(DESTDIR)$(pluginsdir)/models/$(DIR) $(NL))
+		$(foreach FILE,$(shell ls models/photo/*),
+			$(INSTALL_DATA) $(FILE) $(DESTDIR)$(pluginsdir)/models/$(DIR) $(NL)))
 	$(foreach MDL,noise1_model.json noise2_model.json scale2.0x_model.json,\
 		$(LN_S) models/anime_style_art/$(MDL) $(DESTDIR)$(pluginsdir)/$(MDL) $(NL))
 endif
