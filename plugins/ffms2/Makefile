@@ -9,9 +9,6 @@ silent_config = @ echo 'CONFIGURE  ffms2';
 silent_conf_out = >/dev/null
 endif
 
-d = ../../ffmpeg_libs/
-d2 = ../$(d)
-
 ifeq ($(HAVE_ZLIB),yes)
 LIBNAME = ffms2
 LIB = $(LIBNAME).so
@@ -32,14 +29,11 @@ $(LIB): src/src/core/.libs/libffms2.so
 src/src/core/.libs/libffms2.so: src/Makefile
 	$(MAKE) -C src src/core/libffms2.la $(verbose)
 
-src/Makefile: $(d)lib/ffmpeg_stamp
+src/Makefile:
 	$(silent_config)cd src && \
 	CXXFLAGS="$(local_CXXFLAGS)" \
 	LDFLAGS="$(local_LDFLAGS)" \
 	./configure --enable-shared --disable-static $(silent_conf_out)
-
-$(d)lib/ffmpeg_stamp:
-	$(MAKE) -C ../.. -f ffmpeg.mak
 endif
 
 clean distclean:
