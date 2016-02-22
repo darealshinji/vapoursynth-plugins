@@ -31,35 +31,20 @@ includedir = @includedir@
 oldincludedir = /usr/include
 
 
-# imagereader
 HAVE_NASM = @HAVE_NASM@
-
-# fluxsmooth, imagereader, mvtools, nnedi3, tcomd
 HAVE_YASM = @HAVE_YASM@
-
-# imagereader
 HAVE_PNG = @HAVE_PNG@
-
-# ffms2, imagereader
 HAVE_ZLIB = @HAVE_ZLIB@
-
-# damb
 HAVE_SNDFILE = @HAVE_SNDFILE@
-
-# bm3d, dfttest, fft3dfilter, mvtools
 HAVE_FFTW3F = @HAVE_FFTW3F@
-
-# bm3d
 HAVE_FFTW3F_NEWER = @HAVE_FFTW3F_NEWER@
-
-# scxvid
 HAVE_XVID = @HAVE_XVID@
-
-# knlmeanscl, waifu2x-w2xc
 HAVE_OPENCL = @HAVE_OPENCL@
-
-# waifu2x-w2xc
 HAVE_OPENCV = @HAVE_OPENCV@
+
+HDF5_LIBS = @HDF5_LIBS@
+HAVE_CUDNN_H = @HAVE_CUDNN_H@
+ENABLE_WAIFU2X_CAFFE = @ENABLE_WAIFU2X_CAFFE@
 
 
 CFLAGS = @CFLAGS@

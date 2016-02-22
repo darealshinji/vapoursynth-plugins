@@ -20,34 +20,38 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-# usage: AX_CHECK_PKG_LIB(prefix, pkg-module, library, headers)
+# usage: AX_CHECK_PKG_LIB(prefix, pkg-module, library, headers, [extra-libs])
+
 m4_define([AX_CHECK_PKG_LIB], [{
-    eval $( echo $1 )_lib_avail="no"
-    eval $( echo $1 )_headers_avail="no"
+    eval have_$( echo $1 )="no"
+    eval have_$( echo $1 )_lib="no"
+    eval have_$( echo $1 )_headers="no"
     AC_LANG_PUSH([C++])
     PKG_CHECK_MODULES([$1], [$2], [
-        eval $( echo $1 )_lib_avail="yes"
-        eval $( echo $1 )_headers_avail="yes"
+        eval have_$( echo $1 )="yes"
+        eval have_$( echo $1 )_lib="yes"
+        eval have_$( echo $1 )_headers="yes"
     ], [
         # library check
         LIBS_backup="$LIBS"
-        LIBS="-l$3"
+        LIBS="-l$3 $5"
         AC_MSG_CHECKING([for -l$3])
         AC_LINK_IFELSE([
             AC_LANG_SOURCE(
                 [[int main() { return 0; }]]
             )
         ], [AC_MSG_RESULT([yes])
-            eval $( echo $1 )_lib_avail="yes"
-        ], [AC_MSG_RESULT([no])]
-        )
+            eval have_$( echo $1 )_lib="yes"
+        ], [AC_MSG_RESULT([no])])
         LIBS="$LIBS_backup"
         # header checks
         AS_IF([test "x$4" != "x"], [
             AC_CHECK_HEADERS([$4], [
-                eval $( echo $1 )_headers_avail="yes"
+                eval have_$( echo $1 )_headers="yes"
             ])
         ])
     ])
+    AS_IF([test "x$have_${1}_headers" = "xyes" -a "x$have_${1}_lib" = "xyes"],
+          [eval have_$( echo $1 )="yes"])
     AC_LANG_POP([C++])
 }])

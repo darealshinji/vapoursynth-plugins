@@ -285,9 +285,26 @@ Files: plugins/imagereader/libjpeg-turbo/md5/md5.*
 Copyright: 1991-2, RSA Data Security, Inc.
 License: rsa-md5
 
-Files: include/ac/ax_prog_*asm.m4
-Copyright: 2007,2009 Bogdan Drozdowski <bogdandr@op.pl>
-License: LGPL-3.0 with autoconf exception
+Files: include/ac/ax_boost_base.m4
+Copyright: 2008 Thomas Porschberg <thomas@randspringer.de>
+           2009 Peter Adolphs
+License: other-1
+
+Files: include/ac/ax_boost_filesystem.m4
+Copyright: 2009 Thomas Porschberg <thomas@randspringer.de>
+           2009 Michael Tindal
+           2009 Roman Rybalko <libtorrent@romanr.info>
+License: other-1
+
+Files: include/ac/ax_boost_iostreams.m4
+Copyright: 2008 Thomas Porschberg <thomas@randspringer.de>
+License: other-1
+
+Files: include/ac/ax_boost_system.m4
+Copyright: 2008 Thomas Porschberg <thomas@randspringer.de>
+           2008 Michael Tindal
+           2008 Daniel Casimiro <dan.casimiro@gmail.com>
+License: other-1
 
 Files: include/ac/ax_check_compile_flag.m4
 Copyright: 2008 Guido U. Draheim <guidod@gmx.de>
@@ -300,10 +317,6 @@ Copyright: 2008 Benjamin Kosnik <bkoz@redhat.com>
            2013 Roy Stogner <roystgnr@ices.utexas.edu>
            2014, 2015 Google Inc.; contributed by Alexey Sokolov <sokolov@google.com>
 License: other-1
- Copying and distribution of this file, with or without modification, are
- permitted in any medium without royalty provided the copyright notice
- and this notice are preserved. This file is offered as-is, without any
- warranty.
 
 Files: include/ac/check-fftw3-version.sh
 Copyright: none
@@ -350,6 +363,8 @@ Comment:
  License version 2 or later (GPL v2+).
 
 Files: debian/*
+       include/ac/ax_check_lib_link.m4
+       include/ac/ax_check_pkg_lib.m4
        *
 Copyright: 2014-2016 djcj <djcj@gmx.de>
 License: MIT
@@ -761,4 +776,10 @@ License: rsa-md5
  .
  These notices must be retained in any copies of any part of this
  documentation and/or software.
+
+License: other-1
+ Copying and distribution of this file, with or without modification, are
+ permitted in any medium without royalty provided the copyright notice
+ and this notice are preserved. This file is offered as-is, without any
+ warranty.
 

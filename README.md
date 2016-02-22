@@ -92,6 +92,7 @@ sudo apt-get install vapoursynth-extra-plugins
 [vaguedenoiser r2](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-VagueDenoiser)<br>
 [vautodeint git20130608](https://github.com/gnaggnoyil/VAutoDeint)<br>
 [videoscope 1.0](https://github.com/dubhater/vapoursynth-videoscope)<br>
+[waifu2x-caffe r1](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Waifu2x-caffe)<br>
 [waifu2x-opt r1+20160218](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-waifu2x-opt)<br>
 [waifu2x-w2xc r5](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Waifu2x-w2xc)<br>
 [wwxd 1.0](https://github.com/dubhater/vapoursynth-wwxd)<br>
