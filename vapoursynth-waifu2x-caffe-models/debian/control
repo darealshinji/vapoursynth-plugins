@@ -1,0 +1,14 @@
+Source: vapoursynth-waifu2x-caffe-models
+Section: misc
+Priority: optional
+Maintainer: Marshall Banana <djcj@gmx.de>
+Build-Depends: debhelper (>= 9),
+Standards-Version: 3.9.5
+Homepage: https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Waifu2x-caffe/
+
+Package: vapoursynth-waifu2x-caffe-models
+Architecture: all
+Depends: ${misc:Depends}
+Recommends: libvapoursynth
+Description: model files for the waifu2x-caffe VapourSynth plugin
+ This package provides model files for the waifu2x-caffe VapourSynth plugin.
