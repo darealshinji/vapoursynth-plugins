@@ -1,10 +1,6 @@
-# upstream version requires latest ffmpeg libs
+# upstream versions require latest ffmpeg libs
 vapoursynth-extra-plugins: embedded-library usr/lib/*-linux-gnu/vapoursynth/d2vsource.so: libavutil
 vapoursynth-extra-plugins: embedded-library usr/lib/*-linux-gnu/vapoursynth/lsmashsource.so: libavutil
-
-# if we link the other libraries against the newest ffmpeg, why not this one too?
-# this also enables support for newest codecs
-vapoursynth-extra-plugins: embedded-library usr/lib/*-linux-gnu/vapoursynth/ffms2.so: libavutil
 
 # requires libturbojpeg which is only available as static library but usually without PIC code,
 # so we need to build our own libturbojpeg.a library and to avoid incompatibilities with

@@ -147,14 +147,6 @@ Copyright: 2010-2011 Kevin Eliot Stone <kes25c@mail.missouri.edu>
            2014 dubhater
 License: GPL-2+
 
-Files: plugins/nnedi3/src/nnedi3_weights.bin
-Copyright: none
-License: public-domain
- This file isn't under any license, you can do whatever you want with it.
-Comment:
- This file was created by Kevin Eliot Stone <kes25c@mail.missouri.edu>.
- He doesn't claim any copyright.
-
 Files: plugins/reduceflicker/*
 Copyright: 2005 Rainer Wittmann <gorw@gmx.de>
            2015 Yusuke Nakamura <muken.the.vfrmaniac@gmail.com>
@@ -225,10 +217,6 @@ Copyright: 2013 Acfun
            2013 Li Yonggang <gnaggnoyil@gmail.com>
 License: GPL-3+
 
-Files: plugins/waifu2x-models/*
-Copyright: 2015 nagadomi <nagadomi@nurs.or.jp>
-License: MIT
-
 Files: plugins/waifu2x-opt/waifu2x-opt/*
 Copyright: 2015 nagadomi <nagadomi@nurs.or.jp>
            2015 Takaaki Hiragushi
@@ -269,6 +257,27 @@ Copyright: 2013-2014 dubhater
            2013-2014 Stephen R. Savage
 License: WTFPL
 
+Files: plugins/waifu2x-caffe/*
+       models/*/*.caffemodel
+       models/*/srcnn.prototxt*
+Copyright: 2016 Home Of VapourSynth Evolution
+License: MIT
+
+Files: plugins/waifu2x-caffe/include/*.{c|h}
+Copyright: none
+License: public-domain
+ This software is in the public domain. Where that dedication is not
+ recognized, you are granted a perpetual, irrevocable license to copy,
+ distribute, and modify this file as you see fit.
+
+Files: plugins/waifu2x-caffe/include/rapidjson/*
+Copyright: 2015 THL A29 Limited, a Tencent company, and Milo Yip. All rights reserved.
+License: MIT
+
+Files: plugins/waifu2x-caffe/include/tclap/*
+Copyright: 2003 Michael E. Smoot
+License: MIT
+
 Files: plugins/imagereader/libjpeg-turbo/*
 Copyright: 1999-2006 MIYASAKA Masaru
            2004 Landmark Graphics Corporation
@@ -285,9 +294,38 @@ Files: plugins/imagereader/libjpeg-turbo/md5/md5.*
 Copyright: 1991-2, RSA Data Security, Inc.
 License: rsa-md5
 
-Files: include/ac/ax_prog_*asm.m4
-Copyright: 2007,2009 Bogdan Drozdowski <bogdandr@op.pl>
-License: LGPL-3.0 with autoconf exception
+Files: models/nnedi3_weights.bin
+Copyright: none
+License: public-domain
+ This file isn't under any license, you can do whatever you want with it.
+Comment:
+ This file was created by Kevin Eliot Stone <kes25c@mail.missouri.edu>.
+ He doesn't claim any copyright.
+
+Files: models/*/*.json
+Copyright: 2015 nagadomi <nagadomi@nurs.or.jp>
+License: MIT
+
+Files: include/ac/ax_boost_base.m4
+Copyright: 2008 Thomas Porschberg <thomas@randspringer.de>
+           2009 Peter Adolphs
+License: other-1
+
+Files: include/ac/ax_boost_filesystem.m4
+Copyright: 2009 Thomas Porschberg <thomas@randspringer.de>
+           2009 Michael Tindal
+           2009 Roman Rybalko <libtorrent@romanr.info>
+License: other-1
+
+Files: include/ac/ax_boost_iostreams.m4
+Copyright: 2008 Thomas Porschberg <thomas@randspringer.de>
+License: other-1
+
+Files: include/ac/ax_boost_system.m4
+Copyright: 2008 Thomas Porschberg <thomas@randspringer.de>
+           2008 Michael Tindal
+           2008 Daniel Casimiro <dan.casimiro@gmail.com>
+License: other-1
 
 Files: include/ac/ax_check_compile_flag.m4
 Copyright: 2008 Guido U. Draheim <guidod@gmx.de>
@@ -300,10 +338,6 @@ Copyright: 2008 Benjamin Kosnik <bkoz@redhat.com>
            2013 Roy Stogner <roystgnr@ices.utexas.edu>
            2014, 2015 Google Inc.; contributed by Alexey Sokolov <sokolov@google.com>
 License: other-1
- Copying and distribution of this file, with or without modification, are
- permitted in any medium without royalty provided the copyright notice
- and this notice are preserved. This file is offered as-is, without any
- warranty.
 
 Files: include/ac/check-fftw3-version.sh
 Copyright: none
@@ -350,6 +384,8 @@ Comment:
  License version 2 or later (GPL v2+).
 
 Files: debian/*
+       include/ac/ax_check_lib_link.m4
+       include/ac/ax_check_pkg_lib.m4
        *
 Copyright: 2014-2016 djcj <djcj@gmx.de>
 License: MIT
@@ -761,4 +797,10 @@ License: rsa-md5
  .
  These notices must be retained in any copies of any part of this
  documentation and/or software.
+
+License: other-1
+ Copying and distribution of this file, with or without modification, are
+ permitted in any medium without royalty provided the copyright notice
+ and this notice are preserved. This file is offered as-is, without any
+ warranty.
 

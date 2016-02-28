@@ -1,3 +1,11 @@
+vapoursynth-extra-plugins (20160227-1~wily) wily; urgency=low
+
+ * ffms2: don't use embedded ffmpeg libs, the plugin doesn't seem to work then
+ * New plugin: waifu2x-caffe
+ * Transitional package vapoursynth-nnedi3-plugin removed
+
+-- Marshall Banana <djcj@gmx.de>  Sat, 27 Feb 2016 22:24:04 +0100
+
 vapoursynth-extra-plugins (20160219-1~wily) wily; urgency=low
 
   * Updates: BM3D, d2vsource, DeLogo, KNLMeansCL, mvtools, nnedi3, waifu2x-opt,
