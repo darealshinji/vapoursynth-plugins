@@ -10,5 +10,5 @@ Package: vapoursynth-waifu2x-models
 Architecture: all
 Depends: ${misc:Depends}
 Recommends: libvapoursynth
-Description: models files for the waifu2x VapourSynth plugin
- This package provides models files for the waifu2x VapourSynth plugin.
+Description: model files for the waifu2x VapourSynth plugin
+ This package provides model files for the waifu2x VapourSynth plugin.
