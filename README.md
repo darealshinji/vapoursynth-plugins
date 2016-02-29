@@ -8,11 +8,8 @@ So don't expect this build system to work on anything else than Linux on x86 arc
 ```
 git nasm yasm libtool pkg-config
 libavformat-dev libavcodec-dev libavutil-dev libavresample-dev libswscale-dev
-libboost-filesystem-dev libboost-iostreams-dev libboost-system-dev
-libgflags-dev libgoogle-glog-dev libprotobuf-dev
-libcaffe-dev libfftw3-dev libhdf5-dev libpng-dev libsndfile1-dev libxvidcore-dev zlib1g-dev
-libopenblas-dev nvidia-cuda-dev
-libopencv3-dev ocl-icd-libopencl1 opencl-headers
+libfftw3-dev libpng-dev libsndfile1-dev libxvidcore-dev zlib1g-dev
+libopencv-dev ocl-icd-libopencl1 opencl-headers
 ```
 
 
@@ -87,7 +84,6 @@ sudo apt-get install vapoursynth-extra-plugins
 [vaguedenoiser r2](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-VagueDenoiser)<br>
 [vautodeint git20130608](https://github.com/gnaggnoyil/VAutoDeint)<br>
 [videoscope 1.0](https://github.com/dubhater/vapoursynth-videoscope)<br>
-[waifu2x-caffe r1](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Waifu2x-caffe)<br>
 [waifu2x-opt r1+20160218](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-waifu2x-opt)<br>
 [waifu2x-w2xc r5](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Waifu2x-w2xc)<br>
 [wwxd 1.0](https://github.com/dubhater/vapoursynth-wwxd)<br>

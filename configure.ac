@@ -1,15 +1,23 @@
+m4_define([AX_CHECK_LIB_LINK], [{
+    LIBS_backup="$LIBS"
+    LIBS="-l$1 $2"
+    AC_MSG_CHECKING([for -l$1])
+    AC_LINK_IFELSE([
+        AC_LANG_SOURCE(
+            [[int main() { return 0; }]]
+        )
+    ], [AC_MSG_RESULT([yes])
+        eval have_$( echo $1 )="yes"
+    ], [AC_MSG_RESULT([no])
+        eval have_$( echo $1 )="no"
+    ])
+    LIBS="$LIBS_backup"
+}])
+
 m4_include([include/ac/ax_check_cl.m4])
 m4_include([include/ac/ax_cxx_compile_stdcxx_11.m4])
 m4_include([include/ac/ax_check_gnu_make.m4])
 m4_include([include/ac/ax_check_compile_flag.m4])
-
-m4_include([include/ac/ax_check_pkg_lib.m4])
-m4_include([include/ac/ax_check_lib_link.m4])
-
-m4_include([include/ac/ax_boost_base.m4])
-m4_include([include/ac/ax_boost_filesystem.m4])
-m4_include([include/ac/ax_boost_iostreams.m4])
-m4_include([include/ac/ax_boost_system.m4])
 
 AC_INIT([vapoursynth-extra-plugins], [0], [https://github.com/darealshinji/vapoursynth-plugins])
 AC_CONFIG_AUX_DIR([include/build-aux])
@@ -49,10 +57,8 @@ AX_CXX_COMPILE_STDCXX_11([noext],[mandatory])
 
 _sps="-fstack-protector-strong"
 _sp="-fstack-protector --param=ssp-buffer-size=4"
-AX_CHECK_COMPILE_FLAG([$_sps], [
-    CXXFLAGS="$CXXFLAGS $_sps" CFLAGS="$CFLAGS $_sps"
-], [AX_CHECK_COMPILE_FLAG([$_sp], [
-        CXXFLAGS="$CXXFLAGS $_sp" CFLAGS="$CFLAGS $_sp"])
+AX_CHECK_COMPILE_FLAG([$_sps], [CXXFLAGS="$CXXFLAGS $_sps" CFLAGS="$CFLAGS $_sps"], [
+    AX_CHECK_COMPILE_FLAG([$_sp], [CXXFLAGS="$CXXFLAGS $_sp" CFLAGS="$CFLAGS $_sp"])
 ])
 
 
@@ -71,18 +77,14 @@ AS_IF([test "x$build" != "x$host"], [
 ])
 
 
-# headers
-AC_CHECK_HEADER([cudnn.h], [AC_SUBST([HAVE_CUDNN_H], [yes])])
-
-
 # libraries
 AC_CHECK_LIB([m], [sqrt], [], [exit 1])
 AC_CHECK_LIB([pthread], [pthread_create], [], [exit 1])
 
-AX_CHECK_PKG_LIB([zlib],     [zlib],     [z],        [zlib.h])
-AX_CHECK_PKG_LIB([png],      [png],      [png],      [png.h])
-AX_CHECK_PKG_LIB([sndfile],  [sndfile],  [sndfile],  [sndfile.h])
-AX_CHECK_PKG_LIB([xvidcore], [xvidcore], [xvidcore], [xvid.h])
+AX_CHECK_LIB_LINK([z])
+AX_CHECK_LIB_LINK([png])
+AX_CHECK_LIB_LINK([sndfile])
+AX_CHECK_LIB_LINK([xvidcore])
 
 # system ffmpeg/libav (required by ffms2)
 PKG_CHECK_MODULES([libavformat],   [libavformat >= 53.20.0], [have_avformat="yes"],   [have_avformat="no"])
@@ -92,7 +94,7 @@ PKG_CHECK_MODULES([libavutil],     [libavutil >= 51.21.0],   [have_avutil="yes"]
 PKG_CHECK_MODULES([libavresample], [libavresample >= 1.0.0], [have_avresample="yes"], [have_avresample="no"])
 
 # FFTW3
-AX_CHECK_PKG_LIB([fftw3f], [fftw3], [fftw3f], [fftw3.h])
+AX_CHECK_LIB_LINK([fftw3f])
 AS_IF([test "x$have_fftw3f" != "xno"], [
     fftw3_minimal="3.3.4"
     printf "checking for fftw >= $fftw3_minimal... "
@@ -102,42 +104,8 @@ AS_IF([test "x$have_fftw3f" != "xno"], [
     printf "$have_fftw3_newer\n"
 ])
 
-# OpenCV
-AX_CHECK_PKG_LIB([opencv], [opencv], [opencv_core], [opencv2/opencv.hpp])
-AS_IF([test "x$have_opencv" = "xyes"], [
-    AX_CHECK_LIB_LINK([], [opencv_imgcodecs])
-    AX_CHECK_LIB_LINK([], [opencv_imgproc])
-])
-
+AX_CHECK_LIB_LINK([opencv_core])
 AX_CHECK_CL
-
-AX_CHECK_PKG_LIB([caffe],    [libcaffe],      [caffe],    [caffe/caffe.hpp])
-AX_CHECK_PKG_LIB([cudart],   [cuda_runtime],  [cudart],   [cublas_v2.h])
-AX_CHECK_PKG_LIB([gflags],   [libgflags],     [gflags],   [gflags/gflags.h])
-AX_CHECK_PKG_LIB([glog],     [libglog],       [glog],     [glog/logging.h])
-AX_CHECK_PKG_LIB([openblas], [blas-openblas], [openblas], [])
-AX_CHECK_PKG_LIB([protobuf], [protobuf],      [protobuf], [google/protobuf/io/coded_stream.h])
-
-# HDF5
-AX_CHECK_LIB_LINK([], [hdf5_serial])
-AS_IF([test "x$have_hdf5_serial" = "xyes"], [
-    AX_CHECK_LIB_LINK([], [hdf5_serial_hl], [-lhdf5_serial])
-])
-AS_IF([test "x$have_hdf5_serial_hl" = "xyes"], [hdf5_libs="-lhdf5_serial -hdf5_serial_hl"], [
-    AX_CHECK_LIB_LINK([], [hdf5])
-    AS_IF([test "x$have_hdf5" = "xyes"], [
-        AX_CHECK_LIB_LINK([], [hdf5_hl], [-lhdf5])
-    ])
-])
-AS_IF([test "x$have_hdf5_hl" = "xyes"], [hdf5_libs="-lhdf5 -hdf5_hl"])
-AC_SUBST([HDF5_LIBS], [$hdf5_libs])
-
-# Boost
-AX_BOOST_BASE([1.50], [
-    AX_BOOST_FILESYSTEM
-    AX_BOOST_IOSTREAMS
-    AX_BOOST_SYSTEM
-])
 
 
 # config
@@ -151,13 +119,6 @@ AS_IF([test "x$have_opencv" != "xno"],      [AC_SUBST([HAVE_OPENCV], [yes])])
 AS_IF([test "x$have_xvid" != "xno"],        [AC_SUBST([HAVE_XVID], [yes])])
 AS_IF([test "x$have_fftw3f" != "xno"],      [AC_SUBST([HAVE_FFTW3F], [yes])])
 AS_IF([test "x$have_fftw3_newer" != "xno"], [AC_SUBST([HAVE_FFTW3F_NEWER], [yes])])
-AS_IF([test "x$have_caffe" != "xno"],       [AC_SUBST([HAVE_CAFFE], [yes])])
-AS_IF([test "x$have_cudart" != "xno"],      [AC_SUBST([HAVE_CUDART], [yes])])
-AS_IF([test "x$have_gflags" != "xno"],      [AC_SUBST([HAVE_GFLAGS], [yes])])
-AS_IF([test "x$have_glog" != "xno"],        [AC_SUBST([HAVE_GLOG], [yes])])
-AS_IF([test "x$have_openblas" != "xno"],    [AC_SUBST([HAVE_OPENBLAS], [yes])])
-AS_IF([test "x$have_protobuf" != "xno"],    [AC_SUBST([HAVE_PROTOBUF], [yes])])
-AS_IF([test "x$have_hdf5" != "xno"],        [AC_SUBST([HAVE_HDF5], [yes])])
 
 # Optinal YASM assembler:
 # FluxSmooth NNEDI3 TComb
@@ -166,13 +127,11 @@ AS_IF([test "x$have_yasm" != "xno"], [build_with_yasm="with"],
       [build_with_yasm="without"])
 
 # ImageReader
-AS_IF([test "x$have_png" != "xno" -a \
-       "x$have_zlib" != "xno"],
+AS_IF([test "x$have_png" != "xno" -a "x$have_zlib" != "xno"],
       [build_plugins="$build_plugins imagereader"],
       [no_build_plugins="$no_build_plugins imagereader"])
 # MVTools
-AS_IF([test "x$have_fftw3f" != "xno" -a \
-       "x$have_yasm" != "xno"],
+AS_IF([test "x$have_fftw3f" != "xno" -a "x$have_yasm" != "xno"],
       [build_plugins="$build_plugins mvtools"],
       [no_build_plugins="$no_build_plugins mvtools"])
 # FFMS2
@@ -194,8 +153,7 @@ AS_IF([test "x$have_fftw3" != "xno"],
       [build_plugins="$build_plugins dfttest fft3dfilter"],
       [no_build_plugins="$no_build_plugins dfttest fft3dfilter"])
 # BM3D
-AS_IF([test "x$have_fftw3f" != "xno" -a  \
-       "x$have_fftw3_newer" != "xno"],
+AS_IF([test "x$have_fftw3f" != "xno" -a "x$have_fftw3_newer" != "xno"],
       [build_plugins="$build_plugins bm3d"],
       [no_build_plugins="$no_build_plugins bm3d"])
 # scxvid
@@ -206,24 +164,8 @@ AS_IF([test "x$have_xvid" != "xno"],
 AS_IF([test "x$no_cl" != "xno"],
       [build_plugins="$build_plugins knlmeanscl"],
       [no_build_plugins="$no_build_plugins knlmeanscl"])
-# waifu2x-caffe
-AS_IF([test "x$have_caffe" != "xno" -a \
-       "x$have_cudart" != "xno" -a \
-       "x$have_gflags" != "xno" -a \
-       "x$have_glog" != "xno" -a \
-       "x$have_openblas" != "xno" -a \
-       "x$have_protobuf" != "xno" -a \
-       "x$hdf5_libs" != "x" -a \
-       "x$ax_cv_boost_filesystem" = "xyes" -a \
-       "x$ax_cv_boost_iostreams" = "xyes" -a \
-       "x$ax_cv_boost_system" = "xyes" -a \
-       "x$have_opencv" != "xno"],
-      [build_plugins="$build_plugins waifu2x-caffe"
-       AC_SUBST([ENABLE_WAIFU2X_CAFFE], [yes])],
-      [no_build_plugins="$no_build_plugins waifu2x-caffe"])
 # waifu2x-w2xc
-AS_IF([test "x$no_cl" != "xno" -a \
-       "x$have_opencv" != "xno"],
+AS_IF([test "x$no_cl" != "xno" -a "x$have_opencv_core" = "xyes"],
       [build_plugins="$build_plugins waifu2x-w2xc"],
       [no_build_plugins="$no_build_plugins waifu2x-w2xc"])
 
@@ -240,12 +182,10 @@ no_build_plugins="$(echo $no_build_plugins | tr ' ' '\n' | sort | tr '\n' ' ')"
 
 AC_MSG_RESULT([
 Plugins to build:
-    $build_plugins
+$build_plugins
 
-Plugins that won't be build:
-    $no_build_plugins
+Build $build_with_yasm optional YASM assembler: $opt_yasm_plugins
 
-Build $build_with_yasm optional YASM assembler:
-    $opt_yasm_plugins
+Plugins that won't be build: $no_build_plugins
 ])
 
