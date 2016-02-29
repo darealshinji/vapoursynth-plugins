@@ -306,27 +306,6 @@ Files: models/*/*.json
 Copyright: 2015 nagadomi <nagadomi@nurs.or.jp>
 License: MIT
 
-Files: include/ac/ax_boost_base.m4
-Copyright: 2008 Thomas Porschberg <thomas@randspringer.de>
-           2009 Peter Adolphs
-License: other-1
-
-Files: include/ac/ax_boost_filesystem.m4
-Copyright: 2009 Thomas Porschberg <thomas@randspringer.de>
-           2009 Michael Tindal
-           2009 Roman Rybalko <libtorrent@romanr.info>
-License: other-1
-
-Files: include/ac/ax_boost_iostreams.m4
-Copyright: 2008 Thomas Porschberg <thomas@randspringer.de>
-License: other-1
-
-Files: include/ac/ax_boost_system.m4
-Copyright: 2008 Thomas Porschberg <thomas@randspringer.de>
-           2008 Michael Tindal
-           2008 Daniel Casimiro <dan.casimiro@gmail.com>
-License: other-1
-
 Files: include/ac/ax_check_compile_flag.m4
 Copyright: 2008 Guido U. Draheim <guidod@gmx.de>
            2011 Maarten Bosmans <mkbosmans@gmail.com>
@@ -384,8 +363,6 @@ Comment:
  License version 2 or later (GPL v2+).
 
 Files: debian/*
-       include/ac/ax_check_lib_link.m4
-       include/ac/ax_check_pkg_lib.m4
        *
 Copyright: 2014-2016 djcj <djcj@gmx.de>
 License: MIT
