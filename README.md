@@ -5,24 +5,27 @@ The main reason for this collection is to make it easier to build packages for U
 So don't expect this build system to work on anything else than Linux on x86 architectures.
 
 **Build dependencies**:<br>
-`git
-libtool
-pkg-config
-libavformat-dev
-libavcodec-dev
-libswscale-dev
-libavutil-dev
-libavresample-dev
-libfftw3-dev
-libpng-dev
-libsndfile1-dev
-libxvidcore-dev
-libopencv-dev
-ocl-icd-libopencl1
-opencl-headers
-nasm
-yasm
-zlib1g-dev
+`git nasm yasm libtool pkg-config
+
+ libavformat-dev libavcodec-dev libavutil-dev libavresample-dev libswscale-dev
+
+ libboost-filesystem-dev libboost-iostreams-dev libboost-system-dev
+
+libgflags-dev libgoogle-glog-dev libprotobuf-dev
+
+ libcaffe-dev
+ libfftw3-dev
+ libhdf5-dev
+ libpng-dev
+ libsndfile1-dev
+ libxvidcore-dev
+ zlib1g-dev
+
+ libopenblas-dev nvidia-cuda-dev
+
+ libopencv3-dev
+
+ ocl-icd-libopencl1 opencl-headers
 `
 
 
