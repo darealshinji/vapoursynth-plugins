@@ -1,4 +1,4 @@
-vapoursynth-extra-plugins (20160229-1~wily) wily; urgency=low
+vapoursynth-extra-plugins (20160229-1~wily1) wily; urgency=low
 
   * ffms2: don't use embedded ffmpeg libs, the plugin doesn't seem to work then
   * New plugin: waifu2x-caffe
