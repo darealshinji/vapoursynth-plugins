@@ -4,33 +4,23 @@ Priority: optional
 Maintainer: Marshall Banana <djcj@gmx.de>
 Build-Depends:
  debhelper (>= 9),
+ nasm,
+ yasm,
  libtool,
  pkg-config,
  libavformat-dev,
  libavcodec-dev,
  libavutil-dev,
  libavresample-dev,
- libboost-filesystem-dev,
- libboost-iostreams-dev,
- libboost-system-dev,
- libcaffe-dev,
- libfftw3-dev,
- libgflags-dev,
- libgoogle-glog-dev,
- libhdf5-dev,
- libopenblas-dev,
- libopencv3-dev,
- libpng-dev,
- libprotobuf-dev,
- libsndfile1-dev,
  libswscale-dev,
+ libfftw3-dev,
+ libpng-dev,
+ libsndfile1-dev,
  libxvidcore-dev,
- nvidia-cuda-dev,
+ zlib1g-dev,
+ libopencv-dev,
  ocl-icd-libopencl1,
- opencl-headers,
- nasm,
- yasm,
- zlib1g-dev
+ opencl-headers
 Standards-Version: 3.9.6
 Homepage: https://github.com/darealshinji/vapoursynth-plugins
 Vcs-Git: https://github.com/darealshinji/vapoursynth-plugins.git
@@ -43,8 +33,7 @@ Depends:
  ${shlibs:Depends},
  ${perl:Depends},
  nnedi3-weights (>= 0.9.4),
- vapoursynth-waifu2x-models,
- vapoursynth-waifu2x-caffe-models
+ vapoursynth-waifu2x-models
 Recommends:
  libvapoursynth
 Description: Additional plugins for VapourSynth

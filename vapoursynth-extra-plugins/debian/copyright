@@ -257,27 +257,6 @@ Copyright: 2013-2014 dubhater
            2013-2014 Stephen R. Savage
 License: WTFPL
 
-Files: plugins/waifu2x-caffe/*
-       models/*/*.caffemodel
-       models/*/srcnn.prototxt*
-Copyright: 2016 Home Of VapourSynth Evolution
-License: MIT
-
-Files: plugins/waifu2x-caffe/include/*.{c|h}
-Copyright: none
-License: public-domain
- This software is in the public domain. Where that dedication is not
- recognized, you are granted a perpetual, irrevocable license to copy,
- distribute, and modify this file as you see fit.
-
-Files: plugins/waifu2x-caffe/include/rapidjson/*
-Copyright: 2015 THL A29 Limited, a Tencent company, and Milo Yip. All rights reserved.
-License: MIT
-
-Files: plugins/waifu2x-caffe/include/tclap/*
-Copyright: 2003 Michael E. Smoot
-License: MIT
-
 Files: plugins/imagereader/libjpeg-turbo/*
 Copyright: 1999-2006 MIYASAKA Masaru
            2004 Landmark Graphics Corporation
@@ -305,27 +284,6 @@ Comment:
 Files: models/*/*.json
 Copyright: 2015 nagadomi <nagadomi@nurs.or.jp>
 License: MIT
-
-Files: include/ac/ax_boost_base.m4
-Copyright: 2008 Thomas Porschberg <thomas@randspringer.de>
-           2009 Peter Adolphs
-License: other-1
-
-Files: include/ac/ax_boost_filesystem.m4
-Copyright: 2009 Thomas Porschberg <thomas@randspringer.de>
-           2009 Michael Tindal
-           2009 Roman Rybalko <libtorrent@romanr.info>
-License: other-1
-
-Files: include/ac/ax_boost_iostreams.m4
-Copyright: 2008 Thomas Porschberg <thomas@randspringer.de>
-License: other-1
-
-Files: include/ac/ax_boost_system.m4
-Copyright: 2008 Thomas Porschberg <thomas@randspringer.de>
-           2008 Michael Tindal
-           2008 Daniel Casimiro <dan.casimiro@gmail.com>
-License: other-1
 
 Files: include/ac/ax_check_compile_flag.m4
 Copyright: 2008 Guido U. Draheim <guidod@gmx.de>
@@ -384,8 +342,6 @@ Comment:
  License version 2 or later (GPL v2+).
 
 Files: debian/*
-       include/ac/ax_check_lib_link.m4
-       include/ac/ax_check_pkg_lib.m4
        *
 Copyright: 2014-2016 djcj <djcj@gmx.de>
 License: MIT
