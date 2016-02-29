@@ -8,7 +8,7 @@ cd $src
 VERSION=$(git log -1 --format=%ci | head -c10 | sed -e 's/-//g')
 
 ./autogen.sh
-rm -rf models .git
+rm -rf models .git autom4te.cache plugins/imagereader/libjpeg-turbo/autom4te.cache
 cd ..
 
 tar cvfJ vapoursynth-extra-plugins_${VERSION}.orig.tar.xz $src

@@ -4,8 +4,15 @@ Priority: optional
 Maintainer: Marshall Banana <djcj@gmx.de>
 Build-Depends:
  debhelper (>= 9),
+ libtool,
+ pkg-config,
+ libavformat-dev,
+ libavcodec-dev,
+ libswscale-dev,
+ libavutil-dev,
+ libavresample-dev,
  libfftw3-dev,
- libpng12-dev,
+ libpng-dev,
  libsndfile1-dev,
  libxvidcore-dev,
  libopencv-dev,
@@ -26,7 +33,8 @@ Depends:
  ${shlibs:Depends},
  ${perl:Depends},
  nnedi3-weights (>= 0.9.4),
- vapoursynth-waifu2x-models (>= 20151207)
+ vapoursynth-waifu2x-models,
+ vapoursynth-waifu2x-caffe-models
 Recommends:
  libvapoursynth
 Description: Additional plugins for VapourSynth
