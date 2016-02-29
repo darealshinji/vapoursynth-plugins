@@ -9,7 +9,7 @@ silent_config = @ echo 'CONFIGURE  ffms2';
 silent_conf_out = >/dev/null
 endif
 
-ifeq ($(HAVE_ZLIB),yes)
+ifeq ($(ENABLE_FFMS2),yes)
 LIBNAME = ffms2
 LIB = $(LIBNAME).so
 endif
@@ -22,7 +22,7 @@ local_LDFLAGS   = -Wl,-Bsymbolic -Wl,-z,relro -Wl,-z,noexecstack -Wl,--as-needed
 
 all: $(LIB)
 
-ifeq ($(HAVE_ZLIB),yes)
+ifeq ($(ENABLE_FFMS2),yes)
 $(LIB): src/src/core/.libs/libffms2.so
 	$(Q)cp -f $< $@ && chmod 0644 $@
 

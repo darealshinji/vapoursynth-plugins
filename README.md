@@ -8,6 +8,11 @@ So don't expect this build system to work on anything else than Linux on x86 arc
 `git
 libtool
 pkg-config
+libavformat-dev
+libavcodec-dev
+libswscale-dev
+libavutil-dev
+libavresample-dev
 libfftw3-dev
 libpng-dev
 libsndfile1-dev

@@ -50,6 +50,7 @@ ffmpeg/config.mak:
 		--disable-vda \
 		--disable-vdpau \
 		--disable-encoders \
+		--disable-hwaccels \
 		--disable-muxers \
 		--disable-iconv \
 		--disable-bzlib \
