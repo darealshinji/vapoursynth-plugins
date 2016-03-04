@@ -1,8 +1,8 @@
-# vsTAAmbk 0.4.0
+# vsTAAmbk 0.4.1
 A ported AA-script from Avisynth
 
 
-Usage：
+##Usage：
 
 import vsTAAmbk as taa
 
@@ -11,11 +11,11 @@ aa = taa.TAAmbk(src)
 
 For more detials NMM-HD：https://www.nmm-hd.org/newbbs/viewtopic.php?f=23&t=1666
 
-Requirements:
+##Requirements:
 
 VapourSynth R28 or newer
 
-Plugins:
+##Plugins:
 
 EEDI2						
 nnedi3						
@@ -27,11 +27,11 @@ MVTools
 TemporalSoften			
 sangnom
 
-Script:
+##Script:
 
 HAvsFunc r18 or newer (and its requirements)
 
-TIPS:
+##TIPS:
 
 Only YUV colorfmaily is supported! And input bitdepth must be 8 or 16 INTEGER !
 

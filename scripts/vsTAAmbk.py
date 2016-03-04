@@ -1,5 +1,5 @@
 ##==========================================================
-## 2015.11.9			vsTAAmbk 0.4					
+## 2016.02.09			vsTAAmbk 0.4.1					
 ##			Ported from TAAmbk 0.7.0 by Evalyn
 ##			Email: pov@mahou-shoujo.moe			
 ##			Thanks (author)kewenyu for help				
@@ -26,7 +26,7 @@
 ##	 Add lsb[bool] to control nnedi3 input bitdepth.
 ##	"False" means input depth for nnedi3 is always 8bit.
 ##	"thin" and "dark" are now removed.
-##  add aatype 7 using pure sangnom					
+##  add "aatype = 7" using "pure" sangnom.					
 ##		 												
 ##==========================================================	 												
 ##		 												
@@ -244,7 +244,7 @@ def TAAmbk(input, aatype=1, lsb=False, preaa=0, sharp=0, postaa=None, mtype=None
 	#internal function
 	def TAAmbk_prepass(clip, predown=predown, downw4=downw4, downh4=downh4, thin=0, dark=0, preaa=preaa):
 		if predown:
-			pdclip = core.resize.Spline(clip, downw4, downh4)
+			pdclip = core.resize.Spline36(clip, downw4, downh4)
 		else:
 			pdclip = clip
 		
@@ -293,27 +293,27 @@ def TAAmbk(input, aatype=1, lsb=False, preaa=0, sharp=0, postaa=None, mtype=None
 			if aatype == -2:
 				if lsb:
 					sclip = core.nnedi3.nnedi3(preaaC,field=1,dh=True)
-					sclip_r = core.resize.Spline(sclip,w,uph4)
+					sclip_r = core.resize.Spline36(sclip,w,uph4)
 					sclip_r = core.std.Transpose(sclip_r)
 					sclip_r = core.nnedi3.nnedi3(sclip_r,field=1,dh=True)
 					sclip = Depth(sclip,8)
 					sclip_r = Depth(sclip_r,8)
 				else:
 					sclip = core.nnedi3.nnedi3(Depth(preaaC,8),field=1,dh=True)
-					sclip_r = core.resize.Spline(sclip,w,uph4)
+					sclip_r = core.resize.Spline36(sclip,w,uph4)
 					sclip_r = core.std.Transpose(sclip_r)
 					sclip_r = core.nnedi3.nnedi3(sclip_r,field=1,dh=True)
 			elif aatype == 2:
 				if lsb:
 					sclip = core.nnedi3.nnedi3(preaaC,field=1,dh=True)
-					sclip_r = sclip_r = core.resize.Spline(sclip,w,h)
+					sclip_r = sclip_r = core.resize.Spline36(sclip,w,h)
 					sclip_r = core.std.Transpose(sclip_r)
 					sclip_r = core.nnedi3.nnedi3(sclip_r,field=1,dh=True)
 					sclip = Depth(sclip,8)
 					sclip_r = Depth(sclip_r,8)
 				else:
 					sclip = core.nnedi3.nnedi3(Depth(preaaC,8),field=1,dh=True)
-					sclip_r = sclip_r = core.resize.Spline(sclip,w,h)
+					sclip_r = sclip_r = core.resize.Spline36(sclip,w,h)
 					sclip_r = core.std.Transpose(sclip_r)
 					sclip_r = core.nnedi3.nnedi3(sclip_r,field=1,dh=True)
 		
