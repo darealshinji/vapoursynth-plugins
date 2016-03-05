@@ -30,6 +30,7 @@ commonflags += -Isrc -I../../include -I../../include/vapoursynth
 VSCFLAGS = $(commonflags) $(local_CFLAGS) $(CFLAGS) -std=gnu99 $(CPPFLAGS)
 VSCXXFLAGS = $(commonflags) $(local_CXXFLAGS) $(CXXFLAGS) $(CPPFLAGS)
 VSLDFLAGS = -shared -Wl,-soname,$(LIB) -Wl,-Bsymbolic -Wl,-z,relro -Wl,-z,noexecstack -Wl,--as-needed $(local_LDFLAGS) $(LDFLAGS)
+#VSLDFLAGS += -Wl,-z,defs
 
 CXXSRCS = $(shell find src -name \*.cpp)
 CXXOBJS = $(CXXSRCS:%.cpp=%.o)
