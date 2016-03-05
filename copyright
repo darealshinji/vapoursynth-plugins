@@ -70,6 +70,9 @@ License: GPL-2+
 Files: plugins/ffms2/*
 Copyright: 2007-2016 Fredrik Mellbin
 License: MIT
+Comment:
+ The plugin will be linked against static FFmpeg libraries, so the resulting
+ binary will be LGPL-2.1.
 
 Files: plugins/fft3dfilter/src/fft3dfilter_c.cpp
 Copyright: 2004-2006 A.G.Balakhnin aka Fizick <bag@hotmail.ru>

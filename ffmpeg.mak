@@ -59,5 +59,6 @@ ffmpeg/config.mak:
 		--disable-zlib \
 		--disable-sdl \
 		--disable-xlib \
+		--disable-asm \
 		$(silent_conf_out)
 

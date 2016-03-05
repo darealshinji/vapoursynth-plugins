@@ -30,7 +30,6 @@ man1dir = $(mandir)/man1
 includedir = @includedir@
 oldincludedir = /usr/include
 
-
 HAVE_NASM = @HAVE_NASM@
 HAVE_YASM = @HAVE_YASM@
 HAVE_PNG = @HAVE_PNG@
@@ -42,9 +41,6 @@ HAVE_XVID = @HAVE_XVID@
 HAVE_OPENCL = @HAVE_OPENCL@
 HAVE_OPENCV = @HAVE_OPENCV@
 
-ENABLE_FFMS2 = @ENABLE_FFMS2@
-
-
 CFLAGS = @CFLAGS@
 CXXFLAGS = @CXXFLAGS@
 CPPFLAGS = @CPPFLAGS@
@@ -52,7 +48,6 @@ LDFLAGS = @LDFLAGS@
 
 CL_CFLAGS = @CL_CFLAGS@
 CL_LIBS = @CL_LIBS@
-
 
 CC = @CC@
 CXX = @CXX@

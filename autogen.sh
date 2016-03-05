@@ -17,15 +17,6 @@ autogen () {
 	echo "running autoreconf on plugins/imagereader/libjpeg-turbo"
 	autoreconf --install plugins/imagereader/libjpeg-turbo 2>/dev/null >/dev/null
 
-	if [ ! -d plugins/ffms2/src ]; then
-		type git >/dev/null 2>&1 || { echo >&2 "Cannot find \`git'.  Aborting."; exit 1; }
-		echo "cloning ffms2 sources into plugins/ffms2/src"
-		git clone -q --depth 1 "https://github.com/FFMS/ffms2.git" plugins/ffms2/src
-		rm -rf plugins/ffms2/src/.git
-		rm -f plugins/ffms2/src/src/vapoursynth/VapourSynth.h
-		rm -f plugins/ffms2/src/src/vapoursynth/VSHelper.h
-	fi
-
 	if [ ! -d ffmpeg ]; then
 		type git >/dev/null 2>&1 || { echo >&2 "Cannot find \`git'.  Aborting."; exit 1; }
 		echo "cloning ffmpeg sources into ./ffmpeg"
@@ -34,7 +25,7 @@ autogen () {
 	fi
 }
 
-forcedelete="plugins/ffms2/src/ ffmpeg/"
+forcedelete="ffmpeg/"
 
 cleanscript="autogen-cleanup.sh"
 

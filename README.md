@@ -7,7 +7,6 @@ So don't expect this build system to work on anything else than Linux on x86 arc
 **Build dependencies**:<br>
 ```
 git nasm yasm libtool pkg-config
-libavformat-dev libavcodec-dev libavutil-dev libavresample-dev libswscale-dev
 libfftw3-dev libpng-dev libsndfile1-dev libxvidcore-dev zlib1g-dev
 libopencv-dev ocl-icd-libopencl1 opencl-headers
 ```
@@ -49,7 +48,7 @@ sudo apt-get install vapoursynth-extra-plugins
 [delogo 0.4](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-DeLogo)<br>
 [dfttest r3](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-DFTTest)<br>
 [eedi2 r6](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-EEDI2)<br>
-[ffms2](https://github.com/FFMS/ffms2)<br>
+[ffms2 2.22+git20160222](https://github.com/FFMS/ffms2)<br>
 [ff3dfilter git20150227](https://github.com/VFR-maniac/VapourSynth-FFT3DFilter)<br>
 [fieldhint 3](https://github.com/dubhater/vapoursynth-fieldhint)<br>
 [fillborders 1.0](https://github.com/dubhater/vapoursynth-fillborders)<br>

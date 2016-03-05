@@ -86,13 +86,6 @@ AX_CHECK_LIB_LINK([png])
 AX_CHECK_LIB_LINK([sndfile])
 AX_CHECK_LIB_LINK([xvidcore])
 
-# system ffmpeg/libav (required by ffms2)
-PKG_CHECK_MODULES([libavformat],   [libavformat >= 53.20.0], [have_avformat="yes"],   [have_avformat="no"])
-PKG_CHECK_MODULES([libavcodec],    [libavcodec >= 53.24.0],  [have_avodec="yes"],     [have_avodec="no"])
-PKG_CHECK_MODULES([libswscale],    [libswscale >= 0.7.0],    [have_swscale="yes"],    [have_swscale="no"])
-PKG_CHECK_MODULES([libavutil],     [libavutil >= 51.21.0],   [have_avutil="yes"],     [have_avutil="no"])
-PKG_CHECK_MODULES([libavresample], [libavresample >= 1.0.0], [have_avresample="yes"], [have_avresample="no"])
-
 # FFTW3
 AX_CHECK_LIB_LINK([fftw3f])
 AS_IF([test "x$have_fftw3f" != "xno"], [
@@ -135,14 +128,8 @@ AS_IF([test "x$have_fftw3f" != "xno" -a "x$have_yasm" != "xno"],
       [build_plugins="$build_plugins mvtools"],
       [no_build_plugins="$no_build_plugins mvtools"])
 # FFMS2
-AS_IF([test "x$have_zlib" != "xno" -a \
-       "x$have_avformat" != "xno" -a \
-       "x$have_avcodec" != "xno" -a \
-       "x$have_swscale" != "xno" -a \
-       "x$have_avutil" != "xno" -a \
-       "x$have_avresample" != "xno"],
-      [build_plugins="$build_plugins ffms2"
-       AC_SUBST([ENABLE_FFMS2], [yes])],
+AS_IF([test "x$have_zlib" != "xno"],
+      [build_plugins="$build_plugins ffms2"],
       [no_build_plugins="$no_build_plugins ffms2"])
 # Damb
 AS_IF([test "x$have_sndfile" != "xno"],
