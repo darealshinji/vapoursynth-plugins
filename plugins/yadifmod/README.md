@@ -9,7 +9,7 @@ Ported from AviSynth plugin http://web.missouri.edu/~kes25c/
 Usage
 =====
 
-    yadifmod.Yadifmod(clip clip, clip edeint, int order[, int field=order, int mode=0])
+    yadifmod.Yadifmod(clip clip, clip edeint, int order[, int field=-1, int mode=0])
 
 * edeint: Clip from which to take spatial predictions. This clip must be the same width, height, and colorspace as the input clip. If using same rate output, this clip should have the same number of frames as the input. If using double rate output, this clip should have twice as many frames as the input.
 
@@ -17,7 +17,8 @@ Usage
   * 0 = bff
   * 1 = tff
 
-* field: Controls which field to keep when using same rate output. This parameter doesn't do anything when using double rate output. When omitted, it is set equal to *order*.
+* field: Controls which field to keep when using same rate output. This parameter doesn't do anything when using double rate output.
+  * -1 = set equal to order
   * 0 = keep bottom field
   * 1 = keep top field
 

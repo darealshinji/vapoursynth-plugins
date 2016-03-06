@@ -231,8 +231,8 @@ void filter<float>(const float * prev2pp, const float * prev2pn, const float * p
 #endif
 
 template<typename T, typename V1, typename V2, int vectorSize>
-static void Yadifmod(const VSFrameRef * prv, const VSFrameRef * src, const VSFrameRef * nxt, const VSFrameRef * edeint, VSFrameRef * dst,
-                     const int order, const int field, const YadifmodData * d, const VSAPI * vsapi) {
+static void process(const VSFrameRef * prv, const VSFrameRef * src, const VSFrameRef * nxt, const VSFrameRef * edeint, VSFrameRef * dst,
+                    const int order, const int field, const YadifmodData * d, const VSAPI * vsapi) {
     for (int plane = 0; plane < d->vi.format->numPlanes; plane++) {
         const int width = vsapi->getFrameWidth(src, plane);
         const int height = vsapi->getFrameHeight(src, plane);
@@ -341,23 +341,25 @@ static const VSFrameRef *VS_CC yadifmodGetFrame(int n, int activationReason, voi
         if (d->vi.format->sampleType == stInteger) {
             if (d->vi.format->bitsPerSample == 8) {
 #ifdef VS_TARGET_CPU_X86
-                Yadifmod<uint8_t, Vec16uc, Vec16s, 16>(prv, src, nxt, edeint, dst, effectiveOrder, fieldt, d, vsapi);
+                process<uint8_t, Vec16uc, Vec16s, 16>(prv, src, nxt, edeint, dst, effectiveOrder, fieldt, d, vsapi);
 #else
-                Yadifmod<uint8_t, void, void, 0>(prv, src, nxt, edeint, dst, effectiveOrder, fieldt, d, vsapi);
+                process<uint8_t, void, void, 0>(prv, src, nxt, edeint, dst, effectiveOrder, fieldt, d, vsapi);
 #endif
             } else {
 #ifdef VS_TARGET_CPU_X86
-                Yadifmod<uint16_t, Vec8us, Vec8i, 8>(prv, src, nxt, edeint, dst, effectiveOrder, fieldt, d, vsapi);
+                process<uint16_t, Vec8us, Vec8i, 8>(prv, src, nxt, edeint, dst, effectiveOrder, fieldt, d, vsapi);
 #else
-                Yadifmod<uint16_t, void, void, 0>(prv, src, nxt, edeint, dst, effectiveOrder, fieldt, d, vsapi);
+                process<uint16_t, void, void, 0>(prv, src, nxt, edeint, dst, effectiveOrder, fieldt, d, vsapi);
 #endif
             }
         } else {
-            Yadifmod<float, void, void, 0>(prv, src, nxt, edeint, dst, effectiveOrder, fieldt, d, vsapi);
+            process<float, void, void, 0>(prv, src, nxt, edeint, dst, effectiveOrder, fieldt, d, vsapi);
         }
 
+        VSMap * props = vsapi->getFramePropsRW(dst);
+        vsapi->propSetInt(props, "_FieldBased", 0, paReplace);
+
         if (d->mode & 1) {
-            VSMap * props = vsapi->getFramePropsRW(dst);
             int errNum, errDen;
             int64_t durationNum = vsapi->propGetInt(props, "_DurationNum", 0, &errNum);
             int64_t durationDen = vsapi->propGetInt(props, "_DurationDen", 0, &errDen);
@@ -389,11 +391,23 @@ static void VS_CC yadifmodCreate(const VSMap *in, VSMap *out, void *userData, VS
     YadifmodData d;
     int err;
 
-    d.order = !!vsapi->propGetInt(in, "order", 0, nullptr);
-    d.field = !!vsapi->propGetInt(in, "field", 0, &err);
+    d.order = int64ToIntS(vsapi->propGetInt(in, "order", 0, nullptr));
+
+    d.field = int64ToIntS(vsapi->propGetInt(in, "field", 0, &err));
     if (err)
         d.field = -1;
+
     d.mode = int64ToIntS(vsapi->propGetInt(in, "mode", 0, &err));
+
+    if (d.order < 0 || d.order > 1) {
+        vsapi->setError(out, "Yadifmod: order must be 0 or 1");
+        return;
+    }
+
+    if (d.field < -1 || d.field > 1) {
+        vsapi->setError(out, "Yadifmod: field must be -1, 0 or 1");
+        return;
+    }
 
     if (d.mode < 0 || d.mode > 3) {
         vsapi->setError(out, "Yadifmod: mode must be 0, 1, 2 or 3");
@@ -450,5 +464,11 @@ static void VS_CC yadifmodCreate(const VSMap *in, VSMap *out, void *userData, VS
 
 VS_EXTERNAL_API(void) VapourSynthPluginInit(VSConfigPlugin configFunc, VSRegisterFunction registerFunc, VSPlugin *plugin) {
     configFunc("com.holywu.yadifmod", "yadifmod", "Modification of Fizick's yadif avisynth filter", VAPOURSYNTH_API_VERSION, 1, plugin);
-    registerFunc("Yadifmod", "clip:clip;edeint:clip;order:int;field:int:opt;mode:int:opt;", yadifmodCreate, nullptr, plugin);
+    registerFunc("Yadifmod",
+                 "clip:clip;"
+                 "edeint:clip;"
+                 "order:int;"
+                 "field:int:opt;"
+                 "mode:int:opt;",
+                 yadifmodCreate, nullptr, plugin);
 }
