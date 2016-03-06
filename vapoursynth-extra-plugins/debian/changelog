@@ -1,9 +1,16 @@
-vapoursynth-extra-plugins (20160230-1~wily) wily; urgency=low
+vapoursynth-extra-plugins (20160305-1~wily) wily; urgency=low
+
+  * ffms2: use embedded ffmpeg libs (again)
+  * Updates: havsfunc, vsTAAmbk
+
+ -- Marshall Banana <djcj@gmx.de>  Sat, 05 Mar 2016 21:22:53 +0100
+
+vapoursynth-extra-plugins (20160301-1~wily) wily; urgency=low
 
   * ffms2: don't use embedded ffmpeg libs, the plugin doesn't seem to work then
   * Transitional package vapoursynth-nnedi3-plugin removed
 
- -- Marshall Banana <djcj@gmx.de>  Mon, 30 Feb 2016 00:00:21 +0100
+ -- Marshall Banana <djcj@gmx.de>  Tue, 01 Mar 2016 00:00:21 +0100
 
 vapoursynth-extra-plugins (20160219-1~wily) wily; urgency=low
 

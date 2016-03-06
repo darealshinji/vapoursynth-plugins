@@ -8,11 +8,6 @@ Build-Depends:
  yasm,
  libtool,
  pkg-config,
- libavformat-dev,
- libavcodec-dev,
- libavutil-dev,
- libavresample-dev,
- libswscale-dev,
  libfftw3-dev,
  libpng-dev,
  libsndfile1-dev,
@@ -34,8 +29,7 @@ Depends:
  ${perl:Depends},
  nnedi3-weights (>= 0.9.4),
  vapoursynth-waifu2x-models
-Recommends:
- libvapoursynth
+Recommends: vapoursynth
 Description: Additional plugins for VapourSynth
  It's an application for video manipulation. Or a plugin. Or a library.
  It's hard to tell because it has a core library written in C++ and a
