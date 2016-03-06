@@ -1,3 +1,9 @@
+vapoursynth-extra-plugins (20160306-1~wily) wily; urgency=low
+
+  * Updates: yadifmod
+
+ -- Marshall Banana <djcj@gmx.de>  Sun, 06 Mar 2016 05:06:11 +0100
+
 vapoursynth-extra-plugins (20160305-1~wily) wily; urgency=low
 
   * ffms2: use embedded ffmpeg libs (again)
