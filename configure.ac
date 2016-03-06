@@ -113,11 +113,14 @@ AS_IF([test "x$have_xvid" != "xno"],        [AC_SUBST([HAVE_XVID], [yes])])
 AS_IF([test "x$have_fftw3f" != "xno"],      [AC_SUBST([HAVE_FFTW3F], [yes])])
 AS_IF([test "x$have_fftw3_newer" != "xno"], [AC_SUBST([HAVE_FFTW3F_NEWER], [yes])])
 
-# Optinal YASM assembler:
-# FluxSmooth NNEDI3 TComb
+# Optinal YASM: NNEDI3 TComb
 opt_yasm_plugins="fluxsmooth nnedi3 tcomb"
-AS_IF([test "x$have_yasm" != "xno"], [build_with_yasm="with"],
+AS_IF([test "x$have_yasm" != "xno"],
+      [build_with_yasm="with" opt_yasm_plugins="nnedi3 tcomb"],
       [build_with_yasm="without"])
+# Optinal YASM: FluxSmooth
+AS_IF([test "x$build_with_yasm" = "xwith" && "x$have_x86_64" = "xyes"],
+      [opt_yasm_plugins="fluxsmooth $opt_yasm_plugins"])
 
 # ImageReader
 AS_IF([test "x$have_png" != "xno" -a "x$have_zlib" != "xno"],
@@ -171,7 +174,7 @@ AC_MSG_RESULT([
 Plugins to build:
 $build_plugins
 
-Build $build_with_yasm optional YASM assembler: $opt_yasm_plugins
+Build with optional YASM assembler: $opt_yasm_plugins
 
 Plugins that won't be build: $no_build_plugins
 ])
