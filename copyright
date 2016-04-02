@@ -188,7 +188,7 @@ License: BSD-2-clause
 
 Files: plugins/tcanny/*
 Copyright: 2009 Kevin Eliot Stone <kes25c@mail.missouri.edu>
-           2015 HolyWu
+           2015-2016 HolyWu
 License: GPL-2+
 
 Files: plugins/tdeintmod/*
