@@ -1,10 +1,9 @@
 ################################################################################################################################
 ## mvsfunc - mawen1250's VapourSynth functions
-## 2016.01
+## 2016.04
 ################################################################################################################################
 ## Requirments:
 ##     fmtconv
-##     zimg (optional)
 ##     BM3D
 ################################################################################################################################
 ## Main functions:
@@ -28,6 +27,8 @@
 ##     MaxFilter
 ##     LimitFilter
 ##     PointPower
+##     CheckMatrix
+##     postfix2infix
 ################################################################################################################################
 ## Frame property functions:
 ##     SetColorSpace
@@ -41,8 +42,10 @@
 ##     CheckVersion
 ##     GetMatrix
 ##     zDepth
-##     GetPlane
 ##     PlaneAverage
+##     GetPlane
+##     GrayScale
+##     Preview
 ################################################################################################################################
 
 
@@ -54,7 +57,7 @@ import math
 ################################################################################################################################
 
 
-MvsFuncVersion = 6
+MvsFuncVersion = 7
 VSMaxPlaneNum = 3
 
 
@@ -76,7 +79,8 @@ VSMaxPlaneNum = 3
 ################################################################################################################################
 ## Main function: Depth()
 ################################################################################################################################
-## Bit depth conversion with dithering
+## Bit depth conversion with dithering (if needed).
+## It's a wrapper for fmtc.bitdepth and zDepth(core.resize/zimg).
 ################################################################################################################################
 ## Basic parameters
 ##     input {clip}: clip to be converted
@@ -87,35 +91,33 @@ VSMaxPlaneNum = 3
 ##     sample {int}: output sample type, can be 0(vs.INTEGER) or 1(vs.FLOAT)
 ##         default is the same as that of the input clip
 ##     fulls {bool}: define if input clip is of full range
-##         the frame property '_ColorRange' will be overwritten if this argument is not None
 ##         default: None, assume True for RGB/YCgCo input, assume False for Gray/YUV input
 ##     fulld {bool}: define if output clip is of full range
-##         the frame property '_ColorRange' will be overwritten by it
 ##         default is the same as "fulls"
 ################################################################################################################################
 ## Advanced parameters
 ##     dither {int|str}: dithering algorithm applied for depth conversion
-##         - {int}: same as "dmode" in fmtc.bitdepth, will be automatically converted if using z.Depth
-##         - {str}: same as "dither" in z.Depth, will be automatically converted if using fmtc.bitdepth
+##         - {int}: same as "dmode" in fmtc.bitdepth, will be automatically converted if using zDepth
+##         - {str}: same as "dither" in zDepth, will be automatically converted if using fmtc.bitdepth
 ##         - default:
 ##             - output depth is 32, and conversions without quantization error: 1 | "none"
 ##             - otherwise: 3 | "error_diffusion"
-##     useZ {bool}: force using of z.Depth or fmtc.bitdepth for depth conversion
-##         By default, z.Depth is used when full range integer is involved.
-##             Full range definition is [0, (1 << depth) - 1] for z.Depth and [0, 1 << depth] for fmtc.bitdepth.
-##             The standard definition is [0, (1 << depth) - 1] thus z.Depth is preferred in this case.
-##             Though it can be weird for full range chroma, which is [0.5, 1 << (depth - 1), (1 << depth) - 0.5].
-##         When 13-,15-bit integer or 16-bit float is involved, z.Depth is always used.
-##         - None: automatically determined
-##         - False: force fmtc.bitdepth
-##         - True: force z.Depth
-##         default: None
+##     useZ {bool}: prefer zDepth or fmtc.bitdepth for depth conversion
+##         When 13-,15-bit integer or 16-bit float is involved, zDepth is always used.
+##         - False: prefer fmtc.bitdepth
+##         - True: prefer zDepth
+##         default: False
+##     prefer_props {bool}: determines whether frame properties or arguments take precedence when both are present
+##         For now, it only makes sense when zDepth is involved and only affects the _ColorRange property.
+##         - False: prefer arguments
+##         - True: prefer frame properties
+##         default: False
 ################################################################################################################################
 ## Parameters of fmtc.bitdepth
-##     ampo, ampn, dyn, staticnoise: same as those in fmtc.bitdepth, ignored when using z.Depth
+##     ampo, ampn, dyn, staticnoise: same as those in fmtc.bitdepth, ignored when using zDepth
 ################################################################################################################################
 def Depth(input, depth=None, sample=None, fulls=None, fulld=None, \
-dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
+dither=None, useZ=None, prefer_props=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
     # Set VS core and function name
     core = vs.get_core()
     funcName = 'Depth'
@@ -123,6 +125,8 @@ dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
     
     if not isinstance(input, vs.VideoNode):
         raise TypeError(funcName + ': \"input\" must be a clip!')
+    
+    prefer_props_range = None
     
     # Get properties of input clip
     sFormat = input.format
@@ -133,7 +137,7 @@ dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
     sIsGRAY = sColorFamily == vs.GRAY
     sIsYCOCG = sColorFamily == vs.YCOCG
     if sColorFamily == vs.COMPAT:
-        raise ValueError(funcName + ': Color family *COMPAT* is not supported!')
+        raise ValueError(funcName + ': color family *COMPAT* is not supported!')
     
     sbitPS = sFormat.bits_per_sample
     sSType = sFormat.sample_type
@@ -193,11 +197,10 @@ dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
             fulls = False
             fulld = False
     
-    # Whether to use z.Depth or fmtc.bitdepth for conversion
-    # If not set, when full range is involved for integer format, use z.Depth
-    # When 13-,15-bit integer or 16-bit float format is involved, force using z.Depth
+    # Whether to use zDepth or fmtc.bitdepth for conversion
+    # When 13-,15-bit integer or 16-bit float format is involved, force using zDepth
     if useZ is None:
-        useZ = (sSType == vs.INTEGER and fulls) or (dSType == vs.INTEGER and fulld)
+        useZ = False
     elif not isinstance(useZ, int):
         raise TypeError(funcName + ': \"useZ\" must be a bool!')
     if sSType == vs.INTEGER and (sbitPS == 13 or sbitPS == 15):
@@ -207,9 +210,16 @@ dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
     if (sSType == vs.FLOAT and sbitPS < 32) or (dSType == vs.FLOAT and dbitPS < 32):
         useZ = True
     
+    if prefer_props is None:
+        prefer_props = False
+    elif not isinstance(prefer_props, int):
+        raise TypeError(funcName + ': \"prefer_props\" must be a bool!')
+    if prefer_props_range is None:
+        prefer_props_range = prefer_props
+    
     # Dithering type
     if ampn is not None and not isinstance(ampn, float) and not isinstance(ampn, int):
-            raise TypeError(funcName + ': \"ampn\" must be a float or an int!')
+            raise TypeError(funcName + ': \"ampn\" must be an int or a float!')
     
     if dither is None:
         if dbitPS == 32 or (dbitPS >= sbitPS and fulld == fulls and fulld == False):
@@ -256,15 +266,15 @@ dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
         if ampo is None:
             ampo = 1.5 if dither == 0 else 1
         elif not isinstance(ampo, float) and not isinstance(ampo, int):
-            raise TypeError(funcName + ': \"ampo\" must be a float or an int!')
+            raise TypeError(funcName + ': \"ampo\" must be an int or a float!')
     
     # Skip processing if not needed
-    if dSType == sSType and dbitPS == sbitPS and (sSType == vs.FLOAT or fulld == fulls) and not lowDepth:
+    if dSType == sSType and dbitPS == sbitPS and (sSType == vs.FLOAT or (fulld == fulls and not prefer_props_range)) and not lowDepth:
         return clip
     
     # Apply conversion
     if useZ:
-        clip = zDepth(clip, sample=dSType, depth=dbitPS, range=fulld, range_in=fulls, dither_type=dither)
+        clip = zDepth(clip, sample=dSType, depth=dbitPS, range=fulld, range_in=fulls, dither_type=dither, prefer_props=prefer_props_range)
     else:
         clip = core.fmtc.bitdepth(clip, bits=dbitPS, flt=dSType, fulls=fulls, fulld=fulld, dmode=dither, ampo=ampo, ampn=ampn, dyn=dyn, staticnoise=staticnoise)
     
@@ -273,7 +283,6 @@ dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
         clip = _quantization_conversion(clip, depth, 8, vs.INTEGER, full, full, False, False, 8, 0, funcName)
     
     # Output
-    clip = SetColorSpace(clip, ColorRange=0 if fulld else 1)
     return clip
 ################################################################################################################################
 
@@ -283,7 +292,10 @@ dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
 ################################################################################################################################
 ## Convert any color space to full range RGB.
 ## Thus, if input is limited range RGB, it will be converted to full range.
-## If matrix is 10, "2020cl" or "bt2020c", the output is linear RGB
+## If matrix is 10, "2020cl" or "bt2020c", the output is linear RGB.
+## It's mainly a wrapper for fmtconv.
+## Note that you may get faster speed with core.resize, or not (for now, dither_type='error_diffusion' is slow).
+## It's recommended to use Preview() for previewing now.
 ################################################################################################################################
 ## Basic parameters
 ##     input {clip}: clip to be converted
@@ -299,9 +311,11 @@ dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
 ##         default is the same as that of the input clip
 ##     full {bool}: define if input clip is of full range
 ##         default: guessed according to the color family of input clip and "matrix"
+##     compat {bool}: force CompatBGR32 output, "depth" will be forced to 8
+##         default: False
 ################################################################################################################################
 ## Parameters of depth conversion
-##     dither, useZ, ampo, ampn, dyn, staticnoise:
+##     dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise:
 ##         same as those in Depth()
 ################################################################################################################################
 ## Parameters of resampling
@@ -310,8 +324,9 @@ dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
 ##         default: kernel="bicubic", a1=0, a2=0.5, also known as "Catmull-Rom".
 ################################################################################################################################
 def ToRGB(input, matrix=None, depth=None, sample=None, full=None, \
-dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None, \
-kernel=None, taps=None, a1=None, a2=None, cplace=None):
+dither=None, useZ=None, prefer_props=None, ampo=None, ampn=None, dyn=None, staticnoise=None, \
+kernel=None, taps=None, a1=None, a2=None, cplace=None, \
+compat=None):
     # Set VS core and function name
     core = vs.get_core()
     funcName = 'ToRGB'
@@ -332,7 +347,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
     sIsGRAY = sColorFamily == vs.GRAY
     sIsYCOCG = sColorFamily == vs.YCOCG
     if sColorFamily == vs.COMPAT:
-        raise ValueError(funcName + ': Color family *COMPAT* is not supported!')
+        raise ValueError(funcName + ': color family *COMPAT* is not supported!')
     
     sbitPS = sFormat.bits_per_sample
     sSType = sFormat.sample_type
@@ -353,6 +368,12 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
         fulls = full
     
     # Get properties of output clip
+    if compat is None:
+        compat = False
+    elif not isinstance(compat, int):
+        raise TypeError(funcName + ': \"compat\" must be an int!')
+    if compat:
+        depth = 8
     if depth is None:
         dbitPS = sbitPS
     elif not isinstance(depth, int):
@@ -386,12 +407,12 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
         # Apply conversion in the higher one of input and output bit depth
         pbitPS = max(sbitPS, dbitPS)
         # For integer sample type, only 8-, 9-, 10-, 12-, 16-bit is supported by fmtc.matrix
-        if pbitPS == 11:
-            pbitPS = 12
-        elif pbitPS > 12 and pbitPS < 16:
-            pbitPS = 16
         if sHSubS != 1 or sVSubS != 1:
             # When chroma re-sampling is needed, always process in 16-bit for integer sample type
+            pbitPS = 16
+        elif pbitPS == 11:
+            pbitPS = 12
+        elif pbitPS > 12 and pbitPS < 16:
             pbitPS = 16
     
     # fmtc.resample parameters
@@ -407,18 +428,19 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
     if sIsRGB:
         # Skip matrix conversion for RGB input
         # Apply depth conversion for output clip
-        clip = Depth(clip, dbitPS, dSType, fulls, fulld, dither, useZ, ampo, ampn, dyn, staticnoise)
+        clip = Depth(clip, dbitPS, dSType, fulls, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
     elif sIsGRAY:
         # Apply depth conversion for output clip
-        clip = Depth(clip, dbitPS, dSType, fulls, fulld, dither, useZ, ampo, ampn, dyn, staticnoise)
+        clip = Depth(clip, dbitPS, dSType, fulls, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
         # Shuffle planes for Gray input
         clip = core.std.ShufflePlanes([clip,clip,clip], [0,0,0], vs.RGB)
     else:
-        # Apply depth conversion for processed clip
-        clip = Depth(clip, pbitPS, pSType, fulls, fulls, dither, useZ, ampo, ampn, dyn, staticnoise)
         # Apply chroma up-sampling if needed
         if sHSubS != 1 or sVSubS != 1:
-            clip = core.fmtc.resample(clip, kernel=kernel, taps=taps, a1=a1, a2=a2, css="444", planes=[2,3,3], fulls=fulls, fulld=fulls, cplace=cplace)
+            clip = core.fmtc.resample(clip, kernel=kernel, taps=taps, a1=a1, a2=a2, css="444", planes=[2,3,3], fulls=fulls, fulld=fulls, cplace=cplace, flt=pSType==vs.FLOAT)
+        # Apply depth conversion for processed clip
+        else:
+            clip = Depth(clip, pbitPS, pSType, fulls, fulls, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
         # Apply matrix conversion for YUV or YCoCg input
         if matrix == "OPP":
             clip = core.fmtc.matrix(clip, fulls=fulls, fulld=fulld, coef=[1,1,2/3,0, 1,0,-4/3,0, 1,-1,2/3,0], col_fam=vs.RGB)
@@ -428,7 +450,10 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
         else:
             clip = core.fmtc.matrix(clip, mat=matrix, fulls=fulls, fulld=fulld, col_fam=vs.RGB)
         # Apply depth conversion for output clip
-        clip = Depth(clip, dbitPS, dSType, fulld, fulld, dither, useZ, ampo, ampn, dyn, staticnoise)
+        clip = Depth(clip, dbitPS, dSType, fulld, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
+    
+    if compat:
+        clip = core.resize.Bicubic(clip, format=vs.COMPATBGR32)
     
     # Output
     return clip
@@ -441,7 +466,9 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
 ## Convert any color space to YUV/YCoCg with/without sub-sampling.
 ## If input is RGB, it's assumed to be of full range.
 ##     Thus, limited range RGB clip should first be manually converted to full range before call this function.
-## If matrix is 10, "2020cl" or "bt2020c", the input should be linear RGB
+## If matrix is 10, "2020cl" or "bt2020c", the input should be linear RGB.
+## It's mainly a wrapper for fmtconv.
+## Note that you may get faster speed with core.resize, or not (for now, dither_type='error_diffusion' is slow).
 ################################################################################################################################
 ## Basic parameters
 ##     input {clip}: clip to be converted
@@ -470,7 +497,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
 ##         default: guessed according to the color family of input clip and "matrix"
 ################################################################################################################################
 ## Parameters of depth conversion
-##     dither, useZ, ampo, ampn, dyn, staticnoise:
+##     dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise:
 ##         same as those in Depth()
 ################################################################################################################################
 ## Parameters of resampling
@@ -479,7 +506,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
 ##         default: kernel="bicubic", a1=0, a2=0.5, also known as "Catmull-Rom"
 ################################################################################################################################
 def ToYUV(input, matrix=None, css=None, depth=None, sample=None, full=None, \
-dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None, \
+dither=None, useZ=None, prefer_props=None, ampo=None, ampn=None, dyn=None, staticnoise=None, \
 kernel=None, taps=None, a1=None, a2=None, cplace=None):
     # Set VS core and function name
     core = vs.get_core()
@@ -501,7 +528,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
     sIsGRAY = sColorFamily == vs.GRAY
     sIsYCOCG = sColorFamily == vs.YCOCG
     if sColorFamily == vs.COMPAT:
-        raise ValueError(funcName + ': Color family *COMPAT* is not supported!')
+        raise ValueError(funcName + ': color family *COMPAT* is not supported!')
     
     sbitPS = sFormat.bits_per_sample
     sSType = sFormat.sample_type
@@ -614,13 +641,13 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
         # Change chroma sub-sampling if needed
         if dHSubS != sHSubS or dVSubS != sVSubS:
             # Apply depth conversion for processed clip
-            clip = Depth(clip, pbitPS, pSType, fulls, fulls, dither, useZ, ampo, ampn, dyn, staticnoise)
+            clip = Depth(clip, pbitPS, pSType, fulls, fulls, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
             clip = core.fmtc.resample(clip, kernel=kernel, taps=taps, a1=a1, a2=a2, css=css, planes=[2,3,3], fulls=fulls, fulld=fulls, cplace=cplace)
         # Apply depth conversion for output clip
-        clip = Depth(clip, dbitPS, dSType, fulls, fulld, dither, useZ, ampo, ampn, dyn, staticnoise)
+        clip = Depth(clip, dbitPS, dSType, fulls, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
     elif sIsGRAY:
         # Apply depth conversion for output clip
-        clip = Depth(clip, dbitPS, dSType, fulls, fulld, dither, useZ, ampo, ampn, dyn, staticnoise)
+        clip = Depth(clip, dbitPS, dSType, fulls, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
         # Shuffle planes for Gray input
         widthc = input.width // dHSubS
         heightc = input.height // dVSubS
@@ -629,7 +656,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
         clip = core.std.ShufflePlanes([clip,UV,UV], [0,0,0], vs.YUV)
     else:
         # Apply depth conversion for processed clip
-        clip = Depth(clip, pbitPS, pSType, fulls, fulls, dither, useZ, ampo, ampn, dyn, staticnoise)
+        clip = Depth(clip, pbitPS, pSType, fulls, fulls, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
         # Apply matrix conversion for RGB input
         if matrix == "OPP":
             clip = core.fmtc.matrix(clip, fulls=fulls, fulld=fulld, coef=[1/3,1/3,1/3,0, 1/2,0,-1/2,0, 1/4,-1/2,1/4,0], col_fam=vs.YUV)
@@ -642,7 +669,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
         if dHSubS != sHSubS or dVSubS != sVSubS:
             clip = core.fmtc.resample(clip, kernel=kernel, taps=taps, a1=a1, a2=a2, css=css, planes=[2,3,3], fulls=fulld, fulld=fulld, cplace=cplace)
         # Apply depth conversion for output clip
-        clip = Depth(clip, dbitPS, dSType, fulld, fulld, dither, useZ, ampo, ampn, dyn, staticnoise)
+        clip = Depth(clip, dbitPS, dSType, fulld, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
     
     # Output
     return clip
@@ -652,7 +679,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
 ################################################################################################################################
 ## Main function: BM3D()
 ################################################################################################################################
-## A wrap function for BM3D/V-BM3D denoising filter
+## A wrap function for BM3D/V-BM3D denoising filter.
 ## The BM3D filtering is always done in 16-bit int or 32-bit float opponent(OPP) color space internally.
 ## It can automatically convert any input color space to OPP and convert it back after filtering.
 ## Alternatively, you can specify "output" to force outputting RGB or OPP, and "css" to change chroma subsampling.
@@ -718,7 +745,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
 ##         default is the same as that of the input clip
 ################################################################################################################################
 ## Parameters of depth conversion
-##     dither, useZ, ampo, ampn, dyn, staticnoise:
+##     dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise:
 ##         same as those in Depth()
 ################################################################################################################################
 ## Parameters of resampling
@@ -741,7 +768,7 @@ def BM3D(input, sigma=None, radius1=None, radius2=None, profile1=None, profile2=
 refine=None, pre=None, ref=None, psample=None, \
 matrix=None, full=None, \
 output=None, css=None, depth=None, sample=None, \
-dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None, \
+dither=None, useZ=None, prefer_props=None, ampo=None, ampn=None, dyn=None, staticnoise=None, \
 cu_kernel=None, cu_taps=None, cu_a1=None, cu_a2=None, cu_cplace=None, \
 cd_kernel=None, cd_taps=None, cd_a1=None, cd_a2=None, cd_cplace=None, \
 block_size1=None, block_step1=None, group_size1=None, bm_range1=None, bm_step1=None, ps_num1=None, ps_range1=None, ps_step1=None, th_mse1=None, hard_thr=None, \
@@ -766,7 +793,7 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
     sIsGRAY = sColorFamily == vs.GRAY
     sIsYCOCG = sColorFamily == vs.YCOCG
     if sColorFamily == vs.COMPAT:
-        raise ValueError(funcName + ': Color family *COMPAT* is not supported!')
+        raise ValueError(funcName + ': color family *COMPAT* is not supported!')
     
     sbitPS = sFormat.bits_per_sample
     sSType = sFormat.sample_type
@@ -934,30 +961,30 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
     if sIsGRAY:
         onlyY = True
         # Convert Gray input to full range Gray in processed format
-        clip = Depth(clip, pbitPS, pSType, fulls, True, dither, useZ, ampo, ampn, dyn, staticnoise)
+        clip = Depth(clip, pbitPS, pSType, fulls, True, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
         if pre is not None:
-            pre = Depth(pre, pbitPS, pSType, fulls, True, dither, useZ, ampo, ampn, dyn, staticnoise)
+            pre = Depth(pre, pbitPS, pSType, fulls, True, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
         if ref is not None:
-            ref = Depth(ref, pbitPS, pSType, fulls, True, dither, useZ, ampo, ampn, dyn, staticnoise)
+            ref = Depth(ref, pbitPS, pSType, fulls, True, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
     else:
         # Convert input to full range RGB
         clip = ToRGB(clip, matrix, pbitPS, pSType, fulls, \
-        dither, useZ, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
+        dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace, False)
         if pre is not None:
             pre = ToRGB(pre, matrix, pbitPS, pSType, fulls, \
-            dither, useZ, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
+            dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace, False)
         if ref is not None:
             ref = ToRGB(ref, matrix, pbitPS, pSType, fulls, \
-            dither, useZ, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
+            dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace, False)
         # Convert full range RGB to full range OPP
         clip = ToYUV(clip, "OPP", "444", pbitPS, pSType, True, \
-        dither, useZ, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
+        dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
         if pre is not None:
             pre = ToYUV(pre, "OPP", "444", pbitPS, pSType, True, \
-            dither, useZ, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
+            dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
         if ref is not None:
             ref = ToYUV(ref, "OPP", "444", pbitPS, pSType, True, \
-            dither, useZ, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
+            dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
         # Convert OPP to Gray if only Y is processed
         srcOPP = clip
         if sigma[1] <= 0 and sigma[2] <= 0:
@@ -1012,7 +1039,7 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
     
     # Convert to output format
     if sIsGRAY:
-        clip = Depth(flt, dbitPS, dSType, True, fulld, dither, useZ, ampo, ampn, dyn, staticnoise)
+        clip = Depth(flt, dbitPS, dSType, True, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
     else:
         # Shuffle back to YUV if not all planes are processed
         if onlyY:
@@ -1026,14 +1053,14 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
         if output <= 1:
             # Convert full range OPP to full range RGB
             clip = ToRGB(clip, "OPP", pbitPS, pSType, True, \
-            dither, useZ, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
+            dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace, False)
         if output <= 0 and not sIsRGB:
             # Convert full range RGB to YUV/YCoCg
             clip = ToYUV(clip, matrix, css, dbitPS, dSType, fulld, \
-            dither, useZ, ampo, ampn, dyn, staticnoise, cd_kernel, cd_taps, cd_a1, cd_a2, cd_cplace)
+            dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cd_kernel, cd_taps, cd_a1, cd_a2, cd_cplace)
         else:
             # Depth conversion for RGB or OPP output
-            clip = Depth(clip, dbitPS, dSType, True, fulld, dither, useZ, ampo, ampn, dyn, staticnoise)
+            clip = Depth(clip, dbitPS, dSType, True, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
     
     # Output
     return clip
@@ -1827,6 +1854,165 @@ def PointPower(clip, vpow=None, hpow=None):
 ################################################################################################################################
 
 
+################################################################################################################################
+## Utility function: CheckMatrix()
+################################################################################################################################
+## *** EXPERIMENTAL *** I'm not sure whether it will work or not ***
+################################################################################################################################
+## Check whether the input YUV clip matches specific color matrix
+## Output is RGB24, out of range pixels will be marked as 255, indicating that the matrix may not be correct
+## Additional plane mean values about the out of range pixels will be print on the frame
+## Multiple matrices can be specified simultaneously, and multiple results will be stacked vertically
+################################################################################################################################
+## Basic parameters
+##     clip {clip}: clip to evaluate
+##         must be of YUV or YCoCg color family
+##     matrices {str[]}: specify a (list of) matrix to test
+##         default: ['601', '709', '2020', '240', 'FCC', 'YCgCo']
+##     full {bool}: define if input clip is of full range
+##         default: False for YUV input, True for YCoCg input
+##     lower {float}: lower boundary for valid range (inclusive)
+##         default: -0.02
+##     upper {float}: upper boundary for valid range (inclusive)
+##         default: 1.02
+################################################################################################################################
+def CheckMatrix(clip, matrices=None, full=None, lower=None, upper=None):
+    # Set VS core and function name
+    core = vs.get_core()
+    funcName = 'CheckMatrix'
+    
+    if not isinstance(clip, vs.VideoNode):
+        raise TypeError(funcName + ': \"clip\" must be a clip!')
+    
+    # Get properties of input clip
+    sFormat = clip.format
+    
+    sColorFamily = sFormat.color_family
+    sIsRGB = sColorFamily == vs.RGB
+    sIsYUV = sColorFamily == vs.YUV
+    sIsGRAY = sColorFamily == vs.GRAY
+    sIsYCOCG = sColorFamily == vs.YCOCG
+    if sColorFamily == vs.COMPAT:
+        raise ValueError(funcName + ': color family *COMPAT* is not supported!')
+    if not (sIsYUV or sIsYCOCG):
+        raise ValueError(funcName + ': only YUV or YCoCg color family is allowed!')
+    
+    # Parameters
+    if matrices is None:
+        matrices = ['601', '709', '2020', '240', 'FCC', 'YCgCo']
+    elif not isinstance(matrices, list) and isinstance(matrices, str):
+        raise TypeError(funcName + ': \'matrices\' must be a (list of) str!')
+    
+    if full is None:
+        full = sIsYCOCG
+    elif not isinstance(full, int):
+        raise TypeError(funcName + ': \'full\' must be a bool!')
+    
+    if lower is None:
+        lower = -0.02
+    elif not (isinstance(lower, float) or isinstance(lower, int)):
+        raise TypeError(funcName + ': \'lower\' must be an int or a float!')
+    
+    if upper is None:
+        upper = 1.02
+    elif not (isinstance(upper, float) or isinstance(upper, int)):
+        raise TypeError(funcName + ': \'upper\' must be an int or a float!')
+    
+    # Process
+    clip = ToYUV(clip, css='444', depth=32, full=full)
+    
+    props = ['RMean', 'GMean', 'BMean', 'TotalMean']
+    def _FrameProps(n, f):
+        fout = f.copy()
+        fout.props.__setattr__(props[3], (f.props.__getattr__(props[0]) + f.props.__getattr__(props[1]) + f.props.__getattr__(props[2])) / 3)
+        return fout
+    
+    rgb_clips = []
+    for matrix in matrices:
+        rgb_clip = ToRGB(clip, matrix=matrix)
+        rgb_clip = rgb_clip.std.Expr('x {lower} < 1 x - x {upper} > x 0 ? ?'.format(lower=lower, upper=upper))
+        rgb_clip = PlaneAverage(rgb_clip, 0, props[0])
+        rgb_clip = PlaneAverage(rgb_clip, 1, props[1])
+        rgb_clip = PlaneAverage(rgb_clip, 2, props[2])
+        rgb_clip = core.std.ModifyFrame(rgb_clip, rgb_clip, selector=_FrameProps)
+        rgb_clip = Depth(rgb_clip, depth=8, dither='none')
+        rgb_clip = rgb_clip.text.FrameProps(props, alignment=7)
+        rgb_clip = rgb_clip.text.Text(matrix, alignment=8)
+        rgb_clips.append(rgb_clip)
+    
+    # Output
+    return core.std.StackVertical(rgb_clips)
+################################################################################################################################
+
+
+################################################################################################################################
+## Utility function: postfix2infix()
+################################################################################################################################
+## Convert postfix expression (used by std.Expr) to infix expression
+################################################################################################################################
+## Basic parameters
+##     expr {str}: the postfix expression to be converted
+################################################################################################################################
+def postfix2infix(expr):
+    funcName = 'postfix2infix'
+    op1 = ['exp', 'log', 'sqrt', 'abs', 'not', 'dup']
+    op2 = ['+', '-', '*', '/', 'max', 'min', '>', '<', '=', '>=', '<=', 'and', 'or', 'xor', 'swap', 'pow']
+    op3 = ['?']
+
+    def remove_brackets(x):
+        if x[0] == '(' and x[len(x) - 1] == ')':
+            p = 1
+            for c in x[1:-1]:
+                if c == '(':
+                    p += 1
+                elif c == ')':
+                    p -= 1
+                if p == 0:
+                    break
+            if p == 1:
+                return x[1:-1]
+        return x
+
+    if not isinstance(expr, str):
+        raise TypeError(funcName + ': \'expr\' must be a str!')
+    expr_list = expr.split()
+
+    stack = []
+    for item in expr_list:
+        if op1.count(item) > 0:
+            try:
+                operand1 = stack.pop()
+            except IndexError:
+                raise ValueError(funcName + ': Invalid expression, require operands.')
+            if item == 'dup':
+                stack.append(operand1)
+                stack.append(operand1)
+            else:
+                stack.append('{}({})'.format(item, remove_brackets(operand1)))
+        elif op2.count(item) > 0:
+            try:
+                operand2 = stack.pop()
+                operand1 = stack.pop()
+            except IndexError:
+                raise ValueError(funcName + ': Invalid expression, require operands.')
+            stack.append('({} {} {})'.format(operand1, item, operand2))
+        elif op3.count(item) > 0:
+            try:
+                operand3 = stack.pop()
+                operand2 = stack.pop()
+                operand1 = stack.pop()
+            except IndexError:
+                raise ValueError(funcName + ': Invalid expression, require operands.')
+            stack.append('({} {} {} {} {})'.format(operand1, item, operand2, ':', operand3))
+        else:
+            stack.append(item)
+
+    if len(stack) > 1:
+        raise ValueError(funcName + ': Invalid expression, require operators.')
+    return remove_brackets(stack[0])
+################################################################################################################################
+
+
 
 
 
@@ -2141,7 +2327,7 @@ def GetMatrix(clip, matrix=None, dIsRGB=None, id=False):
     sIsGRAY = sColorFamily == vs.GRAY
     sIsYCOCG = sColorFamily == vs.YCOCG
     if sColorFamily == vs.COMPAT:
-        raise ValueError(funcName + ': Color family *COMPAT* is not supported!')
+        raise ValueError(funcName + ': color family *COMPAT* is not supported!')
     
     # Get properties of output clip
     if dIsRGB is None:
@@ -2180,19 +2366,19 @@ def GetMatrix(clip, matrix=None, dIsRGB=None, id=False):
             matrix = 0 if id else "RGB"
         elif matrix == 1 or matrix == "709" or matrix == "bt709": # bt709
             matrix = 1 if id else "709"
-        elif matrix == 2 or matrix == "unspecified": # Unspecified
+        elif matrix == 2 or matrix == "unspecified" or matrix == "unspec": # Unspecified
             matrix = 2 if id else "Unspecified"
         elif matrix == 4 or matrix == "fcc": # fcc
             matrix = 4 if id else "FCC"
-        elif matrix == 5 or matrix == "bt470bg": # bt470bg
+        elif matrix == 5 or matrix == "bt470bg" or matrix == "470bg": # bt470bg
             matrix = 5 if id else "601"
-        elif matrix == 6 or matrix == "601" or matrix == "smpte170m": # smpte170m
+        elif matrix == 6 or matrix == "601" or matrix == "smpte170m" or matrix == "170m": # smpte170m
             matrix = 6 if id else "601"
         elif matrix == 7 or matrix == "240" or matrix == "smpte240m": # smpte240m
             matrix = 7 if id else "240"
         elif matrix == 8 or matrix == "ycgco" or matrix == "ycocg": # YCgCo
             matrix = 8 if id else "YCgCo"
-        elif matrix == 9 or matrix == "2020" or matrix == "bt2020nc": # bt2020nc
+        elif matrix == 9 or matrix == "2020" or matrix == "bt2020nc" or matrix == "2020ncl": # bt2020nc
             matrix = 9 if id else "2020"
         elif matrix == 10 or matrix == "2020cl" or matrix == "bt2020c": # bt2020c
             matrix = 10 if id else "2020cl"
@@ -2219,8 +2405,9 @@ def GetMatrix(clip, matrix=None, dIsRGB=None, id=False):
 ## Helper function: zDepth()
 ################################################################################################################################
 ## Smart function to utilize zimg depth conversion for both 1.0 and 2.0 API of vszimg as well as core.resize.
+## core.resize is preferred now.
 ################################################################################################################################
-def zDepth(clip, sample=None, depth=None, range=None, range_in=None, dither_type=None, cpu_type=None):
+def zDepth(clip, sample=None, depth=None, range=None, range_in=None, dither_type=None, cpu_type=None, prefer_props=None):
     # Set VS core and function name
     core = vs.get_core()
     funcName = 'zDepth'
@@ -2247,10 +2434,10 @@ def zDepth(clip, sample=None, depth=None, range=None, range_in=None, dither_type
     # Process
     zimgResize = core.version_number() >= 29
     zimgPlugin = core.get_plugins().__contains__('the.weather.channel')
-    if zimgPlugin and core.z.get_functions().__contains__('Format'):
+    if zimgResize:
+        clip = core.resize.Bicubic(clip, format=format.id, range=range, range_in=range_in, dither_type=dither_type, prefer_props=prefer_props)
+    elif zimgPlugin and core.z.get_functions().__contains__('Format'):
         clip = core.z.Format(clip, format=format.id, range=range, range_in=range_in, dither_type=dither_type, cpu_type=cpu_type)
-    elif zimgResize:
-        clip = core.resize.Bicubic(clip, format=format.id, range=range, range_in=range_in, dither_type=dither_type)
     elif zimgPlugin and core.z.get_functions().__contains__('Depth'):
         clip = core.z.Depth(clip, dither=dither_type, sample=sample, depth=depth, fullrange_in=range_in, fullrange_out=range)
     else:
@@ -2258,42 +2445,6 @@ def zDepth(clip, sample=None, depth=None, range=None, range_in=None, dither_type
     
     # Output
     return clip
-################################################################################################################################
-
-
-################################################################################################################################
-## Helper function: GetPlane()
-################################################################################################################################
-## Extract specific plane and store it in a Gray clip.
-################################################################################################################################
-## Parameters
-##     clip {clip}: the source clip
-##         can be of any constant format
-##     plane {int}: the plane to extract
-##         default: 0
-################################################################################################################################
-def GetPlane(clip, plane=None):
-    # Set VS core and function name
-    core = vs.get_core()
-    funcName = 'GetPlane'
-    
-    if not isinstance(clip, vs.VideoNode):
-        raise TypeError(funcName + ': \"clip\" must be a clip!')
-    
-    # Get properties of input clip
-    sFormat = clip.format
-    sNumPlanes = sFormat.num_planes
-    
-    # Parameters
-    if plane is None:
-        plane = 0
-    elif not isinstance(plane, int):
-        raise TypeError(funcName + ': \"plane\" must be an int!')
-    elif plane < 0 or plane > sNumPlanes:
-        raise ValueError(funcName + ': valid range of \"plane\" is [0, {})!'.format(sNumPlanes))
-    
-    # Process
-    return core.std.ShufflePlanes(clip, plane, vs.GRAY)
 ################################################################################################################################
 
 
@@ -2352,6 +2503,155 @@ def PlaneAverage(clip, plane=None, prop=None):
         raise AttributeError(funcName + ': Available plane average function not found!')
     
     # output
+    return clip
+################################################################################################################################
+
+
+################################################################################################################################
+## Helper function: GetPlane()
+################################################################################################################################
+## Extract specific plane and store it in a Gray clip.
+################################################################################################################################
+## Parameters
+##     clip {clip}: the source clip
+##         can be of any constant format
+##     plane {int}: the plane to extract
+##         default: 0
+################################################################################################################################
+def GetPlane(clip, plane=None):
+    # Set VS core and function name
+    core = vs.get_core()
+    funcName = 'GetPlane'
+    
+    if not isinstance(clip, vs.VideoNode):
+        raise TypeError(funcName + ': \"clip\" must be a clip!')
+    
+    # Get properties of input clip
+    sFormat = clip.format
+    sNumPlanes = sFormat.num_planes
+    
+    # Parameters
+    if plane is None:
+        plane = 0
+    elif not isinstance(plane, int):
+        raise TypeError(funcName + ': \"plane\" must be an int!')
+    elif plane < 0 or plane > sNumPlanes:
+        raise ValueError(funcName + ': valid range of \"plane\" is [0, {})!'.format(sNumPlanes))
+    
+    # Process
+    return core.std.ShufflePlanes(clip, plane, vs.GRAY)
+################################################################################################################################
+
+
+################################################################################################################################
+## Helper function: GrayScale()
+################################################################################################################################
+## Convert the given clip to gray-scale.
+################################################################################################################################
+## Parameters
+##     clip {clip}: the source clip
+##         can be of any constant format
+##     matrix {int|str}: for RGB input only, same as the one in ToYUV()
+################################################################################################################################
+def GrayScale(clip, matrix=None):
+    # Set VS core and function name
+    core = vs.get_core()
+    funcName = 'GrayScale'
+    
+    if not isinstance(clip, vs.VideoNode):
+        raise TypeError(funcName + ': \"clip\" must be a clip!')
+    
+    # Get properties of input clip
+    sFormat = clip.format
+    
+    sColorFamily = sFormat.color_family
+    sIsRGB = sColorFamily == vs.RGB
+    sIsYUV = sColorFamily == vs.YUV
+    sIsGRAY = sColorFamily == vs.GRAY
+    sIsYCOCG = sColorFamily == vs.YCOCG
+    if sColorFamily == vs.COMPAT:
+        raise ValueError(funcName + ': color family *COMPAT* is not supported!')
+    
+    # Process
+    if sIsGRAY:
+        pass
+    elif sIsRGB:
+        clip = ToYUV(clip, matrix=matrix, full=True)
+        clip = core.std.ShufflePlanes(clip, [0,0,0], sColorFamily)
+    else:
+        blank = clip.std.BlankClip()
+        clip = core.std.ShufflePlanes([clip,blank,blank], [0,1,2], sColorFamily)
+    
+    # Output
+    return clip
+################################################################################################################################
+
+
+################################################################################################################################
+## Helper function: Preview()
+################################################################################################################################
+## Convert the given clip or clips to the same RGB format.
+## When multiple clips is given, they will be interleaved together, and resized to the same dimension using "Catmull-Rom".
+################################################################################################################################
+## Set "plane" if you want to output a specific plane.
+## Set compat=True for COMPATBGR32 format output, usually used for VirtualDub, AvsPmod, etc.
+################################################################################################################################
+## matrix, full, dither, kernel, a1, a2, prefer_props correspond to matrix_in, range_in, dither_type,
+## resample_filter_uv, filter_param_a_uv, filter_param_b_uv, prefer_props in resize.Bicubic.
+## "matrix" is passed to GetMatrix(id=True) first.
+## default chroma resampler: kernel="bicubic", a1=0, a2=0.5, also known as "Catmull-Rom"
+################################################################################################################################
+def Preview(clips, plane=None, compat=None, matrix=None, full=None, depth=None,\
+dither=None, kernel=None, a1=None, a2=None, prefer_props=None):
+    # Set VS core and function name
+    core = vs.get_core()
+    funcName = 'Preview'
+    
+    if isinstance(clips, vs.VideoNode):
+        ref = clips
+    elif isinstance(clips, list):
+        for c in clips:
+            if not isinstance(c, vs.VideoNode):
+                raise TypeError(funcName + ': \"clips\" must be a clip or a list of clips!')
+        ref = clips[0]
+    else:
+        raise TypeError(funcName + ': \"clips\" must be a clip or a list of clips!')
+    
+    # Get properties of output clip
+    if compat:
+        dFormat = vs.COMPATBGR32
+    else:
+        if depth is None:
+            depth = 8
+        elif not isinstance(depth, int):
+            raise TypeError(funcName + ': \"depth\" must be an int!')
+        if depth >= 32:
+            sample = vs.FLOAT
+        else:
+            sample = vs.INTEGER
+        dFormat = core.register_format(vs.RGB, sample, depth, 0, 0).id
+    
+    # Parameters
+    if kernel is None:
+        kernel = "bicubic"
+        if a1 is None and a2 is None:
+            a1 = 0
+            a2 = 0.5
+    
+    # Conversion
+    def _Conv(clip):
+        if plane is not None:
+            clip = GetPlane(clip, plane)
+        return core.resize.Bicubic(clip, ref.width, ref.height, format=dFormat, matrix_in=GetMatrix(clip, matrix, True, True), range_in=full, filter_param_a=0, filter_param_b=0.5, resample_filter_uv=kernel, filter_param_a_uv=a1, filter_param_b_uv=a2, dither_type=dither, prefer_props=prefer_props)
+    
+    if isinstance(clips, vs.VideoNode):
+        clip = _Conv(clips)
+    elif isinstance(clips, list):
+        for i in range(len(clips)):
+            clips[i] = _Conv(clips[i])
+        clip = core.std.Interleave(clips)
+    
+    # Output
     return clip
 ################################################################################################################################
 
@@ -2437,7 +2737,7 @@ clamp=None, dbitPS=None, mode=None, funcName='_quantization_conversion'):
     sIsGRAY = sColorFamily == vs.GRAY
     sIsYCOCG = sColorFamily == vs.YCOCG
     if sColorFamily == vs.COMPAT:
-        raise ValueError(funcName + ': Color family *COMPAT* is not supported!')
+        raise ValueError(funcName + ': color family *COMPAT* is not supported!')
     
     sbitPS = sFormat.bits_per_sample
     sSType = sFormat.sample_type
