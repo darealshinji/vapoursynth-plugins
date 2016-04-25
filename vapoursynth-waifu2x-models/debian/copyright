@@ -2,11 +2,11 @@ Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Source: https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Waifu2x-w2xc/tree/master/Waifu2x-w2xc/models
 
 Files: *.json
-Copyright: 2015 nagadomi <nagadomi@nurs.or.jp>
+Copyright: 2015-2016 nagadomi <nagadomi@nurs.or.jp>
 License: MIT
 
 Files: debian/*
-Copyright: 2015 djcj <djcj@gmx.de>
+Copyright: 2015-2016 djcj <djcj@gmx.de>
 License: MIT
 
 License: MIT
