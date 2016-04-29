@@ -46,8 +46,11 @@ class FilterBase
 
 public:
 
+	static const size_t
+	               _max_error_buf_len = 4096;
+
 	explicit       FilterBase (const ::VSAPI &vsapi, const char name_0 [], ::VSFilterMode filter_mode, int /* ::NodeFlags */ flags);
-	virtual        ~FilterBase () {}
+	virtual        ~FilterBase () = default;
 
 	const std::string &
 	               use_filter_name () const;
@@ -75,6 +78,8 @@ public:
 	virtual void   init_filter (::VSMap &in, ::VSMap &out, ::VSNode &node, ::VSCore &core) = 0;
 	virtual const ::VSFrameRef *
 	               get_frame (int n, int activation_reason, void * &frame_data_ptr, ::VSFrameContext &frame_ctx, ::VSCore &core) = 0;
+
+	static char    _filter_error_msg_0 [_max_error_buf_len];
 
 
 
@@ -111,17 +116,19 @@ private:
 	void           test_arg_err (::VSMap &out, const char name_0 [], int err) const;
 	void           throw_generic (const char msg_0 [], ExceptionType e) const;
 
+	static char    _filter_error_msg_internal_0 [_max_error_buf_len];
+
 
 
 /*\\\ FORBIDDEN MEMBER FUNCTIONS \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\*/
 
 private:
 
-	               FilterBase ();
-	               FilterBase (const FilterBase &other);
-	FilterBase &   operator = (const FilterBase &other);
-	bool           operator == (const FilterBase &other) const;
-	bool           operator != (const FilterBase &other) const;
+	               FilterBase ()                               = delete;
+	               FilterBase (const FilterBase &other)        = delete;
+	FilterBase &   operator = (const FilterBase &other)        = delete;
+	bool           operator == (const FilterBase &other) const = delete;
+	bool           operator != (const FilterBase &other) const = delete;
 
 };	// class FilterBase
 

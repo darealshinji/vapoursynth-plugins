@@ -241,10 +241,13 @@ int64_t	Interlocked::cas (int64_t volatile &dest, int64_t excg, int64_t comp)
 
 void	Interlocked::swap (Data128 &old, volatile Data128 &dest, const Data128 &excg)
 {
-	assert (&old != 0);
 	assert (is_ptr_aligned_nz (&dest));
 
 #if defined (__APPLE__)
+
+	Data128 *         old_ptr  = &old;
+	volatile Data128* dest_ptr = &dest;
+	const Data128 *   excg_ptr = &excg;
 
 	asm volatile ( 
 	"	mov				 %[excg], %%r9			\n"
@@ -265,9 +268,9 @@ void	Interlocked::swap (Data128 &old, volatile Data128 &dest, const Data128 &exc
 	"	movq				%%rdx, 8(%%r10)		\n"
 	"	pop				%%rbx						\n"
 	: 
-	: [excg] "m" (&excg)
-	, [old]  "m" (&old)
-	, [dest] "m" (&dest)
+	: [excg] "m" (excg_ptr)
+	, [old]  "m" (old_ptr)
+	, [dest] "m" (dest_ptr)
 	: "rsi", "rax", "rcx", "rdx", "r9", "r10"
 	);
 
@@ -288,10 +291,14 @@ void	Interlocked::swap (Data128 &old, volatile Data128 &dest, const Data128 &exc
 
 void	Interlocked::cas (Data128 &old, volatile Data128 &dest, const Data128 &excg, const Data128 &comp)
 {
-	assert (&old != 0);
 	assert (is_ptr_aligned_nz (&dest));
 
 #if defined (__APPLE__) || (defined (__CYGWIN__) && conc_WORD_SIZE == 64)
+
+	Data128 *         old_ptr  = &old;
+	volatile Data128* dest_ptr = &dest;
+	const Data128 *   excg_ptr = &excg;
+	const Data128 *   comp_ptr = &comp;
 
 	asm volatile (
 	"	mov              %[comp], %%r8   \n"
@@ -309,10 +316,10 @@ void	Interlocked::cas (Data128 &old, volatile Data128 &dest, const Data128 &excg
 	"	movq             %%rdx, 8(%%r10) \n"
 	"	pop              %%rbx           \n"
 	:
-	: [old]  "m" (&old)
-	, [dest] "m" (&dest)
-	, [excg] "m" (&excg)
-	, [comp] "m" (&comp)
+	: [old]  "m" (old_ptr)
+	, [dest] "m" (dest_ptr)
+	, [excg] "m" (excg_ptr)
+	, [comp] "m" (comp_ptr)
 	: "rsi", "rax", "rcx", "rdx", "r8", "r9", "r10"
 	);
 
@@ -361,16 +368,12 @@ void	Interlocked::cas (Data128 &old, volatile Data128 &dest, const Data128 &excg
 
 bool	Interlocked::Data128::operator == (const Data128 & other) const
 {
-	assert (&other != 0);
-
 	return (   _data [0] == other._data [0]
 	        && _data [1] == other._data [1]);
 }
 
 bool	Interlocked::Data128::operator != (const Data128 & other) const
 {
-	assert (&other != 0);
-
 	return (   _data [0] != other._data [0]
 	        || _data [1] != other._data [1]);
 }
@@ -388,8 +391,6 @@ bool	Interlocked::Data128::operator != (const Data128 & other) const
 
 void *	Interlocked::swap (void * volatile &dest_ptr, void *excg_ptr)
 {
-	assert (&dest_ptr != 0);
-
 	return (reinterpret_cast <void *> (
 		swap (
 			*reinterpret_cast <IntPtr volatile *> (&dest_ptr),
@@ -402,8 +403,6 @@ void *	Interlocked::swap (void * volatile &dest_ptr, void *excg_ptr)
 
 void *	Interlocked::cas (void * volatile &dest_ptr, void *excg_ptr, void *comp_ptr)
 {
-	assert (&dest_ptr != 0);
-
 	return (reinterpret_cast <void *> (
 		cas (
 			*reinterpret_cast <IntPtr volatile *> (&dest_ptr),

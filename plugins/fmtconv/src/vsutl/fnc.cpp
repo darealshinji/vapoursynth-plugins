@@ -40,8 +40,6 @@ namespace vsutl
 
 bool	is_constant_format (const ::VSVideoInfo &vi)
 {
-	assert (&vi != 0);
-
 	return (vi.height > 0 && vi.width > 0 && vi.format != 0);
 }
 
@@ -49,8 +47,6 @@ bool	is_constant_format (const ::VSVideoInfo &vi)
 
 bool	has_chroma (const ::VSFormat &fmt)
 {
-	assert (&fmt != 0);
-
 	return (   fmt.colorFamily == ::cmYUV
 	        || fmt.colorFamily == ::cmYCoCg);
 }
@@ -59,7 +55,6 @@ bool	has_chroma (const ::VSFormat &fmt)
 
 bool	is_chroma_plane (const ::VSFormat &fmt, int plane_index)
 {
-	assert (&fmt != 0);
 	assert (plane_index >= 0);
 	assert (plane_index < fmt.numPlanes);
 
@@ -70,8 +65,6 @@ bool	is_chroma_plane (const ::VSFormat &fmt, int plane_index)
 
 bool	is_full_range_default (const ::VSFormat &fmt)
 {
-	assert (&fmt != 0);
-
 	return (   fmt.colorFamily == ::cmRGB
 	        || fmt.colorFamily == ::cmYCoCg);
 }
@@ -80,7 +73,6 @@ bool	is_full_range_default (const ::VSFormat &fmt)
 
 double	compute_pix_scale (const ::VSFormat &fmt, int plane_index, bool full_flag)
 {
-	assert (&fmt != 0);
 	assert (plane_index >= 0);
 	assert (plane_index < fmt.numPlanes);
 
@@ -91,8 +83,7 @@ double	compute_pix_scale (const ::VSFormat &fmt, int plane_index, bool full_flag
 		const int      bps_m8 = fmt.bitsPerSample - 8;
 		if (full_flag)
 		{
-			// Final mul in double to make sure we don't overflow even for uint64.
-			scale = double ((uint64_t (1)) << bps_m8) * 256;
+			scale = double ((uint64_t (1) << fmt.bitsPerSample) - 1);
 		}
 		else if (is_chroma_plane (fmt, plane_index))
 		{
@@ -111,7 +102,6 @@ double	compute_pix_scale (const ::VSFormat &fmt, int plane_index, bool full_flag
 
 double	get_pix_min (const ::VSFormat &fmt, int plane_index, bool full_flag)
 {
-	assert (&fmt != 0);
 	assert (plane_index >= 0);
 	assert (plane_index < fmt.numPlanes);
 
@@ -124,7 +114,15 @@ double	get_pix_min (const ::VSFormat &fmt, int plane_index, bool full_flag)
 			add_val = -0.5;
 		}
 	}
-	else if (! full_flag)
+	else if (full_flag)
+	{
+		if (is_chroma_plane (fmt, plane_index))
+		{
+			// So the neutral value (0) is exactly: 1 << (nbr_bits - 1)
+			add_val = 0.5;
+		}
+	}
+	else
 	{
 		add_val = double ((uint64_t (16)) << (fmt.bitsPerSample - 8));
 	}
@@ -136,10 +134,6 @@ double	get_pix_min (const ::VSFormat &fmt, int plane_index, bool full_flag)
 
 void	compute_fmt_mac_cst (double &gain, double &add_cst, const ::VSFormat &fmt_dst, bool full_dst_flag, const ::VSFormat &fmt_src, bool full_src_flag, int plane_index)
 {
-	assert (&gain != 0);
-	assert (&add_cst != 0);
-	assert (&fmt_dst != 0);
-	assert (&fmt_src != 0);
 	assert (plane_index >= 0);
 	assert (plane_index < fmt_dst.numPlanes);
 	assert (plane_index < fmt_src.numPlanes);
@@ -160,7 +154,6 @@ void	compute_fmt_mac_cst (double &gain, double &add_cst, const ::VSFormat &fmt_d
 
 int	compute_plane_width (const ::VSFormat &fmt, int plane_index, int base_w)
 {
-	assert (&fmt != 0);
 	assert (plane_index >= 0);
 	assert (plane_index < fmt.numPlanes);
 	assert (base_w >= 0);
@@ -178,7 +171,6 @@ int	compute_plane_width (const ::VSFormat &fmt, int plane_index, int base_w)
 
 int	compute_plane_height (const ::VSFormat &fmt, int plane_index, int base_h)
 {
-	assert (&fmt != 0);
 	assert (plane_index >= 0);
 	assert (plane_index < fmt.numPlanes);
 	assert (base_h >= 0);
@@ -196,8 +188,6 @@ int	compute_plane_height (const ::VSFormat &fmt, int plane_index, int base_h)
 
 int	conv_str_to_chroma_subspl (int &ssh, int &ssv, std::string css)
 {
-	assert (&ssh != 0);
-	assert (&ssv != 0);
 	assert (! css.empty ());
 
 	int            ret_val = 0;

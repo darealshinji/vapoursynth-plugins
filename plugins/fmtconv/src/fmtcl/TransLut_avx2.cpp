@@ -48,16 +48,16 @@ template <class M>
 class TransLut_FindIndexAvx2
 {
 public:
-	enum {         LINLUT_RES_L2  = TransLut::LINLUT_RES_L2 };
-	enum {         LINLUT_MIN_F   = TransLut::LINLUT_MIN_F  };
-	enum {         LINLUT_MAX_F   = TransLut::LINLUT_MAX_F  };
-	enum {         LINLUT_SIZE_F  = TransLut::LINLUT_SIZE_F };
+	static const int  LINLUT_RES_L2  = TransLut::LINLUT_RES_L2;
+	static const int  LINLUT_MIN_F   = TransLut::LINLUT_MIN_F;
+	static const int  LINLUT_MAX_F   = TransLut::LINLUT_MAX_F;
+	static const int  LINLUT_SIZE_F  = TransLut::LINLUT_SIZE_F;
 
-	enum {         LOGLUT_MIN_L2  = TransLut::LOGLUT_MIN_L2 };
-	enum {         LOGLUT_MAX_L2  = TransLut::LOGLUT_MAX_L2 };
-	enum {         LOGLUT_RES_L2  = TransLut::LOGLUT_RES_L2 };
-	enum {         LOGLUT_HSIZE   = TransLut::LOGLUT_HSIZE  };
-	enum {         LOGLUT_SIZE    = TransLut::LOGLUT_SIZE   };
+	static const int  LOGLUT_MIN_L2  = TransLut::LOGLUT_MIN_L2;
+	static const int  LOGLUT_MAX_L2  = TransLut::LOGLUT_MAX_L2;
+	static const int  LOGLUT_RES_L2  = TransLut::LOGLUT_RES_L2;
+	static const int  LOGLUT_HSIZE   = TransLut::LOGLUT_HSIZE;
+	static const int  LOGLUT_SIZE    = TransLut::LOGLUT_SIZE;
 
 	static inline void
 		            find_index (const TransLut::FloatIntMix val_arr [8], __m256i &index, __m256 &frac);
@@ -69,8 +69,6 @@ template <>
 void	TransLut_FindIndexAvx2 <TransLut::MapperLin>::find_index (const TransLut::FloatIntMix val_arr [8], __m256i &index, __m256 &frac)
 {
 	assert (val_arr != 0);
-	assert (&index != 0);
-	assert (&frac != 0);
 
 	const __m256   scale     = _mm256_set1_ps (1 << LINLUT_RES_L2);
 	const __m256i  offset    =
@@ -94,8 +92,6 @@ template <>
 void	TransLut_FindIndexAvx2 <TransLut::MapperLog>::find_index (const TransLut::FloatIntMix val_arr [8], __m256i &index, __m256 &frac)
 {
 	assert (val_arr != 0);
-	assert (&index != 0);
-	assert (&frac != 0);
 
 	// Constants
 	static const int      mant_size = 23;

@@ -24,6 +24,7 @@ http://sam.zoy.org/wtfpl/COPYING for more details.
 
 /*\\\ INCLUDE FILES \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\*/
 
+#include "fstb/fnc.h"
 #include "vsutl/FilterBase.h"
 
 #include <algorithm>
@@ -49,7 +50,6 @@ FilterBase::FilterBase (const ::VSAPI &vsapi, const char name_0 [], ::VSFilterMo
 ,	_filter_mode (filter_mode)
 ,	_filter_flags (flags)
 {
-	assert (&vsapi != 0);
 	assert (name_0 != 0);
 }
 
@@ -99,7 +99,6 @@ void	FilterBase::throw_logic_err (const char msg_0 []) const
 
 bool	FilterBase::is_arg_defined (const ::VSMap &in, const char name_0 []) const
 {
-	assert (&in != 0);
 	assert (name_0 != 0);
 
 	const int      nbr_elt = _vsapi.propNumElements (&in, name_0);
@@ -111,8 +110,6 @@ bool	FilterBase::is_arg_defined (const ::VSMap &in, const char name_0 []) const
 
 int	FilterBase::get_arg_int (const ::VSMap &in, ::VSMap &out, const char name_0 [], int def_val, int pos, bool *defined_ptr) const
 {
-	assert (&in != 0);
-	assert (&out != 0);
 	assert (name_0 != 0);
 
 	const bool     defined_flag = is_arg_defined (in, name_0);
@@ -136,8 +133,6 @@ int	FilterBase::get_arg_int (const ::VSMap &in, ::VSMap &out, const char name_0 
 
 double	FilterBase::get_arg_flt (const ::VSMap &in, ::VSMap &out, const char name_0 [], double def_val, int pos, bool *defined_ptr) const
 {
-	assert (&in != 0);
-	assert (&out != 0);
 	assert (name_0 != 0);
 
 	const bool     defined_flag = is_arg_defined (in, name_0);
@@ -161,8 +156,6 @@ double	FilterBase::get_arg_flt (const ::VSMap &in, ::VSMap &out, const char name
 
 std::string	FilterBase::get_arg_str (const ::VSMap &in, ::VSMap &out, const char name_0 [], std::string def_val, int pos, bool *defined_ptr) const
 {
-	assert (&in != 0);
-	assert (&out != 0);
 	assert (name_0 != 0);
 
 	const bool     defined_flag = is_arg_defined (in, name_0);
@@ -188,10 +181,7 @@ std::string	FilterBase::get_arg_str (const ::VSMap &in, ::VSMap &out, const char
 
 std::vector <int>	FilterBase::get_arg_vint (const ::VSMap &in, ::VSMap &out, const char name_0 [], const std::vector <int> &def_val, bool *defined_ptr) const
 {
-	assert (&in != 0);
-	assert (&out != 0);
 	assert (name_0 != 0);
-	assert (&def_val != 0);
 
 	std::vector <int> vec;
 	const int      nbr_elt = _vsapi.propNumElements (&in, name_0);
@@ -223,10 +213,7 @@ std::vector <int>	FilterBase::get_arg_vint (const ::VSMap &in, ::VSMap &out, con
 
 std::vector <double>	FilterBase::get_arg_vflt (const ::VSMap &in, ::VSMap &out, const char name_0 [], const std::vector <double> &def_val, bool *defined_ptr) const
 {
-	assert (&in != 0);
-	assert (&out != 0);
 	assert (name_0 != 0);
-	assert (&def_val != 0);
 
 	std::vector <double> vec;
 	const int      nbr_elt = _vsapi.propNumElements (&in, name_0);
@@ -258,10 +245,7 @@ std::vector <double>	FilterBase::get_arg_vflt (const ::VSMap &in, ::VSMap &out, 
 
 std::vector <std::string>	FilterBase::get_arg_vstr (const ::VSMap &in, ::VSMap &out, const char name_0 [], const std::vector <std::string> &def_val, bool *defined_ptr) const
 {
-	assert (&in != 0);
-	assert (&out != 0);
 	assert (name_0 != 0);
-	assert (&def_val != 0);
 
 	std::vector <std::string>  vec;
 	const int      nbr_elt = _vsapi.propNumElements (&in, name_0);
@@ -291,6 +275,10 @@ std::vector <std::string>	FilterBase::get_arg_vstr (const ::VSMap &in, ::VSMap &
 
 
 
+char	FilterBase::_filter_error_msg_0 [_max_error_buf_len] = "";
+
+
+
 /*\\\ PROTECTED \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\*/
 
 
@@ -300,8 +288,6 @@ std::vector <std::string>	FilterBase::get_arg_vstr (const ::VSMap &in, ::VSMap &
 // are passed to the function.
 const VSFormat *	FilterBase::register_format (int color_family, int sample_type, int bits_per_sample, int sub_sampling_w, int sub_sampling_h, ::VSCore &core) const
 {
-	assert (&core != 0);
-
 	// Copy of the beginning of VSCore::registerFormat()
 	if (   sub_sampling_h < 0 || sub_sampling_w < 0
 	    || sub_sampling_h > 4 || sub_sampling_w > 4)
@@ -353,8 +339,6 @@ const VSFormat *	FilterBase::register_format (int color_family, int sample_type,
 
 void  FilterBase::clip_neg_arg_pos (int &pos, const ::VSMap &in, const char name_0 []) const
 {
-	assert (&pos != 0);
-	assert (&in != 0);
 	assert (name_0 != 0);
 
 	if (pos < 0)
@@ -369,27 +353,20 @@ void  FilterBase::clip_neg_arg_pos (int &pos, const ::VSMap &in, const char name
 
 void	FilterBase::test_arg_err (::VSMap &out, const char name_0 [], int err) const
 {
-	assert (&out != 0);
 	assert (name_0 != 0);
 
 	if (err != 0)
 	{
-		const int      buf_size = 1024;
-		char           buf_0 [buf_size];
-#if defined (_MSC_VER)
-		_snprintf_s (
-			buf_0, buf_size, _TRUNCATE,
-#else
-		snprintf (
-			buf_0, buf_size,
-#endif
+		fstb::snprintf4all (
+			_filter_error_msg_internal_0,
+			_max_error_buf_len,
 			"%s: invalid argument %s, error code %d.",
 			_filter_name.c_str (), name_0, err
 		);
 
-		_vsapi.setError (&out, buf_0);
+		_vsapi.setError (&out, _filter_error_msg_internal_0);
 
-		throw std::invalid_argument (buf_0);
+		throw std::invalid_argument (_filter_error_msg_internal_0);
 	}
 }
 
@@ -401,15 +378,9 @@ void	FilterBase::throw_generic (const char msg_0 [], ExceptionType e) const
 	assert (e >= 0);
 	assert (e < ExceptionType_NBR_ELT);
 
-	const int      buf_size = 1024;
-	char           buf_0 [buf_size];
-#if defined (_MSC_VER)
-	_snprintf_s (
-		buf_0, buf_size, _TRUNCATE,
-#else
-	snprintf (
-		buf_0, buf_size,
-#endif
+	fstb::snprintf4all (
+		_filter_error_msg_internal_0,
+		_max_error_buf_len,
 		"%s: %s",
 		_filter_name.c_str (),
 		msg_0
@@ -418,17 +389,21 @@ void	FilterBase::throw_generic (const char msg_0 [], ExceptionType e) const
 	switch (e)
 	{
 	case	ExceptionType_INVALID_ARGUMENT:
-		throw std::invalid_argument (buf_0);
+		throw std::invalid_argument (_filter_error_msg_internal_0);
 		break;
 	case	ExceptionType_RUNTIME_ERROR:
-		throw std::runtime_error (buf_0);
+		throw std::runtime_error (_filter_error_msg_internal_0);
 		break;
 	case	ExceptionType_LOGIC_ERROR:
 	default:
-		throw std::logic_error (buf_0);
+		throw std::logic_error (_filter_error_msg_internal_0);
 		break;
 	}
 }
+
+
+
+char	FilterBase::_filter_error_msg_internal_0 [_max_error_buf_len] = "";
 
 
 

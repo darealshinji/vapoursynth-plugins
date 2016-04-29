@@ -42,8 +42,9 @@ namespace fmtcl
 
 
 
-TransOpSLog::TransOpSLog (bool inv_flag)
+TransOpSLog::TransOpSLog (bool inv_flag, bool slog2_flag)
 :	_inv_flag (inv_flag)
+,	_slog2_flag (slog2_flag)
 {
 	// Nothing
 }
@@ -53,21 +54,53 @@ TransOpSLog::TransOpSLog (bool inv_flag)
 // 1 lin is reference white, peak white at 10 lin.
 double	TransOpSLog::operator () (double x) const
 {
-	static const double  a = 0.037584;
-	static const double  b = 0.432699;
-	static const double  c = 0.616596 + 0.03;
+	static const double  a  = 0.037584;
+	static const double  b  = 0.432699;
+	static const double  c1 = 0.616596;
+	static const double  c2 = 0.03;
+	static const double  c  = c1 + c2;
+	static const double  s2 = 219.0 / 155.0;
 
 	double         y = x;
 	if (_inv_flag)
 	{
-		y = pow (10, (y - c) / b) - a;
+		if (x < c2)
+		{
+			y = (x - c2) / 5.0;
+		}
+		else
+		{
+			y = pow (10, (y - c) / b) - a;
+		}
+		if (_slog2_flag)
+		{
+			y *= s2;
+		}
 	}
 	else
 	{
-		y = b * log10 (std::max (x, 0.0) + a) + c;
+		if (_slog2_flag)
+		{
+			y /= s2;
+		}
+		if (x < 0)
+		{
+			y = x * 5 + c2;
+		}
+		else
+		{
+			y = b * log10 (x + a) + c;
+		}
 	}
 
 	return (y);
+}
+
+
+
+double	TransOpSLog::get_max () const
+{
+	return (_slog2_flag) ? 10.0 * 219 / 155 : 10.0;
 }
 
 

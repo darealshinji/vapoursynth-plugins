@@ -46,18 +46,19 @@ const double		TransOpLogC::_noise_margin = -8.0 / 65536;
 
 
 
-TransOpLogC::TransOpLogC (bool inv_flag, bool v2_flag)
+TransOpLogC::TransOpLogC (bool inv_flag, Type type)
 :	_inv_flag (inv_flag)
-,	_v2_flag (v2_flag)
-,	_cut (v2_flag ? 0.000000 : 0.010591)
-,	_a (  v2_flag ? 5.061087 : 5.555556)
-,	_b (  v2_flag ? 0.089004 : 0.052272)
-,	_c (  v2_flag ? 0.247189 : 0.247190)
-,	_d (  v2_flag ? 0.391007 : 0.385537)
-,	_e (  v2_flag ? 4.950469 : 5.367655)
-,	_f (  v2_flag ? 0.131313 : 0.092809)
+,	_cut ((type == Type_VLOG) ? 0.01     : (type == Type_LOGC_V2) ? 0.000000 : 0.010591)
+,	_a (  (type == Type_VLOG) ? 1.0      : (type == Type_LOGC_V2) ? 5.061087 : 5.555556)
+,	_b (  (type == Type_VLOG) ? 0.00873  : (type == Type_LOGC_V2) ? 0.089004 : 0.052272)
+,	_c (  (type == Type_VLOG) ? 0.241514 : (type == Type_LOGC_V2) ? 0.247189 : 0.247190)
+,	_d (  (type == Type_VLOG) ? 0.598206 : (type == Type_LOGC_V2) ? 0.391007 : 0.385537)
+,	_e (  (type == Type_VLOG) ? 5.6      : (type == Type_LOGC_V2) ? 4.950469 : 5.367655)
+,	_f (  (type == Type_VLOG) ? 0.125    : (type == Type_LOGC_V2) ? 0.131313 : 0.092809)
+,	_n (  (type == Type_VLOG) ? 0        : _noise_margin)
+,	_cut_i (_e * _cut + _f)
 {
-	_cut_i = _e * _cut + _f;
+	// Nothing
 }
 
 
@@ -73,6 +74,8 @@ double	TransOpLogC::get_max () const
 	return (compute_inverse (1.0));
 }
 
+
+
 /*\\\ PROTECTED \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\*/
 
 
@@ -83,7 +86,7 @@ double	TransOpLogC::get_max () const
 
 double	TransOpLogC::compute_direct (double x) const
 {
-	x = std::max (x, _noise_margin);
+	x = std::max (x, _n);
 	double         y =
 		  (x > _cut  )
 		? _c * log10 (_a * x + _b) + _d
@@ -100,7 +103,7 @@ double	TransOpLogC::compute_inverse (double x) const
 		  (x > _cut_i)
 		? (pow (10, (x - _d) / _c) - _b) / _a
 		: (x - _f) / _e;
-	y = std::max (y, _noise_margin);
+	y = std::max (y, _n);
 
 	return (y);
 }

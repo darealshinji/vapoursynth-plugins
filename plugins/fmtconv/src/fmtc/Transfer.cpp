@@ -29,17 +29,20 @@ http://sam.zoy.org/wtfpl/COPYING for more details.
 #include "fmtc/Transfer.h"
 #include "fmtc/fnc.h"
 #include "fmtcl/TransOp2084.h"
+#include "fmtcl/TransOpAcesCc.h"
 #include "fmtcl/TransOpAffine.h"
 #include "fmtcl/TransOpBypass.h"
 #include "fmtcl/TransOpCanonLog.h"
 #include "fmtcl/TransOpCompose.h"
 #include "fmtcl/TransOpContrast.h"
+#include "fmtcl/TransOpErimm.h"
 #include "fmtcl/TransOpFilmStream.h"
 #include "fmtcl/TransOpLinPow.h"
 #include "fmtcl/TransOpLogC.h"
 #include "fmtcl/TransOpLogTrunc.h"
 #include "fmtcl/TransOpPow.h"
 #include "fmtcl/TransOpSLog.h"
+#include "fmtcl/TransOpSLog3.h"
 #include "fstb/fnc.h"
 #include "vsutl/CpuOpt.h"
 #include "vsutl/fnc.h"
@@ -80,11 +83,6 @@ Transfer::Transfer (const ::VSMap &in, ::VSMap &out, void * /*user_data_ptr*/, :
 ,	_plane_processor (vsapi, *this, "transfer", true)
 ,	_lut_uptr ()
 {
-	assert (&in != 0);
-	assert (&out != 0);
-	assert (&core != 0);
-	assert (&vsapi != 0);
-
 	fstb::conv_to_lower_case (_transs);
 	fstb::conv_to_lower_case (_transd);
 
@@ -136,11 +134,6 @@ Transfer::Transfer (const ::VSMap &in, ::VSMap &out, void * /*user_data_ptr*/, :
 
 void	Transfer::init_filter (::VSMap &in, ::VSMap &out, ::VSNode &node, ::VSCore &core)
 {
-	assert (&in != 0);
-	assert (&out != 0);
-	assert (&node != 0);
-	assert (&core != 0);
-
 	_vsapi.setVideoInfo (&_vi_out, 1, &node);
 	_plane_processor.set_filter (in, out, _vi_out);
 }
@@ -150,9 +143,6 @@ void	Transfer::init_filter (::VSMap &in, ::VSMap &out, ::VSNode &node, ::VSCore 
 const ::VSFrameRef *	Transfer::get_frame (int n, int activation_reason, void * &frame_data_ptr, ::VSFrameContext &frame_ctx, ::VSCore &core)
 {
 	assert (n >= 0);
-	assert (&frame_data_ptr != 0);
-	assert (&frame_ctx != 0);
-	assert (&core != 0);
 
 	::VSFrameRef *    dst_ptr = 0;
 	::VSNodeRef &     node = *_clip_src_sptr;
@@ -251,11 +241,6 @@ int	Transfer::do_process_plane (::VSFrameRef &dst, int n, int plane_index, void 
 
 const ::VSFormat &	Transfer::get_output_colorspace (const ::VSMap &in, ::VSMap &out, ::VSCore &core, const ::VSFormat &fmt_src) const
 {
-	assert (&in != 0);
-	assert (&out != 0);
-	assert (&core != 0);
-	assert (&fmt_src != 0);
-
 	const ::VSFormat *   fmt_dst_ptr = &fmt_src;
 
 	const int      undef    = -666666666;
@@ -440,9 +425,6 @@ void	Transfer::init_table ()
 // str should be already converted to lower case
 fmtcl::TransCurve	Transfer::conv_string_to_curve (const vsutl::FilterBase &flt, const std::string &str)
 {
-	assert (&flt != 0);
-	assert (&str != 0);
-
 	fmtcl::TransCurve c = fmtcl::TransCurve_UNDEF;
 	if (str == "709")
 	{
@@ -532,6 +514,34 @@ fmtcl::TransCurve	Transfer::conv_string_to_curve (const vsutl::FilterBase &flt, 
 	{
 		c = fmtcl::TransCurve_CANONLOG;
 	}
+	else if (str == "adobergb")
+	{
+		c = fmtcl::TransCurve_ADOBE_RGB;
+	}
+	else if (str == "romm")
+	{
+		c = fmtcl::TransCurve_ROMM_RGB;
+	}
+	else if (str == "acescc")
+	{
+		c = fmtcl::TransCurve_ACESCC;
+	}
+	else if (str == "erimm")
+	{
+		c = fmtcl::TransCurve_ERIMM;
+	}
+	else if (str == "slog2")
+	{
+		c = fmtcl::TransCurve_SLOG2;
+	}
+	else if (str == "slog3")
+	{
+		c = fmtcl::TransCurve_SLOG3;
+	}
+	else if (str == "vlog")
+	{
+		c = fmtcl::TransCurve_VLOG;
+	}
 	else
 	{
 		flt.throw_inval_arg ("unknown matrix identifier.");
@@ -608,16 +618,37 @@ Transfer::OpSPtr	Transfer::conv_curve_to_op (fmtcl::TransCurve c, bool inv_flag)
 		ptr = OpSPtr (new fmtcl::TransOpFilmStream (inv_flag));
 		break;
 	case fmtcl::TransCurve_SLOG:
-		ptr = OpSPtr (new fmtcl::TransOpSLog (inv_flag));
+		ptr = OpSPtr (new fmtcl::TransOpSLog (inv_flag, false));
 		break;
 	case fmtcl::TransCurve_LOGC2:
-		ptr = OpSPtr (new fmtcl::TransOpLogC (inv_flag, true));
+		ptr = OpSPtr (new fmtcl::TransOpLogC (inv_flag, fmtcl::TransOpLogC::Type_LOGC_V2));
 		break;
 	case fmtcl::TransCurve_LOGC3:
-		ptr = OpSPtr (new fmtcl::TransOpLogC (inv_flag, false));
+		ptr = OpSPtr (new fmtcl::TransOpLogC (inv_flag, fmtcl::TransOpLogC::Type_LOGC_V3));
 		break;
 	case fmtcl::TransCurve_CANONLOG:
 		ptr = OpSPtr (new fmtcl::TransOpCanonLog (inv_flag));
+		break;
+	case fmtcl::TransCurve_ADOBE_RGB:
+		ptr = OpSPtr (new fmtcl::TransOpPow (inv_flag, 563.0 / 256));
+		break;
+	case fmtcl::TransCurve_ROMM_RGB:
+		ptr = OpSPtr (new fmtcl::TransOpLinPow (inv_flag, 1, 0.001953, 1.0 / 1.8, 16));
+		break;
+	case fmtcl::TransCurve_ACESCC:
+		ptr = OpSPtr (new fmtcl::TransOpAcesCc (inv_flag));
+		break;
+	case fmtcl::TransCurve_ERIMM:
+		ptr = OpSPtr (new fmtcl::TransOpErimm (inv_flag));
+		break;
+	case fmtcl::TransCurve_SLOG2:
+		ptr = OpSPtr (new fmtcl::TransOpSLog (inv_flag, true));
+		break;
+	case fmtcl::TransCurve_SLOG3:
+		ptr = OpSPtr (new fmtcl::TransOpSLog3 (inv_flag));
+		break;
+	case fmtcl::TransCurve_VLOG:
+		ptr = OpSPtr (new fmtcl::TransOpLogC (inv_flag, fmtcl::TransOpLogC::Type_VLOG));
 		break;
 	default:
 		assert (false);

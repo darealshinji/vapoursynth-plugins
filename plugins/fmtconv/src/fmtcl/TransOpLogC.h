@@ -44,7 +44,16 @@ class TransOpLogC
 
 public:
 
-	explicit       TransOpLogC (bool inv_flag, bool v2_flag);
+	enum Type
+	{
+		Type_LOGC_V3 = 0,
+		Type_LOGC_V2,
+		Type_VLOG,
+
+		Type_NBR_ELT
+	};
+
+	explicit       TransOpLogC (bool inv_flag, Type type);
 	virtual        ~TransOpLogC () {}
 
 	// TransOpInterface
@@ -67,15 +76,15 @@ private:
 	double         compute_inverse (double x) const;
 
 	const bool     _inv_flag;
-	const bool     _v2_flag;
-	double         _cut;
-	double         _a;
-	double         _b;
-	double         _c;
-	double         _d;
-	double         _e;
-	double         _f;
-	double         _cut_i;
+	const double   _cut;
+	const double   _a;
+	const double   _b;
+	const double   _c;
+	const double   _d;
+	const double   _e;
+	const double   _f;
+	const double   _n;
+	const double   _cut_i;
 
 	static const double
 		            _noise_margin;
@@ -86,11 +95,11 @@ private:
 
 private:
 
-	               TransOpLogC ();
-	               TransOpLogC (const TransOpLogC &other);
-	TransOpLogC &  operator = (const TransOpLogC &other);
-	bool           operator == (const TransOpLogC &other) const;
-	bool           operator != (const TransOpLogC &other) const;
+	               TransOpLogC ()                               = delete;
+	               TransOpLogC (const TransOpLogC &other)       = delete;
+	TransOpLogC &  operator = (const TransOpLogC &other)        = delete;
+	bool           operator == (const TransOpLogC &other) const = delete;
+	bool           operator != (const TransOpLogC &other) const = delete;
 
 };	// class TransOpLogC
 

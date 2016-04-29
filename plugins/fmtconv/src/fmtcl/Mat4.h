@@ -27,7 +27,7 @@ http://sam.zoy.org/wtfpl/COPYING for more details.
 
 /*\\\ INCLUDE FILES \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\*/
 
-#include "conc/Array.h"
+#include <array>
 
 
 
@@ -36,6 +36,8 @@ namespace fmtcl
 
 
 
+class Mat3;
+
 class Mat4
 {
 
@@ -43,7 +45,7 @@ class Mat4
 
 public:
 
-	enum {         VECT_SIZE = 4 };
+	static const int  VECT_SIZE = 4;
 
 	enum Preset
 	{
@@ -53,15 +55,15 @@ public:
 		Preset_NBR_ELT
 	};
 
-	typedef conc::Array <double, VECT_SIZE> Row4;
+	typedef std::array <double, VECT_SIZE> Row4;
 
-	inline         Mat4 ();
+	inline         Mat4 ()                        = default;
 	inline explicit
 	               Mat4 (double filler, Preset preset = Preset_SOLID);
 	inline         Mat4 (const double content [4] [4]);
-	inline         Mat4 (const Mat4 &other);
+	inline         Mat4 (const Mat4 &other)       = default;
 	virtual        ~Mat4 () {}
-	inline Mat4 &  operator = (const Mat4 &other);
+	inline Mat4 &  operator = (const Mat4 &other) = default;
 
 	inline bool    operator == (const Mat4 &other) const;
 	inline bool    operator != (const Mat4 &other) const;
@@ -70,9 +72,8 @@ public:
 	inline Mat4 &  operator -= (const Mat4 &other);
 	inline Mat4 &  operator *= (const Mat4 &other);
 
-	inline double  det3 () const;
-	inline Mat4    compute_inverse3 () const;
-	inline Mat4 &  invert3 ();
+	inline void    insert3 (const Mat3 &other);
+	inline Mat4 &  clean3 (double diag = 0);
 
 	inline const Row4 &
                   operator [] (long pos) const;
@@ -90,7 +91,7 @@ protected:
 
 private:
 
-	typedef conc::Array <Row4, VECT_SIZE> MatArr;
+	typedef std::array <Row4, VECT_SIZE> MatArr;
 
 	MatArr         _data;
 

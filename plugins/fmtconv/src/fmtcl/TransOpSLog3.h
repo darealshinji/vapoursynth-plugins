@@ -1,7 +1,7 @@
 /*****************************************************************************
 
-        Array.h
-        Author: Laurent de Soras, 2011
+        TransOpSLog3.h
+        Author: Laurent de Soras, 2016
 
 --- Legal stuff ---
 
@@ -15,11 +15,11 @@ http://sam.zoy.org/wtfpl/COPYING for more details.
 
 
 
-#if ! defined (conc_Array_HEADER_INCLUDED)
-#define	conc_Array_HEADER_INCLUDED
+#pragma once
+#if ! defined (fmtcl_TransOpSLog3_HEADER_INCLUDED)
+#define	fmtcl_TransOpSLog3_HEADER_INCLUDED
 
 #if defined (_MSC_VER)
-	#pragma once
 	#pragma warning (4 : 4250)
 #endif
 
@@ -27,36 +27,29 @@ http://sam.zoy.org/wtfpl/COPYING for more details.
 
 /*\\\ INCLUDE FILES \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\*/
 
-#include "conc/def.h"
+#include "fmtcl/TransOpInterface.h"
 
 
 
-namespace conc
+namespace fmtcl
 {
 
 
 
-template <class T, long LENGTH>
-class Array
+class TransOpSLog3
+:	public TransOpInterface
 {
 
 /*\\\ PUBLIC \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\*/
 
 public:
 
-	typedef	T	Element;
+	explicit       TransOpSLog3 (bool inv_flag);
+	virtual        ~TransOpSLog3 () {}
 
-   enum {         NBR_ELT  = LENGTH };
-
-	conc_FORCEINLINE const Element &
-                  operator [] (long pos) const;
-	conc_FORCEINLINE Element &
-                  operator [] (long pos);
-
-	static inline long
-	               size ();
-	static inline long
-	               length ();
+	// TransOpInterface
+	virtual double operator () (double x) const;
+	virtual double get_max () const { return (38.330934337202536904496058731147); }
 
 
 
@@ -70,30 +63,32 @@ protected:
 
 private:
 
-	Element        _data [LENGTH];
-
+	const bool     _inv_flag;
 
 
 /*\\\ FORBIDDEN MEMBER FUNCTIONS \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\*/
 
 private:
 
-	bool           operator == (const Array <T, LENGTH> &other) const;
-	bool           operator != (const Array <T, LENGTH> &other) const;
+	               TransOpSLog3 ()                               = delete;
+	               TransOpSLog3 (const TransOpSLog3 &other)      = delete;
+	TransOpSLog3 & operator = (const TransOpSLog3 &other)        = delete;
+	bool           operator == (const TransOpSLog3 &other) const = delete;
+	bool           operator != (const TransOpSLog3 &other) const = delete;
 
-};	// class Array
-
-
-
-}	// namespace conc
-
-
-
-#include "conc/Array.hpp"
+};	// class TransOpSLog3
 
 
 
-#endif	// conc_Array_HEADER_INCLUDED
+}	// namespace fmtcl
+
+
+
+//#include "fmtcl/TransOpSLog3.hpp"
+
+
+
+#endif	// fmtcl_TransOpSLog3_HEADER_INCLUDED
 
 
 

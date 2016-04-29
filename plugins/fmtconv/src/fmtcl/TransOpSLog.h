@@ -44,12 +44,12 @@ class TransOpSLog
 
 public:
 
-	explicit       TransOpSLog (bool inv_flag);
+	explicit       TransOpSLog (bool inv_flag, bool slog2_flag);
 	virtual        ~TransOpSLog () {}
 
 	// TransOpInterface
 	virtual double operator () (double x) const;
-	virtual double get_max () const { return (10.0); }
+	virtual double get_max () const;
 
 
 
@@ -64,17 +64,19 @@ protected:
 private:
 
 	const bool     _inv_flag;
+	const bool     _slog2_flag;
+
 
 
 /*\\\ FORBIDDEN MEMBER FUNCTIONS \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\*/
 
 private:
 
-	               TransOpSLog ();
-	               TransOpSLog (const TransOpSLog &other);
-	TransOpSLog &  operator = (const TransOpSLog &other);
-	bool           operator == (const TransOpSLog &other) const;
-	bool           operator != (const TransOpSLog &other) const;
+	               TransOpSLog ()                               = delete;
+	               TransOpSLog (const TransOpSLog &other)       = delete;
+	TransOpSLog &  operator = (const TransOpSLog &other)        = delete;
+	bool           operator == (const TransOpSLog &other) const = delete;
+	bool           operator != (const TransOpSLog &other) const = delete;
 
 };	// class TransOpSLog
 

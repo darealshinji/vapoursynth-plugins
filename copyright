@@ -111,7 +111,7 @@ License: public-domain
  there are no conditions on its distribution or use. Do with it what you will."
 
 Files: plugins/fmtconv/*
-Copyright: 2012-2015 cretindesalpes
+Copyright: 2012-2016 cretindesalpes
 License: WTFPL
 
 Files: plugins/genericfilters/*

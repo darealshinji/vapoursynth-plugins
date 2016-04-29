@@ -41,15 +41,11 @@ namespace vsutl
 
 
 CpuOpt::CpuOpt (FilterBase &filter, const ::VSMap &in, ::VSMap &out, const char *param_name_0)
-:	_filter (filter)
-,	_cpu ()
+:	_cpu ()
 ,	_level (static_cast <Level> (filter.get_arg_int (
 		in, out, param_name_0, Level_ANY_AVAILABLE
 	) & 0xFFFF))
 {
-	assert (&filter != 0);
-	assert (&in != 0);
-	assert (&out != 0);
 	assert (param_name_0 != 0);
 }
 

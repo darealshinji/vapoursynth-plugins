@@ -15,7 +15,7 @@
 
 <table class="n">
 <tr><td class="n"><b>Authors:     </b></td><td class="n">&nbsp;</td><td class="n">Firesledge (aka Cretindesalpes)</td></tr>
-<tr><td class="n"><b>Version:     </b></td><td class="n">&nbsp;</td><td class="n">r17</td></tr>
+<tr><td class="n"><b>Version:     </b></td><td class="n">&nbsp;</td><td class="n">r20</td></tr>
 <tr><td class="n"><b>Download:    </b></td><td class="n">&nbsp;</td><td class="n"><a href="http://ldesoras.free.fr/prod.html#src_fmtconv">http://ldesoras.free.fr/prod.html</a></td></tr>
 <tr><td class="n"><b>Category:    </b></td><td class="n">&nbsp;</td><td class="n">Format tools</td></tr>
 <tr><td class="n"><b>Requirements:</b></td><td class="n">&nbsp;</td><td class="n"><a href="http://www.vapoursynth.com/">Vapoursynth</a></td></tr>
@@ -41,6 +41,7 @@
 	<li><a href="#convert">convert</a></li>
 	<li><a href="#matrix">matrix</a></li>
 	<li><a href="#matrix2020cl">matrix2020cl</a></li>
+	<li><a href="#primaries">primaries</a></li>
 	<li><a href="#resample">resample</a></li>
 	<li><a href="#transfer">transfer</a></li>
 	<li><a href="#stack16tonative">stack16tonative, nativetostack16</a></li>
@@ -59,7 +60,7 @@ It does:</p>
 <ul>
 <li>Resizing.</li>
 <li>Bitdepth conversion with dithering.</li>
-<li>Colorspace conversion (matrix and transfer characteristics).</li>
+<li>Colorspace conversion (matrix, transfer characteristics and chromatic adaptation).</li>
 </ul>
 
 <p>It supports:</p>
@@ -142,25 +143,38 @@ c = core.std.SelectEvery (clip=c, cycle=2, offsets=0)</pre>
 
 <h4>Colorspace conversions</h4>
 
-<p>YUV 4:2:0 to RGB:</p>
+<p>Y’Cb’Cr’ 4:2:0 to R’G’B’:</p>
 
 <pre class="src">c = core.fmtc.resample (clip=c, css="444")
 c = core.fmtc.matrix (clip=c, mat="601", col_fam=vs.RGB)
 c = core.fmtc.bitdepth (clip=c, bits=8)</pre>
 
-<p>RGB to YUV 4:2:0:</p>
+<p>R’G’B’ to Y’Cb’Cr’ 4:2:0:</p>
 
 <pre class="src">c = core.fmtc.matrix (clip=c, mat="601", col_fam=vs.YUV, bits=16)
 c = core.fmtc.resample (clip=c, css="420")
 c = core.fmtc.bitdepth (clip=c, bits=8)</pre>
 
-<p>YUV colormatrix conversion from BT. 601 to BT. 709.
-For example to insert a DVD content in an HDTV stream.
+<p>Y’Cb’Cr colormatrix conversion from BT. 601 to BT. 709.
+For example to insert a PAL DVD content into an HDTV stream.
 Note that we need to convert the clip to 4:4:4 in an intermediate step
 because <code>matrix</code> can only process 4:4:4.</p>
 
 <pre class="src">c = core.fmtc.resample (clip=c, css="444")
 c = core.fmtc.matrix (clip=c, mats="601", matd="709")
+c = core.fmtc.resample (clip=c, css="420")
+c = core.fmtc.bitdepth (clip=c, bits=8)</pre>
+
+<p>Same as above, but with a 525-line content, requiring a gamut conversion.
+We have to insert an intermediate step in linear RGB.
+For this, we use the BT. 1886 transfer curve in both directions:</p>
+
+<pre class="src">c = core.fmtc.resample (clip=c, css="444")
+c = core.fmtc.matrix (clip=c, mats="601")
+c = core.fmtc.transfer (clip=c, transs="1886", transd="linear")
+c = core.fmtc.primaries (clip=c, prims="601-525", primd="709")
+c = core.fmtc.transfer (clip=clip, transs="linear", transd="1886")
+c = core.fmtc.matrix (clip=clip, mat="709")
 c = core.fmtc.resample (clip=c, css="420")
 c = core.fmtc.bitdepth (clip=c, bits=8)</pre>
 
@@ -517,8 +531,8 @@ primaries.
 The R’G’B’ data are always releative to their specified standard.
 For example, converting Y’Cb’Cr’ data straight from BT.2020 to BT.709 doesn’t
 make sense as these colorspaces are defined with different primaries.
-For meaningful results, convert to R’G’B’ and use a 3-D LUT to perform the
-intermediary conversion.</p>
+For meaningful results, convert to R’G’B’ then to linear RGB and use
+</code>primaries</code> to perform the intermediary conversion.</p>
 
 <h4>Parameters</h4>
 
@@ -542,7 +556,7 @@ Possible values are:</p>
 <tr><td><b><code>"240"</code></b></td><td>SMPTE 240M</td></tr>
 <tr><td><b><code>"FCC"</code></b></td><td>FCC</td></tr>
 <tr><td><b><code>"YCgCo"</code></b></td><td>Y’Cg’Co’</td></tr>
-<tr><td><b><code>"RGB"</code></b></td><td>RGB. Identity, no cross-plane calculations.</td></tr>
+<tr><td><b><code>"RGB"</code></b></td><td>R’G’B’. Identity, no cross-plane calculations.</td></tr>
 </table>
 
 <p class="var">mats, matd</p>
@@ -719,7 +733,7 @@ in float. The output is not dithered, therefore you should output at a higher
 bitdepth than the input and dither afterward with <code>bitdepth</code> to
 avoid potential banding.</p>
 
-<p>Please note that the RGB content is always considered as linear light.
+<p>Please note that the RGB content is always assumed to be linear light.
 The BT.2020 gamma curve is used in both directions.
 When operating on floating point data, the function uses the 12-bit variant
 of the scaling coefficients.</p>
@@ -759,6 +773,104 @@ Supersedes the bitdepth from <var>csp</var>.</p>
 <p>Limits the CPU instruction set.
 &minus;1: automatic (no limitation),
 0: default instruction set only (depends on the compilation settings).</p>
+
+
+
+<h3><a id="primaries"></a>primaries</h3>
+
+<pre class="proto">fmtc.primaries (
+	clip  : clip        ;
+	rs    : float[]: opt;
+	gs    : float[]: opt;
+	bs    : float[]: opt;
+	ws    : float[]: opt;
+	rd    : float[]: opt;
+	gd    : float[]: opt;
+	bd    : float[]: opt;
+	wd    : float[]: opt;
+	prims : data   : opt;
+	primd : data   : opt;
+	cpuopt: int    : opt; (-1)
+)</pre>
+
+<p>Performs a gamut conversion given a set of three primary colors and
+a reference white to another set of primary colors and a target reference
+white.
+Illuminant conversions are done using the Bradford method.</p>
+
+<p>Pixel values are left intact after the transform, they are not bound
+to the target gamut and could be invalid colors.
+However, when using 16-bit unsigned integer they are clipped to representable
+data values.</p>
+
+<p>All colors are given in xyY colorspace, with their x and y coordinates.</p>
+
+<p>You must supply the full description of the original and target gamuts,
+with the built-in presets or by setting individual components.</p>
+
+<p>Please note that this function does not work at the same level as
+<code>matrix</code>.
+The latter converts between  gamma-compressed RGB and YUV-like colorspaces,
+while <code>primaries</code> operates on linear RGB colorspaces exclusively,
+whose specifications are given by the primaries.
+For more details, see Charles Poynton, <i>A Guided Tour of Color Space</i>,
+1997.</p>
+
+
+<h4>Parameters</h4>
+
+<p class="var">clip</p>
+<p>The input clip. Mandatory.
+Supported colorspaces are 16-bit int or 32-bit float <i>linear</i> RGB.
+You should use the <code>transfer</code> function to convert between linear
+RGB and gamma-compressed R’G’B ’colorspaces.</p>
+
+<p class="var">rs, gs, bs, ws</p>
+<p>Primaries for the source colorspace as red, green, blue and reference
+white.
+Each variable is an array of two components, x and y.
+The y value cannot be null.</p>
+
+<p class="var">rd, gd, bd, wd</p>
+<p>Primaries for the target colorspace.
+If not specified, the value is copied from the source colorspace.</p>
+
+<p class="var">prims, primd</p>
+<p>Primaries presets for the source and destination colorspaces.
+Superseded by individual r, g, b and w settings.
+Possible values are:</p>
+<table>
+<tr><th>Value</th><th>Primary</th><th>x</th><th>y</th><th>Description</th></tr>
+<tr><td><b><code>"709"</code></b> or<br /><b><code>"1361"</code></b> or<br /><b><code>"61966-2-1"</code></b> or<br /><b><code>"61966-2-4"</code></b> or<br /><b><code>"hdtv"</code></b> or<br /><b><code>"srgb"</code></b></td><td>R<br />G<br />B<br />W (D65)</td><td>0.640,<br />0.300,<br />0.150,<br />0.3127,</td><td>0.330<br />0.600<br />0.060<br />0.3290</td><td>ITU-R BT.709-5<br />ITU-R BT.1361<br />IEC 61966-2-1 (sRGB or sYCC)<br />IEC 61966-2-4<br />Annex B of SMPTE RP 177 (1993)</td></tr>
+<tr><td><b><code>"470m"</code></b> or<br /><b><code>"ntsc"</code></b></td><td>R<br />G<br />B<br />W (C)</td><td>0.670,<br />0.210,<br />0.140,<br />0.3100,</td><td>0.330<br />0.710<br />0.080<br />0.3160</td><td>ITU-R BT.470-6 System M (historical)<br />NTSC (1953)<br />FCC</td></tr>
+<tr><td><b><code>"470m93"</code></b> or<br /><b><code>"ntscj"</code></b></td><td>R<br />G<br />B<br />W (9305K)</td><td>0.670,<br />0.210,<br />0.140,<br />0.2848,</td><td>0.330<br />0.710<br />0.080<br />0.2932</td><td>ITU-R BT.470-6 System M — Japan (NTSC-J)</td></tr>
+<tr><td><b><code>"470bg"</code></b> or<br /><b><code>"601-625"</code></b> or<br /><b><code>"1358-625"</code></b> or<br /><b><code>"1700-625"</code></b> or<br /><b><code>"pal"</code></b> or<br /><b><code>"secam"</code></b></td><td>R<br />G<br />B<br />W (D65)</td><td>0.640,<br />0.290,<br />0.150,<br />0.3127,</td><td>0.330<br />0.600<br />0.060<br />0.3290</td><td>ITU-R BT.470-6 System B, G (historical)<br />ITU-R BT.601-6 625<br />ITU-R BT.1358 625<br />ITU-R BT.1700 625 PAL and 625 SECAM</td></tr>
+<tr><td><b><code>"170m"</code></b> or<br /><b><code>"240m"</code></b> or<br /><b><code>"601-525"</code></b> or<br /><b><code>"1358-525"</code></b> or<br /><b><code>"1700-525"</code></b></td><td>R<br />G<br />B<br />W (D65)</td><td>0.630,<br />0.310,<br />0.155,<br />0.3127</td><td>0.340<br />0.595<br />0.070<br />0.3290</td><td>SMPTE 170M (2004)<br />SMPTE 240M (1999)<br />ITU-R BT.601-6 525<br />ITU-R BT.1358 525<br />ITU-R BT.1700 NTSC</td></tr>
+<tr><td><b><code>"filmc"</code></b></td><td>R (Wratten 25)<br />G (Wratten 58)<br />B (Wratten 47)<br />W (C)</td><td>0.681,<br />0.243,<br />0.145,<br />0.3100,</td><td>0.319<br />0.692<br />0.049<br />0.3160</td><td>Generic film (colour filters using Illuminant C)</td></tr>
+<tr><td><b><code>"2020"</code></b> or<br /><b><code>"uhdtv"</code></b></td><td>R<br />G<br />B<br />W (D65)</td><td>0.70792,<br />0.17024,<br />0.13137,<br />0.31271</td><td>0.29203<br />0.79652<br />0.04588<br />0.32902</td><td>ITU-R BT.2020</td></tr>
+<tr><td><b><code>"61966-2-2"</code></b> or<br /><b><code>"scrgb"</code></b></td><td>R<br />G<br />B<br />W (D65)</td><td>0.640,<br />0.300,<br />0.150,<br />0.31271</td><td>0.330<br />0.600<br />0.060<br />0.32902</td><td>IEC 61966-2-4 (scRGB)</td></tr>
+<tr><td><b><code>"adobe98"</code></b></td><td>R<br />G<br />B<br />W (D65)</td><td>0.640,<br />0.210,<br />0.150,<br />0.31271</td><td>0.330<br />0.710<br />0.060<br />0.32902</td><td>Adobe RGB (1998)</td></tr>
+<tr><td><b><code>"adobewide"</code></b></td><td>R<br />G<br />B<br />W (D50)</td><td>0.73469,<br />0.11416,<br />0.15664,<br />0.34567</td><td>0.26531<br />0.82621<br />0.01770<br />0.35850</td><td>Adobe Wide Gamut RGB</td></tr>
+<tr><td><b><code>"apple"</code></b></td><td>R<br />G<br />B<br />W (D65)</td><td>0.625,<br />0.280,<br />0.155,<br />0.31271</td><td>0.265<br />0.826<br />0.018<br />0.32902</td><td>Apple RGB</td></tr>
+<tr><td><b><code>"photopro"</code></b> or<br /><b><code>"romm"</code></b></td><td>R<br />G<br />B<br />W (D50)</td><td>0.7347,<br />0.1596,<br />0.0366,<br />0.34567</td><td>0.2653<br />0.8404<br />0.0001<br />0.35850</td><td>PhotoPro<br />ROMM</td></tr>
+<tr><td><b><code>"ciergb"</code></b></td><td>R<br />G<br />B<br />W (E)</td><td>0.7347,<br />0.2738,<br />0.1666,<br />1 / 3</td><td>0.2653<br />0.7174<br />0.0089<br />1 / 3</td><td>CIE RGB (1931)</td></tr>
+<tr><td><b><code>"ciexyz"</code></b></td><td>R<br />G<br />B<br />W (E)</td><td>1.0,<br />0.0,<br />0.0,<br />1 / 3</td><td>0.0<br />1.0<br />0.0<br />1 / 3</td><td>CIE XYZ (1931)</td></tr>
+<tr><td><b><code>"dcip3"</code></b></td><td>R<br />G<br />B<br />W (D65)</td><td>0.680,<br />0.265,<br />0.150,<br />0.3127</td><td>0.320<br />0.690<br />0.060<br />0.3290</td><td>DCI-P3<br />SMPTE EG 432-1<br />SMPTE RP 431-2</td></tr>
+<tr><td><b><code>"aces"</code></b></td><td>R<br />G<br />B<br />W</td><td>0.7347,<br />0.0,<br />0.0001,<br />0.32168,</td><td>0.2653<br />1.0<br />-0.077<br />0.33767</td><td>ACES<br />SMPTE ST 2065-1</td></tr>
+<tr><td><b><code>"ap1"</code></b></td><td>R<br />G<br />B<br />W</td><td>0.713,<br />0.165,<br />0.128,<br />0.32168,</td><td>0.293<br />0.830<br />-0.044<br />0.33767</td><td>ACEScc/ACESproxy AP1</td></tr>
+<tr><td><b><code>"sgamut"</code></b> or<br /><b><code>"sgamut3"</code></b></td><td>R<br />G<br />B<br />W (D65)</td><td>0.730,<br />0.140,<br />0.100,<br />0.3127</td><td>0.280<br />0.855<br />-0.050<br />0.3290</td><td>Sony S-Gamut<br />Sony S-Gamut3</td></tr>
+<tr><td><b><code>"sgamut3cine"</code></b></td><td>R<br />G<br />B<br />W (D65)</td><td>0.766,<br />0.225,<br />0.089,<br />0.3127</td><td>0.275<br />0.800<br />-0.087<br />0.3290</td><td>Sony S-Gamut3.Cine</td></tr>
+<tr><td><b><code>"alexa"</code></b></td><td>R<br />G<br />B<br />W (D65)</td><td>0.6840,<br />0.2210,<br />0.0861,<br />0.3127</td><td>0.3130<br />0.8480<br />-0.1020<br />0.3290</td><td>Arri ALEXA</td></tr>
+<tr><td><b><code>"vgamut"</code></b></td><td>R<br />G<br />B<br />W (D65)</td><td>0.730,<br />0.165,<br />0.100,<br />0.3127</td><td>0.280<br />0.840<br />-0.03<br />0.3290</td><td>Panasonic V-Gamut</td></tr>
+</table>
+
+<p class="var">cpuopt</p>
+<p>Limits the CPU instruction set.
+&minus;1: automatic (no limitation),
+0: default instruction set only (depends on the compilation settings),
+1: limit to SSE2,
+7: limit to AVX,
+10: limit to AVX2.</p>
 
 
 
@@ -915,9 +1027,9 @@ Zero is ignored.</p>
 Possible values are:</p>
 <table>
 <tr><td><b><code>"point"</code></b></td><td>Nearest neighbour interpolation. Same as Avisynth’s <code>PointResize</code>.</td></tr>
-<tr><td><b><code>"rect"</code> or <code>"box"</code></b></td><td>Box filter.</td></tr>
-<tr><td><b><code>"linear"</code> or<br /><code>"bilinear"</code></b></td><td>Bilinear interpolation. Same as Avisynth’s <code>BilinearResize</code>.</td></tr>
-<tr><td><b><code>"cubic"</code> or<br /><code>"bicubic"</code></b></td><td>Bicubic interpolation. Same as <code>BicubicResize</code>. The b and c variables are mapped on <var>a1</var> and <var>a2</var> and are both set to 1/3 by default.</td></tr>
+<tr><td><b><code>"rect"</code></b> or <b><code>"box"</code></b></td><td>Box filter.</td></tr>
+<tr><td><b><code>"linear"</code></b> or<br /><b><code>"bilinear"</code></b></td><td>Bilinear interpolation. Same as Avisynth’s <code>BilinearResize</code>.</td></tr>
+<tr><td><b><code>"cubic"</code></b> or<br /><b><code>"bicubic"</code></b></td><td>Bicubic interpolation. Same as <code>BicubicResize</code>. The b and c variables are mapped on <var>a1</var> and <var>a2</var> and are both set to 1/3 by default.</td></tr>
 <tr><td><b><code>"lanczos"</code></b></td><td>Sinc function windowed by the central lobe of a sinc. Use <var>taps</var> to specify its impulse length. Same as <code>LanczosResize</code>.</td></tr>
 <tr><td><b><code>"blackman"</code></b></td><td>Blackman-Harris windowed sinc. Use <var>taps</var> to control its length. Same as <code>BlackmanResize</code>.</td></tr>
 <tr><td><b><code>"blackmanminlobe"</code></b></td><td>Another kind of Blackman windowed sinc, with a bit less ringing. Use <var>taps</var> for you know what.</td></tr>
@@ -925,7 +1037,7 @@ Possible values are:</p>
 <tr><td><b><code>"spline36"</code></b></td><td>Spline, 6 sample points. Same as <code>Spline36Resize</code>.</td></tr>
 <tr><td><b><code>"spline64"</code></b></td><td>Spline, 8 sample points. Same as <code>Spline64Resize</code>.</td></tr>
 <tr><td><b><code>"spline"</code></b></td><td>Generic splines, number of sample points is twice the <var>taps</var> parameter, so you can use <var>taps&nbsp;= 6</var> to get a <code>Spline144Resize</code> equivalent.</td></tr>
-<tr><td><b><code>"gauss"</code> or<br /><code>"gaussian"</code></b></td><td>Gaussian kernel. The p parameter is mapped on <var>a1</var> and controls the curve width. The higher p, the sharper. It is set to 30 by default. This resizer is the same as <code>GaussResize</code>, but <var>taps</var> offers a control on the filter impulse length. For low p values (soft and blurry), it’s better to increase the number of taps to avoid truncating the gaussian curve too early and creating artifacts.</td></tr>
+<tr><td><b><code>"gauss"</code></b> or<br /><b><code>"gaussian"</code></b></td><td>Gaussian kernel. The p parameter is mapped on <var>a1</var> and controls the curve width. The higher p, the sharper. It is set to 30 by default. This resizer is the same as <code>GaussResize</code>, but <var>taps</var> offers a control on the filter impulse length. For low p values (soft and blurry), it’s better to increase the number of taps to avoid truncating the gaussian curve too early and creating artifacts.</td></tr>
 <tr><td><b><code>"sinc"</code></b></td><td>Truncated sinc function. Use <var>taps</var> to control its length. Same as <code>SincResize</code>.</td></tr>
 </table>
 
@@ -1045,7 +1157,7 @@ in Masktools 2.</p>
 <var>fulls</var> is for input, <var>fulld</var> for output.
 Reference black and white have different values depending on the range.
 In 8 bits, pixel values scale from 0 to 255 in full range, and 16 to 235
-in TV-range (16 to 240 for the YUV chroma planes).
+in TV-range (16 to 240 for the Y’Cb’Cr’ chroma planes).
 This value has no meaning for float data.</p>
 <p>The default value depends on the colorspace.
 For example, full-range is assumed for RGB and YCgCo colorspaces.
@@ -1271,10 +1383,17 @@ much higher.</p>
 <tr><td><b><code>&quot;1886&quot;      </code></b></td><td>0&hellip;1</td><td>ITU-R BT.1886</td></tr>
 <tr><td><b><code>&quot;1886a&quot;     </code></b></td><td>0&hellip;1</td><td>ITU-R BT.1886, alternative approximation</td></tr>
 <tr><td><b><code>&quot;filmstream&quot;</code></b></td><td>0&hellip;1</td><td>Thomson FilmStream<br />Linear 1.0 is the sensor clipping level, corresponding to 3840 on a linear 12-bit scale.</td></tr>
-<tr><td><b><code>&quot;slog&quot;      </code></b></td><td>0&hellip;10</td><td>Sony S-Log<br />Linear 1.0 is the reference white, peak white is at 10.0.</td></tr>
+<tr><td><b><code>&quot;slog&quot;      </code></b></td><td>&minus;0.006&hellip;10</td><td>Sony S-Log<br />Linear 1.0 is the reference white, peak white is at 10.0.</td></tr>
+<tr><td><b><code>&quot;slog2&quot;      </code></b></td><td>&minus;0.0085&hellip;14.13</td><td>Sony S-Log 2<br />Linear 1.0 is the reference white, peak white is at 14.13.</td></tr>
+<tr><td><b><code>&quot;slog3&quot;     </code></b></td><td>0&hellip;38.33</td><td>Sony S-Log3.</td></tr>
 <tr><td><b><code>&quot;logc2&quot;     </code></b></td><td>Unspecified</td><td>Arri Log C Alexa 2.x (800 EI), linear scene exposure<br />Peak white is 57.45 linear. The negative part of the range allows coding sensor noise.</td></tr>
 <tr><td><b><code>&quot;logc3&quot;     </code></b></td><td>Unspecified</td><td>Arri Log C Alexa 3.x (800 EI), linear scene exposure<br />Peak white is 55.08 linear. The negative part of the range allows coding sensor noise.</td></tr>
 <tr><td><b><code>&quot;canonlog&quot;  </code></b></td><td>0&hellip;8.00903</td><td>Canon-Log<br />Peak white is 8.00903 in linear scale and 1.08676 in compressed scale.</td></tr>
+<tr><td><b><code>&quot;adobergb&quot;  </code></b></td><td>0&hellip;1</td><td>Adobe RGB (1998 and Wide Gamut)</td></tr>
+<tr><td><b><code>&quot;romm&quot;      </code></b></td><td>0&hellip;1</td><td>ProPhoto, ROMM</td></tr>
+<tr><td><b><code>&quot;acescc&quot;    </code></b></td><td>&minus;65504&hellip;65504</td><td>ACEScc. Values are actually bounded to the ACES 16-bit float range.</td></tr>
+<tr><td><b><code>&quot;erimm&quot;     </code></b></td><td>0&hellip;316.2</td><td>ERIMM</td></tr>
+<tr><td><b><code>&quot;vlog&quot;     </code></b></td><td>0&hellip;1</td><td>Panasonic V-Log</td></tr>
 </table>
 
 <p class="var">cont</p>
@@ -1305,7 +1424,7 @@ or to 1 to convert to floating point data.</p>
 <var>fulls</var> is for input, <var>fulld</var> for output.
 Reference black and white have different values depending on the range.
 In 8 bits, pixel values scale from 0 to 255 in full range, and 16 to 235
-in TV-range (16 to 240 for the YUV chroma planes).
+in TV-range (16 to 240 for the Y’Cb’Cr’ chroma planes).
 This value has no meaning for float data.</p>
 
 <p class="var">cpuopt</p>
@@ -1363,6 +1482,27 @@ and 16-bit integer for <code>nativetostack16</code>.</p>
 
 
 <h2><a id="changelog"></a>V) Changelog</h2>
+
+<p><b>r20, 2016.03.25</b></p>
+<ul>
+<li><code>primaries</code>: fixed a bug preventing to set all primaries individually without specifying any preset.</li>
+<li><code>primaries</code>: fixed a bug in the color conversion, thanks to J1Man for having spotted it.</li>
+</ul>
+
+<p><b>r19, 2016.03.19</b></p>
+<ul>
+<li><code>primaries</code>: refined the values for the Adobe Wide gamut and BT.2020 primaries.</li>
+<li><code>primaries</code>: added DCI-P3, ACES AP0/AP1, S-Gamut, S-Gamut3.Cine, ALEXA and V-Gamut presets.</li>
+<li><code>transfer</code>: added ACEScc, ERIMM, S-Log2, S-Log3 and V-Log curves.</li>
+</ul>
+
+<p><b>r18, 2016.03.08</b></p>
+<ul>
+<li>Added the <code>primaries</code> function to convert between gamuts.</li>
+<li>The “full” range is now closer to what is specified in the standards.</li>
+<li>A recent Vapoursynth is now required because API headers were updated to version 3.1.4.</li>
+<li><code>transfer</code>: added the Adobe RGB and ProPhoto / ROMM curves.</li>
+</ul>
 
 <p><b>r17, 2015.07.08</b></p>
 <ul>

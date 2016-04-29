@@ -30,7 +30,6 @@ http://sam.zoy.org/wtfpl/COPYING for more details.
 /*\\\ INCLUDE FILES \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\*/
 
 #include "fstb/def.h"
-#include "conc/Array.h"
 #include "fmtc/Matrix.h"
 #include "fmtc/fnc.h"
 #include "fmtcl/Mat4.h"
@@ -72,11 +71,6 @@ Matrix::Matrix (const ::VSMap &in, ::VSMap &out, void * /*user_data_ptr*/, ::VSC
 ,	_plane_out (get_arg_int (in, out, "singleout", -1))
 ,	_proc_uptr ()
 {
-	assert (&in != 0);
-	assert (&out != 0);
-	assert (&core != 0);
-	assert (&vsapi != 0);
-
 	vsutl::CpuOpt  cpu_opt (*this, in, out);
 	_sse_flag  = cpu_opt.has_sse ();
 	_sse2_flag = cpu_opt.has_sse2 ();
@@ -259,7 +253,12 @@ Matrix::Matrix (const ::VSMap &in, ::VSMap &out, void * /*user_data_ptr*/, ::VSC
 		);
 	}
 
-	prepare_coef (fmt_dst, fmt_src);
+	prepare_matrix_coef (
+		*this, *_proc_uptr, _mat_main,
+		fmt_dst, _full_range_dst_flag,
+		fmt_src, _full_range_src_flag,
+		_csp_out, _plane_out
+	);
 
 	if (_vsapi.getError (&out) != 0)
 	{
@@ -271,11 +270,6 @@ Matrix::Matrix (const ::VSMap &in, ::VSMap &out, void * /*user_data_ptr*/, ::VSC
 
 void	Matrix::init_filter (::VSMap &in, ::VSMap &out, ::VSNode &node, ::VSCore &core)
 {
-	assert (&in != 0);
-	assert (&out != 0);
-	assert (&node != 0);
-	assert (&core != 0);
-
 	_vsapi.setVideoInfo (&_vi_out, 1, &node);
 }
 
@@ -284,9 +278,6 @@ void	Matrix::init_filter (::VSMap &in, ::VSMap &out, ::VSNode &node, ::VSCore &c
 const ::VSFrameRef *	Matrix::get_frame (int n, int activation_reason, void * &frame_data_ptr, ::VSFrameContext &frame_ctx, ::VSCore &core)
 {
 	assert (n >= 0);
-	assert (&frame_data_ptr != 0);
-	assert (&frame_ctx != 0);
-	assert (&core != 0);
 
 	::VSFrameRef *    dst_ptr = 0;
 	::VSNodeRef &     node = *_clip_src_sptr;
@@ -368,9 +359,6 @@ const ::VSFrameRef *	Matrix::get_frame (int n, int activation_reason, void * &fr
 // Everything should be lower case at this point
 void	Matrix::select_def_mat (std::string &mat, const ::VSFormat &fmt)
 {
-	assert (&mat != 0);
-	assert (&fmt != 0);
-
 	if (mat.empty ())
 	{
 		switch (fmt.colorFamily)
@@ -397,9 +385,6 @@ void	Matrix::select_def_mat (std::string &mat, const ::VSFormat &fmt)
 
 fmtcl::ColorSpaceH265	Matrix::find_cs_from_mat_str (const vsutl::FilterBase &flt, const std::string &mat, bool allow_2020cl_flag)
 {
-	assert (&flt != 0);
-	assert (&mat != 0);
-
 	fmtcl::ColorSpaceH265   cs = fmtcl::ColorSpaceH265_UNSPECIFIED;
 
 	if (mat.empty () || mat == "rgb")
@@ -454,12 +439,6 @@ fmtcl::ColorSpaceH265	Matrix::find_cs_from_mat_str (const vsutl::FilterBase &flt
 
 const ::VSFormat *	Matrix::get_output_colorspace (const ::VSMap &in, ::VSMap &out, ::VSCore &core, const ::VSFormat &fmt_src, int &plane_out, bool &force_col_fam_flag) const
 {
-	assert (&in != 0);
-	assert (&out != 0);
-	assert (&core != 0);
-	assert (&fmt_src != 0);
-	assert (&plane_out != 0);
-
 	force_col_fam_flag = false;
 
 	const ::VSFormat *   fmt_dst_ptr = &fmt_src;
@@ -537,99 +516,6 @@ const ::VSFormat *	Matrix::get_output_colorspace (const ::VSMap &in, ::VSMap &ou
 
 
 
-void	Matrix::prepare_coef (const ::VSFormat &fmt_dst, const ::VSFormat &fmt_src)
-{
-	const bool     int_proc_flag =
-		(   fmt_src.sampleType == ::stInteger
-		 && fmt_dst.sampleType == ::stInteger);
-
-	fmtcl::Mat4    m (1, fmtcl::Mat4::Preset_DIAGONAL);
-
-	::VSFormat     fmt_dst2 = fmt_dst;
-	if (int_proc_flag)
-	{
-		// For the coefficient calculation, use the same output bitdepth
-		// as the input. The bitdepth change will be done separately with
-		// a simple bitshift.
-		fmt_dst2.bitsPerSample = fmt_src.bitsPerSample;
-	}
-
-	override_fmt_with_csp (fmt_dst2);
-
-	fmtcl::Mat4    m1s;
-	fmtcl::Mat4    m1d;
-	make_mat_flt_int (m1s, true , fmt_src , _full_range_src_flag);
-	make_mat_flt_int (m1d, false, fmt_dst2, _full_range_dst_flag);
-	m *= m1d;
-	if (! int_proc_flag)
-	{
-		if (_plane_out > 0 && vsutl::is_chroma_plane (fmt_dst2, _plane_out))
-		{
-			// When we extract a single plane, it's a conversion to R or
-			// to Y, so the outout range is always [0; 1]. Therefore we
-			// need to offset the chroma planes.
-			m [_plane_out] [NBR_PLANES] += 0.5;
-		}
-	}
-	m *= _mat_main;
-	m *= m1s;
-
-	const fmtcl::SplFmt  splfmt_src = conv_vsfmt_to_splfmt (fmt_src);
-	const fmtcl::SplFmt  splfmt_dst = conv_vsfmt_to_splfmt (fmt_dst);
-	const fmtcl::MatrixProc::Err  ret_val = _proc_uptr->configure (
-		m, int_proc_flag,
-		splfmt_src, fmt_src.bitsPerSample,
-		splfmt_dst, fmt_dst.bitsPerSample,
-		_plane_out
-	);
-	if (ret_val != fmtcl::MatrixProc::Err_OK)
-	{
-		if (ret_val == fmtcl::MatrixProc::Err_POSSIBLE_OVERFLOW)
-		{
-			throw_inval_arg ("one of the coefficients could cause an overflow.");
-		}
-		else if (ret_val == fmtcl::MatrixProc::Err_TOO_BIG_COEF)
-		{
-			throw_inval_arg ("too big matrix coefficient.");
-		}
-		else if (ret_val == fmtcl::MatrixProc::Err_INVALID_FORMAT_COMBINATION)
-		{
-			throw_inval_arg ("invalid frame format combination.");
-		}
-		else
-		{
-			assert (false);
-			throw_inval_arg ("unidentified error while building the matrix.");
-		}
-	}
-}
-
-
-
-void	Matrix::override_fmt_with_csp (::VSFormat &fmt) const
-{
-	assert (&fmt != 0);
-
-	if (_plane_out >= 0)
-	{
-		fmt.numPlanes = 3;
-		if (_csp_out == fmtcl::ColorSpaceH265_RGB)
-		{
-			fmt.colorFamily = ::cmRGB;
-		}
-		else if (_csp_out == fmtcl::ColorSpaceH265_YCGCO)
-		{
-			fmt.colorFamily = ::cmYCoCg;
-		}
-		else
-		{
-			fmt.colorFamily = ::cmYUV;
-		}
-	}
-}
-
-
-
 const ::VSFormat *	Matrix::find_dst_col_fam (fmtcl::ColorSpaceH265 tmp_csp, const ::VSFormat *fmt_dst_ptr, const ::VSFormat &fmt_src, ::VSCore &core)
 {
 	int               alt_cf = -1;
@@ -700,15 +586,12 @@ const ::VSFormat *	Matrix::find_dst_col_fam (fmtcl::ColorSpaceH265 tmp_csp, cons
 
 void	Matrix::make_mat_from_str (fmtcl::Mat4 &m, const std::string &mat, bool to_rgb_flag) const
 {
-	assert (&m != 0);
-	assert (&mat != 0);
-
 	if (mat.empty () || mat == "rgb")
 	{
 		m[0][0] = 1; m[0][1] = 0; m[0][2] = 0;
 		m[1][0] = 0; m[1][1] = 1; m[1][2] = 0;
 		m[2][0] = 0; m[2][1] = 0; m[2][2] = 1;
-		complete_mat3 (m);
+		m.clean3 (1);
 	}
 	else if (mat == "601")
 	{
@@ -762,7 +645,6 @@ U, V range : [-0.5 ; 0.5]
 
 void	Matrix::make_mat_yuv (fmtcl::Mat4 &m, double kr, double kg, double kb, bool to_rgb_flag)
 {
-	assert (&m != 0);
 	assert (! fstb::is_null (kg));
 	assert (! fstb::is_eq (kb, 1.0));
 	assert (! fstb::is_eq (kr, 1.0));
@@ -783,7 +665,7 @@ void	Matrix::make_mat_yuv (fmtcl::Mat4 &m, double kr, double kg, double kb, bool
 		m[2][0] = r          ; m[2][1] = r*kg/(kr-1); m[2][2] = r*kb/(kr-1);
 	}
 
-	complete_mat3 (m);
+	m.clean3 (1);
 }
 
 
@@ -809,8 +691,6 @@ to different roundings.
 
 void	Matrix::make_mat_ycgco (fmtcl::Mat4 &m, bool to_rgb_flag)
 {
-	assert (&m != 0);
-
 	if (to_rgb_flag)
 	{
 		m[0][0] = 1; m[0][1] = -1; m[0][2] =  1;
@@ -824,55 +704,7 @@ void	Matrix::make_mat_ycgco (fmtcl::Mat4 &m, bool to_rgb_flag)
 		m[2][0] =  0.5 ; m[2][1] = 0  ; m[2][2] = -0.5 ;
 	}
 
-	complete_mat3 (m);
-}
-
-
-
-// Int: depends on the input format (may be float too)
-// R, G, B, Y: [0 ; 1]
-// U, V, Cg, Co : [-0.5 ; 0.5]
-void	Matrix::make_mat_flt_int (fmtcl::Mat4 &m, bool to_flt_flag, const ::VSFormat &fmt, bool full_flag)
-{
-	assert (&m != 0);
-	assert (&fmt != 0);
-
-	::VSFormat     fmt2 (fmt);
-	fmt2.sampleType = ::stFloat;
-
-	const ::VSFormat* fmt_src_ptr = &fmt2;
-	const ::VSFormat* fmt_dst_ptr = &fmt;
-	if (to_flt_flag)
-	{
-		std::swap (fmt_src_ptr, fmt_dst_ptr);
-	}
-
-	double         ay, by;
-	double         ac, bc;
-	const int      ch_plane = (fmt_dst_ptr->numPlanes > 1) ? 1 : 0;
-	vsutl::compute_fmt_mac_cst (
-		ay, by, *fmt_dst_ptr, full_flag, *fmt_src_ptr, full_flag, 0
-	);
-	vsutl::compute_fmt_mac_cst (
-		ac, bc, *fmt_dst_ptr, full_flag, *fmt_src_ptr, full_flag, ch_plane
-	);
-
-	m[0][0] = ay; m[0][1] =  0; m[0][2] =  0; m[0][3] = by;
-	m[1][0] =  0; m[1][1] = ac; m[1][2] =  0; m[1][3] = bc;
-	m[2][0] =  0; m[2][1] =  0; m[2][2] = ac; m[2][3] = bc;
-	m[3][0] =  0; m[3][1] =  0; m[3][2] =  0; m[3][3] =  1;
-}
-
-
-
-void	Matrix::complete_mat3 (fmtcl::Mat4 &m)
-{
-	assert (&m != 0);
-
-	                                       m[0][3] = 0;
-	                                       m[1][3] = 0;
-	                                       m[2][3] = 0;
-	m[3][0] = 0; m[3][1] = 0; m[3][2] = 0; m[3][3] = 1;
+	m.clean3 (1);
 }
 
 

@@ -68,7 +68,7 @@ public:
 	typedef	Matrix	ThisType;
 
 	explicit       Matrix (const ::VSMap &in, ::VSMap &out, void *user_data_ptr, ::VSCore &core, const ::VSAPI &vsapi);
-	virtual        ~Matrix () {}
+	virtual        ~Matrix () = default;
 
 	// vsutl::FilterBase
 	virtual void   init_filter (::VSMap &in, ::VSMap &out, ::VSNode &node, ::VSCore &core);
@@ -91,8 +91,8 @@ protected:
 
 private:
 
-	enum {         NBR_PLANES    = 3  };
-	enum {         SHIFT_INT     = 12 };   // Number of bits for the fractional part
+	static const int  NBR_PLANES    = 3;
+	static const int  SHIFT_INT     = 12;  // Number of bits for the fractional part
 
 	enum Dir
 	{
@@ -105,17 +105,12 @@ private:
 	const ::VSFormat *
 	               get_output_colorspace (const ::VSMap &in, ::VSMap &out, ::VSCore &core, const ::VSFormat &fmt_src, int &plane_out, bool &force_col_fam_flag) const;
 
-	void           prepare_coef (const ::VSFormat &fmt_dst, const ::VSFormat &fmt_src);
-	void           override_fmt_with_csp (::VSFormat &fmt) const;
-
 	const ::VSFormat *
 	               find_dst_col_fam (fmtcl::ColorSpaceH265 tmp_csp, const ::VSFormat *fmt_dst_ptr, const ::VSFormat &fmt_src, ::VSCore &core);
 	void           make_mat_from_str (fmtcl::Mat4 &m, const std::string &mat, bool to_rgb_flag) const;
 
 	static void    make_mat_yuv (fmtcl::Mat4 &m, double kr, double kg, double kb, bool to_rgb_flag);
 	static void    make_mat_ycgco (fmtcl::Mat4 &m, bool to_rgb_flag);
-	static void		make_mat_flt_int (fmtcl::Mat4 &m, bool to_flt_flag, const ::VSFormat &fmt, bool full_flag);
-	static void    complete_mat3 (fmtcl::Mat4 &m);
 
 	vsutl::NodeRefSPtr
 	               _clip_src_sptr;
@@ -146,11 +141,11 @@ private:
 
 private:
 
-	               Matrix ();
-	               Matrix (const Matrix &other);
-	Matrix &       operator = (const Matrix &other);
-	bool           operator == (const Matrix &other) const;
-	bool           operator != (const Matrix &other) const;
+	               Matrix ()                               = delete;
+	               Matrix (const Matrix &other)            = delete;
+	Matrix &       operator = (const Matrix &other)        = delete;
+	bool           operator == (const Matrix &other) const = delete;
+	bool           operator != (const Matrix &other) const = delete;
 
 };	// class Matrix
 
