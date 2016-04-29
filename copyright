@@ -288,13 +288,16 @@ Files: models/*/*.json
 Copyright: 2015 nagadomi <nagadomi@nurs.or.jp>
 License: MIT
 
+Files: include/ac/ax_check_cl*.m4
+Copyright: Braden McDaniel <braden@endoframe.com>
+License: GPL-2+ with autoconf exception
+
 Files: include/ac/ax_check_compile_flag.m4
 Copyright: 2008 Guido U. Draheim <guidod@gmx.de>
            2011 Maarten Bosmans <mkbosmans@gmail.com>
 License: GPL-3+ with autoconf exception
 
-Files: include/ac/ax_cxx_compile_stdcxx.m4
-       include/ac/ax_cxx_compile_stdcxx_11.m4
+Files: include/ac/ax_cxx_compile_stdcxx*.m4
 Copyright: 2008 Benjamin Kosnik <bkoz@redhat.com>
            2012 Zack Weinberg <zackw@panix.com>
            2013 Roy Stogner <roystgnr@ices.utexas.edu>
@@ -417,6 +420,9 @@ License: GPL-2+ with linking exception
  You should have received a copy of the GNU General Public License
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  .
+ On Debian systems, the complete text of the GNU General
+ Public License version 2 can be found in "/usr/share/common-licenses/GPL-2".
+ .
  Linking Avisynth statically or dynamically with other modules is making a
  combined work based on Avisynth.  Thus, the terms and conditions of the GNU
  General Public License cover the whole combination.
@@ -432,6 +438,28 @@ License: GPL-2+ with linking exception
  Public License plus this exception.  An independent module is a module
  which is not derived from or based on Avisynth, such as 3rd-party filters,
  import and export plugins, or graphical user interfaces.
+
+License: GPL-2+ with autoconf exception
+ This program is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation; either version 2 of the License, or
+ (at your option) any later version.
+ .
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+ .
+ You should have received a copy of the GNU General Public License
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
+ .
+ On Debian systems, the complete text of the GNU General
+ Public License version 2 can be found in "/usr/share/common-licenses/GPL-2".
+ .
+ As a special exception, the you may copy, distribute and modify the
+ configure scripts that are the output of Autoconf when processing
+ the Macro.  You need not follow the terms of the GNU General Public
+ License when using or distributing such scripts.
 
 License: GPL-3+
  This program is free software: you can redistribute it and/or modify
@@ -451,18 +479,21 @@ License: GPL-3+
  Public License version 3 can be found in "/usr/share/common-licenses/GPL-3".
 
 License: GPL-3+ with autoconf exception
- This program is free software: you can redistribute it and/or modify it
- under the terms of the GNU Lesser General Public License as published by
+ This program is free software: you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
  the Free Software Foundation, either version 3 of the License, or (at
  your option) any later version.
  .
  This program is distributed in the hope that it will be useful, but
  WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  General Public License for more details.
  .
- You should have received a copy of the GNU Lesser General Public License
+ You should have received a copy of the GNU General Public License
  along with this program. If not, see <http://www.gnu.org/licenses/>.
+ .
+ On Debian systems, the complete text of the GNU General
+ Public License version 3 can be found in "/usr/share/common-licenses/GPL-3".
  .
  As a special exception, the respective Autoconf Macro's copyright owner
  gives unlimited permission to copy, distribute and modify the configure
