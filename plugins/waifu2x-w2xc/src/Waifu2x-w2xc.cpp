@@ -1,7 +1,7 @@
 /*
   The MIT License (MIT)
 
-  Copyright (c) 2015 HolyWu
+  Copyright (c) 2016 HolyWu
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal
@@ -41,7 +41,7 @@ static inline bool isPowerOf2(const int i) {
     return i && !(i & (i - 1));
 }
 
-static bool Waifu2x(const VSFrameRef * src, VSFrameRef * dst, Waifu2xData * VS_RESTRICT d, const VSAPI * vsapi) {
+static bool process(const VSFrameRef * src, VSFrameRef * dst, Waifu2xData * VS_RESTRICT d, const VSAPI * vsapi) {
     if (d->vi.format->colorFamily == cmRGB) {
         const int width = vsapi->getFrameWidth(src, 0);
         const int height = vsapi->getFrameHeight(src, 0);
@@ -56,11 +56,12 @@ static bool Waifu2x(const VSFrameRef * src, VSFrameRef * dst, Waifu2xData * VS_R
 
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
-                const int pos = y * width + x;
+                const int pos = width * y + x;
                 d->srcInterleaved[pos * 3] = srcpR[x];
                 d->srcInterleaved[pos * 3 + 1] = srcpG[x];
                 d->srcInterleaved[pos * 3 + 2] = srcpB[x];
             }
+
             srcpR += srcStride;
             srcpG += srcStride;
             srcpB += srcStride;
@@ -72,11 +73,12 @@ static bool Waifu2x(const VSFrameRef * src, VSFrameRef * dst, Waifu2xData * VS_R
 
         for (int y = 0; y < d->vi.height; y++) {
             for (int x = 0; x < d->vi.width; x++) {
-                const int pos = y * d->vi.width + x;
+                const int pos = d->vi.width * y + x;
                 dstpR[x] = d->dstInterleaved[pos * 3];
                 dstpG[x] = d->dstInterleaved[pos * 3 + 1];
                 dstpB[x] = d->dstInterleaved[pos * 3 + 2];
             }
+
             dstpR += dstStride;
             dstpG += dstStride;
             dstpB += dstStride;
@@ -97,17 +99,21 @@ static bool Waifu2x(const VSFrameRef * src, VSFrameRef * dst, Waifu2xData * VS_R
 
                 if (d->noise == 0) {
                     float * VS_RESTRICT output = dstp;
+
                     for (int y = 0; y < srcHeight; y++) {
                         for (int x = 0; x < srcWidth; x++)
                             output[x] = input[x] + 0.5f;
+
                         input += srcStride;
                         output += dstStride;
                     }
                 } else {
                     float * VS_RESTRICT output = d->buffer;
+
                     for (int y = 0; y < srcHeight; y++) {
                         for (int x = 0; x < srcWidth; x++)
                             output[x] = input[x] + 0.5f;
+
                         input += srcStride;
                         output += srcWidth;
                     }
@@ -139,12 +145,13 @@ static bool Waifu2x(const VSFrameRef * src, VSFrameRef * dst, Waifu2xData * VS_R
 
                     for (int y = 0; y < currentHeight; y++) {
                         for (int x = 0; x < currentWidth; x++) {
-                            const int pos = y * 2 * currentWidth2 + x * 2;
+                            const int pos = currentWidth2 * y * 2 + x * 2;
                             d->buffer[pos] = input[x];
                             d->buffer[pos + 1] = input[x];
                             d->buffer[pos + currentWidth2] = input[x];
                             d->buffer[pos + currentWidth2 + 1] = input[x];
                         }
+
                         input += dstStride;
                     }
 
@@ -158,6 +165,7 @@ static bool Waifu2x(const VSFrameRef * src, VSFrameRef * dst, Waifu2xData * VS_R
                 for (int y = 0; y < dstHeight; y++) {
                     for (int x = 0; x < dstWidth; x++)
                         dstp[x] -= 0.5f;
+
                     dstp += dstStride;
                 }
             }
@@ -181,9 +189,9 @@ static const VSFrameRef *VS_CC waifu2xGetFrame(int n, int activationReason, void
         const VSFrameRef * src = vsapi->getFrameFilter(n, d->node, frameCtx);
         VSFrameRef * dst = vsapi->newVideoFrame(d->vi.format, d->vi.width, d->vi.height, src, core);
 
-        if (!Waifu2x(src, dst, d, vsapi)) {
+        if (!process(src, dst, d, vsapi)) {
             char * err = w2xconv_strerror(&d->conv->last_error);
-            vsapi->setFilterError(std::string("Waifu2x-w2xc: ").append(err).c_str(), frameCtx);
+            vsapi->setFilterError((std::string("Waifu2x-w2xc: ") + err).c_str(), frameCtx);
             vsapi->freeFrame(src);
             vsapi->freeFrame(dst);
             w2xconv_free(err);
@@ -199,11 +207,15 @@ static const VSFrameRef *VS_CC waifu2xGetFrame(int n, int activationReason, void
 
 static void VS_CC waifu2xFree(void *instanceData, VSCore *core, const VSAPI *vsapi) {
     Waifu2xData * d = static_cast<Waifu2xData *>(instanceData);
+
     vsapi->freeNode(d->node);
+
     vs_aligned_free(d->srcInterleaved);
     vs_aligned_free(d->dstInterleaved);
     vs_aligned_free(d->buffer);
+
     w2xconv_fini(d->conv);
+
     delete d;
 }
 
@@ -238,8 +250,8 @@ static void VS_CC waifu2xCreate(const VSMap *in, VSMap *out, void *userData, VSC
     int numProcessors;
     const W2XConvProcessor * processors = w2xconv_get_processor_list(&numProcessors);
 
-    if (d.noise < 0 || d.noise > 2) {
-        vsapi->setError(out, "Waifu2x-w2xc: noise must be set to 0, 1 or 2");
+    if (d.noise < 0 || d.noise > 3) {
+        vsapi->setError(out, "Waifu2x-w2xc: noise must be 0, 1, 2 or 3");
         return;
     }
 
@@ -259,7 +271,7 @@ static void VS_CC waifu2xCreate(const VSMap *in, VSMap *out, void *userData, VSC
     }
 
     if (gpu < 0 || gpu > 2) {
-        vsapi->setError(out, "Waifu2x-w2xc: gpu must be set to 0, 1 or 2");
+        vsapi->setError(out, "Waifu2x-w2xc: gpu must be 0, 1 or 2");
         return;
     }
 
@@ -287,7 +299,6 @@ static void VS_CC waifu2xCreate(const VSMap *in, VSMap *out, void *userData, VSC
                     break;
                 default:
                     type = "OpenCV";
-                    break;
                 }
                 break;
 
@@ -301,10 +312,9 @@ static void VS_CC waifu2xCreate(const VSMap *in, VSMap *out, void *userData, VSC
 
             default:
                 type = "??";
-                break;
             }
 
-            text = text.append(std::to_string(i)).append(": ").append(p->dev_name).append(" (").append(type).append(")\n");
+            text += std::to_string(i) + ": " + p->dev_name + " (" + type + ")\n";
         }
 
         VSMap * args = vsapi->createMap();
@@ -340,7 +350,7 @@ static void VS_CC waifu2xCreate(const VSMap *in, VSMap *out, void *userData, VSC
 
     VSPlugin * fmtcPlugin = vsapi->getPluginById("fmtconv", core);
     if (d.scale != 1 && d.vi.format->subSamplingW != 0 && !fmtcPlugin) {
-        vsapi->setError(out, "Waifu2x-w2xc: the fmtconv plugin is required for fixing horizontal chroma shift");
+        vsapi->setError(out, "Waifu2x-w2xc: the fmtconv plugin is required for correcting the horizontal chroma shift");
         vsapi->freeNode(d.node);
         return;
     }
@@ -377,16 +387,16 @@ static void VS_CC waifu2xCreate(const VSMap *in, VSMap *out, void *userData, VSC
     std::string modelPath(pluginPath.substr(0, pluginPath.find_last_of('/')));
     if (d.vi.format->colorFamily == cmRGB) {
         if (photo)
-            modelPath = modelPath.append("/models/photo");
+            modelPath += "/models/photo";
         else
-            modelPath = modelPath.append("/models/anime_style_art_rgb");
+            modelPath += "/models/anime_style_art_rgb";
     } else {
-        modelPath = modelPath.append("/models/anime_style_art");
+        modelPath += "/models/anime_style_art";
     }
 
     if (w2xconv_load_models(d.conv, modelPath.c_str()) < 0) {
         char * err = w2xconv_strerror(&d.conv->last_error);
-        vsapi->setError(out, std::string("Waifu2x-w2xc: ").append(err).c_str());
+        vsapi->setError(out, (std::string("Waifu2x-w2xc: ") + err).c_str());
         vsapi->freeNode(d.node);
         w2xconv_free(err);
         w2xconv_fini(d.conv);
