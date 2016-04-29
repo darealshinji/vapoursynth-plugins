@@ -4,8 +4,7 @@
 #include <cstdint>
 #include <cstring>
 
-#include <emmintrin.h>
-
+#include "Fakery.h"
 #include "MVFrame.h"
 
 enum VectorOrder {
@@ -32,7 +31,7 @@ void Degrain_C(uint8_t *pDst8, int nDstPitch, const uint8_t *pSrc8, int nSrcPitc
 
             int sum = 128 + pSrc[x] * WSrc;
 
-            for (int r = 0; r < radius*2; r++) {
+            for (int r = 0; r < radius * 2; r++) {
                 const PixelType *pRef = (const PixelType *)pRefs8[r];
                 sum += pRef[x] * WRefs[r];
             }
@@ -42,11 +41,15 @@ void Degrain_C(uint8_t *pDst8, int nDstPitch, const uint8_t *pSrc8, int nSrcPitc
 
         pDst8 += nDstPitch;
         pSrc8 += nSrcPitch;
-        for (int r = 0; r < radius*2; r++)
+        for (int r = 0; r < radius * 2; r++)
             pRefs8[r] += nRefPitches[r];
     }
 }
 
+
+#if defined(MVTOOLS_X86)
+
+#include <emmintrin.h>
 
 // XXX Moves the pointers passed in pRefs. This is okay because they are not
 // used after this function is done with them.
@@ -73,7 +76,7 @@ void Degrain_sse2(uint8_t *pDst, int nDstPitch, const uint8_t *pSrc, int nSrcPit
             // pDst[x] = (pRefF[x]*WRefF + pSrc[x]*WSrc + pRefB[x]*WRefB + pRefF2[x]*WRefF2 + pRefB2[x]*WRefB2 + pRefF3[x]*WRefF3 + pRefB3[x]*WRefB3 + 128)>>8;
 
             if (blockWidth == 4) {
-                src   = _mm_cvtsi32_si128(*(const int *)pSrc);
+                src = _mm_cvtsi32_si128(*(const int *)pSrc);
                 refs[0] = _mm_cvtsi32_si128(*(const int *)pRefs[0]);
                 refs[1] = _mm_cvtsi32_si128(*(const int *)pRefs[1]);
                 if (radius > 1) {
@@ -85,7 +88,7 @@ void Degrain_sse2(uint8_t *pDst, int nDstPitch, const uint8_t *pSrc, int nSrcPit
                     refs[5] = _mm_cvtsi32_si128(*(const int *)pRefs[5]);
                 }
             } else {
-                src   = _mm_loadl_epi64((const __m128i *)(pSrc + x));
+                src = _mm_loadl_epi64((const __m128i *)(pSrc + x));
                 refs[0] = _mm_loadl_epi64((const __m128i *)(pRefs[0] + x));
                 refs[1] = _mm_loadl_epi64((const __m128i *)(pRefs[1] + x));
                 if (radius > 1) {
@@ -98,7 +101,7 @@ void Degrain_sse2(uint8_t *pDst, int nDstPitch, const uint8_t *pSrc, int nSrcPit
                 }
             }
 
-            src   = _mm_unpacklo_epi8(src, zero);
+            src = _mm_unpacklo_epi8(src, zero);
             refs[0] = _mm_unpacklo_epi8(refs[0], zero);
             refs[1] = _mm_unpacklo_epi8(refs[1], zero);
             if (radius > 1) {
@@ -110,7 +113,7 @@ void Degrain_sse2(uint8_t *pDst, int nDstPitch, const uint8_t *pSrc, int nSrcPit
                 refs[5] = _mm_unpacklo_epi8(refs[5], zero);
             }
 
-            src   = _mm_mullo_epi16(src, wsrc);
+            src = _mm_mullo_epi16(src, wsrc);
             refs[0] = _mm_mullo_epi16(refs[0], wrefs[0]);
             refs[1] = _mm_mullo_epi16(refs[1], wrefs[1]);
             if (radius > 1) {
@@ -160,10 +163,12 @@ void Degrain_sse2(uint8_t *pDst, int nDstPitch, const uint8_t *pSrc, int nSrcPit
 }
 
 
-typedef void (*LimitFunction)(uint8_t *pDst, intptr_t nDstPitch, const uint8_t *pSrc, intptr_t nSrcPitch, intptr_t nWidth, intptr_t nHeight, intptr_t nLimit);
-
-
 extern "C" void mvtools_LimitChanges_sse2(uint8_t *pDst, intptr_t nDstPitch, const uint8_t *pSrc, intptr_t nSrcPitch, intptr_t nWidth, intptr_t nHeight, intptr_t nLimit);
+
+#endif // MVTOOLS_X86
+
+
+typedef void (*LimitFunction)(uint8_t *pDst, intptr_t nDstPitch, const uint8_t *pSrc, intptr_t nSrcPitch, intptr_t nWidth, intptr_t nHeight, intptr_t nLimit);
 
 
 template <typename PixelType>
@@ -189,14 +194,14 @@ inline int DegrainWeight(int64_t thSAD, int64_t blockSAD) {
 }
 
 
-inline void useBlock(const uint8_t * &p, int &np, int &WRef, bool isUsable, const MVClipBalls *mvclip, int i, const MVPlane *pPlane, const uint8_t **pSrcCur, int xx, const int *nSrcPitch, int nLogPel, int plane, int xSubUV, int ySubUV, const int *thSAD) {
+inline void useBlock(const uint8_t *&p, int &np, int &WRef, bool isUsable, const FakeGroupOfPlanes *fgop, int i, MVPlane * const *pPlane, const uint8_t **pSrcCur, int xx, const int *nSrcPitch, int nLogPel, int plane, int xSubUV, int ySubUV, const int *thSAD) {
     if (isUsable) {
-        const FakeBlockData &block = mvclip->GetBlock(0, i);
-        int blx = (block.GetX() << nLogPel) + block.GetMV().x;
-        int bly = (block.GetY() << nLogPel) + block.GetMV().y;
-        p = pPlane->GetPointer(plane ? blx >> xSubUV : blx, plane ? bly >> ySubUV : bly);
-        np = pPlane->GetPitch();
-        int blockSAD = block.GetSAD();
+        const FakeBlockData *block = fgopGetBlock(fgop, 0, i);
+        int blx = (block->x << nLogPel) + block->vector.x;
+        int bly = (block->y << nLogPel) + block->vector.y;
+        p = mvpGetPointer(pPlane[plane], plane ? blx >> xSubUV : blx, plane ? bly >> ySubUV : bly);
+        np = pPlane[plane]->nPitch;
+        int blockSAD = block->vector.sad;
         WRef = DegrainWeight(thSAD[plane], blockSAD);
     } else {
         p = pSrcCur[plane] + xx;
@@ -211,10 +216,10 @@ static inline void normaliseWeights(int &WSrc, int *WRefs) {
     // normalise weights to 256
     WSrc = 256;
     int WSum = WSrc + 1;
-    for (int r = 0; r < radius*2; r++)
+    for (int r = 0; r < radius * 2; r++)
         WSum += WRefs[r];
 
-    for (int r = 0; r < radius*2; r++) {
+    for (int r = 0; r < radius * 2; r++) {
         WRefs[r] = WRefs[r] * 256 / WSum;
         WSrc -= WRefs[r];
     }

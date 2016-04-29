@@ -20,34 +20,37 @@
 #ifndef __MV_DCTFFTW__
 #define __MV_DCTFFTW__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include <stdint.h>
+
 #include <fftw3.h>
 
-#include "DCT.h"
+typedef struct DCTFFTW {
+    int sizex;
+    int sizey;
+    int dctmode;
+    int bitsPerSample;
 
-class DCTFFTW : public DCTClass {
-    float * fSrc;
+    float *fSrc;
     fftwf_plan dctplan;
-    float * fSrcDCT;
+    float *fSrcDCT;
 
     int dctshift;
     int dctshift0;
-
-    template <typename PixelType>
-    void Bytes2Float(const uint8_t * srcp0, int _pitch, float * realdata);
-
-    template <typename PixelType>
-    void Float2Bytes(uint8_t * srcp0, int _pitch, float * realdata);
-
-    public:
+} DCTFFTW;
 
 
+void dctInit(DCTFFTW *dct, int sizex, int sizey, int dctmode, int bitsPerSample);
 
-    DCTFFTW(int _sizex, int _sizey, int _dctmode, int _bitsPerSample);
-    ~DCTFFTW();
+void dctDeinit(DCTFFTW *dct);
 
-    virtual void DCTBytes2D(const uint8_t *srcp0, int _src_pitch,
-            uint8_t *dctp, int _dct_pitch) override;
+void dctBytes2D(DCTFFTW *dct, const uint8_t *srcp, int src_pitch, uint8_t *dctp, int dct_pitch);
 
-};
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

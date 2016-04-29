@@ -62,7 +62,7 @@ sudo apt-get install vapoursynth-extra-plugins
 [knlmeanscl 0.7.6](https://github.com/Khanattila/KNLMeansCL)<br>
 [lsmashsource git20160306](https://github.com/VFR-maniac/L-SMASH-Works)<br>
 [msmoosh 1.1](https://github.com/dubhater/vapoursynth-msmoosh)<br>
-[mvtools 11](https://github.com/dubhater/vapoursynth-mvtools)<br>
+[mvtools 13](https://github.com/dubhater/vapoursynth-mvtools)<br>
 [nnedi3 8](https://github.com/dubhater/vapoursynth-nnedi3)<br>
 [rawsource git20130731](https://github.com/chikuzen/vsrawsource)<br>
 [reduceflicker git20150225](https://github.com/VFR-maniac/VapourSynth-ReduceFlicker)<br>
