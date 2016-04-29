@@ -15,6 +15,7 @@ m4_define([AX_CHECK_LIB_LINK], [{
 }])
 
 m4_include([include/ac/ax_check_cl.m4])
+m4_include([include/ac/ax_cxx_compile_stdcxx.m4])
 m4_include([include/ac/ax_cxx_compile_stdcxx_11.m4])
 m4_include([include/ac/ax_check_gnu_make.m4])
 m4_include([include/ac/ax_check_compile_flag.m4])
@@ -119,7 +120,7 @@ AS_IF([test "x$have_yasm" != "xno"],
       [build_with_yasm="with" opt_yasm_plugins="nnedi3 tcomb"],
       [build_with_yasm="without"])
 # Optinal YASM: FluxSmooth
-AS_IF([test "x$build_with_yasm" = "xwith" && "x$have_x86_64" = "xyes"],
+AS_IF([test "x$build_with_yasm" = "xwith" -a "x$have_x86_64" = "xyes"],
       [opt_yasm_plugins="fluxsmooth $opt_yasm_plugins"])
 
 # ImageReader
