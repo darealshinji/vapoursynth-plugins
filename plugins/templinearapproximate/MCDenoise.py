@@ -7,10 +7,12 @@ def TempLinearApproximateMC(clip, meclip = None, radius = 2, planes = None, subp
 	
 	core = vs.get_core()
 	
-	if not isinstance(clip, vs.VideoNode) or clip.format.id != vs.YUV420P8:
-		raise ValueError('MCDenoise.TempLinearApproximate: Input format must be YUV420P8.')
 	if not isinstance(radius, int) or radius < 1:
-		raise ValueError("MCDenoise.TempLinearApproximate: 'radius' must be larger than 1.")
+		raise ValueError("MCDenoise.TempLinearApproximate: 'radius' must be an integer larger than 1.")
+		
+	mv = core.mv
+	if clip.format.sample_type == vs.FLOAT:
+		mv = core.mvsf
 		
 	#-------------------------------------------------------------------------------------------------------------------------------------
 	
@@ -18,7 +20,7 @@ def TempLinearApproximateMC(clip, meclip = None, radius = 2, planes = None, subp
 	super_arguments = {"pel": subpel, "sharp": subpelinterp}
 	compensate_arguments = {"thsad":thsad, "thscd1":thscd1, "thscd2":thscd2}
 	recalculate_arguments = {"chroma":chromamotion, "search":search,  "searchparam":searchparam, "truemotion":truemotion, "lambda":_lambda}
-	analyze_arguments = {
+	analyse_arguments = {
 		"chroma":chromamotion, 
 		"search":search, 
 		"searchparam":searchparam, 
@@ -30,30 +32,50 @@ def TempLinearApproximateMC(clip, meclip = None, radius = 2, planes = None, subp
 		"plevel":plevel,
 		"global":globalmotion,
 		"badrange":badrange,
-		"isse":isse
 	}
 	
 	if not refine:
-		analyze_arguments['blksize'] = blocksize
-		analyze_arguments['overlap'] = overlap
+		analyse_arguments['blksize'] = blocksize
+		analyse_arguments['overlap'] = overlap
 	
 	if dct is not None:
-		analyze_arguments['dct'] = dct
+		analyse_arguments['dct'] = dct
 		recalculate_arguments['dct'] = dct
+		
+	if isse is not None:
+		analyse_arguments['isse'] = isse
+		
+	analyse_arguments_32 = analyse_arguments
 	
-	input_super = core.mv.Super(clip, **super_arguments)
-	me_super = input_super if not meclip else core.mv.Super(meclip, **super_arguments)
+	input_super = mv.Super(clip, **super_arguments)
+	if refine and dct is not None:
+		if dct == 5:
+			analyse_arguments_32['dct'] = 0
+		elif dct == 6:
+			analyse_arguments_32['dct'] = 2
+		elif dct == 7:
+			analyse_arguments_32['dct'] = 3
+		elif dct == 8:
+			analyse_arguments_32['dct'] = 4
+		elif dct == 9:
+			analyse_arguments_32['dct'] = 2
+		elif dct == 10:
+			analyse_arguments_32['dct'] = 3
+	
+	me_super = input_super if not meclip else mv.Super(meclip, **super_arguments)
 		
 	#-------------------------------------------------------------------------------------------------------------------------------------
 	def compensate(isb, delta):
 		if refine:
-			vector = core.mv.Analyse(me_super, isb=isb, delta=delta, blksize=32, overlap=16, **analyze_arguments)
-			vector = core.mv.Recalculate(me_super, vector, blksize=16, overlap=8, **recalculate_arguments)
-			vector = core.mv.Recalculate(me_super, vector, blksize=8, overlap=4, **recalculate_arguments)
-			vector = core.mv.Recalculate(me_super, vector, blksize=4, overlap=2, **recalculate_arguments)
+			vector = mv.Analyse(me_super, isb=isb, delta=delta, blksize=32, overlap=16, **analyse_arguments_32)
+			vector = mv.Recalculate(me_super, vector, blksize=16, overlap=8, **recalculate_arguments)
+			vector = mv.Recalculate(me_super, vector, blksize=8, overlap=4, **recalculate_arguments)
+			vector = mv.Recalculate(me_super, vector, blksize=4, overlap=2, **recalculate_arguments)
+		elif blocksize == 32:
+			vector = mv.Analyse(me_super, isb=isb, delta=delta, **analyse_arguments_32)
 		else:
-			vector = core.mv.Analyse(me_super, isb=isb, delta=delta, **analyze_arguments)
-		return core.mv.Compensate(clip, input_super, vector, **compensate_arguments)
+			vector = mv.Analyse(me_super, isb=isb, delta=delta, **analyse_arguments)
+		return mv.Compensate(clip, input_super, vector, **compensate_arguments)
 
 	compensate_back = [compensate(True, i) for i in range(radius, 0, -1)]
 	compensate_forward = [compensate(False, i) for i in range(1, radius+1)]
