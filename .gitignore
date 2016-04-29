@@ -29,6 +29,7 @@ stamp-h2
 
 Makefile.in
 
+/ffmpeg/
 /ffmpeg_libs/
 
 libjpeg.map
@@ -37,9 +38,11 @@ tjbenchtest
 /plugins/imagereader/libjpeg-turbo/configure
 /plugins/imagereader/libjpeg-turbo/Makefile
 /plugins/imagereader/libjpeg-turbo/config.h
+/plugins/imagereader/libjpeg-turbo/jconfigint.h
 /plugins/imagereader/libjpeg-turbo/md5/Makefile
 /plugins/imagereader/libjpeg-turbo/m4/
 /plugins/imagereader/libjpeg-turbo/simd/Makefile
+/plugins/imagereader/libjpeg-turbo/stamp-h3
 
 liblsmash.pc
 /plugins/lsmashsource/libs/
@@ -49,3 +52,9 @@ liblsmash.pc
 /plugins/lsmashsource/lsmash/cli/timelineeditor
 /plugins/lsmashsource/lsmash/config.h
 /plugins/lsmashsource/lsmash/config.mak2
+
+/plugins/waifu2x-w2xc/libw2xc/conv
+/plugins/waifu2x-w2xc/libw2xc/modelHandler_OpenCL.cl.h
+/plugins/waifu2x-w2xc/modelHandler_sse.ii
+/plugins/waifu2x-w2xc/modelHandler_sse.s
+
