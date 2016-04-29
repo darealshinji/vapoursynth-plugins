@@ -20,26 +20,29 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#include <fstream>
+#include <stdio.h>
 #include <string>
 
 #include "compat.hpp"
 
 using namespace std;
 
-/* Replacement function for getline that removes any trailing \r. */
-istream& d2vgetline(istream& is, string& str)
+void d2vgetline(FILE *f, string& str)
 {
-    string tmp;
-
     str.clear();
 
-    getline(is, tmp);
+    while (1) {
+        int ch = fgetc(f);
 
-    if (tmp.size() != 0 && tmp.at(tmp.length() - 1) == 0x0D)
-        tmp.erase(tmp.length() - 1);
+        if (ch == EOF)
+            break;
 
-    str = tmp;
+        if (ch == '\n') {
+            if (str[str.size() - 1] == '\r')
+                str.erase(str.size() - 1, 1);
+            break;
+        }
 
-    return is;
+        str += (char)ch;
+    }
 }

@@ -20,7 +20,6 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#include <fstream>
 #include <iostream>
 #include <string>
 #include <sstream>
@@ -28,6 +27,7 @@
 
 extern "C" {
 #include <assert.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 }
@@ -86,7 +86,7 @@ void d2vfreep(d2vcontext **ctx)
 d2vcontext *d2vparse(const char *filename, string& err)
 {
     string line;
-    ifstream input;
+    FILE *input = NULL;
     d2vcontext *ret;
     int i;
 
@@ -108,12 +108,12 @@ d2vcontext *d2vparse(const char *filename, string& err)
         goto fail;
     }
 
-    input.open(wide_filename);
+    input = _wfopen(wide_filename, L"rb");
 #else
-    input.open(filename);
+    input = fopen(filename, "rb");
 #endif
 
-    if (input.fail()) {
+    if (!input) {
         err = "D2V cannot be opened.";
         goto fail;
     }
@@ -278,7 +278,8 @@ d2vcontext *d2vparse(const char *filename, string& err)
         d2vgetline(input, line);
     }
 
-    input.close();
+    fclose(input);
+    input = NULL;
 
     if (!ret->frames.size() || !ret->gops.size()) {
         err = "No frames in D2V file!";
@@ -289,5 +290,7 @@ d2vcontext *d2vparse(const char *filename, string& err)
 
 fail:
     d2vfreep(&ret);
+    if (input)
+        fclose(input);
     return NULL;
 }

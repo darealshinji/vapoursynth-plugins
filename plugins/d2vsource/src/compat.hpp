@@ -23,7 +23,7 @@
 #ifndef COMPAT_H
 #define COMPAT_H
 
-#include <fstream>
+#include <stdio.h>
 #include <string>
 
 /* Large file aware functions. */
@@ -43,6 +43,6 @@
 
 using namespace std;
 
-istream& d2vgetline(istream& is, string& str);
+void d2vgetline(FILE *f, string& str);
 
 #endif
