@@ -64,6 +64,7 @@ typedef struct
     int      brand_3gx;
     int      optimize_pd;
     int      timeline_shift;
+    int      compact_size_table;
     uint32_t interleave;
     uint32_t num_of_brands;
     uint32_t brands[MAX_NUM_OF_BRANDS];
@@ -93,6 +94,8 @@ typedef struct
     uint16_t copyright_language;
     char    *copyright_notice;
     char    *handler_name;
+    uint32_t par_h;
+    uint32_t par_v;
 } input_track_option_t;
 
 typedef struct
@@ -254,6 +257,7 @@ static void display_help( void )
              "                                  <arg> is <string> or <string>/<string>\n"
              "    --language <string>       Specify the default language for all the output tracks.\n"
              "                              This option is overridden by the track options.\n"
+             "    --compact-size-table      Compress sample size tables if possible.\n"
              "Output file formats:\n"
              "    mp4, mov, 3gp, 3g2, m4a, m4v\n"
              "\n"
@@ -268,6 +272,8 @@ static void display_help( void )
              "                                  <arg> is <string> or <string>/<string>\n"
              "    handler=<string>          Set media handler name\n"
              "    sbr                       Enable backward-compatible SBR explicit signaling mode\n"
+             "    par=<integer>:<integer>   Specify pixel aspect ratio of the first sequence\n"
+             "                              And never change ones in the media stream.\n"
              "How to use track options:\n"
              "    -i input?[track_option1],[track_option2]...\n"
              "\n"
@@ -514,6 +520,8 @@ static int parse_global_options( int argc, char **argv, muxer_t *muxer )
         }
         else if( !strcasecmp( argv[i], "--shift-timeline" ) )
             opt->timeline_shift = 1;
+        else if( !strcasecmp( argv[i], "compact-size-table" ) )
+            opt->compact_size_table = 1;
         else if( !strcasecmp( argv[i], "--chapter" ) )
         {
             CHECK_NEXT_ARG;
@@ -675,6 +683,15 @@ static int parse_track_options( input_t *input )
             }
             else if( strstr( track_option, "sbr" ) )
                 track_opt->sbr = 1;
+            else if( strstr( track_option, "par=" ) )
+            {
+                char *track_parameter = strchr( track_option, '=' ) + 1;
+                if( sscanf( track_parameter, "%"SCNu32":%"SCNu32, &track_opt->par_h, &track_opt->par_v ) != 2 )
+                {
+                    track_opt->par_h = 0;
+                    track_opt->par_v = 0;
+                }
+            }
             else
                 return ERROR_MSG( "unknown track option %s\n", track_option );
         }
@@ -896,7 +913,8 @@ static int prepare_output( muxer_t *muxer )
             track_param.alternate_group = track_opt->alternate_group;
             lsmash_media_parameters_t media_param;
             lsmash_initialize_media_parameters( &media_param );
-            media_param.ISO_language = track_opt->ISO_language;
+            media_param.ISO_language              = track_opt->ISO_language;
+            media_param.compact_sample_size_table = opt->compact_size_table;
             switch( in_track->summary->summary_type )
             {
                 case LSMASH_SUMMARY_TYPE_VIDEO :
@@ -907,6 +925,11 @@ static int prepare_output( muxer_t *muxer )
                     lsmash_video_summary_t *summary = (lsmash_video_summary_t *)in_track->summary;
                     uint64_t display_width  = (uint64_t)summary->width  << 16;
                     uint64_t display_height = (uint64_t)summary->height << 16;
+                    if( track_opt->par_h && track_opt-> par_v )
+                    {
+                        summary->par_h = track_opt->par_h;
+                        summary->par_v = track_opt->par_v;
+                    }
                     if( summary->par_h && summary->par_v )
                     {
                         double sar = (double)summary->par_h / summary->par_v;
@@ -1047,7 +1070,7 @@ static int do_mux( muxer_t *muxer )
     uint32_t num_consecutive_sample_skip = 0;
     uint32_t num_active_input_tracks = out_movie->num_of_tracks;
     uint64_t total_media_size = 0;
-    uint8_t  sample_count = 0;
+    uint32_t progress_pos = 0;
     while( 1 )
     {
         input_t *input = &muxer->input[current_input_number - 1];
@@ -1130,10 +1153,10 @@ static int do_mux( muxer_t *muxer )
                     total_media_size += sample_size;
                     ++ out_track->current_sample_number;
                     num_consecutive_sample_skip = 0;
-                    /* Print, per 256 samples, total size of imported media. */
-                    if( ++sample_count == 0 )
+                    /* Print, per 4 megabytes, total size of imported media. */
+                    if( (total_media_size >> 22) > progress_pos )
                     {
-                        REFRESH_CONSOLE;
+                        progress_pos = total_media_size >> 22;
                         eprintf( "Importing: %"PRIu64" bytes\r", total_media_size );
                     }
                 }
@@ -1180,8 +1203,13 @@ static int do_mux( muxer_t *muxer )
 
 static int moov_to_front_callback( void *param, uint64_t written_movie_size, uint64_t total_movie_size )
 {
+    static uint32_t progress_pos = 0;
+    if ( (written_movie_size >> 24) <= progress_pos )
+        return 0;
     REFRESH_CONSOLE;
     eprintf( "Finalizing: [%5.2lf%%]\r", total_movie_size ? ((double)written_movie_size / total_movie_size) * 100.0 : 0 );
+    /* Print, per 16 megabytes */
+    progress_pos = written_movie_size >> 24;
     return 0;
 }
 

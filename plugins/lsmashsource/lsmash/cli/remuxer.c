@@ -152,6 +152,8 @@ typedef struct
     uint32_t             frag_base_track;
     uint32_t             subseg_per_seg;
     int                  dash;
+    int                  compact_size_table;
+    double               min_frag_duration;
 } remuxer_t;
 
 typedef struct
@@ -285,32 +287,35 @@ static void display_help( void )
     eprintf( "\n"
              "Usage: remuxer -i input1 [-i input2 -i input3 ...] -o output\n"
              "Global options:\n"
-             "    --help                    Display help.\n"
-             "    --version                 Display version information.\n"
-             "    --chapter <string>        Set chapters from the file.\n"
-             "    --chpl-with-bom           Add UTF-8 BOM to the chapter strings\n"
-             "                              in the chapter list. (experimental)\n"
-             "    --chapter-track <integer> Set which track the chapter applies to.\n"
-             "                              This option takes effect only when reference\n"
-             "                              chapter is available.\n"
-             "                              If this option is not used, it defaults to 1.\n"
-             "    --language <string>       Specify the default language for all the output tracks.\n"
-             "                              This option is overridden by the track options.\n"
-             "    --fragment <integer>      Enable fragmentation per random accessible point.\n"
-             "                              Set which track the fragmentation is based on.\n"
-             "    --dash <integer>          Enable DASH ISOBMFF-based Media segmentation.\n"
-             "                              The value is the number of subsegments per segment.\n"
-             "                              If zero, Indexed self-initializing Media Segment.\n"
-             "                              This option requires --fragment.\n"
+             "    --help                      Display help.\n"
+             "    --version                   Display version information.\n"
+             "    --chapter <string>          Set chapters from the file.\n"
+             "    --chpl-with-bom             Add UTF-8 BOM to the chapter strings\n"
+             "                                in the chapter list. (experimental)\n"
+             "    --chapter-track <integer>   Set which track the chapter applies to.\n"
+             "                                This option takes effect only when reference\n"
+             "                                chapter is available.\n"
+             "                                If this option is not used, it defaults to 1.\n"
+             "    --language <string>         Specify the default language for all the output tracks.\n"
+             "                                This option is overridden by the track options.\n"
+             "    --fragment <integer>        Enable fragmentation per random accessible point.\n"
+             "                                Set which track the fragmentation is based on.\n"
+             "    --min-frag-duration <float> Specify the minimum duration which fragments are allowed to be.\n"
+             "                                This option requires --fragment.\n"
+             "    --dash <integer>            Enable DASH ISOBMFF-based Media segmentation.\n"
+             "                                The value is the number of subsegments per segment.\n"
+             "                                If zero, Indexed self-initializing Media Segment.\n"
+             "                                This option requires --fragment.\n"
+             "    --compact-size-table        Compress sample size tables if possible.\n"
              "Track options:\n"
-             "    remove                    Remove this track\n"
-             "    disable                   Disable this track\n"
-             "    language=<string>         Specify media language\n"
-             "    alternate-group=<integer> Specify alternate group\n"
-             "    handler=<string>          Set media handler name\n"
-             "    seek=<integer>            Specify starting point in media\n"
-             "    safe-seek=<integer>       Same as seek except for considering random accessible point\n"
-             "                              Media starts from the closest random accessible point\n"
+             "    remove                      Remove this track\n"
+             "    disable                     Disable this track\n"
+             "    language=<string>           Specify media language\n"
+             "    alternate-group=<integer>   Specify alternate group\n"
+             "    handler=<string>            Set media handler name\n"
+             "    seek=<integer>              Specify starting point in media\n"
+             "    safe-seek=<integer>         Same as seek except for considering random accessible point\n"
+             "                                Media starts from the closest random accessible point\n"
              "How to use track options:\n"
              "    -i input?[track_number1]:[track_option1],[track_option2]?[track_number2]:...\n"
              "For example:\n"
@@ -718,6 +723,16 @@ static int parse_cli_option( int argc, char **argv, remuxer_t *remuxer )
             if( remuxer->frag_base_track == 0 )
                 FAILED_PARSE_CLI_OPTION( "%s is an invalid track number.\n", argv[i] );
         }
+        else if( !strcasecmp( argv[i], "--min-frag-duration" ) )
+        {
+            if( ++i == argc )
+                FAILED_PARSE_CLI_OPTION( "--min-frag-duration requires an argument.\n" );
+            remuxer->min_frag_duration = atof( argv[i] );
+            if( remuxer->min_frag_duration == 0.0 || remuxer->min_frag_duration == -0.0 )
+                FAILED_PARSE_CLI_OPTION( "%s is an invalid fragment duration.\n", argv[i] );
+            else if( remuxer->frag_base_track == 0 )
+                FAILED_PARSE_CLI_OPTION( "--min-frag-duration requires --fragment also be set.\n" );
+        }
         else if( !strcasecmp( argv[i], "--dash" ) )
         {
             if( ++i == argc )
@@ -725,6 +740,8 @@ static int parse_cli_option( int argc, char **argv, remuxer_t *remuxer )
             remuxer->subseg_per_seg = atoi( argv[i] );
             remuxer->dash           = 1;
         }
+        else if( !strcasecmp( argv[i], "--compact-size-table" ) )
+            remuxer->compact_size_table = 1;
         else
             FAILED_PARSE_CLI_OPTION( "unkown option found: %s\n", argv[i] );
     }
@@ -935,10 +952,8 @@ static int set_movie_parameters( remuxer_t *remuxer )
             if( self_containd_segment )
                 out_file->param.mode |= LSMASH_FILE_MODE_INDEX;
             else
-            {
                 out_file->param.mode &= ~LSMASH_FILE_MODE_MEDIA;
-                out_file->param.mode |= LSMASH_FILE_MODE_SEGMENT;
-            }
+            out_file->param.mode |= LSMASH_FILE_MODE_SEGMENT;
         }
         else
             WARNING_MSG( "--dash requires --fragment.\n" );
@@ -1159,10 +1174,11 @@ static int prepare_output( remuxer_t *remuxer )
             out_track->track_param = in_track->track_param;
             out_track->media_param = in_track->media.param;
             /* Set track and media parameters specified by users */
-            out_track->track_param.alternate_group    = current_track_opt->alternate_group;
-            out_track->media_param.ISO_language       = current_track_opt->ISO_language;
-            out_track->media_param.media_handler_name = current_track_opt->handler_name;
-            out_track->track_param.track_ID           = out_track->track_ID;
+            out_track->track_param.alternate_group           = current_track_opt->alternate_group;
+            out_track->media_param.ISO_language              = current_track_opt->ISO_language;
+            out_track->media_param.media_handler_name        = current_track_opt->handler_name;
+            out_track->media_param.compact_sample_size_table = remuxer->compact_size_table;
+            out_track->track_param.track_ID                  = out_track->track_ID;
             if( current_track_opt->disable )
                 out_track->track_param.mode &= ~ISOM_TRACK_ENABLED;
             if( lsmash_set_track_parameters( output->root, out_track->track_ID, &out_track->track_param ) < 0 )
@@ -1266,8 +1282,13 @@ static int flush_movie_fragment( remuxer_t *remuxer )
 
 static int moov_to_front_callback( void *param, uint64_t written_movie_size, uint64_t total_movie_size )
 {
+    static uint32_t progress_pos = 0;
+    if ( (written_movie_size >> 24) <= progress_pos )
+        return 0;
     REFRESH_CONSOLE;
     eprintf( "Finalizing: [%5.2lf%%]\r", ((double)written_movie_size / total_movie_size) * 100.0 );
+    /* Print, per 16 megabytes */
+    progress_pos = written_movie_size >> 24;
     return 0;
 }
 
@@ -1420,7 +1441,7 @@ static int do_remux( remuxer_t *remuxer )
     uint32_t num_consecutive_sample_skip = 0;
     uint32_t num_active_input_tracks     = out_movie->num_tracks;
     uint64_t total_media_size            = 0;
-    uint8_t  sample_count                = 0;
+    uint32_t progress_pos                = 0;
     uint8_t  pending_flush_fragments     = (remuxer->frag_base_track != 0); /* For non-fragmented movie, always set to 0. */
     while( 1 )
     {
@@ -1486,8 +1507,16 @@ static int do_remux( remuxer_t *remuxer )
                 {
                     if( pending_flush_fragments == 0 )
                     {
+                        int over_duration = 1;
+                        if( remuxer->min_frag_duration != 0.0 )
+                        {
+                            lsmash_sample_t info;
+                            if( lsmash_get_sample_info_from_media_timeline( in->root, in_track->track_ID, in_track->current_sample_number + 1, &info ) >= 0 )
+                                over_duration = ((double)info.dts / in_track->media.param.timescale) - frag_base_dts >= remuxer->min_frag_duration;
+                        }
                         if( remuxer->frag_base_track == out_movie->current_track_number
-                         && sample->prop.ra_flags != ISOM_SAMPLE_RANDOM_ACCESS_FLAG_NONE )
+                         && sample->prop.ra_flags != ISOM_SAMPLE_RANDOM_ACCESS_FLAG_NONE
+                         && over_duration )
                         {
                             pending_flush_fragments = 1;
                             frag_base_dts = in_track->dts;
@@ -1555,9 +1584,12 @@ static int do_remux( remuxer_t *remuxer )
                         out_track->last_sample_dts        = last_sample_dts;
                         num_consecutive_sample_skip       = 0;
                         total_media_size                 += sample_size;
-                        /* Print, per 256 samples, total size of imported media. */
-                        if( ++sample_count == 0 )
+                        /* Print, per 4 megabytes, total size of imported media. */
+                        if( (total_media_size >> 22) > progress_pos )
+                        {
+                            progress_pos = total_media_size >> 22;
                             eprintf( "Importing: %"PRIu64" bytes\r", total_media_size );
+                        }
                     }
                     else
                     {
@@ -1693,7 +1725,7 @@ int main( int argc, char *argv[] )
         lsmash_free( input );
         return ERROR_MSG( "failed to allocate the track option handler.\n" );
     }
-    remuxer_t           remuxer =
+    remuxer_t remuxer =
     {
         .output             = &output,
         .input              = input,

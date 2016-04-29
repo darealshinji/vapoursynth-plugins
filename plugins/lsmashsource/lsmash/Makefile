@@ -3,13 +3,6 @@
 # note:
 # Currently, this Makefile is not tested except GNU make.
 
-ifneq ($(V),1)
-CCLD_silent   = @ echo '  CCLD     '$@;
-CC_silent     = @ echo '  CC       '$@;
-AR_silent     = @ echo '  AR       '$@;
-RANLIB_silent = @ echo '  RANLIB   '$@;
-endif
-
 include config.mak
 
 vpath %.c $(SRCDIR)
@@ -28,12 +21,12 @@ all: $(STATICLIB) $(SHAREDLIB) $(TOOLS)
 lib: $(STATICLIB) $(SHAREDLIB)
 
 $(STATICLIBNAME): $(OBJS)
-	$(AR_silent)$(AR) rc $@ $^
-	$(RANLIB_silent)$(RANLIB) $@
+	$(AR) rc $@ $^
+	$(RANLIB) $@
 	-@ $(if $(STRIP), $(STRIP) -x $@)
 
 $(SHAREDLIBNAME): $(OBJS)
-	$(CCLD_silent)$(CC) $(SO_LDFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
+	$(LD) $(SO_LDFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
 	-@ $(if $(STRIP), $(STRIP) -x $@)
 ifeq ($(SHAREDLIBNAME), liblsmash.so.$(MAJVER))
 	ln -sf $(SHAREDLIBNAME) liblsmash.so
@@ -44,7 +37,7 @@ endif
 include config.mak2
 
 %.o: %.c .depend config.h
-	$(CC_silent)$(CC) -c $(CFLAGS) -o $@ $<
+	$(CC) -c $(CFLAGS) -o $@ $<
 
 install: all install-lib
 	install -d $(DESTDIR)$(bindir)

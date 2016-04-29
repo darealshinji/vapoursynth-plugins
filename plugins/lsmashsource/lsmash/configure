@@ -104,7 +104,7 @@ IMPLIB=""
 
 TOOLS=""
 
-CFLAGS="-Wall -Wshadow -std=c99 -I. -I$SRCDIR"
+CFLAGS="-Wshadow -Wall -std=c99 -pedantic -I. -I$SRCDIR"
 LDFLAGS="-L."
 SO_LDFLAGS='-shared -Wl,-soname,$@'
 LIBS="-lm"
@@ -251,6 +251,8 @@ LIBS="$LIBS $XLIBS"
 if test -n "$DEBUG"; then
     CFLAGS="$CFLAGS -g3 -O0"
     STRIP=""
+else
+    CFLAGS="-Os -ffast-math $CFLAGS"
 fi
 
 
@@ -289,6 +291,9 @@ SRC_CODECS="      \
     id.c          \
     mp4sys.c      \
     mp4a.c        \
+    mp4v.c        \
+    nalu.c        \
+    qt_wfex.c     \
     vc1.c         \
     wma.c"
 
@@ -393,7 +398,7 @@ Cflags: -I${includedir}
 EOF
 
 
-cat > config.mak << EOF
+cat >> config.mak << EOF
 SRCDIR = $SRCDIR
 DESTDIR = $DESTDIR
 prefix = $prefix
@@ -427,17 +432,11 @@ TOOLS = $TOOLS_NAME
 MAJVER = $MAJVER
 EOF
 
-cat > config.mak2 << EOF
-ifneq (\$(V),1)
-CCLD_silent   = @ echo '  CCLD     '\$@;
-endif
-
-EOF
 
 for tool in $TOOLS; do
     cat >> config.mak2 << EOF
 cli/${tool}${EXT}: cli/${tool}.o $OBJ_TOOLS $STATICLIB $SHAREDLIB
-	\$(CCLD_silent)\$(CC) \$(CFLAGS) \$(LDFLAGS) -o \$@ \$< $OBJ_TOOLS -llsmash \$(LIBS)
+	\$(CC) \$(CFLAGS) \$(LDFLAGS) -o \$@ \$< $OBJ_TOOLS -llsmash \$(LIBS)
 	-@ \$(if \$(STRIP), \$(STRIP) \$@)
 
 EOF

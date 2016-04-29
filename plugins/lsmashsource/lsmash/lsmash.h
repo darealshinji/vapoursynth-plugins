@@ -47,8 +47,8 @@ extern "C" {
  * Version
  ****************************************************************************/
 #define LSMASH_VERSION_MAJOR  2
-#define LSMASH_VERSION_MINOR  9
-#define LSMASH_VERSION_MICRO  1
+#define LSMASH_VERSION_MINOR 11
+#define LSMASH_VERSION_MICRO  3
 
 #define LSMASH_VERSION_INT( a, b, c ) (((a) << 16) | ((b) << 8) | (c))
 
@@ -1764,6 +1764,12 @@ typedef struct
     /* Any user shouldn't use the following parameters. */
     PRIVATE char media_handler_name_shadow[256];
     PRIVATE char data_handler_name_shadow[256];
+    /* */
+    uint8_t compact_sample_size_table;  /* 1: Use compact size table if possible. (output/muxing mode)
+                                         *    Compact sample size table is used. (input/demuxing mode) */
+    uint8_t no_sample_dependency_table; /* 1: Don't write sample dependency type table. (output/muxing mode)
+                                         *    Sample dependency type table is absent. (input/demuxing mode) */
+    uint8_t reserved[2];
 } lsmash_media_parameters_t;
 
 typedef struct
