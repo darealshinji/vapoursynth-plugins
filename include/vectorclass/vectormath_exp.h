@@ -2,7 +2,7 @@
 * Author:        Agner Fog
 * Date created:  2014-04-18
 * Last modified: 2015-02-10
-* Version:       1.16
+* Version:       1.21
 * Project:       vector classes
 * Description:
 * Header file containing inline vector functions of logarithms, exponential 
@@ -25,7 +25,7 @@
 *
 * For detailed instructions, see vectormath_common.h and VectorClass.pdf
 *
-* (c) Copyright 2014 GNU General Public License http://www.gnu.org/licenses
+* (c) Copyright 2015 GNU General Public License http://www.gnu.org/licenses
 ******************************************************************************/
 
 #ifndef VECTORMATH_EXP_H
@@ -1329,7 +1329,7 @@ static inline VTYPE pow_template_d(VTYPE const & x0, VTYPE const & y) {
     z = select(xfinite, z, select(y == 0., VTYPE(1.), select(y < 0., VTYPE(0.), infinite_vec<VTYPE>() | ( VTYPE(reinterpret_d(yodd)) & x0))));
     z = select(is_nan(x0), select(is_nan(y), x0 | y, x0), select(is_nan(y), y, z));
     return z;
-}; 
+}
 
 
 //This template is in vectorf128.h to prevent implicit conversion of float y to int when float version is not defined:

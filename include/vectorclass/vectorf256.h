@@ -2,7 +2,7 @@
 * Author:        Agner Fog
 * Date created:  2012-05-30
 * Last modified: 2015-11-27
-* Version:       1.20
+* Version:       1.21
 * Project:       vector classes
 * Description:
 * Header file defining 256-bit floating point vector classes as interface

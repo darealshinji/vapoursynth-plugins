@@ -1,6 +1,13 @@
 change log for vectorclass.zip
 ------------------------------
 
+2015-04-24 version 1.21
+  * fix problems with XOP option in gcc
+  * improved horizontal_and/or for sse2
+  * improved Vec2q and Vec4q constructor on Microsoft Visual Studio 2015
+  * removed warnings by gcc option -Wcast-qual
+  
+
 2015-12-04 version 1.20
   * round functions: suppress precision exception under SSE4.1 and higher
   * fix compiler problems with AVX512 multiplication in gcc version 5.1

@@ -1,8 +1,8 @@
 /****************************  vectorf128.h   *******************************
 * Author:        Agner Fog
 * Date created:  2012-05-30
-* Last modified: 2015-12-04
-* Version:       1.20
+* Last modified: 2016-04-22
+* Version:       1.21
 * Project:       vector classes
 * Description:
 * Header file defining floating point vector classes as interface to 
@@ -30,20 +30,18 @@
 *
 * For detailed instructions, see VectorClass.pdf
 *
-* (c) Copyright 2012 - 2015 GNU General Public License http://www.gnu.org/licenses
+* (c) Copyright 2012 - 2016 GNU General Public License http://www.gnu.org/licenses
 *****************************************************************************/
 #ifndef VECTORF128_H
 #define VECTORF128_H
 
-#include "vectori128.h"  // Define integer vectors
-
-#if defined _MSC_VER && _MSC_VER >= 1800   /* or 1900? */
+#if defined _MSC_VER && _MSC_VER >= 1800
 // solve problem with ambiguous overloading of pow function in Microsoft math.h:
+// make sure math.h is included first rather than last
 #include <math.h>
-static inline float pow(float x, float y) {
-    return (float)pow((double)x, (double)y);
-}
 #endif 
+
+#include "vectori128.h"  // Define integer vectors
 
 
 /*****************************************************************************
@@ -253,12 +251,14 @@ static inline Vec4fb andnot(Vec4fb const & a, Vec4fb const & b) {
 
 // horizontal_and. Returns true if all bits are 1
 static inline bool horizontal_and (Vec4fb const & a) {
-    return horizontal_and(Vec128b(_mm_castps_si128(a)));
+    return _mm_movemask_ps(a) == 0x0F; 
+    //return horizontal_and(Vec128b(_mm_castps_si128(a)));
 }
 
 // horizontal_or. Returns true if at least one bit is 1
 static inline bool horizontal_or (Vec4fb const & a) {
-    return horizontal_or(Vec128b(_mm_castps_si128(a)));
+    return _mm_movemask_ps(a) != 0;
+    //return horizontal_or(Vec128b(_mm_castps_si128(a)));
 }
 
 
@@ -421,12 +421,14 @@ static inline Vec2db andnot(Vec2db const & a, Vec2db const & b) {
 
 // horizontal_and. Returns true if all bits are 1
 static inline bool horizontal_and (Vec2db const & a) {
-    return horizontal_and(Vec128b(_mm_castpd_si128(a)));
+    return _mm_movemask_pd(a) == 3;
+    //return horizontal_and(Vec128b(_mm_castpd_si128(a)));
 }
 
 // horizontal_or. Returns true if at least one bit is 1
 static inline bool horizontal_or (Vec2db const & a) {
-    return horizontal_or(Vec128b(_mm_castpd_si128(a)));
+    return _mm_movemask_pd(a) != 0;
+    //return horizontal_or(Vec128b(_mm_castpd_si128(a)));
 }
 
 
@@ -498,9 +500,9 @@ public:
         case 1:
             xmm = _mm_load_ss(p); break;
         case 2:
-            xmm = _mm_castpd_ps(_mm_load_sd((double*)p)); break;
+            xmm = _mm_castpd_ps(_mm_load_sd((double const*)p)); break;
         case 3:
-            t1 = _mm_castpd_ps(_mm_load_sd((double*)p));
+            t1 = _mm_castpd_ps(_mm_load_sd((double const*)p));
             t2 = _mm_load_ss(p + 2);
             xmm = _mm_movelh_ps(t1, t2); break;
         case 4:
@@ -1901,7 +1903,7 @@ static inline Vec2d pow(Vec2d const & a, Const_int_t<n>) {
 
 // avoid unsafe optimization in function round
 #if defined(__GNUC__) && !defined(__INTEL_COMPILER) && !defined(__clang__) && INSTRSET < 5
-static inline Vec4f round(Vec4f const & a) __attribute__ ((optimize("-fno-unsafe-math-optimizations")));
+static inline Vec2d round(Vec2d const & a) __attribute__ ((optimize("-fno-unsafe-math-optimizations")));
 #elif defined (FLOAT_CONTROL_PRECISE_FOR_ROUND)
 #pragma float_control(push) 
 #pragma float_control(precise,on)
