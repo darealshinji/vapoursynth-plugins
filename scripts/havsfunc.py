@@ -114,7 +114,7 @@ def santiag(c, strh=1, strv=1, type='nnedi3', nns=None, aa=None, aac=None, nsize
         padX = 16 - w % 16 if w & 15 else 0
         padY = 16 - h % 16 if h & 15 else 0
         if padX or padY:
-            c = Resize(c, w + padX, h + padY, 0, 0, w + padX, h + padY, kernel='point')
+            c = Resize(c, w + padX, h + padY, 0, 0, w + padX, h + padY, kernel='point', dmode=1)
     
     fwh = fw if strv < 0 else c.width
     fhh = fh if strv < 0 else c.height
@@ -125,14 +125,14 @@ def santiag(c, strh=1, strv=1, type='nnedi3', nns=None, aa=None, aac=None, nsize
         c = santiag_dir(core.std.Transpose(c), strv, typev, halfres, kernel, nns, aa, aac, nsize, vcheck, fh, fw).std.Transpose()
     
     if type == 'sangnom' or typeh == 'sangnom' or typev == 'sangnom':
-        c = core.std.CropRel(c, left=0, top=0, right=padX, bottom=padY)
+        c = core.std.CropRel(c, right=padX, bottom=padY)
     
     if fw is None:
         fw = w
     if fh is None:
         fh = h
     if strh < 0 and strv < 0:
-        return Resize(c, fw, fh, kernel=kernel)
+        return Resize(c, fw, fh, kernel=kernel, dmode=1)
     else:
         return c
 
@@ -149,7 +149,7 @@ def santiag_dir(c, strength, type, halfres, kernel=None, nns=None, aa=None, aac=
     cshift = 0 if halfres else 0.5
     if c.format.color_family != vs.GRAY:
         cshift = [cshift, cshift * (1 << c.format.subsampling_h)]
-    return Resize(c, fw, fh, sy=cshift, kernel=kernel)
+    return Resize(c, fw, fh, sy=cshift, kernel=kernel, dmode=1)
 
 def santiag_stronger(c, strength, type, halfres, nns=None, aa=None, aac=None, nsize=None, vcheck=None):
     core = vs.get_core()
@@ -171,7 +171,7 @@ def santiag_stronger(c, strength, type, halfres, nns=None, aa=None, aac=None, ns
             cshift = 1 - field
             if c.format.color_family != vs.GRAY:
                 cshift = [cshift, cshift * (1 << c.format.subsampling_h)]
-            c = Resize(c, w, h // 2, sy=cshift, kernel='point')
+            c = Resize(c, w, h // 2, sy=cshift, kernel='point', dmode=1)
         return core.eedi2.EEDI2(c, field=field)
     elif type == 'eedi3':
         sclip = core.nnedi3.nnedi3(c, field=field, dh=dh, nsize=nsize, nns=nns)
@@ -181,7 +181,7 @@ def santiag_stronger(c, strength, type, halfres, nns=None, aa=None, aac=None, ns
             cshift = -0.25
             if c.format.color_family != vs.GRAY:
                 cshift = [cshift, cshift * (1 << c.format.subsampling_h)]
-            c = Resize(c, w, h * 2, sy=cshift)
+            c = Resize(c, w, h * 2, sy=cshift, dmode=1)
         return core.sangnom.SangNomMod(c, order=field, aa=aa, aac=aac)
     else:
         raise ValueError('santiag: unexpected value for type')
@@ -190,11 +190,11 @@ def santiag_stronger(c, strength, type, halfres, nns=None, aa=None, aac=None, ns
 # FixChromaBleedingMod v1.35
 #
 # Parameters:
-#  cx [int]         - Horizontal chroma shift. Positive value shifts chroma to left, negative value shifts chroma to right. Default is 4
-#  cy [int]         - Vertical chroma shift. Positive value shifts chroma to up, negative value shifts chroma to down. Default is 4
-#  thr [float]      - Masking threshold, higher value treats more areas as color bleed. Default is 4.0
-#  strength [float] - Saturation strength in clip to be merged with the original chroma. Value below 1.0 reduces the saturation, a value of 1.0 leaves the saturation intact. Default is 0.8
-#  blur [bool]      - Set to true to blur the mask clip. Default is false
+#  cx (int)         - Horizontal chroma shift. Positive value shifts chroma to left, negative value shifts chroma to right. Default is 4
+#  cy (int)         - Vertical chroma shift. Positive value shifts chroma to up, negative value shifts chroma to down. Default is 4
+#  thr (float)      - Masking threshold, higher value treats more areas as color bleed. Default is 4.0
+#  strength (float) - Saturation strength in clip to be merged with the original chroma. Value below 1.0 reduces the saturation, a value of 1.0 leaves the saturation intact. Default is 0.8
+#  blur (bool)      - Set to true to blur the mask clip. Default is false
 def FixChromaBleedingMod(input, cx=4, cy=4, thr=4., strength=0.8, blur=False):
     core = vs.get_core()
     
@@ -248,14 +248,14 @@ def FixChromaBleedingMod(input, cx=4, cy=4, thr=4., strength=0.8, blur=False):
     mask = Levels(mask, scale(250, bits), 1, scale(250, bits), scale(255, bits), 0)
     
     # expand to cover beyond the bleeding areas and shift to compensate the resizing
-    mask = core.std.Convolution(mask, matrix=[0, 0, 0, 1, 0, 0, 0, 0, 0], divisor=1, saturate=False) \
-           .std.Convolution(matrix=[1, 1, 1, 1, 1, 1, 0, 0, 0], divisor=8, saturate=False)
+    mask = core.std.Convolution(mask, matrix=[0, 0, 0, 1, 0, 0, 0, 0, 0], divisor=1, saturate=False)
+    mask = core.std.Convolution(mask, matrix=[1, 1, 1, 1, 1, 1, 0, 0, 0], divisor=8, saturate=False)
     
     # binarize (also a trick to expand)
     mask = Levels(mask, scale(10, bits), 1, scale(10, bits), 0, scale(255, bits)).std.Inflate()
     
     # prepare a version of the image that has its chroma shifted and less saturated
-    input_c = adjust.Tweak(Resize(input, input.width, input.height, cx, cy, planes=[2, 3, 3]), sat=strength)
+    input_c = adjust.Tweak(Resize(input, input.width, input.height, cx, cy, planes=[2, 3, 3], dmode=1), sat=strength)
     
     # combine both images using the mask
     fu = core.std.MaskedMerge(core.std.ShufflePlanes([input], planes=[1], colorfamily=vs.GRAY),
@@ -292,13 +292,13 @@ def FixChromaBleedingMod(input, cx=4, cy=4, thr=4., strength=0.8, blur=False):
 #   Foxyshadis once mentioned chroma="ignore" but I had never found a document containing it.
 #
 # Parameters:
-#  quant1 [int] - Strength of block edge deblocking. Default is 24
-#  quant2 [int] - Strength of block internal deblocking. Default is 26
-#  aOff1 [int]  - Halfway "sensitivity" and halfway a strength modifier for borders. Default is 1
-#  aOff2 [int]  - Halfway "sensitivity" and halfway a strength modifier for block interiors. Default is 1
-#  bOff1 [int]  - "sensitivity to detect blocking" for borders. Default is 2
-#  bOff2 [int]  - "sensitivity to detect blocking" for block interiors. Default is 2
-#  uv [int]     - 3: use proposed method for chroma deblocking, 2: no chroma deblocking at all(fastest method), 1|-1: directly use chroma debl. from the normal|strong Deblock(). Default is 3
+#  quant1 (int) - Strength of block edge deblocking. Default is 24
+#  quant2 (int) - Strength of block internal deblocking. Default is 26
+#  aOff1 (int)  - Halfway "sensitivity" and halfway a strength modifier for borders. Default is 1
+#  aOff2 (int)  - Halfway "sensitivity" and halfway a strength modifier for block interiors. Default is 1
+#  bOff1 (int)  - "sensitivity to detect blocking" for borders. Default is 2
+#  bOff2 (int)  - "sensitivity to detect blocking" for block interiors. Default is 2
+#  uv (int)     - 3: use proposed method for chroma deblocking, 2: no chroma deblocking at all(fastest method), 1|-1: directly use chroma debl. from the normal|strong Deblock(). Default is 3
 def Deblock_QED(clp, quant1=24, quant2=26, aOff1=1, bOff1=2, aOff2=1, bOff2=2, uv=3):
     core = vs.get_core()
     
@@ -317,7 +317,7 @@ def Deblock_QED(clp, quant1=24, quant2=26, aOff1=1, bOff1=2, aOff2=1, bOff2=2, u
     padX = 8 - w % 8 if w & 7 else 0
     padY = 8 - h % 8 if h & 7 else 0
     if padX or padY:
-        clp = Resize(clp, w + padX, h + padY, 0, 0, w + padX, h + padY, kernel='point')
+        clp = Resize(clp, w + padX, h + padY, 0, 0, w + padX, h + padY, kernel='point', dmode=1)
     
     # block
     block = core.std.BlankClip(clp, width=6, height=6, format=vs.GRAY8, length=1, color=[0])
@@ -358,10 +358,9 @@ def Deblock_QED(clp, quant1=24, quant2=26, aOff1=1, bOff1=2, aOff2=1, bOff2=2, u
     remX = 16 - sw % 16 if sw & 15 else 0
     remY = 16 - sh % 16 if sh & 15 else 0
     if remX or remY:
-        strongD2 = Resize(strongD2, sw + remX, sh + remY, 0, 0, sw + remX, sh + remY, kernel='point')
+        strongD2 = Resize(strongD2, sw + remX, sh + remY, 0, 0, sw + remX, sh + remY, kernel='point', dmode=1)
     expr = 'x {neutral} - 1.01 * {neutral} +'.format(neutral=neutral)
-    strongD3 = core.std.Expr([strongD2], [expr] if uv >= 3 or isGray else [expr, '']).dct.Filter([1, 1, 0, 0, 0, 0, 0, 0]) \
-               .std.CropRel(left=0, top=0, right=remX, bottom=remY)
+    strongD3 = core.std.Expr([strongD2], [expr] if uv >= 3 or isGray else [expr, '']).dct.Filter([1, 1, 0, 0, 0, 0, 0, 0]).std.CropRel(right=remX, bottom=remY)
     
     # apply compensation from "normal" deblocking to the borders of the full-block-compensations calculated from "strong" deblocking ...
     expr = 'y {neutral} = x y ?'.format(neutral=neutral)
@@ -378,7 +377,7 @@ def Deblock_QED(clp, quant1=24, quant2=26, aOff1=1, bOff1=2, aOff2=1, bOff2=2, u
             deblocked = core.std.Merge(deblocked, normal, weight=[0, 1])
     
     # remove mod 8 borders
-    return core.std.CropRel(deblocked, left=0, top=0, right=padX, bottom=padY)
+    return core.std.CropRel(deblocked, right=padX, bottom=padY)
 
 
 # rx, ry [float, 1.0 ... 2.0 ... ~3.0]
@@ -396,10 +395,7 @@ def Deblock_QED(clp, quant1=24, quant2=26, aOff1=1, bOff1=2, aOff2=1, bOff2=2, u
 #
 # ss [float, 1.0 ... 1.5 ...]
 # Supersampling factor, to avoid creation of aliasing.
-#
-# noring [bool]
-# In case of supersampling, indicates that a non-ringing algorithm must be used.
-def DeHalo_alpha(clp, rx=2., ry=2., darkstr=1., brightstr=1., lowsens=50, highsens=50, ss=1.5, noring=False):
+def DeHalo_alpha(clp, rx=2., ry=2., darkstr=1., brightstr=1., lowsens=50, highsens=50, ss=1.5):
     core = vs.get_core()
     
     if not isinstance(clp, vs.VideoNode):
@@ -416,7 +412,7 @@ def DeHalo_alpha(clp, rx=2., ry=2., darkstr=1., brightstr=1., lowsens=50, highse
     ox = clp.width
     oy = clp.height
     
-    halos = Resize(Resize(clp, m4(ox / rx), m4(oy / ry), kernel='bicubic'), ox, oy, kernel='bicubic', a1=1, a2=0)
+    halos = core.resize.Bicubic(clp, m4(ox / rx), m4(oy / ry)).resize.Bicubic(ox, oy, filter_param_a=1, filter_param_b=0)
     are = core.std.Expr([core.std.Maximum(clp), core.std.Minimum(clp)], ['x y -'])
     ugly = core.std.Expr([core.std.Maximum(halos), core.std.Minimum(halos)], ['x y -'])
     expr = 'y {multiple} / x {multiple} / - y {multiple} / 0.001 + / 255 * {LOS} - y {multiple} / 256 + 512 / {HIS} + * {multiple} *'.format(multiple=multiple, LOS=lowsens, HIS=highsens / 100)
@@ -425,14 +421,11 @@ def DeHalo_alpha(clp, rx=2., ry=2., darkstr=1., brightstr=1., lowsens=50, highse
     if ss <= 1:
         remove = core.rgvs.Repair(clp, lets, 1)
     else:
-        remove = Resize(
-          core.std.Expr(
-            [core.std.Expr([Resize(clp, m4(ox * ss), m4(oy * ss), kernel='spline64' if noring else 'spline36', noring=noring),
-                            Resize(core.std.Maximum(lets), m4(ox * ss), m4(oy * ss), kernel='bicubic')],
-                           ['x y min']),
-             Resize(core.std.Minimum(lets), m4(ox * ss), m4(oy * ss), kernel='bicubic')],
-            ['x y max']),
-          ox, oy)
+        remove = core.std.Expr([core.std.Expr([core.resize.Spline36(clp, m4(ox * ss), m4(oy * ss)),
+                                               core.std.Maximum(lets).resize.Bicubic(m4(ox * ss), m4(oy * ss))],
+                                              ['x y min']),
+                                core.std.Minimum(lets).resize.Bicubic(m4(ox * ss), m4(oy * ss))],
+                               ['x y max']).resize.Spline36(ox, oy)
     them = core.std.Expr([clp, remove], ['x y < x x y - {DRK} * - x x y - {BRT} * - ?'.format(DRK=darkstr, BRT=brightstr)])
     
     if clp_src is not None:
@@ -442,7 +435,11 @@ def DeHalo_alpha(clp, rx=2., ry=2., darkstr=1., brightstr=1., lowsens=50, highse
 
 
 # Y'et A'nother H'alo R'educing script
-def YAHR(clp):
+#
+# Parameters:
+#  blur (int)  - "blur" parameter of AWarpSharp2. Default is 2
+#  depth (int) - "depth" parameter of AWarpSharp2. Default is 32
+def YAHR(clp, blur=2, depth=32):
     core = vs.get_core()
     
     if not isinstance(clp, vs.VideoNode):
@@ -456,7 +453,7 @@ def YAHR(clp):
     
     b1 = core.rgvs.RemoveGrain(MinBlur(clp, 2), 11)
     b1D = core.std.MakeDiff(clp, b1)
-    w1 = Padding(clp, 6, 6, 6, 6).warp.AWarpSharp2(depth=32).std.CropRel(6, 6, 6, 6)
+    w1 = Padding(clp, 6, 6, 6, 6).warp.AWarpSharp2(blur=blur, depth=depth).std.CropRel(6, 6, 6, 6)
     w1b1 = core.rgvs.RemoveGrain(MinBlur(w1, 2), 11)
     w1b1D = core.std.MakeDiff(w1, w1b1)
     DD = core.rgvs.Repair(b1D, w1b1D, 13)
@@ -478,26 +475,26 @@ def YAHR(clp):
 ### Applies deringing by using a smart smoother near edges (where ringing occurs) only
 ###
 ### Parameters:
-###  mrad [int]      - Expanding of edge mask, higher value means more aggressive processing. Default is 1
-###  msmooth [int]   - Inflate of edge mask, smooth boundaries of mask. Default is 1
-###  incedge [bool]  - Whether to include edge in ring mask, by default ring mask only include area near edges. Default is false
-###  mthr [int]      - Threshold of sobel edge mask, lower value means more aggressive processing. Or define your own mask clip "ringmask". Default is 60
+###  mrad (int)      - Expanding of edge mask, higher value means more aggressive processing. Default is 1
+###  msmooth (int)   - Inflate of edge mask, smooth boundaries of mask. Default is 1
+###  incedge (bool)  - Whether to include edge in ring mask, by default ring mask only include area near edges. Default is false
+###  mthr (int)      - Threshold of sobel edge mask, lower value means more aggressive processing. Or define your own mask clip "ringmask". Default is 60
 ###                    But for strong ringing, lower value will treat some ringing as edge, which protects this ringing from being processed.
-###  minp [int]      - Inpanding of sobel edge mask, higher value means more aggressive processing. Default is 1
-###  nrmode [int]    - Kernel of dering - 1: MinBlur(radius=1), 2: MinBlur(radius=2), 3: MinBlur(radius=3). Or define your own smoothed clip "p". Default is 2 for HD / 1 for SD
+###  minp (int)      - Inpanding of sobel edge mask, higher value means more aggressive processing. Default is 1
+###  nrmode (int)    - Kernel of dering - 1: MinBlur(radius=1), 2: MinBlur(radius=2), 3: MinBlur(radius=3). Or define your own smoothed clip "p". Default is 2 for HD / 1 for SD
 ###                    Note: when the bit depth of input clip is 16 bits, MinBlur(radius=2 or 3) will be extremely slow, due to the alogorithm of CTFM.
 ###                          Thus it's recommended to apply this function in 8-12 bits since the difference is quite negligible
-###  sharp [int]     - Whether to use contra-sharpening to resharp deringed clip, 1-3 represents radius, 0 means no sharpening. Default is 1
-###  drrep [int]     - Use repair for details retention, recommended values are 24/23/13/12/1. Default is 24
-###  thr [float]     - The same meaning with "thr" in Dither_limit_dif16, valid value range is [0.0, 128.0]. Default is 12.0
-###  elast [float]   - The same meaning with "elast" in Dither_limit_dif16, valid value range is [1.0, inf). Default is 2.0
+###  sharp (int)     - Whether to use contra-sharpening to resharp deringed clip, 1-3 represents radius, 0 means no sharpening. Default is 1
+###  drrep (int)     - Use repair for details retention, recommended values are 24/23/13/12/1. Default is 24
+###  thr (float)     - The same meaning with "thr" in Dither_limit_dif16, valid value range is [0.0, 128.0]. Default is 12.0
+###  elast (float)   - The same meaning with "elast" in Dither_limit_dif16, valid value range is [1.0, inf). Default is 2.0
 ###                    Larger "thr" will result in more pixels being taken from processed clip
 ###                    Larger "thr" will result in less pixels being taken from input clip
 ###                    Larger "elast" will result in more pixels being blended from processed&input clip, for smoother merging
-###  darkthr [float] - Threshold for darker area near edges, set it lower if you think deringing destroys too much lines, etc. Default is thr/4
+###  darkthr (float) - Threshold for darker area near edges, set it lower if you think deringing destroys too much lines, etc. Default is thr/4
 ###                    When "darkthr" is not equal to "thr", "thr" limits darkening while "darkthr" limits brightening
-###  planes [int[]]  - Whether to process the corresponding plane. The other planes will be passed through unchanged. Default is [0]
-###  show [bool]     - Whether to output mask clip instead of filtered clip. Default is false
+###  planes (int[])  - Whether to process the corresponding plane. The other planes will be passed through unchanged. Default is [0]
+###  show (bool)     - Whether to output mask clip instead of filtered clip. Default is false
 ###
 ######
 def HQDeringmod(input, p=None, ringmask=None, mrad=1, msmooth=1, incedge=False, mthr=60, minp=1, nrmode=None, sharp=1, drrep=24,
@@ -592,34 +589,35 @@ def HQDeringmod(input, p=None, ringmask=None, mrad=1, msmooth=1, incedge=False, 
     
     # Post-Process: Ringing Mask Generating
     if ringmask is None:
-        sobelm = core.std.ShufflePlanes([input], planes=[0], colorfamily=vs.GRAY).std.Sobel(min=scale(mthr, bits))
-        fmask = core.generic.Hysteresis(core.rgvs.RemoveGrain(sobelm, 4), sobelm)
+        sobelm = core.std.Sobel(input, min=scale(mthr, bits), planes=[0])
+        fmask = core.generic.Hysteresis(core.rgvs.RemoveGrain(sobelm, [4] if isGray else [4 if Y else 0, 4 if U else 0, 4 if V else 0]), sobelm, planes=[0])
         if mrad > 0:
-            omask = mt_expand_multi(fmask, sw=mrad, sh=mrad)
+            omask = mt_expand_multi(fmask, planes=[0], sw=mrad, sh=mrad)
         else:
             omask = fmask
         if msmooth > 0:
-            omask = mt_inflate_multi(omask, radius=msmooth)
+            omask = mt_inflate_multi(omask, planes=[0], radius=msmooth)
         if incedge:
             ringmask = omask
         else:
             if minp > 3:
-                imask = core.std.Minimum(fmask).std.Minimum()
+                imask = core.std.Minimum(fmask, planes=[0]).std.Minimum(planes=[0])
             elif minp > 2:
-                imask = core.std.Inflate(fmask).std.Minimum().std.Minimum()
+                imask = core.std.Inflate(fmask, planes=[0]).std.Minimum(planes=[0]).std.Minimum(planes=[0])
             elif minp > 1:
-                imask = core.std.Minimum(fmask)
+                imask = core.std.Minimum(fmask, planes=[0])
             elif minp > 0:
-                imask = core.std.Inflate(fmask).std.Minimum()
+                imask = core.std.Inflate(fmask, planes=[0]).std.Minimum(planes=[0])
             else:
                 imask = fmask
-            ringmask = core.std.Expr([omask, imask], ['x {peak} y - * {peak} /'.format(peak=(1 << bits) - 1)])
+            expr = 'x {peak} y - * {peak} /'.format(peak=(1 << bits) - 1)
+            ringmask = core.std.Expr([omask, imask], [expr] if isGray else [expr, ''])
     
     # Mask Merging & Output
     if show:
         return ringmask
     else:
-        return core.std.MaskedMerge(input, limitclp, ringmask, planes=planes)
+        return core.std.MaskedMerge(input, limitclp, ringmask, planes=planes, first_plane=True)
 
 
 #-------------------------------------------------------------------#
@@ -645,31 +643,31 @@ def HQDeringmod(input, p=None, ringmask=None, mrad=1, msmooth=1, incedge=False, 
 # --- REQUIREMENTS ---
 #
 # Core plugins:
-#	MVTools
-#	nnedi3
-#	RemoveGrain/Repair
-#	fmtconv
-#	SceneChange
+#   MVTools
+#   nnedi3
+#   RemoveGrain/Repair
+#   fmtconv
+#   SceneChange
 #
 # Additional plugins:
-#	eedi3 - if selected directly or via a source-match preset
-#	FFT3DFilter - if selected for noise processing
-#	DFTTest - if selected for noise processing
-#	KNLMeansCL - if selected for noise processing
-#		For FFT3DFilter & DFTTest you also need the FFTW3 library (FFTW.org). On Windows the file needed for both is libfftw3f-3.dll.
-#		Put the file in your System32 or SysWow64 folder
-#	AddGrain - if NoiseDeint="Generate" selected for noise bypass
+#   eedi3 - if selected directly or via a source-match preset
+#   FFT3DFilter - if selected for noise processing
+#   DFTTest - if selected for noise processing
+#   KNLMeansCL - if selected for noise processing
+#       For FFT3DFilter & DFTTest you also need the FFTW3 library (FFTW.org). On Windows the file needed for both is libfftw3f-3.dll.
+#       Put the file in your System32 or SysWow64 folder
+#   AddGrain - if NoiseDeint="Generate" selected for noise bypass
 #
 # --- GETTING STARTED ---
 #
 # The "Preset" used selects sensible settings for a given encoding speed. Choose a preset from:
-#	"Placebo", "Very Slow", "Slower", "Slow", "Medium", "Fast", "Faster", "Very Fast", "Super Fast", "Ultra Fast" & "Draft"
+#   "Placebo", "Very Slow", "Slower", "Slow", "Medium", "Fast", "Faster", "Very Fast", "Super Fast", "Ultra Fast" & "Draft"
 # The default preset is "Slower"
 # Don't be obsessed with using slower settings as the differences can be small. HD material benefits little from extreme settings (and will be very slow)
 # For much faster speeds read the full documentation, the section on 'Multi-threading'
 #
 # There are many settings for tweaking the script, full details in the main documentation. You can display settings currently being used with "ShowSettings":
-#	QTGMC( Preset="Slow", ShowSettings=True )
+#   QTGMC( Preset="Slow", ShowSettings=True )
 def QTGMC(Input, Preset='Slower', TR0=None, TR1=None, TR2=None, Rep0=None, Rep1=0, Rep2=None, EdiMode=None, RepChroma=True, NNSize=None, NNeurons=None,
           EdiQual=1, EdiMaxD=None, ChromaEdi='', EdiExt=None, Sharpness=None, SMode=None, SLMode=None, SLRad=None, SOvs=0, SVThin=0., Sbb=None, SrchClipPP=None,
           SubPel=None, SubPelInterp=2, BlockSize=None, Overlap=None, Search=None, SearchParam=None, PelSearch=None, ChromaMotion=None, TrueMotion=False,
@@ -813,8 +811,8 @@ def QTGMC(Input, Preset='Slower', TR0=None, TR1=None, TR2=None, Rep0=None, Rep1=
         raise TypeError('QTGMC: This is not a clip')
     if EdiExt is not None and (not isinstance(EdiExt, vs.VideoNode) or EdiExt.format.id != Input.format.id):
         raise TypeError("QTGMC: 'EdiExt' must be the same format as input")
-    if not isinstance(TFF, bool):
-        raise TypeError("QTGMC: 'TFF' must be set. Setting TFF to true means top field first and false means bottom field first")
+    if InputType != 1 and not isinstance(TFF, bool):
+        raise TypeError("QTGMC: 'TFF' must be set when InputType is not 1. Setting TFF to true means top field first and false means bottom field first")
     
     bits = Input.format.bits_per_sample
     shift = bits - 8
@@ -947,7 +945,7 @@ def QTGMC(Input, Preset='Slower', TR0=None, TR1=None, TR2=None, Rep0=None, Rep1=
     
     # Pad vertically during processing (to prevent artefacts at top & bottom edges)
     if Border:
-        clip = Resize(Input, w, h + 8, 0, -4, 0, h + 8 + epsilon, kernel='point')
+        clip = Resize(Input, w, h + 8, 0, -4, 0, h + 8 + epsilon, kernel='point', dmode=1)
         h += 8
     else:
         clip = Input
@@ -999,9 +997,9 @@ def QTGMC(Input, Preset='Slower', TR0=None, TR1=None, TR2=None, Rep0=None, Rep1=
     # Blur image and soften edges to assist in motion matching of edge blocks. Blocks are matched by SAD (sum of absolute differences between blocks), but even
     # a slight change in an edge from frame to frame will give a high SAD due to the higher contrast of edges
     if SrchClipPP == 1:
-        spatialBlur = Resize(Resize(repair0, w // 2, h // 2, kernel='bilinear').rgvs.RemoveGrain([12] if isGray else [12, CMrg]), w, h, kernel='bilinear')
+        spatialBlur = core.resize.Bilinear(repair0, w // 2, h // 2).rgvs.RemoveGrain([12] if isGray else [12, CMrg]).resize.Bilinear(w, h)
     elif SrchClipPP >= 2:
-        spatialBlur = Resize(core.rgvs.RemoveGrain(repair0, [12] if isGray else [12, CMrg]), w, h, 0, 0, w + epsilon, h + epsilon, kernel='gauss', a1=2)
+        spatialBlur = Resize(core.rgvs.RemoveGrain(repair0, [12] if isGray else [12, CMrg]), w, h, 0, 0, w + epsilon, h + epsilon, kernel='gauss', a1=2, dmode=1)
     if SrchClipPP > 1:
         spatialBlur = core.std.Merge(spatialBlur, repair0, weight=[0.1] if ChromaMotion or isGray else [0.1, 0])
         expr = 'x {i} + y < x {i} + x {i} - y > x {i} - y ? ?'.format(i=scale(3, bits))
@@ -1068,9 +1066,9 @@ def QTGMC(Input, Preset='Slower', TR0=None, TR1=None, TR2=None, Rep0=None, Rep1=
             dnWindow = core.dfttest.DFTTest(noiseWindow, sigma=Sigma * 4, tbsize=noiseTD, planes=[0, 1, 2] if ChromaNoise and not isGray else [0])
         elif Denoiser == 'knlmeanscl':
             if ChromaNoise and not isGray:
-                dnWindow = KNLMeansCL(noiseWindow, d=NoiseTR, h=Sigma, device_type='GPU')
+                dnWindow = KNLMeansCL(noiseWindow, d=NoiseTR, h=Sigma)
             else:
-                dnWindow = core.knlm.KNLMeansCL(noiseWindow, d=NoiseTR, h=Sigma, device_type='GPU')
+                dnWindow = core.knlm.KNLMeansCL(noiseWindow, d=NoiseTR, h=Sigma)
         else:
             dnWindow = core.fft3dfilter.FFT3DFilter(noiseWindow, sigma=Sigma, plane=4 if ChromaNoise else 0, bt=noiseTD, ncpu=FftThreads)
     
@@ -1126,7 +1124,7 @@ def QTGMC(Input, Preset='Slower', TR0=None, TR1=None, TR2=None, Rep0=None, Rep1=
     
     # Create interpolated image as starting point for output
     if EdiExt is not None:
-        edi1 = Resize(EdiExt, w, h, 0, (EdiExt.height - h) / 2, 0, h + epsilon, kernel='point')
+        edi1 = Resize(EdiExt, w, h, 0, (EdiExt.height - h) / 2, 0, h + epsilon, kernel='point', dmode=1)
     else:
         edi1 = QTGMC_Interpolate(ediInput, InputType, EdiMode, NNSize, NNeurons, EdiQual, EdiMaxD, bobbed, ChromaEdi, TFF)
     
@@ -1232,7 +1230,7 @@ def QTGMC(Input, Preset='Slower', TR0=None, TR1=None, TR2=None, Rep0=None, Rep1=
     else:
         backBlend1 = core.std.MakeDiff(thin,
                                        Resize(core.std.MakeDiff(thin, lossed1, planes=[0]).rgvs.RemoveGrain([12] if isGray else [12, 0]),
-                                              w, h, 0, 0, w + epsilon, h + epsilon, kernel='gauss', a1=5),
+                                              w, h, 0, 0, w + epsilon, h + epsilon, kernel='gauss', a1=5, dmode=1),
                                        planes=[0])
     
     # Limit over-sharpening by clamping to neighboring (spatial or temporal) min/max values in original
@@ -1253,7 +1251,7 @@ def QTGMC(Input, Preset='Slower', TR0=None, TR1=None, TR2=None, Rep0=None, Rep1=
     else:
         backBlend2 = core.std.MakeDiff(sharpLimit1,
                                        Resize(core.std.MakeDiff(sharpLimit1, lossed1, planes=[0]).rgvs.RemoveGrain([12] if isGray else [12, 0]),
-                                              w, h, 0, 0, w + epsilon, h + epsilon, kernel='gauss', a1=5),
+                                              w, h, 0, 0, w + epsilon, h + epsilon, kernel='gauss', a1=5, dmode=1),
                                        planes=[0])
     
     # Add back any extracted noise, prior to final temporal smooth - this will restore detail that was removed as "noise" without restoring the noise itself
@@ -1360,7 +1358,7 @@ def QTGMC(Input, Preset='Slower', TR0=None, TR1=None, TR2=None, Rep0=None, Rep1=
     
     # Crop off temporary vertical padding
     if Border:
-        cropped = core.std.CropRel(decimated, left=0, top=4, right=0, bottom=4)
+        cropped = core.std.CropRel(decimated, top=4, bottom=4)
         h -= 8
     else:
         cropped = decimated
@@ -1510,8 +1508,7 @@ def QTGMC_Generate2ndFieldNoise(Input, InterleavedClip, ChromaNoise=False, TFF=N
     origNoise = core.std.SeparateFields(Input, TFF)
     noiseMax = core.std.Maximum(origNoise, planes=planes).std.Maximum(planes=planes, coordinates=[0, 0, 0, 1, 1, 0, 0, 0])
     noiseMin = core.std.Minimum(origNoise, planes=planes).std.Minimum(planes=planes, coordinates=[0, 0, 0, 1, 1, 0, 0, 0])
-    random = core.std.SeparateFields(InterleavedClip, TFF).std.BlankClip(color=[128] * Input.format.num_planes) \
-             .grain.Add(var=1800, uvar=1800 if ChromaNoise else 0)
+    random = core.std.SeparateFields(InterleavedClip, TFF).std.BlankClip(color=[128] * Input.format.num_planes).grain.Add(1800, 1800 if ChromaNoise else 0)
     expr = 'x {multiple} / 128 - y {multiple} / * 256 / 128 + {multiple} *'.format(multiple=multiple)
     varRandom = core.std.Expr([core.std.MakeDiff(noiseMax, noiseMin, planes=planes), random], [expr] if ChromaNoise or isGray else [expr, ''])
     newNoise = core.std.MergeDiff(noiseMin, varRandom, planes=planes)
@@ -1693,8 +1690,8 @@ def srestore(source, frate=None, omode=6, speed=None, mode=2, thresh=16, dclip=N
     if abs(mode) >= 2 and not bom:
         mec = core.std.Merge(core.std.Merge(source, core.std.Trim(source, 1), weight=[0, 0.5]), core.std.Trim(source, 1), weight=[0.5, 0])
     det = core.resize.Bicubic(dclip, format=vs.YUV420P8, matrix_s='709', matrix_in_s='709', prefer_props=True)
-    det = Resize(det, det.width if srad == 4 else int(det.width / 2 / srad + 4) * 4, det.height if srad == 4 else int(det.height / 2 / srad + 4) * 4,
-                 kernel='point', dmode=1).std.Trim(2)
+    det = core.resize.Point(det, det.width if srad == 4 else int(det.width / 2 / srad + 4) * 4, det.height if srad == 4 else int(det.height / 2 / srad + 4) * 4)
+    det = core.std.Trim(det, 2)
     if mode < 0:
         det = core.std.StackVertical([core.std.StackHorizontal([core.std.ShufflePlanes([det], planes=[1], colorfamily=vs.GRAY),
                                                                 core.std.ShufflePlanes([det], planes=[2], colorfamily=vs.GRAY)]),
@@ -1966,7 +1963,7 @@ def srestore(source, frate=None, omode=6, speed=None, mode=2, thresh=16, dclip=N
     bclpYStats = core.std.PlaneStats(bclp)
     dclpYStats = core.std.PlaneStats(dclp)
     detYStats = core.std.PlaneStats(det, core.std.Trim(det, 2))
-    last = core.std.Cache(source, make_linear=True).std.FrameEval(eval=srestore_inside, prop_src=[bclpYStats, dclpYStats, detYStats])
+    last = core.std.FrameEval(source, eval=srestore_inside, prop_src=[bclpYStats, dclpYStats, detYStats])
     
     ###### final decimation ######
     return ChangeFPS(core.std.Cache(last, make_linear=True), source.fps_num * numr, source.fps_den * denm)
@@ -2053,12 +2050,15 @@ def ivtc_txt60mc(src, frame_ref, srcbob=False, draft=False, tff=None):
 ###    Setting these values only makes logoNR run faster, with rarely noticeable difference in result,
 ###    unless you set wrong values and the logo is not covered in your cropped target area.
 ###
+### d/a/s/h [int, default: 1/2/4/6]
+### ------------------
+###    The same parameters of KNLMeansCL.
+###
 ### +----------------+
 ### |  REQUIREMENTS  |
 ### +----------------+
 ###
-### -> Bilateral
-### -> FluxSmooth
+### -> KNLMeansCL
 ### -> RemoveGrain/Repair
 ###
 ### +-----------+
@@ -2067,13 +2067,16 @@ def ivtc_txt60mc(src, frame_ref, srcbob=False, draft=False, tff=None):
 ###
 ### v0.1 - 22 Mar 2012
 ###      - First release
-def logoNR(dlg, src, chroma=True, l=0, t=0, r=0, b=0):
+def logoNR(dlg, src, chroma=True, l=0, t=0, r=0, b=0, d=1, a=2, s=4, h=6):
     core = vs.get_core()
     
     if not (isinstance(dlg, vs.VideoNode) and isinstance(src, vs.VideoNode)):
         raise TypeError('logoNR: This is not a clip')
     if dlg.format.id != src.format.id:
         raise TypeError('logoNR: clips must have the same format')
+    
+    if dlg.format.color_family == vs.GRAY:
+        chroma = False
     
     if not chroma and dlg.format.color_family != vs.GRAY:
         dlg_src = dlg
@@ -2084,28 +2087,28 @@ def logoNR(dlg, src, chroma=True, l=0, t=0, r=0, b=0):
     
     b_crop = l != 0 or t != 0 or r != 0 or b != 0
     if b_crop:
-        src = core.std.CropRel(src, left=l, top=t, right=r, bottom=b)
-        last = core.std.CropRel(dlg, left=l, top=t, right=r, bottom=b)
+        src = core.std.CropRel(src, l, r, t, b)
+        last = core.std.CropRel(dlg, l, r, t, b)
     else:
         last = dlg
     
-    clp_nr = core.bilateral.Bilateral(last, sigmaS=3).flux.SmoothT(temporal_threshold=scale(1, dlg.format.bits_per_sample))
-    expr = 'x y - abs 16 *'
-    logoM = mt_expand_multi(core.std.Expr([last, src], [expr]), mode='losange', sw=3, sh=3).rgvs.RemoveGrain(19).std.Deflate()
+    if chroma:
+        clp_nr = KNLMeansCL(last, d=d, a=a, s=s, h=h)
+    else:
+        clp_nr = core.knlm.KNLMeansCL(last, d=d, a=a, s=s, h=h)
+    logoM = mt_expand_multi(core.std.Expr([last, src], ['x y - abs 16 *']), mode='losange', sw=3, sh=3).rgvs.RemoveGrain(19).std.Deflate()
     clp_nr = core.std.MaskedMerge(last, clp_nr, logoM)
     
     if b_crop:
-        last = Overlay(dlg, clp_nr, x=l, y=t)
-    else:
-        last = clp_nr
+        clp_nr = Overlay(dlg, clp_nr, x=l, y=t)
     
     if dlg_src is not None:
-        return core.std.ShufflePlanes([last, dlg_src], planes=[0, 1, 2], colorfamily=dlg_src.format.color_family)
+        return core.std.ShufflePlanes([clp_nr, dlg_src], planes=[0, 1, 2], colorfamily=dlg_src.format.color_family)
     else:
-        return last
+        return clp_nr
 
 
-# Vinverse: a small, but effective Function against (residual) combing, by Didée
+# Vinverse: a small, but effective function against (residual) combing, by Didée
 # sstr  : strength of contra sharpening
 # amnt  : change no pixel by more than this (default=255: unrestricted)
 # chroma: chroma mode, True=process chroma, False=pass chroma through
@@ -2187,36 +2190,36 @@ def Vinverse2(clp, sstr=2.7, amnt=255, chroma=True):
 #
 # Arguments:
 #
-# ythresh (default=10) - This determines how close the luma values of the
-#	pixel in the previous and next frames have to be for the pixel to
-#	be hit.  Higher values (within reason) should catch more dot crawl,
-#	but may introduce unwanted artifacts.  Probably shouldn't be set
-#	above 20 or so. [int]
+# ythresh (int, default=10) - This determines how close the luma values of the
+#   pixel in the previous and next frames have to be for the pixel to
+#   be hit.  Higher values (within reason) should catch more dot crawl,
+#   but may introduce unwanted artifacts.  Probably shouldn't be set
+#   above 20 or so.
 #
-# cthresh (default=10) - This determines how close the chroma values of the
-#	pixel in the previous and next frames have to be for the pixel to
-#	be hit.  Just as with ythresh. [int]
+# cthresh (int, default=10) - This determines how close the chroma values of the
+#   pixel in the previous and next frames have to be for the pixel to
+#   be hit.  Just as with ythresh.
 #
-# maxdiff (default=50) - This is the maximum difference allowed between the
-#	luma values of the pixel in the CURRENT frame and in each of its
-#	neighbour frames (so, the upper limit to what fluctuations are
-#	considered dot crawl).  Lower values will reduce artifacts but may
-#	cause the filter to miss some dot crawl.  Obviously, this should
-#	never be lower than ythresh.  Meaningless if usemaxdiff = false. [int]
+# maxdiff (int, default=50) - This is the maximum difference allowed between the
+#   luma values of the pixel in the CURRENT frame and in each of its
+#   neighbour frames (so, the upper limit to what fluctuations are
+#   considered dot crawl).  Lower values will reduce artifacts but may
+#   cause the filter to miss some dot crawl.  Obviously, this should
+#   never be lower than ythresh.  Meaningless if usemaxdiff = false.
 #
-# scnchg (default=25) - Scene change detection threshold.  Any frame with
-#	total luma difference between it and the previous/next frame greater
-#	than this value will not be processed. [int]
+# scnchg (int, default=25) - Scene change detection threshold.  Any frame with
+#   total luma difference between it and the previous/next frame greater
+#   than this value will not be processed.
 #
-# usemaxdiff (default=true) - Whether or not to reject luma fluctuations
-#	higher than maxdiff.  Setting this to false is not recommended, as
-#	it may introduce artifacts; but on the other hand, it produces a
-#	30% speed boost.  Test on your particular source. [bool]
+# usemaxdiff (bool, default=True) - Whether or not to reject luma fluctuations
+#   higher than maxdiff.  Setting this to false is not recommended, as
+#   it may introduce artifacts; but on the other hand, it produces a
+#   30% speed boost.  Test on your particular source.
 #
-# mask (default=false) - When set true, the function will return the mask
-#	instead of the image.  Use to find the best values of cthresh,
-#	ythresh, and maxdiff. [bool]
-#	(The scene change threshold, scnchg, is not reflected in the mask.)
+# mask (bool, default=False) - When set true, the function will return the mask
+#   instead of the image.  Use to find the best values of cthresh,
+#   ythresh, and maxdiff.
+#   (The scene change threshold, scnchg, is not reflected in the mask.)
 #
 ###################
 #
@@ -2240,7 +2243,7 @@ def LUTDeCrawl(input, ythresh=10, cthresh=15, maxdiff=50, scnchg=25, usemaxdiff=
     maxdiff = scale(maxdiff, bits)
     scnchg <<= shift
     
-    input_minus = core.std.Trim(input, 0, 0) + input
+    input_minus = core.std.DuplicateFrames(input, [0])
     input_plus = core.std.Trim(input, 1) + core.std.Trim(input, input.num_frames - 1)
     
     input_y = core.std.ShufflePlanes([input], planes=[0], colorfamily=vs.GRAY)
@@ -2264,7 +2267,7 @@ def LUTDeCrawl(input, ythresh=10, cthresh=15, maxdiff=50, scnchg=25, usemaxdiff=
     cmask = core.std.Lut2(core.std.Binarize(average_u, threshold=129 << shift),
                           core.std.Binarize(average_v, threshold=129 << shift),
                           function=lambda x, y: x & y)
-    cmask = Resize(cmask, input.width, input.height, kernel='point')
+    cmask = core.resize.Point(cmask, input.width, input.height)
     
     themask = core.std.Lut2(ymask, cmask, function=lambda x, y: x & y)
     
@@ -2308,32 +2311,32 @@ def LUTDeCrawl(input, ythresh=10, cthresh=15, maxdiff=50, scnchg=25, usemaxdiff=
 #
 # Arguments:
 #
-# cthresh (default=10) - This determines how close the chroma values of the
-#	pixel in the previous and next frames have to be for the pixel to
-#	be hit.  Higher values (within reason) should catch more rainbows,
-#	but may introduce unwanted artifacts.  Probably shouldn't be set
-#	above 20 or so. [int]
+# cthresh (int, default=10) - This determines how close the chroma values of the
+#   pixel in the previous and next frames have to be for the pixel to
+#   be hit.  Higher values (within reason) should catch more rainbows,
+#   but may introduce unwanted artifacts.  Probably shouldn't be set
+#   above 20 or so.
 #
-# ythresh (default=10) - If the y parameter is set true, then this
-#	determines how close the luma values of the pixel in the previous
-#	and next frames have to be for the pixel to be hit.  Just as with
-#	cthresh. [int]
+# ythresh (int, default=10) - If the y parameter is set true, then this
+#   determines how close the luma values of the pixel in the previous
+#   and next frames have to be for the pixel to be hit.  Just as with
+#   cthresh.
 #
-# y (default=true) - Determines whether luma difference will be considered
-#	in determining which pixels to hit and which to leave alone. [bool]
+# y (bool, default=True) - Determines whether luma difference will be considered
+#   in determining which pixels to hit and which to leave alone.
 #
-# linkUV (default=true) - Determines whether both chroma channels are
-#	considered in determining which pixels in each channel to hit.
-#	When set true, only pixels that meet the thresholds for both U and
-#	V will be hit; when set false, the U and V channels are masked
-#	separately (so a pixel could have its U hit but not its V, or vice
-#	versa). [bool]
+# linkUV (bool, default=True) - Determines whether both chroma channels are
+#   considered in determining which pixels in each channel to hit.
+#   When set true, only pixels that meet the thresholds for both U and
+#   V will be hit; when set false, the U and V channels are masked
+#   separately (so a pixel could have its U hit but not its V, or vice
+#   versa).
 #
-# mask (default=false) - When set true, the function will return the mask
-#	(for combined U/V) instead of the image.  Formerly used to find the
-#	best values of cthresh and ythresh.  If linkUV=false, then this
-#	mask won't actually be used anyway (because each chroma channel
-#	will have its own mask). [bool]
+# mask (bool, default=False) - When set true, the function will return the mask
+#   (for combined U/V) instead of the image.  Formerly used to find the
+#   best values of cthresh and ythresh.  If linkUV=false, then this
+#   mask won't actually be used anyway (because each chroma channel
+#   will have its own mask).
 #
 ###################
 #
@@ -2341,16 +2344,16 @@ def LUTDeCrawl(input, ythresh=10, cthresh=15, maxdiff=50, scnchg=25, usemaxdiff=
 #
 # 6/23/05: Is this thing on?
 # 6/24/05: Replaced whole mask mechanism; new mask checks to see that BOTH channels
-# 	of the chroma are within the threshold from previous frame to next
+#   of the chroma are within the threshold from previous frame to next
 # 7/1/05: Added Y option, to take luma into account when deciding whether to use the
-#	averaged chroma; added ythresh and cthresh parameters, to determine how close
-#	the chroma/luma values of a pixel have to be to be considered the same
-#	(y=true is meant to cut down on artifacts)
+#   averaged chroma; added ythresh and cthresh parameters, to determine how close
+#   the chroma/luma values of a pixel have to be to be considered the same
+#   (y=true is meant to cut down on artifacts)
 # 9/2/05: Suddenly realized this wouldn't work for YUY2 and made it YV12 only;
-#	added linkUV option, to decide whether to use a separate mask for each chroma
-#	channel or use the same one for both.
+#   added linkUV option, to decide whether to use a separate mask for each chroma
+#   channel or use the same one for both.
 # 10/3/08: Fixed "cthresh" typos in documentation; killed repmode since I realized I
-#	wasn't using Repair anymore; finally upgraded to MaskTools 2.
+#   wasn't using Repair anymore; finally upgraded to MaskTools 2.
 #
 ###################
 def LUTDeRainbow(input, cthresh=10, ythresh=10, y=True, linkUV=True, mask=False):
@@ -2366,7 +2369,7 @@ def LUTDeRainbow(input, cthresh=10, ythresh=10, y=True, linkUV=True, mask=False)
     cthresh = scale(cthresh, bits)
     ythresh = scale(ythresh, bits)
     
-    input_minus = core.std.Trim(input, 0, 0) + input
+    input_minus = core.std.DuplicateFrames(input, [0])
     input_plus = core.std.Trim(input, 1) + core.std.Trim(input, input.num_frames - 1)
     
     input_u = core.std.ShufflePlanes([input], planes=[1], colorfamily=vs.GRAY)
@@ -2378,8 +2381,8 @@ def LUTDeRainbow(input, cthresh=10, ythresh=10, y=True, linkUV=True, mask=False)
     input_plus_u = core.std.ShufflePlanes([input_plus], planes=[1], colorfamily=vs.GRAY)
     input_plus_v = core.std.ShufflePlanes([input_plus], planes=[2], colorfamily=vs.GRAY)
     
-    average_y = Resize(core.std.Expr([input_minus_y, input_plus_y], ['x y - abs {ythr} < {peak} 0 ?'.format(ythr=ythresh, peak=peak)]),
-                       input.width // 2, input.height // 2, kernel='bilinear')
+    expr = 'x y - abs {ythr} < {peak} 0 ?'.format(ythr=ythresh, peak=peak)
+    average_y = core.std.Expr([input_minus_y, input_plus_y], [expr]).resize.Bilinear(input.width // 2, input.height // 2)
     average_u = core.std.Expr([input_minus_u, input_plus_u], ['x y - abs {cthr} < x y + 2 / 0 ?'.format(cthr=cthresh)])
     average_v = core.std.Expr([input_minus_v, input_plus_v], ['x y - abs {cthr} < x y + 2 / 0 ?'.format(cthr=cthresh)])
     
@@ -2400,7 +2403,7 @@ def LUTDeRainbow(input, cthresh=10, ythresh=10, y=True, linkUV=True, mask=False)
     output = core.std.ShufflePlanes([input, output_u, output_v], planes=[0, 0, 0], colorfamily=input.format.color_family)
     
     if mask:
-        return Resize(themask, input.width, input.height, kernel='point')
+        return core.resize.Point(themask, input.width, input.height)
     else:
         return output
 
@@ -2415,11 +2418,11 @@ def LUTDeRainbow(input, cthresh=10, ythresh=10, y=True, linkUV=True, mask=False)
 ### Only stabilize the difference ( on-top grain ) between source clip and spatial-degrained clip
 ###
 ### Parameters:
-###  nrmode [int]   - Mode to get grain/noise from input clip. 0: 3x3 Average Blur, 1: 3x3 SBR, 2: 5x5 SBR, 3: 7x7 SBR. Or define your own denoised clip "p". Default is 2 for HD / 1 for SD
-###  radius [int]   - Temporal radius of MDegrain for grain stabilize(1-3). Default is 1
-###  adapt [int]    - Threshold for luma-adaptative mask. -1: off, 0: source, 255: invert. Or define your own luma mask clip "Lmask". Default is -1
-###  rep [int]      - Mode of repair to avoid artifacts, set 0 to turn off this operation. Default is 13
-###  planes [int[]] - Whether to process the corresponding plane. The other planes will be passed through unchanged. Default is [0, 1, 2]
+###  nrmode (int)   - Mode to get grain/noise from input clip. 0: 3x3 Average Blur, 1: 3x3 SBR, 2: 5x5 SBR, 3: 7x7 SBR. Or define your own denoised clip "p". Default is 2 for HD / 1 for SD
+###  radius (int)   - Temporal radius of MDegrain for grain stabilize(1-3). Default is 1
+###  adapt (int)    - Threshold for luma-adaptative mask. -1: off, 0: source, 255: invert. Or define your own luma mask clip "Lmask". Default is -1
+###  rep (int)      - Mode of repair to avoid artifacts, set 0 to turn off this operation. Default is 13
+###  planes (int[]) - Whether to process the corresponding plane. The other planes will be passed through unchanged. Default is [0, 1, 2]
 ###
 ######
 def GSMC(input, p=None, Lmask=None, nrmode=None, radius=1, adapt=-1, rep=13, planes=[0, 1, 2],
@@ -2804,14 +2807,14 @@ def SMDegrain(input, tr=2, thSAD=300, thSADC=None, RefineMotion=False, contrasha
 # Dampen the grain just a little, to keep the original look
 #
 # Parameters:
-#  limit [int]    - The spatial part won't change a pixel more than this. Default is 3
-#  bias [int]     - The percentage of the spatial filter that will apply. Default is 24
-#  RGmode [int]   - The spatial filter is RemoveGrain, this is its mode. Default is 4
-#  tthr [int]     - Temporal threshold for fluxsmooth. Can be set "a good bit bigger" than usually. Default is 12
-#  tlimit [int]   - The temporal filter won't change a pixel more than this. Default is 3
-#  tbias [int]    - The percentage of the temporal filter that will apply. Default is 49
-#  back [int]     - After all changes have been calculated, reduce all pixel changes by this value (shift "back" towards original value). Default is 1
-#  planes [int[]] - Whether to process the corresponding plane. The other planes will be passed through unchanged. Default is [0, 1, 2]
+#  limit (int)    - The spatial part won't change a pixel more than this. Default is 3
+#  bias (int)     - The percentage of the spatial filter that will apply. Default is 24
+#  RGmode (int)   - The spatial filter is RemoveGrain, this is its mode. Default is 4
+#  tthr (int)     - Temporal threshold for fluxsmooth. Can be set "a good bit bigger" than usually. Default is 12
+#  tlimit (int)   - The temporal filter won't change a pixel more than this. Default is 3
+#  tbias (int)    - The percentage of the temporal filter that will apply. Default is 49
+#  back (int)     - After all changes have been calculated, reduce all pixel changes by this value (shift "back" towards original value). Default is 1
+#  planes (int[]) - Whether to process the corresponding plane. The other planes will be passed through unchanged. Default is [0, 1, 2]
 def STPresso(clp, limit=3, bias=24, RGmode=4, tthr=12, tlimit=3, tbias=49, back=1, planes=[0, 1, 2]):
     core = vs.get_core()
     
@@ -2895,21 +2898,21 @@ def SigmoidDirect(src, thr=0.5, cont=6.5, planes=[0, 1, 2]):
 
 
 # Parameters:
-#  g1str [float]       - [0.0 - ???] strength of grain / for dark areas. Default is 7.0
-#  g2str [float]       - [0.0 - ???] strength of grain / for midtone areas. Default is 5.0
-#  g3str [float]       - [0.0 - ???] strength of grain / for bright areas. Default is 3.0
-#  g1shrp [int]        - [0 - 100] sharpness of grain / for dark areas (NO EFFECT when g1size=1.0 !!). Default is 60
-#  g2shrp [int]        - [0 - 100] sharpness of grain / for midtone areas (NO EFFECT when g2size=1.0 !!). Default is 66
-#  g3shrp [int]        - [0 - 100] sharpness of grain / for bright areas (NO EFFECT when g3size=1.0 !!). Default is 80
-#  g1size [float]      - [0.5 - 4.0] size of grain / for dark areas. Default is 1.5
-#  g2size [float]      - [0.5 - 4.0] size of grain / for midtone areas. Default is 1.2
-#  g3size [float]      - [0.5 - 4.0] size of grain / for bright areas. Default is 0.9
-#  temp_avg [int]      - [0 - 100] percentage of noise's temporal averaging. Default is 0
-#  ontop_grain [float] - [0 - ???] additional grain to put on top of prev. generated grain. Default is 0.0
-#  th1 [int]           - start of dark->midtone mixing zone. Default is 24
-#  th2 [int]           - end of dark->midtone mixing zone. Default is 56
-#  th3 [int]           - start of midtone->bright mixing zone. Default is 128
-#  th4 [int]           - end of midtone->bright mixing zone. Default is 160
+#  g1str (float)       - [0.0 - ???] strength of grain / for dark areas. Default is 7.0
+#  g2str (float)       - [0.0 - ???] strength of grain / for midtone areas. Default is 5.0
+#  g3str (float)       - [0.0 - ???] strength of grain / for bright areas. Default is 3.0
+#  g1shrp (int)        - [0 - 100] sharpness of grain / for dark areas (NO EFFECT when g1size=1.0 !!). Default is 60
+#  g2shrp (int)        - [0 - 100] sharpness of grain / for midtone areas (NO EFFECT when g2size=1.0 !!). Default is 66
+#  g3shrp (int)        - [0 - 100] sharpness of grain / for bright areas (NO EFFECT when g3size=1.0 !!). Default is 80
+#  g1size (float)      - [0.5 - 4.0] size of grain / for dark areas. Default is 1.5
+#  g2size (float)      - [0.5 - 4.0] size of grain / for midtone areas. Default is 1.2
+#  g3size (float)      - [0.5 - 4.0] size of grain / for bright areas. Default is 0.9
+#  temp_avg (int)      - [0 - 100] percentage of noise's temporal averaging. Default is 0
+#  ontop_grain (float) - [0 - ???] additional grain to put on top of prev. generated grain. Default is 0.0
+#  th1 (int)           - start of dark->midtone mixing zone. Default is 24
+#  th2 (int)           - end of dark->midtone mixing zone. Default is 56
+#  th3 (int)           - start of midtone->bright mixing zone. Default is 128
+#  th4 (int)           - end of midtone->bright mixing zone. Default is 160
 def GrainFactory3(clp, g1str=7., g2str=5., g3str=3., g1shrp=60, g2shrp=66, g3shrp=80, g1size=1.5, g2size=1.2, g3size=0.9, temp_avg=0, ontop_grain=0.,
                   th1=24, th2=56, th3=128, th4=160):
     core = vs.get_core()
@@ -2964,26 +2967,26 @@ def GrainFactory3(clp, g1str=7., g2str=5., g3str=3., g1shrp=60, g2shrp=66, g3shr
     grainlayer1 = core.std.BlankClip(clp, width=sx1, height=sy1, color=neutral).grain.Add(g1str)
     if g1size != 1 and (sx1 != ox or sy1 != oy):
         if g1size > 1.5:
-            grainlayer1 = Resize(core.fmtc.resample(grainlayer1, sx1a, sy1a, kernel='bicubic', a1=b1a, a2=c1a),
-                                 ox, oy, kernel='bicubic', a1=b1a, a2=c1a, bits=clp.format.bits_per_sample)
+            grainlayer1 = core.resize.Bicubic(grainlayer1, sx1a, sy1a, filter_param_a=b1a, filter_param_b=c1a)
+            grainlayer1 = core.resize.Bicubic(grainlayer1, ox, oy, filter_param_a=b1a, filter_param_b=c1a)
         else:
-            grainlayer1 = Resize(grainlayer1, ox, oy, kernel='bicubic', a1=b1, a2=c1)
+            grainlayer1 = core.resize.Bicubic(grainlayer1, ox, oy, filter_param_a=b1, filter_param_b=c1)
     
     grainlayer2 = core.std.BlankClip(clp, width=sx2, height=sy2, color=neutral).grain.Add(g2str)
     if g2size != 1 and (sx2 != ox or sy2 != oy):
         if g2size > 1.5:
-            grainlayer2 = Resize(core.fmtc.resample(grainlayer2, sx2a, sy2a, kernel='bicubic', a1=b2a, a2=c2a),
-                                 ox, oy, kernel='bicubic', a1=b2a, a2=c2a, bits=clp.format.bits_per_sample)
+            grainlayer2 = core.resize.Bicubic(grainlayer2, sx2a, sy2a, filter_param_a=b2a, filter_param_b=c2a)
+            grainlayer2 = core.resize.Bicubic(grainlayer2, ox, oy, filter_param_a=b2a, filter_param_b=c2a)
         else:
-            grainlayer2 = Resize(grainlayer2, ox, oy, kernel='bicubic', a1=b2, a2=c2)
+            grainlayer2 = core.resize.Bicubic(grainlayer2, ox, oy, filter_param_a=b2, filter_param_b=c2)
     
     grainlayer3 = core.std.BlankClip(clp, width=sx3, height=sy3, color=neutral).grain.Add(g3str)
     if g3size != 1 and (sx3 != ox or sy3 != oy):
         if g3size > 1.5:
-            grainlayer3 = Resize(core.fmtc.resample(grainlayer3, sx3a, sy3a, kernel='bicubic', a1=b3a, a2=c3a),
-                                 ox, oy, kernel='bicubic', a1=b3a, a2=c3a, bits=clp.format.bits_per_sample)
+            grainlayer3 = core.resize.Bicubic(grainlayer3, sx3a, sy3a, filter_param_a=b3a, filter_param_b=c3a)
+            grainlayer3 = core.resize.Bicubic(grainlayer3, ox, oy, filter_param_a=b3a, filter_param_b=c3a)
         else:
-            grainlayer3 = Resize(grainlayer3, ox, oy, kernel='bicubic', a1=b3, a2=c3)
+            grainlayer3 = core.resize.Bicubic(grainlayer3, ox, oy, filter_param_a=b3, filter_param_b=c3)
     
     expr1 = 'x {th1} < 0 x {th2} > {peak} {peak} {th2} {th1} - / x {th1} - * ? ?'.format(th1=th1, th2=th2, peak=peak)
     expr2 = 'x {th3} < 0 x {th4} > {peak} {peak} {th4} {th3} - / x {th3} - * ? ?'.format(th3=th3, th4=th4, peak=peak)
@@ -3018,8 +3021,6 @@ def InterFrame(Input, Preset='Medium', Tuning='Film', NewNum=None, NewDen=1, GPU
     
     if not isinstance(Input, vs.VideoNode):
         raise TypeError('InterFrame: This is not a clip')
-    
-    Input = core.std.Cache(Input, make_linear=True)
     
     # Validate inputs
     Preset = Preset.lower()
@@ -3381,8 +3382,8 @@ def SmoothLevels(input, input_low=0, gamma=1., input_high=None, output_low=0, ou
     diff = core.std.Expr([limitI, level], ['x y - {Mfactor} * {neutral} +'.format(Mfactor=Mfactor, neutral=neutral)])
     process = core.rgvs.RemoveGrain(diff, RGmode)
     if useDB:
-        process = core.std.Expr([process], ['x {neutral} - {Mfactor} / {neutral} +'.format(neutral=neutral, Mfactor=Mfactor)]) \
-                  .f3kdb.Deband(grainy=0, grainc=0, output_depth=input.format.bits_per_sample)
+        expr = 'x {neutral} - {Mfactor} / {neutral} +'.format(neutral=neutral, Mfactor=Mfactor)
+        process = core.std.Expr([process], [expr]).f3kdb.Deband(grainy=0, grainc=0, output_depth=input.format.bits_per_sample)
         smth = core.std.MakeDiff(limitI, process)
     else:
         smth = core.std.Expr([limitI, process], ['x y {neutral} - {Mfactor} / -'.format(neutral=neutral, Mfactor=Mfactor)])
@@ -3391,8 +3392,8 @@ def SmoothLevels(input, input_low=0, gamma=1., input_high=None, output_low=0, ou
     diff2 = core.std.Expr([level2, level], ['x y - {Mfactor} * {neutral} +'.format(Mfactor=Mfactor, neutral=neutral)])
     process2 = core.rgvs.RemoveGrain(diff2, RGmode)
     if useDB:
-        process2 = core.std.Expr([process2], ['x {neutral} - {Mfactor} / {neutral} +'.format(neutral=neutral, Mfactor=Mfactor)]) \
-                   .f3kdb.Deband(grainy=0, grainc=0, output_depth=input.format.bits_per_sample)
+        expr = 'x {neutral} - {Mfactor} / {neutral} +'.format(neutral=neutral, Mfactor=Mfactor)
+        process2 = core.std.Expr([process2], [expr]).f3kdb.Deband(grainy=0, grainc=0, output_depth=input.format.bits_per_sample)
         smth2 = core.std.MakeDiff(smth, process2)
     else:
         smth2 = core.std.Expr([smth, process2], ['x y {neutral} - {Mfactor} / -'.format(neutral=neutral, Mfactor=Mfactor)])
@@ -3523,8 +3524,7 @@ def Toon(input, str=1., l_thr=2, u_thr=12, blur=2, depth=32):
     
     bits = input.format.bits_per_sample
     neutral = 1 << (bits - 1)
-    peak = (1 << bits) - 1
-    multiple = peak / 255
+    multiple = ((1 << bits) - 1) / 255
     
     if input.format.color_family != vs.GRAY:
         input_src = input
@@ -3775,10 +3775,6 @@ def Toon(input, str=1., l_thr=2, u_thr=12, blur=2, depth=32):
 ### -------------------
 ### Supersampling factor (reduce aliasing on edges)
 ###
-### noring [bool]
-### -------------
-### In case of supersampling, indicates that a non-ringing algorithm must be used
-###
 ### dest_x ; dest_y [int]
 ### ---------------------
 ### Output resolution after sharpening (avoid a resizing step)
@@ -3826,7 +3822,6 @@ def Toon(input, str=1., l_thr=2, u_thr=12, blur=2, depth=32):
 ###
 ###                   - ss_x        = Smode==1?1.50:1.25
 ###                   - ss_y        = ss_x
-###                   - noring      = false
 ###                   - dest_x      = ox
 ###                   - dest_y      = oy
 ###
@@ -3860,7 +3855,6 @@ def Toon(input, str=1., l_thr=2, u_thr=12, blur=2, depth=32):
 ###
 ###                   - ss_x        = 1.50
 ###                   - ss_y        = ss_x
-###                   - noring      = false
 ###                   - dest_x      = ox
 ###                   - dest_y      = oy
 ###
@@ -3894,14 +3888,13 @@ def Toon(input, str=1., l_thr=2, u_thr=12, blur=2, depth=32):
 ###
 ###                   - ss_x        = 1.25
 ###                   - ss_y        = ss_x
-###                   - noring      = false
 ###                   - dest_x      = ox
 ###                   - dest_y      = oy
 ###
 ################################################################################################
 def LSFmod(input, strength=100, Smode=None, Smethod=None, kernel=11, preblur=False, secure=None, source=None,
            Szrp=16, Spwr=None, SdmpLo=None, SdmpHi=None, Lmode=None, overshoot=None, undershoot=None, overshoot2=None, undershoot2=None,
-           soft=None, soothe=None, keep=None, edgemode=0, edgemaskHQ=None, ss_x=None, ss_y=None, noring=False, dest_x=None, dest_y=None, defaults='fast'):
+           soft=None, soothe=None, keep=None, edgemode=0, edgemaskHQ=None, ss_x=None, ss_y=None, dest_x=None, dest_y=None, defaults='fast'):
     core = vs.get_core()
     
     if not isinstance(input, vs.VideoNode):
@@ -3994,7 +3987,7 @@ def LSFmod(input, strength=100, Smode=None, Smethod=None, kernel=11, preblur=Fal
     
     ### SHARP
     if ss_x > 1 or ss_y > 1:
-        tmp = Resize(input, xxs, yys, kernel='spline64' if noring else 'spline36', noring=noring)
+        tmp = core.resize.Spline36(input, xxs, yys)
     else:
         tmp = input
     
@@ -4087,9 +4080,9 @@ def LSFmod(input, strength=100, Smode=None, Smethod=None, kernel=11, preblur=Fal
     if dest_x != ox or dest_y != oy:
         if not isGray:
             PP2 = core.std.ShufflePlanes([PP2, tmp_src], planes=[0, 1, 2], colorfamily=input.format.color_family)
-        out = Resize(PP2, dest_x, dest_y)
+        out = core.resize.Spline36(PP2, dest_x, dest_y)
     elif ss_x > 1 or ss_y > 1:
-        out = Resize(PP2, dest_x, dest_y)
+        out = core.resize.Spline36(PP2, dest_x, dest_y)
         if not isGray:
             out = core.std.ShufflePlanes([out, input], planes=[0, 1, 2], colorfamily=input.format.color_family)
     elif not isGray:
@@ -4098,11 +4091,11 @@ def LSFmod(input, strength=100, Smode=None, Smethod=None, kernel=11, preblur=Fal
         out = PP2
     
     if edgemode <= -1:
-        return Resize(edge, dest_x, dest_y)
+        return core.resize.Spline36(edge, dest_x, dest_y)
     elif source is not None:
         if dest_x != ox or dest_y != oy:
-            src = Resize(source, dest_x, dest_y)
-            In = Resize(input, dest_x, dest_y)
+            src = core.resize.Spline36(source, dest_x, dest_y)
+            In = core.resize.Spline36(input, dest_x, dest_y)
         else:
             src = source
             In = input
@@ -4137,7 +4130,7 @@ def Bob(clip, b=1/3, c=1/3, tff=None):
     clip = core.std.SeparateFields(clip, tff).fmtc.resample(scalev=2, kernel='bicubic', a1=b, a2=c, interlaced=1, interlacedd=0)
     
     if clip.format.bits_per_sample != bits:
-        return core.fmtc.bitdepth(clip, bits=bits)
+        return core.fmtc.bitdepth(clip, bits=bits, dmode=1)
     else:
         return clip
 
@@ -4184,20 +4177,17 @@ def KNLMeansCL(clip, d=None, a=None, s=None, h=None, wmode=None, wref=None, devi
     if clip.format.color_family not in [vs.YUV, vs.YCOCG]:
         raise TypeError('KNLMeansCL: This wrapper is intended to be used for color family of YUV and YCOCG only')
     
-    Y = core.std.ShufflePlanes([clip], planes=[0], colorfamily=vs.GRAY)
-    U = core.std.ShufflePlanes([clip], planes=[1], colorfamily=vs.GRAY)
-    V = core.std.ShufflePlanes([clip], planes=[2], colorfamily=vs.GRAY)
+    nrY = core.knlm.KNLMeansCL(clip, d=d, a=a, s=s, h=h, wmode=wmode, wref=wref, device_type=device_type, device_id=device_id, info=info)
     
     if clip.format.subsampling_w > 0 or clip.format.subsampling_h > 0:
-        rclip = Resize(Y, U.width, U.height, sx=-0.5 * (1 << clip.format.subsampling_w) + 0.5, kernel='bicubic', a1=0, a2=0.5)
+        subY = Resize(clip, clip.width >> clip.format.subsampling_w, clip.height >> clip.format.subsampling_h, sx=-0.5 * (1 << clip.format.subsampling_w) + 0.5,
+                      kernel='bicubic', a1=0, a2=0.5, planes=[3, 1, 1], dmode=1)
+        yuv444 = core.std.ShufflePlanes([subY, clip], planes=[0, 1, 2], colorfamily=clip.format.color_family)
+        nrUV = core.knlm.KNLMeansCL(yuv444, d=d, a=a, s=s, h=h, cmode=True, wmode=wmode, wref=wref, device_type=device_type, device_id=device_id)
     else:
-        rclip = Y
+        nrUV = core.knlm.KNLMeansCL(clip, d=d, a=a, s=s, h=h, cmode=True, wmode=wmode, wref=wref, device_type=device_type, device_id=device_id)
     
-    Y = core.knlm.KNLMeansCL(Y, d=d, a=a, s=s, h=h, wmode=wmode, wref=wref, device_type=device_type, device_id=device_id, info=info)
-    U = core.knlm.KNLMeansCL(U, d=d, a=a, s=s, h=h, wmode=wmode, wref=wref, rclip=rclip, device_type=device_type, device_id=device_id)
-    V = core.knlm.KNLMeansCL(V, d=d, a=a, s=s, h=h, wmode=wmode, wref=wref, rclip=rclip, device_type=device_type, device_id=device_id)
-    
-    return core.std.ShufflePlanes([Y, U, V], planes=[0, 0, 0], colorfamily=clip.format.color_family)
+    return core.std.ShufflePlanes([nrY, nrUV], planes=[0, 1, 2], colorfamily=clip.format.color_family)
 
 
 def Overlay(clipa, clipb, x=0, y=0, mask=None):
@@ -4205,14 +4195,17 @@ def Overlay(clipa, clipb, x=0, y=0, mask=None):
     
     if not (isinstance(clipa, vs.VideoNode) and isinstance(clipb, vs.VideoNode)):
         raise TypeError('Overlay: This is not a clip')
+    if clipa.format.subsampling_w > 0 or clipa.format.subsampling_h > 0:
+        clipa_src = clipa
+        clipa = core.resize.Point(clipa, format=core.register_format(clipa.format.color_family, clipa.format.sample_type, clipa.format.bits_per_sample, 0, 0).id)
     if clipb.format.id != clipa.format.id:
-        clipb = core.resize.Bicubic(clipb, format=clipa.format.id)
+        clipb = core.resize.Point(clipb, format=clipa.format.id)
     if mask is None:
         mask = core.std.BlankClip(clipb, color=[(1 << clipb.format.bits_per_sample) - 1] * clipb.format.num_planes)
     elif not isinstance(mask, vs.VideoNode):
         raise TypeError("Overlay: 'mask' is not a clip")
-    if mask.format.id != clipa.format.id:
-        mask = core.resize.Bicubic(mask, format=clipa.format.id)
+    if mask.width != clipb.width or mask.height != clipb.height:
+        raise TypeError("Overlay: 'mask' must be the same dimension as 'clipb'")
     
     mask = core.std.ShufflePlanes([mask], planes=[0], colorfamily=vs.GRAY)
     
@@ -4230,7 +4223,10 @@ def Overlay(clipa, clipb, x=0, y=0, mask=None):
     clipb = core.std.AddBorders(clipb, pl, pr, pt, pb)
     mask = core.std.AddBorders(mask, pl, pr, pt, pb)
     # Return padded clip
-    return core.std.MaskedMerge(clipa, clipb, mask)
+    last = core.std.MaskedMerge(clipa, clipb, mask)
+    if clipa_src.format.subsampling_w > 0 or clipa_src.format.subsampling_h > 0:
+        last = core.resize.Point(last, format=clipa_src.format.id)
+    return last
 
 
 def Padding(clip, left=0, right=0, top=0, bottom=0):
@@ -4241,7 +4237,7 @@ def Padding(clip, left=0, right=0, top=0, bottom=0):
     if left < 0 or right < 0 or top < 0 or bottom < 0:
         raise ValueError('Padding: border size to pad must be positive')
     
-    return Resize(clip, clip.width + left + right, clip.height + top + bottom, -left, -top, clip.width + left + right, clip.height + top + bottom, kernel='point')
+    return Resize(clip, clip.width + left + right, clip.height + top + bottom, -left, -top, clip.width + left + right, clip.height + top + bottom, kernel='point', dmode=1)
 
 
 def Resize(src, w, h, sx=None, sy=None, sw=None, sh=None, kernel=None, taps=None, a1=None, a2=None, invks=None, invkstaps=None, css=None, planes=None,
@@ -4324,7 +4320,7 @@ def set_scenechange(clip, thresh=15):
     sc = clip
     
     if clip.format.color_family == vs.RGB:
-        sc = core.resize.Bicubic(clip, format=vs.GRAY16)
+        sc = core.resize.Bicubic(clip, format=vs.GRAY16, matrix_s='709')
         if sc.format.bits_per_sample != clip.format.bits_per_sample:
             sc = core.fmtc.bitdepth(sc, bits=clip.format.bits_per_sample, dmode=1)
     
@@ -4339,9 +4335,13 @@ def set_scenechange(clip, thresh=15):
 ########################################
 ## Didée's functions:
 
-# contra-sharpening: sharpen the denoised clip, but don't add more to any pixel than what was removed previously.
+# Contra-sharpening: sharpen the denoised clip, but don't add more to any pixel than what was removed previously.
 # script function from Didée, at the VERY GRAINY thread (http://forum.doom9.org/showthread.php?p=1076491#post1076491)
-def ContraSharpening(denoised, original):
+#
+# Parameters:
+#  radius (int) - Spatial radius of RemoveGrain for kernel blur(1-3). Default is 1
+#  rep (int)    - Mode of repair to limit the difference. Default is 1
+def ContraSharpening(denoised, original, radius=1, rep=1):
     core = vs.get_core()
     
     if not (isinstance(denoised, vs.VideoNode) and isinstance(original, vs.VideoNode)):
@@ -4356,13 +4356,27 @@ def ContraSharpening(denoised, original):
     else:
         denoised_src = None
     
-    s = MinBlur(denoised, 1)                                   # Damp down remaining spots of the denoised clip.
-    allD = core.std.MakeDiff(original, denoised)               # The difference achieved by the denoising.
-    ssD = core.std.MakeDiff(s, core.rgvs.RemoveGrain(s, [11])) # The difference of a simple kernel blur.
-    ssDD = core.rgvs.Repair(ssD, allD, [1])                    # Limit the difference to the max of what the denoising removed locally.
+    s = MinBlur(denoised, 1)                     # Damp down remaining spots of the denoised clip.
+    
+    if radius <= 1:
+        RG11 = core.rgvs.RemoveGrain(s, 11)
+    elif radius == 2:
+        RG11 = core.rgvs.RemoveGrain(s, 11).rgvs.RemoveGrain(20)
+    else:
+        RG11 = core.rgvs.RemoveGrain(s, 11).rgvs.RemoveGrain(20).rgvs.RemoveGrain(20)
+    
+    ssD = core.std.MakeDiff(s, RG11)             # The difference of a simple kernel blur.
+    allD = core.std.MakeDiff(original, denoised) # The difference achieved by the denoising.
+    
+    if radius == 2:
+        allD = core.rgvs.Repair(ssD, allD, rep)
+    elif radius >= 3:
+        allD = core.rgvs.Repair(ssD, core.rgvs.Repair(ssD, allD, rep), rep)
+    
+    ssDD = core.rgvs.Repair(ssD, allD, rep)      # Limit the difference to the max of what the denoising removed locally.
     expr = 'x {neutral} - abs y {neutral} - abs < x y ?'.format(neutral=1 << (denoised.format.bits_per_sample - 1))
-    ssDD = core.std.Expr([ssDD, ssD], [expr])                  # abs(diff) after limiting may not be bigger than before.
-    last = core.std.MergeDiff(denoised, ssDD)                  # Apply the limited difference. (Sharpening is just inverse blurring)
+    ssDD = core.std.Expr([ssDD, ssD], [expr])    # abs(diff) after limiting may not be bigger than before.
+    last = core.std.MergeDiff(denoised, ssDD)    # Apply the limited difference. (Sharpening is just inverse blurring.)
     
     if denoised_src is not None:
         return core.std.ShufflePlanes([last, denoised_src], planes=[0, 1, 2], colorfamily=denoised_src.format.color_family)
@@ -4520,16 +4534,16 @@ def sbrV(c, r=1, planes=[0, 1, 2]):
     elif r == 2:
         RG11 = core.std.Convolution(c, matrix=[1, 2, 1], planes=planes, mode='v').std.Convolution(matrix=[1, 4, 6, 4, 1], planes=planes, mode='v')
     else:
-        RG11 = core.std.Convolution(c, matrix=[1, 2, 1], planes=planes, mode='v').std.Convolution(matrix=[1, 4, 6, 4, 1], planes=planes, mode='v') \
-               .std.Convolution(matrix=[1, 4, 6, 4, 1], planes=planes, mode='v')
+        RG11 = core.std.Convolution(c, matrix=[1, 2, 1], planes=planes, mode='v')
+        RG11 = core.std.Convolution(RG11, matrix=[1, 4, 6, 4, 1], planes=planes, mode='v').std.Convolution(matrix=[1, 4, 6, 4, 1], planes=planes, mode='v')
     RG11D = core.std.MakeDiff(c, RG11, planes=planes)
     if r <= 1:
         RG11DS = core.std.Convolution(RG11D, matrix=[1, 2, 1], planes=planes, mode='v')
     elif r == 2:
         RG11DS = core.std.Convolution(RG11D, matrix=[1, 2, 1], planes=planes, mode='v').std.Convolution(matrix=[1, 4, 6, 4, 1], planes=planes, mode='v')
     else:
-        RG11DS = core.std.Convolution(RG11D, matrix=[1, 2, 1], planes=planes, mode='v').std.Convolution(matrix=[1, 4, 6, 4, 1], planes=planes, mode='v') \
-                 .std.Convolution(matrix=[1, 4, 6, 4, 1], planes=planes, mode='v')
+        RG11DS = core.std.Convolution(RG11D, matrix=[1, 2, 1], planes=planes, mode='v')
+        RG11DS = core.std.Convolution(RG11DS, matrix=[1, 4, 6, 4, 1], planes=planes, mode='v').std.Convolution(matrix=[1, 4, 6, 4, 1], planes=planes, mode='v')
     RG11DD = core.std.Expr([RG11D, RG11DS], [Yexpr] if isGray else [Yexpr, Uexpr, Vexpr])
     return core.std.MakeDiff(c, RG11DD, planes=planes)
 
@@ -4559,21 +4573,21 @@ def DitherLumaRebuild(src, s0=2., c=0.0625, chroma=True):
 
 
 #=============================================================================
-#	mt_expand_multi
-#	mt_inpand_multi
+#   mt_expand_multi
+#   mt_inpand_multi
 #
-#	Calls mt_expand or mt_inpand multiple times in order to grow or shrink
-#	the mask from the desired width and height.
+#   Calls mt_expand or mt_inpand multiple times in order to grow or shrink
+#   the mask from the desired width and height.
 #
-#	Parameters:
-#	- sw   : Growing/shrinking shape width. 0 is allowed. Default: 1
-#	- sh   : Growing/shrinking shape height. 0 is allowed. Default: 1
-#	- mode : "rectangle" (default), "ellipse" or "losange". Replaces the
-#		mt_xxpand mode. Ellipses are actually combinations of
-#		rectangles and losanges and look more like octogons.
-#		Losanges are truncated (not scaled) when sw and sh are not
-#		equal.
-#	Other parameters are the same as mt_xxpand.
+#   Parameters:
+#   - sw   : Growing/shrinking shape width. 0 is allowed. Default: 1
+#   - sh   : Growing/shrinking shape height. 0 is allowed. Default: 1
+#   - mode : "rectangle" (default), "ellipse" or "losange". Replaces the
+#       mt_xxpand mode. Ellipses are actually combinations of
+#       rectangles and losanges and look more like octogons.
+#       Losanges are truncated (not scaled) when sw and sh are not
+#       equal.
+#   Other parameters are the same as mt_xxpand.
 #=============================================================================
 def mt_expand_multi(src, mode='rectangle', planes=[0, 1, 2], sw=1, sh=1):
     core = vs.get_core()

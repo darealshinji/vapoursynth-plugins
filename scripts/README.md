@@ -1,6 +1,6 @@
 **Scripts:**<br>
 [adjust git20150322](https://github.com/dubhater/vapoursynth-adjust)<br>
-[havsfunc r22](http://forum.doom9.org/showthread.php?t=166582)<br>
+[havsfunc r22+git20160416](https://github.com/HomeOfVapourSynthEvolution/havsfunc)<br>
 [maskdetail git20151220](https://github.com/MonoS/VS-MaskDetail)<br>
 [mvsfunc r7](https://github.com/HomeOfVapourSynthEvolution/mvsfunc)<br>
 [vapoursynth-modules git20131225](https://github.com/4re/vapoursynth-modules)<br>
