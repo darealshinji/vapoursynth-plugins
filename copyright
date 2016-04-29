@@ -116,7 +116,7 @@ License: WTFPL
 
 Files: plugins/genericfilters/*
 Copyright: 2012-2013, 2015 Oka Motofumi
-           2013-2015 Fredrik Mellbin
+           2013-2016 Fredrik Mellbin
 License: LGPL-2.1
 
 Files: plugins/it/*

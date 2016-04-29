@@ -55,7 +55,7 @@ sudo apt-get install vapoursynth-extra-plugins
 [flash3kyuu_deband 2.0.0](https://github.com/SAPikachu/flash3kyuu_deband)<br>
 [fluxsmooth 1.0+git20141002](https://github.com/dubhater/vapoursynth-fluxsmooth)<br>
 [fmtconv r17+git20150726](https://github.com/EleonoreMizo/fmtconv)<br>
-[genericfilters 1.0.0+git20150505](https://github.com/myrsloik/GenericFilters)<br>
+[genericfilters 1.0.0+git20160316](https://github.com/myrsloik/GenericFilters)<br>
 [histogram 1.0+git20141212](https://github.com/dubhater/vapoursynth-histogram)<br>
 [imagereader 0.2.1](https://github.com/chikuzen/vsimagereader)<br>
 [it 1.2](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-IT)<br>
