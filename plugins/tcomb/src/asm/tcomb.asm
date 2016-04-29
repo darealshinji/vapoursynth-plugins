@@ -612,13 +612,13 @@ cglobal horizontalBlur6_sse2, 5, 6, 13, srcp, dstp, stride, width, height, x
 
     ; 0x0006
     pcmpeqb xmm11, xmm11
-    psrlw xmm14, 14
-    psllw xmm14, 1
+    psrlw xmm11, 14
+    psllw xmm11, 1
 
     ; 0x0008
     pcmpeqb xmm10, xmm10
-    psrlw xmm13, 15
-    psllw xmm13, 3
+    psrlw xmm10, 15
+    psllw xmm10, 3
 
 .yloop:
     xor xq, xq

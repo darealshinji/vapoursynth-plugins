@@ -74,7 +74,7 @@ sudo apt-get install vapoursynth-extra-plugins
 [ssiq 1.0](https://github.com/dubhater/vapoursynth-ssiq)<br>
 [tc2cfr 0.0.1+git20131117](https://github.com/gnaggnoyil/tc2cfr)<br>
 [tcanny r5](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-TCanny)<br>
-[tcomb 1.0](https://github.com/dubhater/vapoursynth-tcomb)<br>
+[tcomb 2](https://github.com/dubhater/vapoursynth-tcomb)<br>
 [tdeintmod r6+git20160110](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-TDeintMod)<br>
 [templinearapproximate r3+git20160228](https://bitbucket.org/mystery_keeper/templinearapproximate-vapoursynth)<br>
 [temporalsoften 1.0](https://github.com/dubhater/vapoursynth-temporalsoften)<br>
