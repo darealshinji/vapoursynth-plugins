@@ -38,6 +38,7 @@
 # djcj <djcj@gmx.de>: I made some changes for VapourSynth on Linux
 # Original source(s): http://wili.cc/blog/opencl-m4.html
 #                     http://wili.cc/blog/entries/opencl-m4/ax_check_cl.m4
+# Backup:             https://gist.github.com/darealshinji/71dadd3157a94fd905bd6382c4b761bb
 
 AC_DEFUN([AX_CHECK_CL],
 [AC_REQUIRE([AC_CANONICAL_HOST])dnl
