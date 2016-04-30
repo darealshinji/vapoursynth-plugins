@@ -1,3 +1,9 @@
+vapoursynth-waifu2x-models (20160430-1~xenial) xenial; urgency=low
+
+  * Add noise reduction level 3 models
+
+ -- Marshall Banana <djcj@gmx.de>  Sat, 30 Apr 2016 16:12:30 +0200
+
 vapoursynth-waifu2x-models (20160324-1~xenial) xenial; urgency=low
 
   * Update models

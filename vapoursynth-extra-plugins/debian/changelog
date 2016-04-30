@@ -1,3 +1,11 @@
+vapoursynth-extra-plugins (20160430-1~xenial) xenial; urgency=low
+
+  * Updates: d2vsource, fmtconv, genericfilters, havsfunc, knlmeanscl,
+    lsmashsource, mvtools, mvsfunc, tcomb, templinearapproximate, waifu2x-w2xc
+  * Update vectorclass to v1.21
+
+ -- Marshall Banana <djcj@gmx.de>  Sat, 30 Apr 2016 16:12:30 +0200
+
 vapoursynth-extra-plugins (20160402-1~xenial) xenial; urgency=low
 
   * Updates: TCanny
