@@ -1,8 +1,8 @@
 /****************************  vectorclass.h   ********************************
 * Author:        Agner Fog
 * Date created:  2012-05-30
-* Last modified: 2015-12-04
-* Version:       1.20
+* Last modified: 2016-05-03
+* Version:       1.22
 * Project:       vector classes
 * Description:
 * Header file defining vector classes as interface to intrinsic functions 
@@ -22,10 +22,10 @@
 *
 * For detailed instructions, see VectorClass.pdf
 *
-* (c) Copyright 2012 - 2015 GNU General Public License www.gnu.org/licenses
+* (c) Copyright 2012-2016 GNU General Public License www.gnu.org/licenses
 ******************************************************************************/
 #ifndef VECTORCLASS_H
-#define VECTORCLASS_H  120
+#define VECTORCLASS_H  122
 
 // Maximum vector size, bits. Allowed values are 128, 256, 512
 #ifndef MAX_VECTOR_SIZE
@@ -64,6 +64,6 @@
 #endif  //  INSTRSET >= 9
 #endif  //  MAX_VECTOR_SIZE >= 512
 
-#endif  // INSTRSET < 2 
+#endif  // INSTRSET < 2
 
 #endif  // VECTORCLASS_H

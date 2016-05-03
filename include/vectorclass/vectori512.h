@@ -1,8 +1,8 @@
 /****************************  vectori512.h   *******************************
 * Author:        Agner Fog
 * Date created:  2014-07-23
-* Last modified: 2015-12-04
-* Version:       1.20
+* Last modified: 2016-04-26
+* Version:       1.22
 * Project:       vector classes
 * Description:
 * Header file defining integer vector classes as interface to intrinsic 
@@ -25,7 +25,7 @@
 *
 * For detailed instructions, see VectorClass.pdf
 *
-* (c) Copyright 2014 GNU General Public License http://www.gnu.org/licenses
+* (c) Copyright 2014-2016 GNU General Public License http://www.gnu.org/licenses
 *****************************************************************************/
 
 // check combination of header files
@@ -47,6 +47,9 @@
 
 #include "vectori256.h"
 
+#ifdef VCL_NAMESPACE
+namespace VCL_NAMESPACE {
+#endif
 
 // Bug fix for missing intrinsics:
 // _mm512_cmpgt_epu32_mask, _mm512_cmpgt_epu64_mask
@@ -2741,5 +2744,9 @@ static inline Vec16ib to_Vec16ib(uint16_t x) {
 static inline Vec8qb to_Vec8qb(uint8_t x) {
     return (__mmask8)x;
 }
+
+#ifdef VCL_NAMESPACE
+}
+#endif
 
 #endif // VECTORI512_H

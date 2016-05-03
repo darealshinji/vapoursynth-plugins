@@ -1,8 +1,8 @@
 /****************************  vectori128.h   *******************************
 * Author:        Agner Fog
 * Date created:  2012-05-30
-* Last modified: 2016-04-22
-* Version:       1.21
+* Last modified: 2016-04-26
+* Version:       1.22
 * Project:       vector classes
 * Description:
 * Header file defining integer vector classes as interface to intrinsic 
@@ -39,7 +39,7 @@
 *
 * For detailed instructions, see VectorClass.pdf
 *
-* (c) Copyright 2012 - 2015 GNU General Public License http://www.gnu.org/licenses
+* (c) Copyright 2012 - 2016 GNU General Public License http://www.gnu.org/licenses
 *****************************************************************************/
 #ifndef VECTORI128_H
 #define VECTORI128_H
@@ -50,7 +50,9 @@
 #error Please compile for the SSE2 instruction set or higher
 #endif
 
-
+#ifdef VCL_NAMESPACE
+namespace VCL_NAMESPACE {
+#endif
 
 /*****************************************************************************
 *
@@ -5438,7 +5440,7 @@ public:
         sign       = _mm_set1_epi32(sgn);
     }
     void set(int32_t d) {                                  // Set or change divisor, calculate parameters
-        const int32_t d1 = abs(d);
+        const int32_t d1 = ::abs(d);
         int32_t sh, m;
         if (d1 > 1) {
             sh = bit_scan_reverse(d1-1);                   // shift count = ceil(log2(d1))-1 = (bit_scan_reverse(d1-1)+1)-1
@@ -5535,7 +5537,7 @@ public:
         sign       = _mm_set1_epi32(sgn);
     }
     void set(int16_t d) {                                  // Set or change divisor, calculate parameters
-        const int32_t d1 = abs(d);
+        const int32_t d1 = ::abs(d);
         int32_t sh, m;
         if (d1 > 1) {
             sh = bit_scan_reverse(d1-1);                   // shift count = ceil(log2(d1))-1 = (bit_scan_reverse(d1-1)+1)-1
@@ -6211,5 +6213,9 @@ static inline uint8_t to_bits(Vec2qb x);
 static inline Vec2qb to_Vec2qb(uint8_t x);
 
 #endif  // INSTRSET < 9 || MAX_VECTOR_SIZE < 512
+
+#ifdef VCL_NAMESPACE
+}
+#endif
 
 #endif // VECTORI128_H

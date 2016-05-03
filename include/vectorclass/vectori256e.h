@@ -1,8 +1,8 @@
 /****************************  vectori256e.h   *******************************
 * Author:        Agner Fog
 * Date created:  2012-05-30
-* Last modified: 2016-04-22
-* Version:       1.21
+* Last modified: 2016-04-26
+* Version:       1.22
 * Project:       vector classes
 * Description:
 * Header file defining 256-bit integer point vector classes as interface
@@ -43,6 +43,9 @@
 
 #include "vectori128.h"
 
+#ifdef VCL_NAMESPACE
+namespace VCL_NAMESPACE {
+#endif
 
 /*****************************************************************************
 *
@@ -4328,5 +4331,9 @@ static inline uint8_t to_bits(Vec4qb const & x) {
 static inline Vec4qb to_Vec4qb(uint8_t x) {
     return Vec4q(to_Vec2qb(x), to_Vec2qb(x>>2));
 }
+
+#ifdef VCL_NAMESPACE
+}
+#endif
 
 #endif // VECTORI256_H

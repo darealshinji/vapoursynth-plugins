@@ -1,8 +1,8 @@
 /****************************  vectori512e.h   *******************************
 * Author:        Agner Fog
 * Date created:  2014-07-23
-* Last modified: 2016-04-24
-* Version:       1.21
+* Last modified: 2016-04-26
+* Version:       1.22
 * Project:       vector classes
 * Description:
 * Header file defining integer vector classes as interface to intrinsic 
@@ -36,6 +36,9 @@
 #else
 #define VECTORI512_H  1
 
+#ifdef VCL_NAMESPACE
+namespace VCL_NAMESPACE {
+#endif
 
 /*****************************************************************************
 *
@@ -2541,5 +2544,9 @@ static inline uint8_t to_bits(Vec8b const & a) {
 static inline Vec8qb to_Vec8qb(uint8_t x) {
     return Vec8q(to_Vec4qb(x), to_Vec4qb(x>>4));
 }
+
+#ifdef VCL_NAMESPACE
+}
+#endif
 
 #endif // VECTORI512_H

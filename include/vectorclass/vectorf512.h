@@ -1,8 +1,8 @@
 /****************************  vectorf512.h   *******************************
 * Author:        Agner Fog
 * Date created:  2014-07-23
-* Last modified: 2015-12-04
-* Version:       1.20
+* Last modified: 2016-04-26
+* Version:       1.22
 * Project:       vector classes
 * Description:
 * Header file defining floating point vector classes as interface to intrinsic 
@@ -23,7 +23,7 @@
 *
 * For detailed instructions, see VectorClass.pdf
 *
-* (c) Copyright 2015 GNU General Public License http://www.gnu.org/licenses
+* (c) Copyright 2014-2016 GNU General Public License http://www.gnu.org/licenses
 *****************************************************************************/
 
 // check combination of header files
@@ -35,6 +35,10 @@
 #define VECTORF512_H  2
 
 #include "vectori512.h"
+
+#ifdef VCL_NAMESPACE
+namespace VCL_NAMESPACE {
+#endif
 
 // Define missing intrinsic functions
 #if defined (GCC_VERSION) && GCC_VERSION < 41102 && !defined(__INTEL_COMPILER) && !defined(__clang__)
@@ -2361,5 +2365,9 @@ static inline uint8_t to_bits(Vec8db x) {
 static inline Vec8db to_Vec8db(uint8_t x) {
     return Vec8db(to_Vec8qb(x));
 }
+
+#ifdef VCL_NAMESPACE
+}
+#endif
 
 #endif // VECTORF512_H
