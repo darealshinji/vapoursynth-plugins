@@ -46,6 +46,7 @@ sudo apt-get install vapoursynth-extra-plugins
 [dctfilter r2](https://bitbucket.org/mystery_keeper/vapoursynth-dctfilter)<br>
 [deblock r4](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Deblock)<br>
 [delogo 0.4](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-DeLogo)<br>
+[depan r1](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-DePan)<br>
 [dfttest r3](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-DFTTest)<br>
 [eedi2 r6](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-EEDI2)<br>
 [ffms2 2.22+git20160222](https://github.com/FFMS/ffms2)<br>

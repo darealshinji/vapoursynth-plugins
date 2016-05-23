@@ -139,10 +139,10 @@ AS_IF([test "x$have_zlib" != "xno"],
 AS_IF([test "x$have_sndfile" != "xno"],
       [build_plugins="$build_plugins damb"],
       [no_build_plugins="$no_build_plugins damb"])
-# DFTTest, FFT3DFilter
+# DePan, DFTTest, FFT3DFilter
 AS_IF([test "x$have_fftw3" != "xno"],
-      [build_plugins="$build_plugins dfttest fft3dfilter"],
-      [no_build_plugins="$no_build_plugins dfttest fft3dfilter"])
+      [build_plugins="$build_plugins depan dfttest fft3dfilter"],
+      [no_build_plugins="$no_build_plugins depan dfttest fft3dfilter"])
 # BM3D
 AS_IF([test "x$have_fftw3f" != "xno" -a "x$have_fftw3_newer" != "xno"],
       [build_plugins="$build_plugins bm3d"],

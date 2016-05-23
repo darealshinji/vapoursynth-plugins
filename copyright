@@ -58,6 +58,11 @@ Copyright: 2003 MakKi
            2014-2015 msg7086
 License: GPL-2+
 
+Files: plugins/depan/*
+Copyright: 2004-2016 A.G. Balakhnin aka Fizick <bag@hotmail.ru>
+           2016 HolyWu
+License: GPL-2+
+
 Files: plugins/dfttest/*
 Copyright: 2015 HolyWu
 License: GPL-2+
