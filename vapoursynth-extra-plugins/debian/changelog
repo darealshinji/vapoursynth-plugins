@@ -1,3 +1,11 @@
+vapoursynth-extra-plugins (20160526-1~xenial) xenial; urgency=low
+
+  * Updates: havsfunc, mvsfunc
+  * New plugin: DePan
+  * Update vectorclass to v1.22
+
+ -- Marshall Banana <djcj@gmx.de>  Thu, 26 May 2016 06:05:27 +0200
+
 vapoursynth-extra-plugins (20160430-1~xenial) xenial; urgency=low
 
   * Updates: d2vsource, fmtconv, genericfilters, havsfunc, knlmeanscl,
