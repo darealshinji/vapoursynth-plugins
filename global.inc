@@ -27,8 +27,8 @@ commonflags += -fPIC -fno-strict-aliasing -mfpmath=sse -msse2
 commonflags += -DVS_TARGET_CPU_X86 -D_FORTIFY_SOURCE=2
 commonflags += -Isrc -I../../include -I../../include/vapoursynth
 
-VSCFLAGS = $(commonflags) $(local_CFLAGS) $(CFLAGS) -std=gnu99 $(CPPFLAGS)
-VSCXXFLAGS = $(commonflags) $(local_CXXFLAGS) $(CXXFLAGS) $(CPPFLAGS)
+VSCFLAGS = $(commonflags) $(local_CFLAGS) $(CFLAGS) -std=gnu99 $(local_CPPFLAGS) $(CPPFLAGS)
+VSCXXFLAGS = $(commonflags) $(local_CXXFLAGS) $(CXXFLAGS) $(local_CPPFLAGS) $(CPPFLAGS)
 VSLDFLAGS = -shared -Wl,-soname,$(LIB) -Wl,-Bsymbolic -Wl,-z,relro -Wl,-z,noexecstack -Wl,--as-needed $(local_LDFLAGS) $(LDFLAGS)
 #VSLDFLAGS += -Wl,-z,defs
 
