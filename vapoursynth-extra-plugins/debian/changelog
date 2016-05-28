@@ -1,3 +1,10 @@
+vapoursynth-extra-plugins (20160526-2~xenial) xenial; urgency=low
+
+  * Fix mvtools not being build correctly
+  * d2vsource: fix undefined references when building with -Wl,-z,defs
+
+ -- Marshall Banana <djcj@gmx.de>  Sat, 28 May 2016 14:14:41 +0200
+
 vapoursynth-extra-plugins (20160526-1~xenial) xenial; urgency=low
 
   * Updates: havsfunc, mvsfunc
