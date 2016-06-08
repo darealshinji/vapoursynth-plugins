@@ -34,6 +34,7 @@
 */
 
 #include <algorithm>
+#include <cmath>
 #include <vapoursynth/VapourSynth.h>
 #include <vapoursynth/VSHelper.h>
 
