@@ -83,6 +83,7 @@
 
 #include <cstring>
 #include <algorithm>
+#include <math.h>
 
 #include "FFT3DFilter.h"
 #include "info.h"
