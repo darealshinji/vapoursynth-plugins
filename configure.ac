@@ -110,7 +110,7 @@ AS_IF([test "x$have_png" != "xno"],         [AC_SUBST([HAVE_PNG], [yes])])
 AS_IF([test "x$have_zlib" != "xno"],        [AC_SUBST([HAVE_ZLIB], [yes])])
 AS_IF([test "x$have_sndfile" != "xno"],     [AC_SUBST([HAVE_SNDFILE], [yes])])
 AS_IF([test "x$have_opencv" != "xno"],      [AC_SUBST([HAVE_OPENCV], [yes])])
-AS_IF([test "x$have_xvid" != "xno"],        [AC_SUBST([HAVE_XVID], [yes])])
+AS_IF([test "x$have_xvidcore" != "xno"],    [AC_SUBST([HAVE_XVIDCORE], [yes])])
 AS_IF([test "x$have_fftw3f" != "xno"],      [AC_SUBST([HAVE_FFTW3F], [yes])])
 AS_IF([test "x$have_fftw3_newer" != "xno"], [AC_SUBST([HAVE_FFTW3F_NEWER], [yes])])
 
@@ -148,7 +148,7 @@ AS_IF([test "x$have_fftw3f" != "xno" -a "x$have_fftw3_newer" != "xno"],
       [build_plugins="$build_plugins bm3d"],
       [no_build_plugins="$no_build_plugins bm3d"])
 # scxvid
-AS_IF([test "x$have_xvid" != "xno"],
+AS_IF([test "x$have_xvidcore" != "xno"],
       [build_plugins="$build_plugins scxvid"],
       [no_build_plugins="$no_build_plugins scxvid"])
 # KNLMeansCL
