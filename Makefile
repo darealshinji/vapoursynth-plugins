@@ -4,6 +4,8 @@ PLUGINS = $(shell ls -d plugins/*)
 pluginsdir := $(libdir)/vapoursynth
 dist-packages := $(prefix)/lib/python3/dist-packages
 
+models = noise1_model.json noise2_model.json noise3_model.json scale2.0x_model.json
+
 ifeq ($(V), 1)
 MAKE = make V=1
 else
@@ -45,14 +47,13 @@ install:
 	$(INSTALL_DATA) plugins/fmtconv/doc/vapourdoc.css $(DESTDIR)$(docdir)
 
 ifneq ($(INSTALL_MODEL_WEIGHTS),0)
-	$(INSTALL_DATA) model-weights/nnedi3_weights.bin $(DESTDIR)$(prefix)/share/nnedi3
+	$(INSTALL_DATA) models/nnedi3_weights.bin $(DESTDIR)$(prefix)/share/nnedi3
 
 	$(foreach DIR,anime_style_art anime_style_art_rgb photo,\
 		$(INSTALL) -d $(DESTDIR)$(pluginsdir)/models/$(DIR) $(NL)\
-		$(foreach FILE,$(shell ls models/photo/*),
-			$(INSTALL_DATA) $(FILE) $(DESTDIR)$(pluginsdir)/models/$(DIR) $(NL)))
-	$(foreach MDL,noise1_model.json noise2_model.json scale2.0x_model.json,\
-		$(LN_S) models/anime_style_art/$(MDL) $(DESTDIR)$(pluginsdir)/$(MDL) $(NL))
+		$(foreach FILE,$(models), \
+			$(INSTALL_DATA) models/$(DIR)/$(FILE) $(DESTDIR)$(pluginsdir)/models/$(DIR) $(NL)))
+	$(foreach MDL,$(models),ln -s models/anime_style_art/$(MDL) $(DESTDIR)$(pluginsdir)/$(MDL) $(NL))
 endif
 
 clean:
