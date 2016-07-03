@@ -252,6 +252,15 @@ Files: plugins/waifu2x-w2xc/w2xc/include/tclap/*
 Copyright: 2003 Michael E. Smoot
 License: MIT
 
+Files: plugins/w3fdif/*
+Copyright: 2012 British Broadcasting Corporation, All Rights Reserved
+Comment:
+ Author of de-interlace algorithm: Jim Easterbrook for BBC R&D
+ Based on the process described by Martin Weston for BBC R&D
+ Author of FFmpeg filter: Mark Himsley for BBC Broadcast Systems Development
+ VapourSynth port: HolyWu
+License: LGPL-2.0
+
 Files: plugins/yadifmod/*
 Copyright: 2007 Kevin Eliot Stone <kes25c@mail.missouri.edu>
            2007 Alexander G. Balakhnin
