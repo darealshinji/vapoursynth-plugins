@@ -1,19 +1,24 @@
 /*
 * BM3D denoising filter - VapourSynth plugin
-* Copyright (C) 2015  mawen1250
+* Copyright (c) 2015-2016 mawen1250
 *
-* This program is free software: you can redistribute it and/or modify
-* it under the terms of the GNU General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
+* Permission is hereby granted, free of charge, to any person obtaining a copy
+* of this software and associated documentation files (the "Software"), to deal
+* in the Software without restriction, including without limitation the rights
+* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+* copies of the Software, and to permit persons to whom the Software is
+* furnished to do so, subject to the following conditions:
 *
-* This program is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-* GNU General Public License for more details.
+* The above copyright notice and this permission notice shall be included in all
+* copies or substantial portions of the Software.
 *
-* You should have received a copy of the GNU General Public License
-* along with this program.  If not, see <http://www.gnu.org/licenses/>.
+* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+* SOFTWARE.
 */
 
 
@@ -45,39 +50,43 @@ public:
 
     virtual int arguments_process(const VSMap *in, VSMap *out) override
     {
-        int error;
+        try
+        {
+            int error;
 
-        // input - clip
-        node = vsapi->propGetNode(in, "input", 0, nullptr);
-        vi = vsapi->getVideoInfo(node);
+            // input - clip
+            node = vsapi->propGetNode(in, "input", 0, nullptr);
+            vi = vsapi->getVideoInfo(node);
 
-        if (!isConstantFormat(vi))
-        {
-            setError(out, "Invalid input clip, only constant format input supported");
-            return 1;
-        }
-        if ((vi->format->sampleType == stInteger && vi->format->bitsPerSample > 16)
-            || (vi->format->sampleType == stFloat && vi->format->bitsPerSample != 32))
-        {
-            setError(out, "Invalid input clip, only 8-16 bit int or 32 bit float formats supported");
-            return 1;
-        }
-        if (vi->format->colorFamily != cmYUV)
-        {
-            setError(out, "Invalid input clip, must be of YUV color family");
-            return 1;
-        }
+            if (!isConstantFormat(vi))
+            {
+                throw std::string("Invalid input clip, only constant format input supported");
+            }
+            if ((vi->format->sampleType == stInteger && vi->format->bitsPerSample > 16)
+                || (vi->format->sampleType == stFloat && vi->format->bitsPerSample != 32))
+            {
+                throw std::string("Invalid input clip, only 8-16 bit int or 32 bit float formats supported");
+            }
+            if (vi->format->colorFamily != cmYUV)
+            {
+                throw std::string("Invalid input clip, must be of YUV color family");
+            }
 
-        // sample - int
-        sample = static_cast<VSSampleType>(vsapi->propGetInt(in, "sample", 0, &error));
+            // sample - int
+            sample = static_cast<VSSampleType>(vsapi->propGetInt(in, "sample", 0, &error));
 
-        if (error)
-        {
-            sample = stInteger;
+            if (error)
+            {
+                sample = stInteger;
+            }
+            else if (sample != stInteger && sample != stFloat)
+            {
+                throw std::string("Invalid \'sample\' assigned, must be 0 (integer sample type) or 1 (float sample type)");
+            }
         }
-        else if (sample != stInteger && sample != stFloat)
+        catch (const std::string &error_msg)
         {
-            setError(out, "Invalid \'sample\' assigned, must be 0 (integer sample type) or 1 (float sample type)");
+            setError(out, error_msg.c_str());
             return 1;
         }
 

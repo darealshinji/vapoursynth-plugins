@@ -1,19 +1,24 @@
 /*
 * BM3D denoising filter - VapourSynth plugin
-* Copyright (C) 2015  mawen1250
+* Copyright (c) 2015-2016 mawen1250
 *
-* This program is free software: you can redistribute it and/or modify
-* it under the terms of the GNU General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
+* Permission is hereby granted, free of charge, to any person obtaining a copy
+* of this software and associated documentation files (the "Software"), to deal
+* in the Software without restriction, including without limitation the rights
+* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+* copies of the Software, and to permit persons to whom the Software is
+* furnished to do so, subject to the following conditions:
 *
-* This program is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-* GNU General Public License for more details.
+* The above copyright notice and this permission notice shall be included in all
+* copies or substantial portions of the Software.
 *
-* You should have received a copy of the GNU General Public License
-* along with this program.  If not, see <http://www.gnu.org/licenses/>.
+* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+* SOFTWARE.
 */
 
 
@@ -98,294 +103,280 @@ VBM3D_Para::VBM3D_Para(bool _wiener, std::string _profile)
 
 int VBM3D_Data_Base::arguments_process(const VSMap *in, VSMap *out)
 {
-    int error;
-    int m;
-
-    // input - clip
-    node = vsapi->propGetNode(in, "input", 0, nullptr);
-    vi = vsapi->getVideoInfo(node);
-
-    if (!isConstantFormat(vi))
+    try
     {
-        setError(out, "Invalid input clip, only constant format input supported");
-        return 1;
-    }
-    if ((vi->format->sampleType == stInteger && vi->format->bitsPerSample > 16)
-        || (vi->format->sampleType == stFloat && vi->format->bitsPerSample != 32))
-    {
-        setError(out, "Invalid input clip, only 8-16 bit integer or 32 bit float formats supported");
-        return 1;
-    }
+        int error;
+        int m;
 
-    // ref - clip
-    rnode = vsapi->propGetNode(in, "ref", 0, &error);
+        // input - clip
+        node = vsapi->propGetNode(in, "input", 0, nullptr);
+        vi = vsapi->getVideoInfo(node);
 
-    if (error)
-    {
-        rdef = false;
-        rnode = node;
-        rvi = vi;
-    }
-    else
-    {
-        rdef = true;
-        rvi = vsapi->getVideoInfo(rnode);
-
-        if (!isConstantFormat(rvi))
+        if (!isConstantFormat(vi))
         {
-            setError(out, "Invalid clip \"ref\", only constant format input supported");
-            return 1;
+            throw std::string("Invalid input clip, only constant format input supported");
         }
-        if (rvi->format != vi->format)
+        if ((vi->format->sampleType == stInteger && vi->format->bitsPerSample > 16)
+            || (vi->format->sampleType == stFloat && vi->format->bitsPerSample != 32))
         {
-            setError(out, "input clip and clip \"ref\" must be of the same format");
-            return 1;
+            throw std::string("Invalid input clip, only 8-16 bit integer or 32 bit float formats supported");
         }
-        if (rvi->width != vi->width || rvi->height != vi->height)
+
+        // ref - clip
+        rnode = vsapi->propGetNode(in, "ref", 0, &error);
+
+        if (error)
         {
-            setError(out, "input clip and clip \"ref\" must be of the same width and height");
-            return 1;
+            rdef = false;
+            rnode = node;
+            rvi = vi;
         }
-        if (rvi->numFrames != vi->numFrames)
+        else
         {
-            setError(out, "input clip and clip \"ref\" must have the same number of frames");
-            return 1;
-        }
-    }
+            rdef = true;
+            rvi = vsapi->getVideoInfo(rnode);
 
-    // profile - data
-    auto profile = vsapi->propGetData(in, "profile", 0, &error);
-
-    if (error)
-    {
-        para.profile = para_default.profile;
-    }
-    else
-    {
-        para.profile = profile;
-    }
-
-    if (para.profile != "fast" && para.profile != "lc" && para.profile != "np"
-        && para.profile != "high" && para.profile != "vn")
-    {
-        setError(out, "Unrecognized \"profile\" specified, should be \"fast\", \"lc\", \"np\", \"high\" or \"vn\"");
-        return 1;
-    }
-
-    get_default_para(para.profile);
-
-    // sigma - float[]
-    m = vsapi->propNumElements(in, "sigma");
-
-    if (m > 0)
-    {
-        int i;
-
-        if (m > 3) m = 3;
-
-        for (i = 0; i < m; ++i)
-        {
-            para.sigma[i] = vsapi->propGetFloat(in, "sigma", i, nullptr);
-
-            if (para.sigma[i] < 0)
+            if (!isConstantFormat(rvi))
             {
-                setError(out, "Invalid \"sigma\" assigned, must be a non-negative floating point number");
-                return 1;
+                throw std::string("Invalid clip \"ref\", only constant format input supported");
+            }
+            if (rvi->format != vi->format)
+            {
+                throw std::string("input clip and clip \"ref\" must be of the same format");
+            }
+            if (rvi->width != vi->width || rvi->height != vi->height)
+            {
+                throw std::string("input clip and clip \"ref\" must be of the same width and height");
+            }
+            if (rvi->numFrames != vi->numFrames)
+            {
+                throw std::string("input clip and clip \"ref\" must have the same number of frames");
             }
         }
 
-        for (; i < 3; ++i)
+        // profile - data
+        auto profile = vsapi->propGetData(in, "profile", 0, &error);
+
+        if (error)
         {
-            para.sigma[i] = para.sigma[i - 1];
+            para.profile = para_default.profile;
+        }
+        else
+        {
+            para.profile = profile;
+        }
+
+        if (para.profile != "fast" && para.profile != "lc" && para.profile != "np"
+            && para.profile != "high" && para.profile != "vn")
+        {
+            throw std::string("Unrecognized \"profile\" specified, should be \"fast\", \"lc\", \"np\", \"high\" or \"vn\"");
+        }
+
+        get_default_para(para.profile);
+
+        // sigma - float[]
+        m = vsapi->propNumElements(in, "sigma");
+
+        if (m > 0)
+        {
+            int i;
+
+            if (m > 3) m = 3;
+
+            for (i = 0; i < m; ++i)
+            {
+                para.sigma[i] = vsapi->propGetFloat(in, "sigma", i, nullptr);
+
+                if (para.sigma[i] < 0)
+                {
+                    throw std::string("Invalid \"sigma\" assigned, must be a non-negative floating point number");
+                }
+            }
+
+            for (; i < 3; ++i)
+            {
+                para.sigma[i] = para.sigma[i - 1];
+            }
+        }
+        else
+        {
+            para.sigma = para_default.sigma;
+        }
+
+        // radius - int
+        para.radius = int64ToIntS(vsapi->propGetInt(in, "radius", 0, &error));
+
+        if (error)
+        {
+            para.radius = para_default.radius;
+        }
+        else if (para.radius < 1 || para.radius > 16)
+        {
+            throw std::string("Invalid \"radius\" assigned, must be an integer in [1, 16]");
+        }
+
+        // block_size - int
+        para.BlockSize = int64ToIntS(vsapi->propGetInt(in, "block_size", 0, &error));
+
+        if (error)
+        {
+            para.BlockSize = para_default.BlockSize;
+        }
+        else if (para.BlockSize < 1 || para.BlockSize > 64)
+        {
+            throw std::string("Invalid \"block_size\" assigned, must be an integer in [1, 64]");
+        }
+        else if (para.BlockSize > vi->width || para.BlockSize > vi->height)
+        {
+            throw std::string("Invalid \"block_size\" assigned, must not exceed width or height of the frame");
+        }
+
+        // block_step - int
+        para.BlockStep = int64ToIntS(vsapi->propGetInt(in, "block_step", 0, &error));
+
+        if (error)
+        {
+            para.BlockStep = para_default.BlockStep;
+        }
+        else if (para.BlockStep < 1 || para.BlockStep > para.BlockSize)
+        {
+            throw std::string("Invalid \"block_step\" assigned, must be an integer in [1, block_size]");
+        }
+
+        // group_size - int
+        para.GroupSize = int64ToIntS(vsapi->propGetInt(in, "group_size", 0, &error));
+
+        if (error)
+        {
+            para.GroupSize = para_default.GroupSize;
+        }
+        else if (para.GroupSize < 1 || para.GroupSize > 256)
+        {
+            throw std::string("Invalid \"group_size\" assigned, must be an integer in [1, 256]");
+        }
+
+        // bm_range - int
+        para.BMrange = int64ToIntS(vsapi->propGetInt(in, "bm_range", 0, &error));
+
+        if (error)
+        {
+            para.BMrange = para_default.BMrange;
+        }
+        else if (para.BMrange < 1)
+        {
+            throw std::string("Invalid \"bm_range\" assigned, must be a positive integer");
+        }
+
+        // bm_step - int
+        para.BMstep = int64ToIntS(vsapi->propGetInt(in, "bm_step", 0, &error));
+
+        if (error)
+        {
+            para.BMstep = para_default.BMstep;
+        }
+        else if (para.BMstep < 1 || para.BMstep > para.BMrange)
+        {
+            throw std::string("Invalid \"bm_step\" assigned, must be an integer in [1, bm_range]");
+        }
+
+        // ps_num - int
+        para.PSnum = int64ToIntS(vsapi->propGetInt(in, "ps_num", 0, &error));
+
+        if (error)
+        {
+            para.PSnum = para_default.PSnum;
+        }
+        else if (para.PSnum < 1 || para.PSnum > para.GroupSize)
+        {
+            throw std::string("Invalid \"ps_num\" assigned, must be an integer in [1, group_size]");
+        }
+
+        // ps_range - int
+        para.PSrange = int64ToIntS(vsapi->propGetInt(in, "ps_range", 0, &error));
+
+        if (error)
+        {
+            para.PSrange = para_default.PSrange;
+        }
+        else if (para.PSrange < 1)
+        {
+            throw std::string("Invalid \"ps_range\" assigned, must be a positive integer");
+        }
+
+        // ps_step - int
+        para.PSstep = int64ToIntS(vsapi->propGetInt(in, "ps_step", 0, &error));
+
+        if (error)
+        {
+            para.PSstep = para_default.PSstep;
+        }
+        else if (para.PSstep < 1 || para.PSstep > para.PSrange)
+        {
+            throw std::string("Invalid \"ps_step\" assigned, must be an integer in [1, ps_range]");
+        }
+
+        // th_mse - float
+        para.thMSE = vsapi->propGetFloat(in, "th_mse", 0, &error);
+
+        if (error)
+        {
+            para.thMSE_Default();
+        }
+        else if (para.thMSE <= 0)
+        {
+            throw std::string("Invalid \"th_mse\" assigned, must be a positive floating point number");
+        }
+
+        // matrix - int
+        matrix = static_cast<ColorMatrix>(vsapi->propGetInt(in, "matrix", 0, &error));
+
+        if (vi->format->colorFamily == cmRGB)
+        {
+            matrix = ColorMatrix::OPP;
+        }
+        else if (vi->format->colorFamily == cmYCoCg)
+        {
+            matrix = ColorMatrix::YCgCo;
+        }
+        else if (error || matrix == ColorMatrix::Unspecified)
+        {
+            matrix = ColorMatrix_Default(vi->width, vi->height);
+        }
+        else if (matrix != ColorMatrix::GBR && matrix != ColorMatrix::bt709
+            && matrix != ColorMatrix::fcc && matrix != ColorMatrix::bt470bg && matrix != ColorMatrix::smpte170m
+            && matrix != ColorMatrix::smpte240m && matrix != ColorMatrix::YCgCo && matrix != ColorMatrix::bt2020nc
+            && matrix != ColorMatrix::bt2020c && matrix != ColorMatrix::OPP)
+        {
+            throw std::string("Unsupported \"matrix\" specified");
+        }
+
+        // process
+        for (int i = 0; i < VSMaxPlaneCount; i++)
+        {
+            if (vi->format->colorFamily != cmRGB && para.sigma[i] == 0)
+            {
+                process[i] = 0;
+            }
+        }
+
+        if (process[1] || process[2])
+        {
+            if (vi->format->subSamplingH || vi->format->subSamplingW)
+            {
+                throw std::string("input clip: sub-sampled format is not supported when chroma is processed, convert it to YUV444 or RGB first. "
+                    "For the best quality, RGB colorspace is recommended as input.");
+            }
+            if (rvi->format->subSamplingH || rvi->format->subSamplingW)
+            {
+                throw std::string("clip \"ref\": sub-sampled format is not supported when chroma is processed, convert it to YUV444 or RGB first. "
+                    "For the best quality, RGB colorspace is recommended as input.");
+            }
         }
     }
-    else
+    catch (const std::string &error_msg)
     {
-        para.sigma = para_default.sigma;
-    }
-
-    // radius - int
-    para.radius = int64ToIntS(vsapi->propGetInt(in, "radius", 0, &error));
-
-    if (error)
-    {
-        para.radius = para_default.radius;
-    }
-    else if (para.radius < 1 || para.radius > 16)
-    {
-        setError(out, "Invalid \"radius\" assigned, must be an integer in [1, 16]");
+        setError(out, error_msg.c_str());
         return 1;
-    }
-
-    // block_size - int
-    para.BlockSize = int64ToIntS(vsapi->propGetInt(in, "block_size", 0, &error));
-
-    if (error)
-    {
-        para.BlockSize = para_default.BlockSize;
-    }
-    else if (para.BlockSize < 1 || para.BlockSize > 64)
-    {
-        setError(out, "Invalid \"block_size\" assigned, must be an integer in [1, 64]");
-        return 1;
-    }
-    else if (para.BlockSize > vi->width || para.BlockSize > vi->height)
-    {
-        setError(out, "Invalid \"block_size\" assigned, must not exceed width or height of the frame");
-        return 1;
-    }
-
-    // block_step - int
-    para.BlockStep = int64ToIntS(vsapi->propGetInt(in, "block_step", 0, &error));
-
-    if (error)
-    {
-        para.BlockStep = para_default.BlockStep;
-    }
-    else if (para.BlockStep < 1 || para.BlockStep > para.BlockSize)
-    {
-        setError(out, "Invalid \"block_step\" assigned, must be an integer in [1, block_size]");
-        return 1;
-    }
-
-    // group_size - int
-    para.GroupSize = int64ToIntS(vsapi->propGetInt(in, "group_size", 0, &error));
-
-    if (error)
-    {
-        para.GroupSize = para_default.GroupSize;
-    }
-    else if (para.GroupSize < 1 || para.GroupSize > 256)
-    {
-        setError(out, "Invalid \"group_size\" assigned, must be an integer in [1, 256]");
-        return 1;
-    }
-
-    // bm_range - int
-    para.BMrange = int64ToIntS(vsapi->propGetInt(in, "bm_range", 0, &error));
-
-    if (error)
-    {
-        para.BMrange = para_default.BMrange;
-    }
-    else if (para.BMrange < 1)
-    {
-        setError(out, "Invalid \"bm_range\" assigned, must be a positive integer");
-        return 1;
-    }
-
-    // bm_step - int
-    para.BMstep = int64ToIntS(vsapi->propGetInt(in, "bm_step", 0, &error));
-
-    if (error)
-    {
-        para.BMstep = para_default.BMstep;
-    }
-    else if (para.BMstep < 1 || para.BMstep > para.BMrange)
-    {
-        setError(out, "Invalid \"bm_step\" assigned, must be an integer in [1, bm_range]");
-        return 1;
-    }
-
-    // ps_num - int
-    para.PSnum = int64ToIntS(vsapi->propGetInt(in, "ps_num", 0, &error));
-
-    if (error)
-    {
-        para.PSnum = para_default.PSnum;
-    }
-    else if (para.PSnum < 1 || para.PSnum > para.GroupSize)
-    {
-        setError(out, "Invalid \"ps_num\" assigned, must be an integer in [1, group_size]");
-        return 1;
-    }
-
-    // ps_range - int
-    para.PSrange = int64ToIntS(vsapi->propGetInt(in, "ps_range", 0, &error));
-
-    if (error)
-    {
-        para.PSrange = para_default.PSrange;
-    }
-    else if (para.PSrange < 1)
-    {
-        setError(out, "Invalid \"ps_range\" assigned, must be a positive integer");
-        return 1;
-    }
-
-    // ps_step - int
-    para.PSstep = int64ToIntS(vsapi->propGetInt(in, "ps_step", 0, &error));
-
-    if (error)
-    {
-        para.PSstep = para_default.PSstep;
-    }
-    else if (para.PSstep < 1 || para.PSstep > para.PSrange)
-    {
-        setError(out, "Invalid \"ps_step\" assigned, must be an integer in [1, ps_range]");
-        return 1;
-    }
-
-    // th_mse - float
-    para.thMSE = vsapi->propGetFloat(in, "th_mse", 0, &error);
-
-    if (error)
-    {
-        para.thMSE_Default();
-    }
-    else if (para.thMSE <= 0)
-    {
-        setError(out, "Invalid \"th_mse\" assigned, must be a positive floating point number");
-        return 1;
-    }
-
-    // matrix - int
-    matrix = static_cast<ColorMatrix>(vsapi->propGetInt(in, "matrix", 0, &error));
-
-    if (vi->format->colorFamily == cmRGB)
-    {
-        matrix = ColorMatrix::OPP;
-    }
-    else if (vi->format->colorFamily == cmYCoCg)
-    {
-        matrix = ColorMatrix::YCgCo;
-    }
-    else if (error || matrix == ColorMatrix::Unspecified)
-    {
-        matrix = ColorMatrix_Default(vi->width, vi->height);
-    }
-    else if (matrix != ColorMatrix::GBR && matrix != ColorMatrix::bt709
-        && matrix != ColorMatrix::fcc && matrix != ColorMatrix::bt470bg && matrix != ColorMatrix::smpte170m
-        && matrix != ColorMatrix::smpte240m && matrix != ColorMatrix::YCgCo && matrix != ColorMatrix::bt2020nc
-        && matrix != ColorMatrix::bt2020c && matrix != ColorMatrix::OPP)
-    {
-        setError(out, "Unsupported \"matrix\" specified");
-        return 1;
-    }
-
-    // process
-    for (int i = 0; i < VSMaxPlaneCount; i++)
-    {
-        if (vi->format->colorFamily != cmRGB && para.sigma[i] == 0)
-        {
-            process[i] = 0;
-        }
-    }
-
-    if (process[1] || process[2])
-    {
-        if (vi->format->subSamplingH || vi->format->subSamplingW)
-        {
-            setError(out, "input clip: sub-sampled format is not supported when chroma is processed, convert it to YUV444 or RGB first. "
-                "For the best quality, RGB colorspace is recommended as input.");
-            return 1;
-        }
-        if (rvi->format->subSamplingH || rvi->format->subSamplingW)
-        {
-            setError(out, "clip \"ref\": sub-sampled format is not supported when chroma is processed, convert it to YUV444 or RGB first. "
-                "For the best quality, RGB colorspace is recommended as input.");
-            return 1;
-        }
     }
 
     return 0;
@@ -670,6 +661,386 @@ VBM3D_Process_Base::Pos3PairCode VBM3D_Process_Base::BlockMatching(
 
     return matchCode;
 }
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Template functions of class VBM3D_Process_Base
+
+
+template < typename _Ty >
+void VBM3D_Process_Base::process_core()
+{
+    if (fi->colorFamily == cmGray || (
+        (fi->colorFamily == cmYUV || fi->colorFamily == cmYCoCg)
+        && !d.process[1] && !d.process[2]
+        ))
+    {
+        process_core_gray<_Ty>();
+    }
+    else if (fi->colorFamily == cmYUV || fi->colorFamily == cmYCoCg)
+    {
+        process_core_yuv<_Ty>();
+    }
+    else if (fi->colorFamily == cmRGB)
+    {
+        process_core_rgb<_Ty>();
+    }
+}
+
+
+template < typename _Ty >
+void VBM3D_Process_Base::process_core_gray()
+{
+    std::vector<FLType *> dstYv;
+    std::vector<const FLType *> srcYv;
+    std::vector<const FLType *> refYv;
+
+    std::vector<FLType *> srcYd(frames, nullptr), refYd(frames, nullptr);
+
+    // Get write pointer
+    auto dstY = reinterpret_cast<FLType *>(vsapi->getWritePtr(dst, 0))
+        + dst_pcount[0] * 2 * (d.para.radius + b_offset);
+
+    for (int i = 0; i < frames; ++i)
+    {
+        // Get read pointer
+        auto srcY = reinterpret_cast<const _Ty *>(vsapi->getReadPtr(v_src[i], 0));
+        auto refY = reinterpret_cast<const _Ty *>(vsapi->getReadPtr(v_ref[i], 0));
+
+        // Allocate memory for floating point Y data
+        AlignedMalloc(srcYd[i], src_pcount[0]);
+        if (d.rdef) AlignedMalloc(refYd[i], ref_pcount[0]);
+        else refYd[i] = srcYd[i];
+
+        // Convert src and ref from integer Y data to floating point Y data
+        Int2Float(srcYd[i], srcY, src_height[0], src_width[0], src_stride[0], src_stride[0], false, full, false);
+        if (d.rdef) Int2Float(refYd[i], refY, ref_height[0], ref_width[0], ref_stride[0], ref_stride[0], false, full, false);
+
+        // Store pointer to floating point Y data into corresponding frame of the vector
+        dstYv.push_back(dstY + dst_pcount[0] * (i * 2));
+        dstYv.push_back(dstY + dst_pcount[0] * (i * 2 + 1));
+        srcYv.push_back(srcYd[i]);
+        refYv.push_back(refYd[i]);
+    }
+
+    // Execute kernel
+    Kernel(dstYv, srcYv, refYv);
+
+    // Free memory for floating point Y data
+    for (int i = 0; i < frames; ++i)
+    {
+        AlignedFree(srcYd[i]);
+        if (d.rdef) AlignedFree(refYd[i]);
+    }
+}
+
+template <>
+void VBM3D_Process_Base::process_core_gray<FLType>()
+{
+    std::vector<FLType *> dstYv;
+    std::vector<const FLType *> srcYv;
+    std::vector<const FLType *> refYv;
+
+    // Get write pointer
+    auto dstY = reinterpret_cast<FLType *>(vsapi->getWritePtr(dst, 0))
+        + dst_pcount[0] * 2 * (d.para.radius + b_offset);
+
+    for (int i = 0; i < frames; ++i)
+    {
+        // Get read pointer
+        auto srcY = reinterpret_cast<const FLType *>(vsapi->getReadPtr(v_src[i], 0));
+        auto refY = reinterpret_cast<const FLType *>(vsapi->getReadPtr(v_ref[i], 0));
+
+        // Store pointer to floating point Y data into corresponding frame of the vector
+        dstYv.push_back(dstY + dst_pcount[0] * (i * 2));
+        dstYv.push_back(dstY + dst_pcount[0] * (i * 2 + 1));
+        srcYv.push_back(srcY);
+        refYv.push_back(refY);
+    }
+
+    // Execute kernel
+    Kernel(dstYv, srcYv, refYv);
+}
+
+
+template < typename _Ty >
+void VBM3D_Process_Base::process_core_yuv()
+{
+    std::vector<FLType *> dstYv;
+    std::vector<FLType *> dstUv;
+    std::vector<FLType *> dstVv;
+
+    std::vector<const FLType *> srcYv;
+    std::vector<const FLType *> srcUv;
+    std::vector<const FLType *> srcVv;
+
+    std::vector<const FLType *> refYv;
+    std::vector<const FLType *> refUv;
+    std::vector<const FLType *> refVv;
+
+    std::vector<FLType *> srcYd(frames, nullptr), srcUd(frames, nullptr), srcVd(frames, nullptr);
+    std::vector<FLType *> refYd(frames, nullptr), refUd(frames, nullptr), refVd(frames, nullptr);
+
+    // Get write pointer
+    auto dstY = reinterpret_cast<FLType *>(vsapi->getWritePtr(dst, 0))
+        + dst_pcount[0] * 2 * (d.para.radius + b_offset);
+    auto dstU = reinterpret_cast<FLType *>(vsapi->getWritePtr(dst, 1))
+        + dst_pcount[1] * 2 * (d.para.radius + b_offset);
+    auto dstV = reinterpret_cast<FLType *>(vsapi->getWritePtr(dst, 2))
+        + dst_pcount[2] * 2 * (d.para.radius + b_offset);
+
+    for (int i = 0; i < frames; ++i)
+    {
+        // Get read pointer
+        auto srcY = reinterpret_cast<const _Ty *>(vsapi->getReadPtr(v_src[i], 0));
+        auto srcU = reinterpret_cast<const _Ty *>(vsapi->getReadPtr(v_src[i], 1));
+        auto srcV = reinterpret_cast<const _Ty *>(vsapi->getReadPtr(v_src[i], 2));
+
+        auto refY = reinterpret_cast<const _Ty *>(vsapi->getReadPtr(v_ref[i], 0));
+        auto refU = reinterpret_cast<const _Ty *>(vsapi->getReadPtr(v_ref[i], 1));
+        auto refV = reinterpret_cast<const _Ty *>(vsapi->getReadPtr(v_ref[i], 2));
+
+        // Allocate memory for floating point YUV data
+        if (d.process[0] || !d.rdef) AlignedMalloc(srcYd[i], src_pcount[0]);
+        if (d.process[1]) AlignedMalloc(srcUd[i], src_pcount[1]);
+        if (d.process[2]) AlignedMalloc(srcVd[i], src_pcount[2]);
+
+        if (d.rdef)
+        {
+            AlignedMalloc(refYd[i], ref_pcount[0]);
+            if (d.wiener && d.process[1]) AlignedMalloc(refUd[i], ref_pcount[1]);
+            if (d.wiener && d.process[2]) AlignedMalloc(refVd[i], ref_pcount[2]);
+        }
+        else
+        {
+            refYd[i] = srcYd[i];
+            refUd[i] = srcUd[i];
+            refVd[i] = srcVd[i];
+        }
+
+        // Convert src and ref from integer YUV data to floating point YUV data
+        if (d.process[0] || !d.rdef) Int2Float(srcYd[i], srcY, src_height[0], src_width[0], src_stride[0], src_stride[0], false, full, false);
+        if (d.process[1]) Int2Float(srcUd[i], srcU, src_height[1], src_width[1], src_stride[1], src_stride[1], true, full, false);
+        if (d.process[2]) Int2Float(srcVd[i], srcV, src_height[2], src_width[2], src_stride[2], src_stride[2], true, full, false);
+
+        if (d.rdef)
+        {
+            Int2Float(refYd[i], refY, ref_height[0], ref_width[0], ref_stride[0], ref_stride[0], false, full, false);
+            if (d.wiener && d.process[1]) Int2Float(refUd[i], refU, ref_height[1], ref_width[1], ref_stride[1], ref_stride[1], true, full, false);
+            if (d.wiener && d.process[2]) Int2Float(refVd[i], refV, ref_height[2], ref_width[2], ref_stride[2], ref_stride[2], true, full, false);
+        }
+
+        // Store pointer to floating point YUV data into corresponding frame in the vector
+        dstYv.push_back(dstY + dst_pcount[0] * (i * 2));
+        dstUv.push_back(dstU + dst_pcount[1] * (i * 2));
+        dstVv.push_back(dstV + dst_pcount[2] * (i * 2));
+
+        dstYv.push_back(dstY + dst_pcount[0] * (i * 2 + 1));
+        dstUv.push_back(dstU + dst_pcount[1] * (i * 2 + 1));
+        dstVv.push_back(dstV + dst_pcount[2] * (i * 2 + 1));
+
+        srcYv.push_back(srcYd[i]);
+        srcUv.push_back(srcUd[i]);
+        srcVv.push_back(srcVd[i]);
+
+        refYv.push_back(refYd[i]);
+        refUv.push_back(refUd[i]);
+        refVv.push_back(refVd[i]);
+    }
+
+    // Execute kernel
+    Kernel(dstYv, dstUv, dstVv, srcYv, srcUv, srcVv, refYv, refUv, refVv);
+
+    // Free memory for floating point YUV data
+    for (int i = 0; i < frames; ++i)
+    {
+        if (d.process[0] || !d.rdef) AlignedFree(srcYd[i]);
+        if (d.process[1]) AlignedFree(srcUd[i]);
+        if (d.process[2]) AlignedFree(srcVd[i]);
+
+        if (d.rdef)
+        {
+            AlignedFree(refYd[i]);
+            if (d.wiener && d.process[1]) AlignedFree(refUd[i]);
+            if (d.wiener && d.process[2]) AlignedFree(refVd[i]);
+        }
+    }
+}
+
+template <>
+void VBM3D_Process_Base::process_core_yuv<FLType>()
+{
+    std::vector<FLType *> dstYv;
+    std::vector<FLType *> dstUv;
+    std::vector<FLType *> dstVv;
+
+    std::vector<const FLType *> srcYv;
+    std::vector<const FLType *> srcUv;
+    std::vector<const FLType *> srcVv;
+
+    std::vector<const FLType *> refYv;
+    std::vector<const FLType *> refUv;
+    std::vector<const FLType *> refVv;
+
+    // Get write/read pointer
+    auto dstY = reinterpret_cast<FLType *>(vsapi->getWritePtr(dst, 0))
+        + dst_pcount[0] * 2 * (d.para.radius + b_offset);
+    auto dstU = reinterpret_cast<FLType *>(vsapi->getWritePtr(dst, 1))
+        + dst_pcount[1] * 2 * (d.para.radius + b_offset);
+    auto dstV = reinterpret_cast<FLType *>(vsapi->getWritePtr(dst, 2))
+        + dst_pcount[2] * 2 * (d.para.radius + b_offset);
+
+    for (int i = 0; i < frames; ++i)
+    {
+        // Get read pointer
+        auto srcY = reinterpret_cast<const FLType *>(vsapi->getReadPtr(v_src[i], 0));
+        auto srcU = reinterpret_cast<const FLType *>(vsapi->getReadPtr(v_src[i], 1));
+        auto srcV = reinterpret_cast<const FLType *>(vsapi->getReadPtr(v_src[i], 2));
+
+        auto refY = reinterpret_cast<const FLType *>(vsapi->getReadPtr(v_ref[i], 0));
+        auto refU = reinterpret_cast<const FLType *>(vsapi->getReadPtr(v_ref[i], 1));
+        auto refV = reinterpret_cast<const FLType *>(vsapi->getReadPtr(v_ref[i], 2));
+
+        // Store pointer to floating point YUV data into corresponding frame in the vector
+        dstYv.push_back(dstY + dst_pcount[0] * (i * 2));
+        dstUv.push_back(dstU + dst_pcount[1] * (i * 2));
+        dstVv.push_back(dstV + dst_pcount[2] * (i * 2));
+
+        dstYv.push_back(dstY + dst_pcount[0] * (i * 2 + 1));
+        dstUv.push_back(dstU + dst_pcount[1] * (i * 2 + 1));
+        dstVv.push_back(dstV + dst_pcount[2] * (i * 2 + 1));
+
+        srcYv.push_back(srcY);
+        srcUv.push_back(srcU);
+        srcVv.push_back(srcV);
+
+        refYv.push_back(refY);
+        refUv.push_back(refU);
+        refVv.push_back(refV);
+    }
+
+    // Execute kernel
+    Kernel(dstYv, dstUv, dstVv, srcYv, srcUv, srcVv, refYv, refUv, refVv);
+}
+
+
+template < typename _Ty >
+void VBM3D_Process_Base::process_core_rgb()
+{
+    std::vector<FLType *> dstYv;
+    std::vector<FLType *> dstUv;
+    std::vector<FLType *> dstVv;
+
+    std::vector<const FLType *> srcYv;
+    std::vector<const FLType *> srcUv;
+    std::vector<const FLType *> srcVv;
+
+    std::vector<const FLType *> refYv;
+    std::vector<const FLType *> refUv;
+    std::vector<const FLType *> refVv;
+
+    std::vector<FLType *> srcYd(frames, nullptr), srcUd(frames, nullptr), srcVd(frames, nullptr);
+    std::vector<FLType *> refYd(frames, nullptr), refUd(frames, nullptr), refVd(frames, nullptr);
+
+    // Get write pointer
+    auto dstY = reinterpret_cast<FLType *>(vsapi->getWritePtr(dst, 0))
+        + dst_pcount[0] * 2 * (d.para.radius + b_offset);
+    auto dstU = reinterpret_cast<FLType *>(vsapi->getWritePtr(dst, 1))
+        + dst_pcount[1] * 2 * (d.para.radius + b_offset);
+    auto dstV = reinterpret_cast<FLType *>(vsapi->getWritePtr(dst, 2))
+        + dst_pcount[2] * 2 * (d.para.radius + b_offset);
+
+    for (int i = 0; i < frames; ++i)
+    {
+        // Get read pointer
+        auto srcR = reinterpret_cast<const _Ty *>(vsapi->getReadPtr(v_src[i], 0));
+        auto srcG = reinterpret_cast<const _Ty *>(vsapi->getReadPtr(v_src[i], 1));
+        auto srcB = reinterpret_cast<const _Ty *>(vsapi->getReadPtr(v_src[i], 2));
+
+        auto refR = reinterpret_cast<const _Ty *>(vsapi->getReadPtr(v_ref[i], 0));
+        auto refG = reinterpret_cast<const _Ty *>(vsapi->getReadPtr(v_ref[i], 1));
+        auto refB = reinterpret_cast<const _Ty *>(vsapi->getReadPtr(v_ref[i], 2));
+
+        // Allocate memory for floating point YUV data
+        AlignedMalloc(srcYd[i], src_pcount[0]);
+        AlignedMalloc(srcUd[i], src_pcount[1]);
+        AlignedMalloc(srcVd[i], src_pcount[2]);
+
+        if (d.rdef)
+        {
+            AlignedMalloc(refYd[i], ref_pcount[0]);
+            if (d.wiener) AlignedMalloc(refUd[i], ref_pcount[1]);
+            if (d.wiener) AlignedMalloc(refVd[i], ref_pcount[2]);
+        }
+        else
+        {
+            refYd[i] = srcYd[i];
+            refUd[i] = srcUd[i];
+            refVd[i] = srcVd[i];
+        }
+
+        // Convert src and ref from RGB data to floating point YUV data
+        RGB2FloatYUV(srcYd[i], srcUd[i], srcVd[i], srcR, srcG, srcB,
+            src_height[0], src_width[0], src_stride[0], src_stride[0],
+            ColorMatrix::OPP, true, false);
+
+        if (d.rdef)
+        {
+            if (d.wiener)
+            {
+                RGB2FloatYUV(refYd[i], refUd[i], refVd[i], refR, refG, refB,
+                    ref_height[0], ref_width[0], ref_stride[0], ref_stride[0],
+                    ColorMatrix::OPP, true, false);
+            }
+            else
+            {
+                RGB2FloatY(refYd[i], refR, refG, refB,
+                    ref_height[0], ref_width[0], ref_stride[0], ref_stride[0],
+                    ColorMatrix::OPP, true, false);
+            }
+        }
+
+        // Store pointer to floating point YUV data into corresponding frame in the vector
+        dstYv.push_back(dstY + dst_pcount[0] * (i * 2));
+        dstUv.push_back(dstU + dst_pcount[1] * (i * 2));
+        dstVv.push_back(dstV + dst_pcount[2] * (i * 2));
+
+        dstYv.push_back(dstY + dst_pcount[0] * (i * 2 + 1));
+        dstUv.push_back(dstU + dst_pcount[1] * (i * 2 + 1));
+        dstVv.push_back(dstV + dst_pcount[2] * (i * 2 + 1));
+
+        srcYv.push_back(srcYd[i]);
+        srcUv.push_back(srcUd[i]);
+        srcVv.push_back(srcVd[i]);
+
+        refYv.push_back(refYd[i]);
+        refUv.push_back(refUd[i]);
+        refVv.push_back(refVd[i]);
+    }
+
+    // Execute kernel
+    Kernel(dstYv, dstUv, dstVv, srcYv, srcUv, srcVv, refYv, refUv, refVv);
+
+    // Free memory for floating point YUV data
+    for (int i = 0; i < frames; ++i)
+    {
+        AlignedFree(srcYd[i]);
+        AlignedFree(srcUd[i]);
+        AlignedFree(srcVd[i]);
+
+        if (d.rdef)
+        {
+            AlignedFree(refYd[i]);
+            if (d.wiener) AlignedFree(refUd[i]);
+            if (d.wiener) AlignedFree(refVd[i]);
+        }
+    }
+}
+
+
+void VBM3D_Process_Base::process_core8() { process_core<uint8_t>(); }
+void VBM3D_Process_Base::process_core16() { process_core<uint16_t>(); }
+void VBM3D_Process_Base::process_coreS() { process_core<float>(); }
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
