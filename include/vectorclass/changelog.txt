@@ -1,11 +1,14 @@
 change log for vectorclass.zip
 ------------------------------
 
-2015-05-03 version 1.22
+2016-09-27 version 1.23
+  * temporary fix of a problem in Clang version 3.9 inserted in vectorf128.h
+
+2016-05-03 version 1.22
   * added optional namespace
   * fixed problem with decimal.h  
 
-2015-04-24 version 1.21
+2016-04-24 version 1.21
   * fix problems with XOP option in gcc
   * improved horizontal_and/or for sse2
   * improved Vec2q and Vec4q constructor on Microsoft Visual Studio 2015

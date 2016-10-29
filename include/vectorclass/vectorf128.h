@@ -1,8 +1,8 @@
 /****************************  vectorf128.h   *******************************
 * Author:        Agner Fog
 * Date created:  2012-05-30
-* Last modified: 2016-04-26
-* Version:       1.22
+* Last modified: 2016-09-27
+* Version:       1.23
 * Project:       vector classes
 * Description:
 * Header file defining floating point vector classes as interface to 
@@ -139,11 +139,11 @@ public:
     operator __m128() const {
         return xmm;
     }
-#if defined (__clang__) && CLANG_VERSION < 30900 || defined(__apple_build_version__)
-#define FIX_CLANG_VECTOR_ALIAS_AMBIGUITY  // clang 3.3 - 3.5 has silent conversion between intrinsic vector types. 
-                                          // I expected this to be fixed in version 3.4 but it still exists!
+#if defined (__clang__) /* && CLANG_VERSION < xxxxx */ || defined(__apple_build_version__)
+#define FIX_CLANG_VECTOR_ALIAS_AMBIGUITY  // clang 3.3 has silent conversion between intrinsic vector types. 
+                                          // I expected this to be fixed in version 3.4 but it still exists in version 3.9!
                                           // http://llvm.org/bugs/show_bug.cgi?id=17164
-                                          // Problem: The version number is not consistent across platforms
+                                          // Additional problem: The version number is not consistent across platforms
                                           // The Apple build has different version numbers. Too bad!
                                           // http://llvm.org/bugs/show_bug.cgi?id=12643
 
