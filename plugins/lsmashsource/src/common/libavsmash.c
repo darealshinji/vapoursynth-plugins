@@ -32,6 +32,7 @@ extern "C"
 #include <lsmash.h>
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
+#include <libavutil/channel_layout.h>
 #include <libavutil/mem.h>
 #ifdef __cplusplus
 }
@@ -40,42 +41,10 @@ extern "C"
 #include "utils.h"
 #include "libavsmash.h"
 #include "qsv.h"
+#include "decode.h"
 
 #define BYTE_SWAP_16( x ) ((( x ) << 8 & 0xff00)  | (( x ) >> 8 & 0x00ff))
 #define BYTE_SWAP_32( x ) (BYTE_SWAP_16( x ) << 16 | BYTE_SWAP_16(( x ) >> 16))
-
-static AVCodec *find_decoder
-(
-    enum AVCodecID  codec_id,
-    const char    **preferred_decoder_names
-)
-{
-    AVCodec *codec = avcodec_find_decoder( codec_id );
-    if( codec && preferred_decoder_names )
-        for( const char **decoder_name = preferred_decoder_names; *decoder_name != NULL; decoder_name++ )
-        {
-            AVCodec *preferred_decoder = avcodec_find_decoder_by_name( *decoder_name );
-            if( preferred_decoder
-             && preferred_decoder->id == codec->id )
-            {
-                codec = preferred_decoder;
-                break;
-            }
-        }
-    return codec;
-}
-
-static int open_decoder
-(
-    AVCodecContext *ctx,
-    const AVCodec  *codec
-)
-{
-    int ret = avcodec_open2( ctx, codec, NULL );
-    if( is_qsv_decoder( ctx->codec ) )
-        ret = do_qsv_decoder_workaround( ctx );
-    return ret;
-}
 
 lsmash_root_t *libavsmash_open_file
 (
@@ -468,21 +437,31 @@ static enum AVCodecID get_codec_id_from_description
 #undef ELSE_IF_GET_CODEC_ID_FROM_CODEC_TYPE
 }
 
-AVCodec *libavsmash_find_decoder
+static const AVCodec *libavsmash_find_decoder
 (
-    codec_configuration_t *config
+    codec_configuration_t *config,
+    enum AVCodecID         codec_id
 )
 {
-    assert( config->ctx );
-    enum AVCodecID codec_id = config->ctx->codec_id;
     if( codec_id == AV_CODEC_ID_NONE )
-    {
         /* Try to get any valid codec_id from summaries. */
         for( uint32_t i = 0; i < config->count && codec_id == AV_CODEC_ID_NONE; i++ )
             codec_id = get_codec_id_from_description( config->entries[i].summary );
-        config->ctx->codec_id = codec_id;
-    }
     return find_decoder( codec_id, config->preferred_decoder_names );
+}
+
+int libavsmash_find_and_open_decoder
+(
+    codec_configuration_t   *config,
+    const AVCodecParameters *codecpar,
+    const int                thread_count,
+    const int                refcounted_frames
+)
+{
+    const AVCodec *codec = libavsmash_find_decoder( config, codecpar->codec_id );
+    if( !codec )
+        return -1;
+    return open_decoder( &config->ctx, codecpar, codec, thread_count, refcounted_frames );
 }
 
 static lsmash_codec_specific_data_type get_codec_specific_data_type
@@ -814,29 +793,37 @@ int get_sample
     return 0;
 }
 
+/* Close and open the new decoder to flush buffers in the decoder even if the decoder implements avcodec_flush_buffers().
+ * It seems this brings about more stable composition when seeking.
+ * Note that this function could reallocate AVCodecContext. */
 void libavsmash_flush_buffers
 (
     codec_configuration_t *config
 )
 {
-    /* Close and reopen the decoder even if the decoder implements avcodec_flush_buffers().
-     * It seems this brings about more stable composition when seeking. */
-    AVCodecContext *ctx   = config->ctx;
-    const AVCodec  *codec = ctx->codec;
-    avcodec_close( ctx );
-    ctx->codec_id = AV_CODEC_ID_NONE;   /* AVCodecContext.codec_id is supposed to be set properly in avcodec_open2().
-                                         * This avoids avcodec_open2() failure by the difference of enum AVCodecID.
-                                         * For instance, when stream is encoded as AC-3,
-                                         * AVCodecContext.codec_id might have been set to AV_CODEC_ID_EAC3
-                                         * while AVCodec.id is set to AV_CODEC_ID_AC3. */
-    if( open_decoder( ctx, codec ) < 0 )
+    AVCodecContext    *ctx          = NULL;
+    const AVCodec     *codec        = config->ctx->codec;
+    void              *app_specific = config->ctx->opaque;
+    AVCodecParameters *codecpar     = avcodec_parameters_alloc();
+    if( !codecpar
+     || avcodec_parameters_from_context( codecpar, config->ctx ) < 0
+     || open_decoder( &ctx, codecpar, codec, config->ctx->thread_count, config->ctx->refcounted_frames ) < 0 )
     {
+        avcodec_flush_buffers( config->ctx );
         config->error = 1;
         if( config->lh.show_log )
             config->lh.show_log( &config->lh, LW_LOG_FATAL,
-                                 "Failed to flush buffers.\n"
+                                 "Failed to flush buffers by a reliable way.\n"
                                  "It is recommended you reopen the file." );
     }
+    else
+    {
+        config->ctx->opaque = NULL;
+        avcodec_free_context( &config->ctx );
+        config->ctx = ctx;
+        config->ctx->opaque = app_specific;
+    }
+    avcodec_parameters_free( &codecpar );
     config->update_pending    = 0;
     config->delay_count       = 0;
     config->queue.delay_count = 0;
@@ -867,28 +854,24 @@ void update_configuration
         }
         return;
     }
-    AVCodecContext *ctx = config->ctx;
-    void *app_specific      = ctx->opaque;
-    int   refcounted_frames = ctx->refcounted_frames;
-    avcodec_close( ctx );
-    if( ctx->extradata )
+    char               error_string[96]  = { 0 };
+    void              *app_specific      = config->ctx->opaque;
+    const int          thread_count      = config->ctx->thread_count;
+    const int          refcounted_frames = config->ctx->refcounted_frames;
+    AVCodecParameters *codecpar          = avcodec_parameters_alloc();
+    if( !codecpar || avcodec_parameters_from_context( codecpar, config->ctx ) < 0 )
     {
-        av_freep( &ctx->extradata );
-        ctx->extradata_size = 0;
+        strcpy( error_string, "Failed to get the CODEC parameters.\n" );
+        goto fail;
     }
+    /* Close the decoder here. */
+    config->ctx->opaque = NULL;
+    avcodec_free_context( &config->ctx );
     /* Find an appropriate decoder. */
-    char error_string[96] = { 0 };
     const AVCodec *codec = find_decoder( config->queue.codec_id, config->preferred_decoder_names );
     if( !codec )
     {
         strcpy( error_string, "Failed to find the decoder.\n" );
-        goto fail;
-    }
-    /* Get decoder default settings. */
-    int thread_count = ctx->thread_count;
-    if( avcodec_get_context_defaults3( ctx, codec ) < 0 )
-    {
-        strcpy( error_string, "Failed to get CODEC default.\n" );
         goto fail;
     }
     /* Set up decoder basic settings. */
@@ -896,49 +879,48 @@ void update_configuration
     if( codec->type == AVMEDIA_TYPE_VIDEO )
     {
         lsmash_video_summary_t *video = (lsmash_video_summary_t *)summary;
-        ctx->width  = video->width;
-        ctx->height = video->height;
+        codecpar->width  = video->width;
+        codecpar->height = video->height;
         /* Here, expect appropriate pixel format will be picked in avcodec_open2(). */
         if( video->depth >= QT_VIDEO_DEPTH_GRAYSCALE_1 && video->depth <= QT_VIDEO_DEPTH_GRAYSCALE_8 )
             config->queue.bits_per_sample = video->depth & 0x1f;
         else
             config->queue.bits_per_sample = video->depth;
         if( config->queue.bits_per_sample > 0 )
-            ctx->bits_per_coded_sample = config->queue.bits_per_sample;
+            codecpar->bits_per_coded_sample = config->queue.bits_per_sample;
     }
     else
     {
         if( codec->id != AV_CODEC_ID_AAC && codec->id != AV_CODEC_ID_DTS && codec->id != AV_CODEC_ID_EAC3 )
         {
             lsmash_audio_summary_t *audio = (lsmash_audio_summary_t *)summary;
-            ctx->sample_rate           = config->queue.sample_rate     ? config->queue.sample_rate     : audio->frequency;
-            ctx->bits_per_coded_sample = config->queue.bits_per_sample ? config->queue.bits_per_sample : audio->sample_size;
-            ctx->channels              = config->queue.channels        ? config->queue.channels        : audio->channels;
+            codecpar->sample_rate           = config->queue.sample_rate     ? config->queue.sample_rate     : audio->frequency;
+            codecpar->bits_per_coded_sample = config->queue.bits_per_sample ? config->queue.bits_per_sample : audio->sample_size;
+            codecpar->channels              = config->queue.channels        ? config->queue.channels        : audio->channels;
         }
         if( codec->id == AV_CODEC_ID_DTS )
         {
-            ctx->bits_per_coded_sample = config->queue.bits_per_sample;
-            ctx->request_sample_fmt    = config->queue.bits_per_sample == 16 ? AV_SAMPLE_FMT_S16 : AV_SAMPLE_FMT_FLT;
+            codecpar->bits_per_coded_sample = config->queue.bits_per_sample;
+            codecpar->format                = (int)(config->queue.bits_per_sample == 16 ? AV_SAMPLE_FMT_S16 : AV_SAMPLE_FMT_FLT);
         }
     }
-    /* AVCodecContext.codec_id is supposed to be set properly in avcodec_open2().
-     * See libavsmash_flush_buffers(), why this is needed. */
-    ctx->codec_id = AV_CODEC_ID_NONE;
     /* This is needed by some CODECs such as UtVideo and raw video. */
-    ctx->codec_tag = BYTE_SWAP_32( summary->sample_type.fourcc );
+    codecpar->codec_tag = BYTE_SWAP_32( summary->sample_type.fourcc );
     /* Update extradata. */
-    ctx->extradata      = config->queue.extradata;
-    ctx->extradata_size = config->queue.extradata_size;
+    codecpar->extradata      = config->queue.extradata;
+    codecpar->extradata_size = config->queue.extradata_size;
     config->queue.extradata      = NULL;
     config->queue.extradata_size = 0;
     /* Open an appropriate decoder.
      * Here, we force single threaded decoding since some decoder doesn't do its proper initialization with multi-threaded decoding. */
-    ctx->thread_count = 1;
-    if( open_decoder( ctx, codec ) < 0 )
+    AVCodecContext *ctx = NULL;
+    if( open_decoder( &ctx, codecpar, codec, 1, refcounted_frames ) < 0 )
     {
         strcpy( error_string, "Failed to open decoder.\n" );
         goto fail;
     }
+    avcodec_parameters_free( &codecpar );
+    config->ctx               = ctx;
     config->index             = new_index;
     config->update_pending    = 0;
     config->delay_count       = 0;
@@ -975,7 +957,7 @@ void update_configuration
                 goto fail;
             }
             int dummy;
-            avcodec_decode_video2( ctx, picture, &dummy, &pkt );
+            decode_video_packet( ctx, picture, &dummy, &pkt );
         } while( ctx->width == 0 || ctx->height == 0 || ctx->pix_fmt == AV_PIX_FMT_NONE );
     }
     else
@@ -1000,7 +982,7 @@ void update_configuration
                 goto fail;
             }
             int dummy;
-            avcodec_decode_audio4( ctx, picture, &dummy, &pkt );
+            decode_audio_packet( ctx, picture, &dummy, &pkt );
             if( upsampling == 0 && picture->nb_samples > 0 )
             {
                 if( ctx->frame_size )
@@ -1025,12 +1007,12 @@ void update_configuration
     av_frame_free( &picture );
     /* Reopen/flush with the requested number of threads. */
     ctx->thread_count = thread_count;
-    libavsmash_flush_buffers( config );
+    libavsmash_flush_buffers( config ); /* Note that config->ctx could change here. */
+    ctx = config->ctx;
     if( current_sample_number == config->queue.sample_number )
         config->dequeue_packet = 1;
-    ctx->get_buffer2       = config->get_buffer;
-    ctx->opaque            = app_specific;
-    ctx->refcounted_frames = refcounted_frames;
+    ctx->get_buffer2 = config->get_buffer;
+    ctx->opaque      = app_specific;
     if( ctx->codec_type == AVMEDIA_TYPE_VIDEO )
     {
         /* avcodec_open2() may have changed resolution unexpectedly. */
@@ -1039,6 +1021,7 @@ void update_configuration
     }
     return;
 fail:
+    avcodec_parameters_free( &codecpar );
     config->update_pending    = 0;
     config->delay_count       = 0;
     config->queue.delay_count = 0;
@@ -1150,7 +1133,7 @@ int initialize_decoder_configuration
             ++valid_index_count;
         }
     }
-    free( index_list );
+    lw_free( index_list );
     /* Reinitialize decoder configuration at the first valid sample. */
     for( uint32_t i = 1; get_sample( root, track_ID, i, config, &dummy ) < 0; i++ );
     update_configuration( root, track_ID, config );
@@ -1168,10 +1151,7 @@ void cleanup_configuration
             lsmash_cleanup_summary( config->entries[i].summary );
         free( config->entries );
     }
-    if( config->queue.extradata )
-        av_free( config->queue.extradata );
-    if( config->input_buffer )
-        av_free( config->input_buffer );
-    if( config->ctx )
-        avcodec_close( config->ctx );
+    av_freep( &config->queue.extradata );
+    av_freep( &config->input_buffer );
+    avcodec_free_context( &config->ctx );
 }

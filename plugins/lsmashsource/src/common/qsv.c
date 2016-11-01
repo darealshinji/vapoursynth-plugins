@@ -34,6 +34,8 @@ extern "C"
 }
 #endif  /* __cplusplus */
 
+#include "decode.h"
+
 int is_qsv_decoder
 (
     const AVCodec *codec
@@ -44,18 +46,6 @@ int is_qsv_decoder
             if( *pix_fmt == AV_PIX_FMT_QSV )
                 return 1;
     return 0;
-}
-
-static inline void restore_extradata
-(
-    AVCodecContext *ctx,
-    uint8_t       **extradata,
-    int             extradata_size
-)
-{
-    ctx->extradata_size = extradata_size;
-    ctx->extradata      = *extradata;
-    *extradata = NULL;
 }
 
 /* Workarounds for Intel QuickSync Video Decoder through libavcodec */
@@ -72,42 +62,48 @@ int do_qsv_decoder_workaround
      * MFXVideoDECODE_DecodeHeader will return MFX_ERR_MORE_DATA. */
     static const uint8_t fake_idr[] = { 0x00, 0x00, 0x00, 0x01, 0x65 }; /* valid for both start-code and size-field prefixes */
     int ret = -1;
-    AVPacket initializer = { 0 };
+    AVPacket initializer;
     av_init_packet( &initializer );
     if( ctx->extradata[0] == 1 )
     {
-        /* Allocate another extradata for backup. */
-        uint8_t *extradata = (uint8_t *)av_mallocz( ctx->extradata_size + FF_INPUT_BUFFER_PADDING_SIZE );
-        if( !extradata )
-            return ret;
-        int extradata_size = ctx->extradata_size;
+        /* Set up the bitstream filter. */
+        AVBSFContext            *bsf_ctx = NULL;
+        const AVBitStreamFilter *bsf     = av_bsf_get_by_name( "h264_mp4toannexb" );
+        if( !bsf || (ret = av_bsf_alloc( bsf, &bsf_ctx )) < 0 )
+            goto bsf_fail;
+        AVCodecParameters *codecpar = bsf_ctx->par_in;
+        if( (ret = avcodec_parameters_from_context( codecpar, ctx )) < 0 )
+            goto bsf_fail;
+        codecpar->extradata[4] |= 0x03; /* Force 4 byte length size fields. */
+        if( (ret = av_bsf_init( bsf_ctx )) < 0 )
+            goto bsf_fail;
         /* Convert into AnnexB Byte Stream Format. */
-        AVBitStreamFilterContext *bsf = av_bitstream_filter_init( "h264_mp4toannexb" );
-        if( !bsf )
+        uint8_t data[sizeof(fake_idr)];
+        memcpy( data, fake_idr, sizeof(fake_idr) );
+        initializer.data = data;
+        initializer.size = sizeof(fake_idr);
+        AVPacket *in_pkt = &initializer;
+        while( 1 )
         {
-            av_free( extradata );
-            return ret;
+            if( (ret = av_bsf_send_packet( bsf_ctx, in_pkt )) < 0 )
+                goto bsf_fail;
+            ret = av_bsf_receive_packet( bsf_ctx, &initializer );
+            if( ret == AVERROR( EAGAIN ) || (in_pkt && ret == AVERROR_EOF) )
+                in_pkt = NULL;  /* Send a null packet. */
+            else if( ret < 0 )
+                goto bsf_fail;
+            else if( ret == 0 )
+                break;
         }
-        uint8_t *filtered_data = NULL;
-        int      filtered_size;
-        memcpy( extradata, ctx->extradata, ctx->extradata_size );   /* backup */
-        ctx->extradata[4] |= 0x03;                                  /* Force 4 byte length size fields. */
-        ret = av_bitstream_filter_filter( bsf, ctx, NULL,
-                                          &filtered_data, &filtered_size,
-                                          fake_idr, sizeof(fake_idr), 0 );
-        av_bitstream_filter_close( bsf );
-        av_freep( &ctx->extradata );
-        restore_extradata( ctx, &extradata, extradata_size );
-        if( ret <= 0 )
-            return -1;
-        initializer.data = filtered_data;
-        initializer.size = filtered_size;
+bsf_fail:
+        /* Tear down the bistream filter. */
+        av_bsf_free( &bsf_ctx );
+        if( ret < 0 )
+            goto fail;
     }
     else
     {
-        initializer.size = ctx->extradata_size + sizeof(fake_idr);
-        initializer.data = (uint8_t *)av_mallocz( initializer.size + FF_INPUT_BUFFER_PADDING_SIZE );
-        if( !initializer.data )
+        if( (ret = av_new_packet( &initializer, ctx->extradata_size + sizeof(fake_idr) )) < 0 )
             return ret;
         memcpy( initializer.data, ctx->extradata, ctx->extradata_size );
         memcpy( initializer.data + ctx->extradata_size, fake_idr, sizeof(fake_idr) );
@@ -117,8 +113,10 @@ int do_qsv_decoder_workaround
     if( picture )
     {
         int got_picture;    /* unused */
-        ret = avcodec_decode_video2( ctx, picture, &got_picture, &initializer );
+        ret = decode_video_packet( ctx, picture, &got_picture, &initializer );
         av_frame_free( &picture );
     }
+fail:
+    av_packet_unref( &initializer );
     return ret;
 }

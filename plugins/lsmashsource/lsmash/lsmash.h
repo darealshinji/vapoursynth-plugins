@@ -47,8 +47,8 @@ extern "C" {
  * Version
  ****************************************************************************/
 #define LSMASH_VERSION_MAJOR  2
-#define LSMASH_VERSION_MINOR 11
-#define LSMASH_VERSION_MICRO  3
+#define LSMASH_VERSION_MINOR 12
+#define LSMASH_VERSION_MICRO  1
 
 #define LSMASH_VERSION_INT( a, b, c ) (((a) << 16) | ((b) << 8) | (c))
 
@@ -689,10 +689,13 @@ typedef lsmash_box_type_t lsmash_codec_type_t;
 DEFINE_ISOM_CODEC_TYPE( ISOM_CODEC_TYPE_AC_3_AUDIO,  LSMASH_4CC( 'a', 'c', '-', '3' ) );    /* AC-3 audio */
 DEFINE_ISOM_CODEC_TYPE( ISOM_CODEC_TYPE_ALAC_AUDIO,  LSMASH_4CC( 'a', 'l', 'a', 'c' ) );    /* Apple lossless audio codec */
 DEFINE_ISOM_CODEC_TYPE( ISOM_CODEC_TYPE_DRA1_AUDIO,  LSMASH_4CC( 'd', 'r', 'a', '1' ) );    /* DRA Audio */
+DEFINE_ISOM_CODEC_TYPE( ISOM_CODEC_TYPE_DTSEL_AUDIO, LSMASH_4CC( 'd', 't', 's', '+' ) );    /* Enhancement layer for DTS layered audio */
+DEFINE_ISOM_CODEC_TYPE( ISOM_CODEC_TYPE_DTSDL_AUDIO, LSMASH_4CC( 'd', 't', 's', '-' ) );    /* Dependent base layer for DTS layered audio */
 DEFINE_ISOM_CODEC_TYPE( ISOM_CODEC_TYPE_DTSC_AUDIO,  LSMASH_4CC( 'd', 't', 's', 'c' ) );    /* DTS Coherent Acoustics audio */
+DEFINE_ISOM_CODEC_TYPE( ISOM_CODEC_TYPE_DTSE_AUDIO,  LSMASH_4CC( 'd', 't', 's', 'e' ) );    /* DTS Express low bit rate audio, also known as DTS LBR */
 DEFINE_ISOM_CODEC_TYPE( ISOM_CODEC_TYPE_DTSH_AUDIO,  LSMASH_4CC( 'd', 't', 's', 'h' ) );    /* DTS-HD High Resolution Audio */
 DEFINE_ISOM_CODEC_TYPE( ISOM_CODEC_TYPE_DTSL_AUDIO,  LSMASH_4CC( 'd', 't', 's', 'l' ) );    /* DTS-HD Master Audio */
-DEFINE_ISOM_CODEC_TYPE( ISOM_CODEC_TYPE_DTSE_AUDIO,  LSMASH_4CC( 'd', 't', 's', 'e' ) );    /* DTS Express low bit rate audio, also known as DTS LBR */
+DEFINE_ISOM_CODEC_TYPE( ISOM_CODEC_TYPE_DTSX_AUDIO,  LSMASH_4CC( 'd', 't', 's', 'x' ) );    /* DTS:X */
 DEFINE_ISOM_CODEC_TYPE( ISOM_CODEC_TYPE_EC_3_AUDIO,  LSMASH_4CC( 'e', 'c', '-', '3' ) );    /* Enhanced AC-3 audio */
 DEFINE_ISOM_CODEC_TYPE( ISOM_CODEC_TYPE_ENCA_AUDIO,  LSMASH_4CC( 'e', 'n', 'c', 'a' ) );    /* Encrypted/Protected audio */
 DEFINE_ISOM_CODEC_TYPE( ISOM_CODEC_TYPE_G719_AUDIO,  LSMASH_4CC( 'g', '7', '1', '9' ) );    /* ITU-T Recommendation G.719 (2008) ); */
@@ -2970,7 +2973,7 @@ uint8_t *lsmash_create_dts_specific_info
 int lsmash_append_dts_reserved_box
 (
     lsmash_dts_specific_parameters_t *param,
-    uint8_t                          *box_data,
+    const uint8_t                    *box_data,
     uint32_t                          box_size
 );
 
@@ -3861,7 +3864,7 @@ typedef enum
     QT_AUDIO_FORMAT_FLAG_NON_MIXABLE      = 1<<6,   /* Set to indicate when a format is non-mixable.
                                                      * Note that this flag is only used when interacting with the HAL's stream format information.
                                                      * It is not a valid flag for any other uses. */
-    QT_AUDIO_FORMAT_FLAG_ALL_CLEAR        = 1<<31,  /* Set if all the flags would be clear in order to preserve 0 as the wild card value. */
+    QT_AUDIO_FORMAT_FLAG_ALL_CLEAR        = (int)(1u << 31),  /* Set if all the flags would be clear in order to preserve 0 as the wild card value. */
 
     QT_LPCM_FORMAT_FLAG_FLOAT             = QT_AUDIO_FORMAT_FLAG_FLOAT,
     QT_LPCM_FORMAT_FLAG_BIG_ENDIAN        = QT_AUDIO_FORMAT_FLAG_BIG_ENDIAN,
@@ -3898,18 +3901,18 @@ typedef struct
 typedef enum
 {
     /* UTF String type */
-    ITUNES_METADATA_ITEM_ALBUM_NAME                 = LSMASH_4CC( 0xA9, 'a', 'l', 'b' ),    /* Album Name */
-    ITUNES_METADATA_ITEM_ARTIST                     = LSMASH_4CC( 0xA9, 'A', 'R', 'T' ),    /* Artist */
-    ITUNES_METADATA_ITEM_USER_COMMENT               = LSMASH_4CC( 0xA9, 'c', 'm', 't' ),    /* User Comment */
-    ITUNES_METADATA_ITEM_RELEASE_DATE               = LSMASH_4CC( 0xA9, 'd', 'a', 'y' ),    /* YYYY-MM-DD format string (may be incomplete, i.e. only year) */
-    ITUNES_METADATA_ITEM_ENCODED_BY                 = LSMASH_4CC( 0xA9, 'e', 'n', 'c' ),    /* Person or company that encoded the recording */
-    ITUNES_METADATA_ITEM_USER_GENRE                 = LSMASH_4CC( 0xA9, 'g', 'e', 'n' ),    /* User Genre user-specified string */
-    ITUNES_METADATA_ITEM_GROUPING                   = LSMASH_4CC( 0xA9, 'g', 'r', 'p' ),    /* Grouping */
-    ITUNES_METADATA_ITEM_LYRICS                     = LSMASH_4CC( 0xA9, 'l', 'y', 'r' ),    /* Lyrics */
-    ITUNES_METADATA_ITEM_TITLE                      = LSMASH_4CC( 0xA9, 'n', 'a', 'm' ),    /* Title / Song Name */
-    ITUNES_METADATA_ITEM_TRACK_SUBTITLE             = LSMASH_4CC( 0xA9, 's', 't', '3' ),    /* Track Sub-Title */
-    ITUNES_METADATA_ITEM_ENCODING_TOOL              = LSMASH_4CC( 0xA9, 't', 'o', 'o' ),    /* Software which encoded the recording */
-    ITUNES_METADATA_ITEM_COMPOSER                   = LSMASH_4CC( 0xA9, 'w', 'r', 't' ),    /* Composer */
+    ITUNES_METADATA_ITEM_ALBUM_NAME                 = (int)LSMASH_4CC( 0xA9u, 'a', 'l', 'b' ),  /* Album Name */
+    ITUNES_METADATA_ITEM_ARTIST                     = (int)LSMASH_4CC( 0xA9u, 'A', 'R', 'T' ),  /* Artist */
+    ITUNES_METADATA_ITEM_USER_COMMENT               = (int)LSMASH_4CC( 0xA9u, 'c', 'm', 't' ),  /* User Comment */
+    ITUNES_METADATA_ITEM_RELEASE_DATE               = (int)LSMASH_4CC( 0xA9u, 'd', 'a', 'y' ),  /* YYYY-MM-DD format string (may be incomplete, i.e. only year) */
+    ITUNES_METADATA_ITEM_ENCODED_BY                 = (int)LSMASH_4CC( 0xA9u, 'e', 'n', 'c' ),  /* Person or company that encoded the recording */
+    ITUNES_METADATA_ITEM_USER_GENRE                 = (int)LSMASH_4CC( 0xA9u, 'g', 'e', 'n' ),  /* User Genre user-specified string */
+    ITUNES_METADATA_ITEM_GROUPING                   = (int)LSMASH_4CC( 0xA9u, 'g', 'r', 'p' ),  /* Grouping */
+    ITUNES_METADATA_ITEM_LYRICS                     = (int)LSMASH_4CC( 0xA9u, 'l', 'y', 'r' ),  /* Lyrics */
+    ITUNES_METADATA_ITEM_TITLE                      = (int)LSMASH_4CC( 0xA9u, 'n', 'a', 'm' ),  /* Title / Song Name */
+    ITUNES_METADATA_ITEM_TRACK_SUBTITLE             = (int)LSMASH_4CC( 0xA9u, 's', 't', '3' ),  /* Track Sub-Title */
+    ITUNES_METADATA_ITEM_ENCODING_TOOL              = (int)LSMASH_4CC( 0xA9u, 't', 'o', 'o' ),  /* Software which encoded the recording */
+    ITUNES_METADATA_ITEM_COMPOSER                   = (int)LSMASH_4CC( 0xA9u, 'w', 'r', 't' ),  /* Composer */
     ITUNES_METADATA_ITEM_ALBUM_ARTIST               = LSMASH_4CC( 'a', 'A', 'R', 'T' ),     /* Artist for the whole album (if different than the individual tracks) */
     ITUNES_METADATA_ITEM_PODCAST_CATEGORY           = LSMASH_4CC( 'c', 'a', 't', 'g' ),     /* Podcast Category */
     ITUNES_METADATA_ITEM_COPYRIGHT                  = LSMASH_4CC( 'c', 'p', 'r', 't' ),     /* Copyright */

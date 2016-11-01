@@ -41,6 +41,7 @@ extern "C"
 #include "libavsmash.h"
 #include "libavsmash_video.h"
 #include "libavsmash_video_internal.h"
+#include "decode.h"
 
 /*****************************************************************************
  * Allocators / Deallocators
@@ -173,15 +174,6 @@ void libavsmash_video_set_log_handler
 )
 {
     vdhp->config.lh = *lh;
-}
-
-void libavsmash_video_set_codec_context
-(
-    libavsmash_video_decode_handler_t *vdhp,
-    AVCodecContext                    *ctx
-)
-{
-    vdhp->config.ctx = ctx;
 }
 
 void libavsmash_video_set_get_buffer_func
@@ -395,26 +387,17 @@ int libavsmash_video_initialize_decoder_configuration
     /* libavformat */
     uint32_t type = AVMEDIA_TYPE_VIDEO;
     uint32_t i;
-    for( i = 0; i < format_ctx->nb_streams && format_ctx->streams[i]->codec->codec_type != type; i++ );
+    for( i = 0; i < format_ctx->nb_streams && format_ctx->streams[i]->codecpar->codec_type != type; i++ );
     if( i == format_ctx->nb_streams )
     {
         strcpy( error_string, "Failed to find stream by libavformat.\n" );
         goto fail;
     }
     /* libavcodec */
-    AVCodecContext *ctx = format_ctx->streams[i]->codec;
-    AVCodec        *codec;
-    libavsmash_video_set_codec_context( vdhp, ctx );
-    codec = libavsmash_video_find_decoder( vdhp );
-    if( !codec )
+    AVCodecParameters *codecpar = format_ctx->streams[i]->codecpar;
+    if( libavsmash_find_and_open_decoder( &vdhp->config, codecpar, threads, 1 ) < 0 )
     {
-        sprintf( error_string, "Failed to find %s decoder.\n", codec->name );
-        goto fail;
-    }
-    ctx->thread_count = threads;
-    if( avcodec_open2( ctx, codec, NULL ) < 0 )
-    {
-        strcpy( error_string, "Failed to avcodec_open2.\n" );
+        strcpy( error_string, "Failed to find and open the video decoder.\n" );
         goto fail;
     }
     return initialize_decoder_configuration( vdhp->root, vdhp->track_id, &vdhp->config );
@@ -430,14 +413,6 @@ int libavsmash_video_get_summaries
 )
 {
     return get_summaries( vdhp->root, vdhp->track_id, &vdhp->config );
-}
-
-AVCodec *libavsmash_video_find_decoder
-(
-    libavsmash_video_decode_handler_t *vdhp
-)
-{
-    return libavsmash_find_decoder( &vdhp->config );
 }
 
 void libavsmash_video_force_seek
@@ -504,8 +479,7 @@ void libavsmash_video_close_codec_context
 {
     if( !vdhp || !vdhp->config.ctx )
         return;
-    avcodec_close( vdhp->config.ctx );
-    vdhp->config.ctx = NULL;
+    avcodec_free_context( &vdhp->config.ctx );
 }
 
 int libavsmash_video_setup_timestamp_info
@@ -646,7 +620,7 @@ static int decode_video_sample
         pkt.flags = 0;
     av_frame_unref( picture );
     uint64_t cts = pkt.pts;
-    ret = avcodec_decode_video2( config->ctx, picture, got_picture, &pkt );
+    ret = decode_video_packet( config->ctx, picture, got_picture, &pkt );
     picture->pts = cts;
     if( ret < 0 )
     {
@@ -822,7 +796,7 @@ static int get_picture
             pkt.data = NULL;
             pkt.size = 0;
             av_frame_unref( picture );
-            if( avcodec_decode_video2( config->ctx, picture, &got_picture, &pkt ) < 0 )
+            if( decode_video_packet( config->ctx, picture, &got_picture, &pkt ) < 0 )
             {
                 lw_log_show( &config->lh, LW_LOG_WARNING, "Failed to decode and flush a video frame." );
                 return -1;
@@ -1028,14 +1002,13 @@ int libavsmash_video_find_first_valid_frame
 )
 {
     codec_configuration_t *config = &vdhp->config;
-    config->ctx->refcounted_frames = 1;
     for( uint32_t i = 1; i <= vdhp->sample_count + get_decoder_delay( config->ctx ); i++ )
     {
         AVPacket pkt = { 0 };
         get_sample( vdhp->root, vdhp->track_id, i, config, &pkt );
         av_frame_unref( vdhp->frame_buffer );
         int got_picture;
-        if( avcodec_decode_video2( config->ctx, vdhp->frame_buffer, &got_picture, &pkt ) >= 0 && got_picture )
+        if( decode_video_packet( config->ctx, vdhp->frame_buffer, &got_picture, &pkt ) >= 0 && got_picture )
         {
             vdhp->first_valid_frame_number = i - MIN( get_decoder_delay( config->ctx ), config->delay_count );
             if( vdhp->first_valid_frame_number > 1 || vdhp->sample_count == 1 )

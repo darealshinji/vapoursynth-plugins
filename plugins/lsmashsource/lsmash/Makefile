@@ -1,3 +1,14 @@
+ifneq ($(V),1)
+GEN_silent    = @ echo '  GEN      '$@;
+CXXLD_silent  = @ echo '  CXXLD    '$@;
+CXX_silent    = @ echo '  CXX      '$@;
+CCLD_silent   = @ echo '  CCLD     '$@;
+CC_silent     = @ echo '  CC       '$@;
+YASM_silent   = @ echo '  YASM     '$@;
+AR_silent     = @ echo '  AR       '$@;
+RANLIB_silent = @ echo '  RANLIB   '$@;
+endif
+
 # Makefile for L-SMASH
 
 # note:
@@ -21,13 +32,11 @@ all: $(STATICLIB) $(SHAREDLIB) $(TOOLS)
 lib: $(STATICLIB) $(SHAREDLIB)
 
 $(STATICLIBNAME): $(OBJS)
-	$(AR) rc $@ $^
-	$(RANLIB) $@
-	-@ $(if $(STRIP), $(STRIP) -x $@)
+	$(AR_silent)$(AR) rc $@ $^
+	$(RANLIB_silent)$(RANLIB) $@
 
 $(SHAREDLIBNAME): $(OBJS)
-	$(LD) $(SO_LDFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
-	-@ $(if $(STRIP), $(STRIP) -x $@)
+	$(CCLD_silent)$(CCLD) $(SO_LDFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
 ifeq ($(SHAREDLIBNAME), liblsmash.so.$(MAJVER))
 	ln -sf $(SHAREDLIBNAME) liblsmash.so
 endif
@@ -37,7 +46,7 @@ endif
 include config.mak2
 
 %.o: %.c .depend config.h
-	$(CC) -c $(CFLAGS) -o $@ $<
+	$(CC_silent)$(CC) -c $(CFLAGS) -o $@ $<
 
 install: all install-lib
 	install -d $(DESTDIR)$(bindir)
@@ -56,6 +65,10 @@ ifneq ($(IMPLIB),)
 	install -m 644 $(IMPLIB) $(DESTDIR)$(libdir)
 	install -d $(DESTDIR)$(bindir)
 	install -m 755 $(SHAREDLIB) $(DESTDIR)$(bindir)
+ifneq ($(SLIB_CMD),)
+	install -m 644 $(DEFNAME) $(DESTDIR)$(libdir)
+	install -m 644 lsmash.lib $(DESTDIR)$(bindir)
+endif
 else
 	install -m 644 $(SHAREDLIB) $(DESTDIR)$(libdir)
 ifeq ($(SHAREDLIB), liblsmash.so.$(MAJVER))
@@ -67,14 +80,14 @@ endif
 #All objects should be deleted regardless of configure when uninstall/clean/distclean.
 uninstall:
 	$(RM) $(DESTDIR)$(includedir)/lsmash.h
-	$(RM) $(addprefix $(DESTDIR)$(libdir)/, liblsmash.a liblsmash.dll.a liblsmash.so* liblsmash.dylib pkgconfig/liblsmash.pc)
-	$(RM) $(addprefix $(DESTDIR)$(bindir)/, $(TOOLS_ALL) $(TOOLS_ALL:%=%.exe) liblsmash.dll cyglsmash.dll)
+	$(RM) $(addprefix $(DESTDIR)$(libdir)/, liblsmash.a liblsmash.dll.a liblsmash.so* liblsmash.dylib liblsmash*.def pkgconfig/liblsmash.pc)
+	$(RM) $(addprefix $(DESTDIR)$(bindir)/, $(TOOLS_ALL) $(TOOLS_ALL:%=%.exe) liblsmash*.dll lsmash.lib cyglsmash.dll)
 
 clean:
-	$(RM) */*.o *.a *.so* *.dll *.dylib $(addprefix cli/, *.exe $(TOOLS_ALL)) .depend
+	$(RM) */*.o *.a *.so* *.def *.exp *.lib *.dll *.dylib $(addprefix cli/, *.exe $(TOOLS_ALL)) .depend
 
 distclean: clean
-	$(RM) config.* *.pc
+	$(RM) config.* *.pc *.ver
 
 dep: .depend
 

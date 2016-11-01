@@ -56,9 +56,18 @@ cc_check()
     return $ret
 }
 
+is_64bit()
+{
+    echo 'int main(void){int a[2*(sizeof(void *)>4)-1]; return 0;}' > conftest.c
+    $CC conftest.c -o conftest 2> /dev/null
+    ret=$?
+    rm -f conftest*
+    return $ret
+}
+
 #-----------------------------------------------------------------------------
 
-rm -f config.* .depend conftest* liblsmash.pc
+rm -f config.* .depend conftest* liblsmash.pc *.ver
 
 
 echo
@@ -106,7 +115,7 @@ TOOLS=""
 
 CFLAGS="-Wshadow -Wall -std=c99 -pedantic -I. -I$SRCDIR"
 LDFLAGS="-L."
-SO_LDFLAGS='-shared -Wl,-soname,$@'
+SO_LDFLAGS='-shared -Wl,-soname,$@ -Wl,--version-script,liblsmash.ver'
 LIBS="-lm"
 
 for opt; do
@@ -198,21 +207,42 @@ fi
 case "$TARGET_OS" in
     *mingw*)
         EXT=".exe"
+        SHARED_NAME="liblsmash-$MAJVER"
         SHARED_EXT=".dll"
+        DEFNAME="${SHARED_NAME}.def"
         IMPLIB="liblsmash.dll.a"
-        SO_LDFLAGS="-shared -Wl,--out-implib,$IMPLIB"
+        SO_LDFLAGS="-shared -Wl,--output-def,$DEFNAME -Wl,--out-implib,$IMPLIB -Wl,--version-script,liblsmash.ver"
         CFLAGS="$CFLAGS -D__USE_MINGW_ANSI_STDIO=1"
+        LIBARCH=i386
+        if lib.exe --list > /dev/null 2>&1 ; then
+            if is_64bit ; then
+                LIBARCH=x64
+            fi
+            SLIB_CMD='sed -i "s/ @[^ ]*//" $(DEFNAME); lib.exe -machine:$(LIBARCH) -def:$(DEFNAME) -out:lsmash.lib'
+        elif genlib -V > /dev/null 2>&1 ; then
+            if is_64bit ; then
+                LIBARCH=x86_64
+            else
+                LIBARCH=x86
+            fi
+            SLIB_CMD='sed -i "s/ @[^ ]*//" $(DEFNAME); genlib -a $(LIBARCH) -o lsmash.lib -d $(SHAREDLIBNAME) $(DEFNAME)'
+        elif ${CROSS}dlltool --version > /dev/null 2>&1 ; then
+            if is_64bit ; then
+                LIBARCH="i386:x86-64"
+            fi
+            SLIB_CMD="sed -i \"s/ @[^ ]*//\" \$(DEFNAME); ${CROSS}dlltool -m \$(LIBARCH) -d \$(DEFNAME) -l lsmash.lib -D \$(SHAREDLIBNAME)"
+        fi
         ;;
     *cygwin*)
         EXT=".exe"
         SHARED_NAME="cyglsmash"
         SHARED_EXT=".dll"
         IMPLIB="liblsmash.dll.a"
-        SO_LDFLAGS="-shared -Wl,--out-implib,$IMPLIB"
+        SO_LDFLAGS="-shared -Wl,--out-implib,$IMPLIB -Wl,--version-script,liblsmash.ver"
         ;;
     *darwin*)
         SHARED_EXT=".dylib"
-        SO_LDFLAGS="-dynamiclib -Wl,-undefined,suppress -Wl,-read_only_relocs,suppress -Wl,-flat_namespace"
+        SO_LDFLAGS="-dynamiclib -Wl,-undefined,suppress -Wl,-read_only_relocs,suppress -Wl,-flat_namespace -Wl,--version-script,liblsmash.ver"
         ;;
     *solaris*)
         #patches welcome
@@ -367,18 +397,40 @@ done
 CURDIR="$PWD"
 cd $SRCDIR
 VER=$MAJVER.$MINVER.$MICVER
-REV="$(git rev-list HEAD 2> /dev/null | wc -l)"
+if test -d .git && type git > /dev/null 2>&1 ; then
+    REV="$(git rev-list HEAD 2> /dev/null | wc -l)"
+    HASH="$(git describe --always 2> /dev/null)"
+else
+    REV=0
+    HASH=
+fi
 if test $REV -ne 0; then
     VER_STRING="$VER rev.$REV"
 else
     VER_STRING="$VER"
 fi
-HASH="$(git describe --always 2> /dev/null)"
 cd "$CURDIR"
 cat >> config.h << EOF
 #define LSMASH_REV "$REV"
 #define LSMASH_GIT_HASH "$HASH"
 EOF
+
+
+sed "s/\\\$MAJOR/$MAJVER/" $SRCDIR/liblsmash.v > liblsmash.ver
+# Add non-public symbols which have lsmash_* prefix to local.
+find $SRCDIR/common/ $SRCDIR/importer/ -name "*.h" | xargs sed -e 's/^[ ]*//g' | \
+    grep "^\(void\|lsmash_bits_t\|uint64_t\|int\|int64_t\|lsmash_bs_t\|uint8_t\|uint16_t\|uint32_t\|lsmash_entry_list_t\|lsmash_entry_t\|lsmash_multiple_buffers_t\|double\|float\|FILE\).*lsmash_" | \
+    sed -e "s/.*\(lsmash_.*\)(.*/\1/g" -e "s/.*\(lsmash_.*\)/\1;/g" | xargs -I% sed -i "/^};$/i \           %" liblsmash.ver
+# Get rid of non-public symbols for the cli tools from local.
+sed -i -e '/lsmash_win32_fopen/d' \
+    -e '/lsmash_string_from_wchar/d' \
+    -e '/lsmash_importer_open/d' \
+    -e '/lsmash_importer_close/d' \
+    -e '/lsmash_importer_get_access_unit/d' \
+    -e '/lsmash_importer_get_last_delta/d' \
+    -e '/lsmash_importer_construct_timeline/d' \
+    -e '/lsmash_importer_get_track_count/d' \
+    -e '/lsmash_duplicate_summary/d' liblsmash.ver
 
 
 cat >> liblsmash.pc << EOF
@@ -392,8 +444,8 @@ Description: Loyal to Spec of MPEG4, and Ad-hock Simple Hackwork
 Version: $VER_STRING
 Requires:
 URL: https://github.com/l-smash/l-smash
-Libs: -L${libdir} -llsmash $LIBS
-Libs.private:
+Libs: -L${libdir} -llsmash $(test -z "$SHAREDLIB" && echo $LIBS)
+Libs.private: $(test -n "$SHAREDLIB" && echo $LIBS)
 Cflags: -I${includedir}
 EOF
 
@@ -420,6 +472,9 @@ CFLAGS = $CFLAGS
 LDFLAGS = $LDFLAGS
 SO_LDFLAGS = $SO_LDFLAGS
 LIBS = $LIBS
+LIBARCH = $LIBARCH
+DEFNAME = $DEFNAME
+SLIB_CMD = $SLIB_CMD
 EOF
 
 cat config.mak
@@ -436,8 +491,7 @@ EOF
 for tool in $TOOLS; do
     cat >> config.mak2 << EOF
 cli/${tool}${EXT}: cli/${tool}.o $OBJ_TOOLS $STATICLIB $SHAREDLIB
-	\$(CC) \$(CFLAGS) \$(LDFLAGS) -o \$@ \$< $OBJ_TOOLS -llsmash \$(LIBS)
-	-@ \$(if \$(STRIP), \$(STRIP) \$@)
+	\$(CCLD_silent)\$(CC) \$(CFLAGS) \$(LDFLAGS) -o \$@ \$< $OBJ_TOOLS -llsmash \$(LIBS)
 
 EOF
 done

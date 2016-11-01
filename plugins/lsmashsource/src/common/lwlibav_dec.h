@@ -108,15 +108,7 @@ static inline int lavf_open_file
 
 static inline void lavf_close_file( AVFormatContext **format_ctx )
 {
-    for( unsigned int index = 0; index < (*format_ctx)->nb_streams; index++ )
-        if( avcodec_is_open( (*format_ctx)->streams[index]->codec ) )
-            avcodec_close( (*format_ctx)->streams[index]->codec );
     avformat_close_input( format_ctx );
-}
-
-static inline uint32_t get_decoder_delay( AVCodecContext *ctx )
-{
-    return ctx->has_b_frames + ((ctx->active_thread_type & FF_THREAD_FRAME) ? ctx->thread_count - 1 : 0);
 }
 
 static inline int read_av_frame
@@ -136,10 +128,11 @@ static inline int read_av_frame
 
 int find_and_open_decoder
 (
-    AVCodecContext *ctx,
-    enum AVCodecID  codec_id,
-    const char    **preferred_decoder_names,
-    int             threads
+    AVCodecContext         **ctx,
+    const AVCodecParameters *codecpar,
+    const char             **preferred_decoder_names,
+    const int                thread_count,
+    const int                refcounted_frames
 );
 
 void lwlibav_flush_buffers
@@ -155,12 +148,6 @@ int lwlibav_get_av_frame
     AVPacket        *pkt
 );
 
-int lw_copy_av_packet
-(
-    AVPacket *dst,
-    AVPacket *src
-);
-
 void lwlibav_update_configuration
 (
     lwlibav_decode_handler_t *dhp,
@@ -172,12 +159,14 @@ void lwlibav_update_configuration
 void set_video_basic_settings
 (
     lwlibav_decode_handler_t *dhp,
+    const AVCodec            *codec,
     uint32_t                  frame_number
 );
 
 void set_audio_basic_settings
 (
     lwlibav_decode_handler_t *dhp,
+    const AVCodec            *codec,
     uint32_t                  frame_number
 );
 

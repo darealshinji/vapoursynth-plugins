@@ -1,0 +1,46 @@
+--- Makefile.orig	2016-10-12 20:44:51.000000000 +0200
++++ Makefile	2016-11-01 16:28:23.597142268 +0100
+@@ -1,3 +1,14 @@
++ifneq ($(V),1)
++GEN_silent    = @ echo '  GEN      '$@;
++CXXLD_silent  = @ echo '  CXXLD    '$@;
++CXX_silent    = @ echo '  CXX      '$@;
++CCLD_silent   = @ echo '  CCLD     '$@;
++CC_silent     = @ echo '  CC       '$@;
++YASM_silent   = @ echo '  YASM     '$@;
++AR_silent     = @ echo '  AR       '$@;
++RANLIB_silent = @ echo '  RANLIB   '$@;
++endif
++
+ # Makefile for L-SMASH
+ 
+ # note:
+@@ -21,16 +32,11 @@
+ lib: $(STATICLIB) $(SHAREDLIB)
+ 
+ $(STATICLIBNAME): $(OBJS)
+-	$(AR) rc $@ $^
+-	$(RANLIB) $@
+-	-@ $(if $(STRIP), $(STRIP) -x $@)
++	$(AR_silent)$(AR) rc $@ $^
++	$(RANLIB_silent)$(RANLIB) $@
+ 
+ $(SHAREDLIBNAME): $(OBJS)
+-	$(LD) $(SO_LDFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
+-	-@ $(if $(STRIP), $(STRIP) -x $@)
+-ifneq ($(SLIB_CMD),)
+-	$(SLIB_CMD)
+-endif
++	$(CCLD_silent)$(CCLD) $(SO_LDFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
+ ifeq ($(SHAREDLIBNAME), liblsmash.so.$(MAJVER))
+ 	ln -sf $(SHAREDLIBNAME) liblsmash.so
+ endif
+@@ -40,7 +46,7 @@
+ include config.mak2
+ 
+ %.o: %.c .depend config.h
+-	$(CC) -c $(CFLAGS) -o $@ $<
++	$(CC_silent)$(CC) -c $(CFLAGS) -o $@ $<
+ 
+ install: all install-lib
+ 	install -d $(DESTDIR)$(bindir)
