@@ -45,51 +45,51 @@
 #if defined(NNEDI3_X86)
 // Functions implemented in nnedi3.asm
 extern "C" {
-    extern void nnedi3_byte2float48_SSE2(const uint8_t *t, const int pitch, float *p);
-    extern void nnedi3_word2float48_SSE2(const uint8_t *t, const int pitch, float *pf);
-    extern void nnedi3_byte2word48_SSE2(const uint8_t *t, const int pitch, float *pf);
-    extern void nnedi3_byte2word64_SSE2(const uint8_t *t, const int pitch, float *p);
+    extern void nnedi3_byte2float48_SSE2(const uint8_t *t, const intptr_t pitch, float *p);
+    extern void nnedi3_word2float48_SSE2(const uint8_t *t, const intptr_t pitch, float *pf);
+    extern void nnedi3_byte2word48_SSE2(const uint8_t *t, const intptr_t pitch, float *pf);
+    extern void nnedi3_byte2word64_SSE2(const uint8_t *t, const intptr_t pitch, float *p);
 
-    extern int32_t nnedi3_processLine0_SSE2(const uint8_t *tempu, int width, uint8_t *dstp, const uint8_t *src3p, const int src_pitch);
+    extern int32_t nnedi3_processLine0_SSE2(const uint8_t *tempu, intptr_t width, uint8_t *dstp, const uint8_t *src3p, const intptr_t src_pitch);
 
-    extern void nnedi3_extract_m8_SSE2(const uint8_t *srcp, const int stride, const int xdia, const int ydia, float *mstd, float *input);
-    extern void nnedi3_extract_m8_i16_SSE2(const uint8_t *srcp, const int stride, const int xdia, const int ydia, float *mstd, float *inputf);
+    extern void nnedi3_extract_m8_SSE2(const uint8_t *srcp, const intptr_t stride, const intptr_t xdia, const intptr_t ydia, float *mstd, float *input);
+    extern void nnedi3_extract_m8_i16_SSE2(const uint8_t *srcp, const intptr_t stride, const intptr_t xdia, const intptr_t ydia, float *mstd, float *inputf);
 
     extern void nnedi3_computeNetwork0_SSE2(const float *input, const float *weights, uint8_t *d);
     extern void nnedi3_computeNetwork0_i16_SSE2(const float *inputf, const float *weightsf, uint8_t *d);
     extern void nnedi3_computeNetwork0new_SSE2(const float *datai, const float *weights, uint8_t *d);
 
-    extern void nnedi3_weightedAvgElliottMul5_m16_SSE2(const float *w, const int n, float *mstd);
+    extern void nnedi3_weightedAvgElliottMul5_m16_SSE2(const float *w, const intptr_t n, float *mstd);
 
-    extern void nnedi3_e0_m16_SSE2(float *s, const int n);
-    extern void nnedi3_e1_m16_SSE2(float *s, const int n);
-    extern void nnedi3_e2_m16_SSE2(float *s, const int n);
+    extern void nnedi3_e0_m16_SSE2(float *s, const intptr_t n);
+    extern void nnedi3_e1_m16_SSE2(float *s, const intptr_t n);
+    extern void nnedi3_e2_m16_SSE2(float *s, const intptr_t n);
 
-    extern void nnedi3_dotProd_SSE2(const float *data, const float *weights, float *vals, const int n, const int len, const float *istd);
-    extern void nnedi3_dotProd_i16_SSE2(const float *dataf, const float *weightsf, float *vals, const int n, const int len, const float *istd);
+    extern void nnedi3_dotProd_SSE2(const float *data, const float *weights, float *vals, const intptr_t n, const intptr_t len, const float *istd);
+    extern void nnedi3_dotProd_i16_SSE2(const float *dataf, const float *weightsf, float *vals, const intptr_t n, const intptr_t len, const float *istd);
 
     extern void nnedi3_computeNetwork0_FMA3(const float *input, const float *weights, uint8_t *d);
-    extern void nnedi3_e0_m16_FMA3(float *s, const int n);
-    extern void nnedi3_dotProd_FMA3(const float *data, const float *weights, float *vals, const int n, const int len, const float *istd);
+    extern void nnedi3_e0_m16_FMA3(float *s, const intptr_t n);
+    extern void nnedi3_dotProd_FMA3(const float *data, const float *weights, float *vals, const intptr_t n, const intptr_t len, const float *istd);
 
     extern void nnedi3_computeNetwork0_FMA4(const float *input, const float *weights, uint8_t *d);
-    extern void nnedi3_e0_m16_FMA4(float *s, const int n);
-    extern void nnedi3_dotProd_FMA4(const float *data, const float *weights, float *vals, const int n, const int len, const float *istd);
+    extern void nnedi3_e0_m16_FMA4(float *s, const intptr_t n);
+    extern void nnedi3_dotProd_FMA4(const float *data, const float *weights, float *vals, const intptr_t n, const intptr_t len, const float *istd);
 }
 #elif defined(NNEDI3_ARM)
 // Functions implemented in simd_neon.c
 extern "C" {
-    extern void byte2word48_neon(const uint8_t *t, const int pitch, float *pf);
-    extern void byte2word64_neon(const uint8_t *t, const int pitch, float *pf);
-    extern void byte2float48_neon(const uint8_t *t, const int pitch, float *p);
-    extern void word2float48_neon(const uint8_t *t8, const int pitch, float *p);
+    extern void byte2word48_neon(const uint8_t *t, const intptr_t pitch, float *pf);
+    extern void byte2word64_neon(const uint8_t *t, const intptr_t pitch, float *pf);
+    extern void byte2float48_neon(const uint8_t *t, const intptr_t pitch, float *p);
+    extern void word2float48_neon(const uint8_t *t8, const intptr_t pitch, float *p);
 
     extern void computeNetwork0_neon(const float *input, const float *weights, uint8_t *d);
     extern void computeNetwork0_i16_neon(const float *inputf, const float *weightsf, uint8_t *d);
     extern void computeNetwork0new_neon(const float *dataf, const float *weightsf, uint8_t *d);
 
-    extern void dotProd_neon(const float *data, const float *weights, float *vals, const int n, const int len, const float *istd);
-    extern void dotProd_i16_neon(const float *dataf, const float *weightsf, float *vals, const int n, const int len, const float *istd);
+    extern void dotProd_neon(const float *data, const float *weights, float *vals, const intptr_t n, const intptr_t len, const float *istd);
+    extern void dotProd_i16_neon(const float *dataf, const float *weightsf, float *vals, const intptr_t n, const intptr_t len, const float *istd);
 }
 #endif
 
@@ -136,7 +136,10 @@ struct nnedi3Data {
     int etype;
     int pscrn;
     int opt;
-    int fapprox;
+    int int16_prescreener;
+    int int16_predictor;
+    int exp;
+    int show_mask;
 
     int max_value;
 
@@ -145,15 +148,15 @@ struct nnedi3Data {
     void (*evalFunc_1)(const nnedi3Data *, FrameData *);
 
     // Functions used in evalFunc_0
-    void (*readPixels)(const uint8_t *, const int, float *);
+    void (*readPixels)(const uint8_t *, const intptr_t, float *);
     void (*computeNetwork0)(const float *, const float *, uint8_t *);
-    int32_t (*processLine0)(const uint8_t *, int, uint8_t *, const uint8_t *, const int, const int, const int);
+    int32_t (*processLine0)(const uint8_t *, int, uint8_t *, const uint8_t *, const int, const int);
 
     // Functions used in evalFunc_1
-    void (*extract)(const uint8_t *, const int, const int, const int, float *, float *);
-    void (*dotProd)(const float *, const float *, float *, const int, const int, const float *);
-    void (*expfunc)(float *, const int);
-    void (*wae5)(const float *, const int, float *);
+    void (*extract)(const uint8_t *, const intptr_t, const intptr_t, const intptr_t, float *, float *);
+    void (*dotProd)(const float *, const float *, float *, const intptr_t, const intptr_t, const float *);
+    void (*expfunc)(float *, const intptr_t);
+    void (*wae5)(const float *, const intptr_t, float *);
 };
 
 
@@ -218,13 +221,13 @@ static void copyPad(const VSFrameRef *src, FrameData *frameData, const nnedi3Dat
 }
 
 
-void elliott_C(float *data, const int n) {
+static void elliott_C(float *data, const int n) {
     for (int i = 0; i < n; ++i)
         data[i] = data[i] / (1.0f + std::fabs(data[i]));
 }
 
 
-void dotProd_C(const float *data, const float *weights, float *vals, const int n, const int len, const float *scale) {
+static void dotProd_C(const float *data, const float *weights, float *vals, const intptr_t n, const intptr_t len, const float *scale) {
     for (int i = 0; i < n; ++i) {
         float sum = 0.0f;
         for (int j = 0; j < len; ++j)
@@ -235,7 +238,7 @@ void dotProd_C(const float *data, const float *weights, float *vals, const int n
 }
 
 
-void dotProdS_C(const float *dataf, const float *weightsf, float *vals, const int n, const int len, const float *scale) {
+static void dotProdS_C(const float *dataf, const float *weightsf, float *vals, const intptr_t n, const intptr_t len, const float *scale) {
     const int16_t *data = (int16_t *)dataf;
     const int16_t *weights = (int16_t *)weightsf;
     const float *wf = (float *)&weights[n * len];
@@ -250,7 +253,7 @@ void dotProdS_C(const float *dataf, const float *weightsf, float *vals, const in
 }
 
 
-void computeNetwork0_C(const float *input, const float *weights, uint8_t *d) {
+static void computeNetwork0_C(const float *input, const float *weights, uint8_t *d) {
     float temp[12], scale = 1.0f;
     dotProd_C(input, weights, temp, 4, 48, &scale);
     const float t = temp[0];
@@ -266,7 +269,7 @@ void computeNetwork0_C(const float *input, const float *weights, uint8_t *d) {
 }
 
 
-void computeNetwork0_i16_C(const float *inputf, const float *weightsf, uint8_t *d) {
+static void computeNetwork0_i16_C(const float *inputf, const float *weightsf, uint8_t *d) {
     const float *wf = weightsf + 2 * 48;
     float temp[12], scale = 1.0f;
     dotProdS_C(inputf, weightsf, temp, 4, 48, &scale);
@@ -284,7 +287,7 @@ void computeNetwork0_i16_C(const float *inputf, const float *weightsf, uint8_t *
 
 
 template <typename PixelType>
-void pixel2float48_C(const uint8_t *t8, const int pitch, float *p) {
+static void pixel2float48_C(const uint8_t *t8, const intptr_t pitch, float *p) {
     const PixelType *t = (const PixelType *)t8;
 
     for (int y = 0; y < 4; ++y)
@@ -293,7 +296,7 @@ void pixel2float48_C(const uint8_t *t8, const int pitch, float *p) {
 }
 
 
-void byte2word48_C(const uint8_t *t, const int pitch, float *pf) {
+static void byte2word48_C(const uint8_t *t, const intptr_t pitch, float *pf) {
     int16_t *p = (int16_t *)pf;
     for (int y = 0; y < 4; ++y)
         for (int x = 0; x < 12; ++x)
@@ -303,7 +306,7 @@ void byte2word48_C(const uint8_t *t, const int pitch, float *pf) {
 
 #ifdef NNEDI3_X86
 #define CB2(n) std::max(std::min((n), 254), 0)
-int32_t processLine0_maybeSSE2(const uint8_t *tempu, int width, uint8_t *dstp, const uint8_t *src3p, const int src_pitch, const int max_value, const int) {
+static int32_t processLine0_maybeSSE2(const uint8_t *tempu, int width, uint8_t *dstp, const uint8_t *src3p, const int src_pitch, const int max_value) {
     int32_t count = 0;
     const int remain = width & 15;
     width -= remain;
@@ -327,7 +330,7 @@ int32_t processLine0_maybeSSE2(const uint8_t *tempu, int width, uint8_t *dstp, c
 // PixelType can be uint8_t, uint16_t, or float.
 // TempType can be int or float.
 template <typename PixelType, typename TempType>
-int32_t processLine0_C(const uint8_t *tempu, int width, uint8_t *dstp8, const uint8_t *src3p8, const int src_pitch, const int max_value, const int chroma) {
+static int32_t processLine0_C(const uint8_t *tempu, int width, uint8_t *dstp8, const uint8_t *src3p8, const int src_pitch, const int max_value) {
     PixelType *dstp = (PixelType *)dstp8;
     const PixelType *src3p = (const PixelType *)src3p8;
 
@@ -335,24 +338,16 @@ int32_t processLine0_C(const uint8_t *tempu, int width, uint8_t *dstp8, const ui
     TempType maximum = max_value - 1;
     // Technically the -1 is only needed for 8 and 16 bit input.
 
-    if (std::is_same<PixelType, float>::value) {
-        if (chroma) {
-            minimum = -0.5f;
-            maximum = 0.5f;
-        } else {
-            minimum = 0.0f;
-            maximum = 1.0f;
-        }
-    }
-
     int count = 0;
     for (int x = 0; x < width; ++x) {
         if (tempu[x]) {
             TempType tmp = 19 * (src3p[x + src_pitch * 2] + src3p[x + src_pitch * 4]) - 3 * (src3p[x] + src3p[x + src_pitch * 6]);
-            if (!std::is_same<TempType, float>::value)
-                tmp += 16;
-            tmp /= 32;
-            dstp[x] = std::max(std::min(tmp, maximum), minimum);
+            if (std::is_same<TempType, float>::value) {
+                dstp[x] = tmp / 32;
+            } else {
+                tmp = (tmp + 16) / 32;
+                dstp[x] = std::max(std::min(tmp, maximum), minimum);
+            }
         } else {
             memset(dstp + x, 255, sizeof(PixelType));
             ++count;
@@ -362,7 +357,7 @@ int32_t processLine0_C(const uint8_t *tempu, int width, uint8_t *dstp8, const ui
 }
 
 // new prescreener functions
-void byte2word64_C(const uint8_t *t, const int pitch, float *p) {
+static void byte2word64_C(const uint8_t *t, const intptr_t pitch, float *p) {
     int16_t *ps = (int16_t *)p;
     for (int y = 0; y < 4; ++y)
         for (int x = 0; x < 16; ++x)
@@ -370,7 +365,7 @@ void byte2word64_C(const uint8_t *t, const int pitch, float *p) {
 }
 
 
-void computeNetwork0new_C(const float *datai, const float *weights, uint8_t *d) {
+static void computeNetwork0new_C(const float *datai, const float *weights, uint8_t *d) {
     int16_t *data = (int16_t *)datai;
     int16_t *ws = (int16_t *)weights;
     float *wf = (float *)&ws[4 * 64];
@@ -398,7 +393,7 @@ void computeNetwork0new_C(const float *datai, const float *weights, uint8_t *d) 
 
 
 template <typename PixelType>
-void evalFunc_0(const nnedi3Data *d, FrameData *frameData) {
+static void evalFunc_0(const nnedi3Data *d, FrameData *frameData) {
     float *input = frameData->input;
     const float *weights0 = d->weights0;
     float *temp = frameData->temp;
@@ -435,7 +430,7 @@ void evalFunc_0(const nnedi3Data *d, FrameData *frameData) {
                     d->readPixels((const uint8_t *)(src3p + x - 5), src_stride, input);
                     d->computeNetwork0(input, weights0, tempu+x);
                 }
-                lcount[y] += d->processLine0(tempu + 32, width - 64, (uint8_t *)(dstp + 32), (const uint8_t *)(src3p + 32), src_stride, d->max_value, plane && d->vi.format->colorFamily != cmRGB);
+                lcount[y] += d->processLine0(tempu + 32, width - 64, (uint8_t *)(dstp + 32), (const uint8_t *)(src3p + 32), src_stride, d->max_value);
                 src3p += src_stride * 2;
                 dstp += dst_stride * 2;
             }
@@ -445,7 +440,7 @@ void evalFunc_0(const nnedi3Data *d, FrameData *frameData) {
                     d->readPixels((const uint8_t *)(src3p + x - 6), src_stride, input);
                     d->computeNetwork0(input, weights0, tempu + x);
                 }
-                lcount[y] += d->processLine0(tempu + 32, width - 64, (uint8_t *)(dstp + 32), (const uint8_t *)(src3p + 32), src_stride, d->max_value, plane && d->vi.format->colorFamily != cmRGB);
+                lcount[y] += d->processLine0(tempu + 32, width - 64, (uint8_t *)(dstp + 32), (const uint8_t *)(src3p + 32), src_stride, d->max_value);
                 src3p += src_stride * 2;
                 dstp += dst_stride * 2;
             }
@@ -461,7 +456,7 @@ void evalFunc_0(const nnedi3Data *d, FrameData *frameData) {
 
 
 template <typename PixelType, typename AccumType, typename FloatType>
-void extract_m8_C(const uint8_t *srcp8, const int stride, const int xdia, const int ydia, float *mstd, float *input) {
+static void extract_m8_C(const uint8_t *srcp8, const intptr_t stride, const intptr_t xdia, const intptr_t ydia, float *mstd, float *input) {
     // uint8_t or uint16_t or float
     const PixelType *srcp = (const PixelType *)srcp8;
 
@@ -493,7 +488,7 @@ void extract_m8_C(const uint8_t *srcp8, const int stride, const int xdia, const 
 }
 
 
-void extract_m8_i16_C(const uint8_t *srcp, const int stride, const int xdia, const int ydia, float *mstd, float *inputf) {
+static void extract_m8_i16_C(const uint8_t *srcp, const intptr_t stride, const intptr_t xdia, const intptr_t ydia, float *mstd, float *inputf) {
     int16_t *input = (int16_t *)inputf;
     int sum = 0, sumsq = 0;
     for (int y = 0; y < ydia; ++y) {
@@ -518,19 +513,18 @@ void extract_m8_i16_C(const uint8_t *srcp, const int stride, const int xdia, con
 }
 
 
-const float exp_lo = -80.0f;
-const float exp_hi = +80.0f;
+static const float exp_lo = -80.0f;
+static const float exp_hi = +80.0f;
 
 
 // exp from:  A Fast, Compact Approximation of the Exponential Function (1998)
 //            Nicol N. Schraudolph
 
 
-const float e0_mult = 12102203.161561486f; // (1.0/ln(2))*(2^23)
-const float e0_bias = 1064866805.0f; // (2^23)*127.0-486411.0
+static void e0_m16_C(float *s, const intptr_t n) {
+    const float e0_mult = 12102203.161561486f; // (1.0/ln(2))*(2^23)
+    const float e0_bias = 1064866805.0f; // (2^23)*127.0-486411.0
 
-
-void e0_m16_C(float *s, const int n) {
     for (int i = 0; i < n; ++i) {
         const int t = (int)(std::max(std::min(s[i], exp_hi), exp_lo) * e0_mult + e0_bias);
         memcpy(&s[i], &t, sizeof(float));
@@ -541,14 +535,13 @@ void e0_m16_C(float *s, const int n) {
 // exp from Loren Merritt
 
 
-const float e1_scale = 1.4426950409f; // 1/ln(2)
-const float e1_bias = 12582912.0f; // 3<<22
-const float e1_c0 = 1.00035f;
-const float e1_c1 = 0.701277797f;
-const float e1_c2 = 0.237348593f;
+static void e1_m16_C(float *s, const intptr_t n) {
+    const float e1_scale = 1.4426950409f; // 1/ln(2)
+//    const float e1_bias = 12582912.0f; // 3<<22
+    const float e1_c0 = 1.00035f;
+    const float e1_c1 = 0.701277797f;
+    const float e1_c2 = 0.237348593f;
 
-
-void e1_m16_C(float *s, const int n) {
     for (int q = 0; q < n; ++q) {
         float x = std::max(std::min(s[q], exp_hi), exp_lo) * e1_scale;
         int i = (int)(x + 128.5f) - 128;
@@ -562,7 +555,7 @@ void e1_m16_C(float *s, const int n) {
 }
 
 
-void e2_m16_C(float *s, const int n) {
+static void e2_m16_C(float *s, const intptr_t n) {
     for (int i = 0; i < n; ++i)
         s[i] = std::exp(std::max(std::min(s[i], exp_hi), exp_lo));
 }
@@ -570,15 +563,15 @@ void e2_m16_C(float *s, const int n) {
 // exp from Intel Approximate Math (AM) Library
 
 
-const float min_weight_sum = 1e-10f;
-
-
-void weightedAvgElliottMul5_m16_C(const float *w, const int n, float *mstd) {
+static void weightedAvgElliottMul5_m16_C(const float *w, const intptr_t n, float *mstd) {
     float vsum = 0.0f, wsum = 0.0f;
     for (int i = 0; i < n; ++i) {
         vsum += w[i] * (w[n + i] / (1.0f + std::fabs(w[n + i])));
         wsum += w[i];
     }
+
+    const float min_weight_sum = 1e-10f;
+
     if (wsum > min_weight_sum)
         mstd[3] += ((5.0f * vsum) / wsum) * mstd[1] + mstd[0];
     else
@@ -587,7 +580,7 @@ void weightedAvgElliottMul5_m16_C(const float *w, const int n, float *mstd) {
 
 
 template <typename PixelType>
-void evalFunc_1(const nnedi3Data *d, FrameData *frameData) {
+static void evalFunc_1(const nnedi3Data *d, FrameData *frameData) {
     float *input = frameData->input;
     float *temp = frameData->temp;
     const float * const *weights1 = d->weights1;
@@ -638,18 +631,10 @@ void evalFunc_1(const nnedi3Data *d, FrameData *frameData) {
                     d->wae5(temp, nns, mstd);
                 }
 
-                if (std::is_same<PixelType, float>::value) {
-                    float minimum = 0.0f;
-                    float maximum = 1.0f;
-                    if (plane && d->vi.format->colorFamily != cmRGB) {
-                        minimum = -0.5f;
-                        maximum = 0.5f;
-                    }
-
-                    dstp[x] = std::min(std::max(mstd[3] * scale, minimum), maximum);
-                } else {
+                if (std::is_same<PixelType, float>::value)
+                    dstp[x] = mstd[3] * scale;
+                else
                     dstp[x] = std::min(std::max((int)(mstd[3] * scale + 0.5f), 0), d->max_value);
-                }
             }
             srcpp += src_stride * 2;
             dstp += dst_stride * 2;
@@ -662,14 +647,14 @@ void evalFunc_1(const nnedi3Data *d, FrameData *frameData) {
 #define NUM_NNS 5
 
 
-int roundds(const double f) {
+static int roundds(const double f) {
     if (f - std::floor(f) >= 0.5)
         return std::min((int)std::ceil(f), 32767);
     return std::max((int)std::floor(f), -32768);
 }
 
 
-void shufflePreScrnL2L3(float *wf, float *rf) {
+static void shufflePreScrnL2L3(float *wf, float *rf) {
     for (int j = 0; j < 4; ++j)
         for (int k = 0; k < 4; ++k)
             wf[k * 4 + j] = rf[j * 4 + k];
@@ -705,7 +690,7 @@ static void selectFunctions(nnedi3Data *d) {
         d->processLine0 = processLine0_C<uint8_t, int>;
 
         if (d->pscrn < 2) { // original prescreener
-            if (d->fapprox & 1) { // int16 dot products
+            if (d->int16_prescreener) { // int16 dot products
                 d->readPixels = byte2word48_C;
                 d->computeNetwork0 = computeNetwork0_i16_C;
             } else {
@@ -721,7 +706,7 @@ static void selectFunctions(nnedi3Data *d) {
         // evalFunc_1
         d->wae5 = weightedAvgElliottMul5_m16_C;
 
-        if (d->fapprox & 2) { // use int16 dot products
+        if (d->int16_predictor) { // use int16 dot products
             d->extract = extract_m8_i16_C;
             d->dotProd = dotProdS_C;
         } else { // use float dot products
@@ -729,9 +714,9 @@ static void selectFunctions(nnedi3Data *d) {
             d->dotProd = dotProd_C;
         }
 
-        if ((d->fapprox & 12) == 0) // use slow exp
+        if (d->exp == 2) // use slow exp
             d->expfunc = e2_m16_C;
-        else if ((d->fapprox & 12) == 4) // use faster exp
+        else if (d->exp == 1) // use faster exp
             d->expfunc = e1_m16_C;
         else // use fastest exp
             d->expfunc = e0_m16_C;
@@ -742,7 +727,7 @@ static void selectFunctions(nnedi3Data *d) {
             d->processLine0 = processLine0_maybeSSE2;
 
             if (d->pscrn < 2) { // original prescreener
-                if (d->fapprox & 1) { // int16 dot products
+                if (d->int16_prescreener) { // int16 dot products
                     d->readPixels = nnedi3_byte2word48_SSE2;
                     d->computeNetwork0 = nnedi3_computeNetwork0_i16_SSE2;
                 } else {
@@ -762,7 +747,7 @@ static void selectFunctions(nnedi3Data *d) {
             // evalFunc_1
             d->wae5 = nnedi3_weightedAvgElliottMul5_m16_SSE2;
 
-            if (d->fapprox & 2) { // use int16 dot products
+            if (d->int16_predictor) { // use int16 dot products
                 d->extract = nnedi3_extract_m8_i16_SSE2;
                 d->dotProd = nnedi3_dotProd_i16_SSE2;
             } else { // use float dot products
@@ -774,9 +759,9 @@ static void selectFunctions(nnedi3Data *d) {
                     d->dotProd = nnedi3_dotProd_FMA4;
             }
 
-            if ((d->fapprox & 12) == 0) { // use slow exp
+            if (d->exp == 2) { // use slow exp
                 d->expfunc = nnedi3_e2_m16_SSE2;
-            } else if ((d->fapprox & 12) == 4) { // use faster exp
+            } else if (d->exp == 1) { // use faster exp
                 d->expfunc = nnedi3_e1_m16_SSE2;
             } else { // use fastest exp
                 d->expfunc = nnedi3_e0_m16_SSE2;
@@ -789,7 +774,7 @@ static void selectFunctions(nnedi3Data *d) {
 #elif defined(NNEDI3_ARM)
         if (d->opt && cpu.neon) {
             if (d->pscrn < 2) { // original prescreener
-                if (d->fapprox & 1) { // int16 dot products
+                if (d->int16_prescreener) { // int16 dot products
                     d->readPixels = byte2word48_neon;
                     d->computeNetwork0 = computeNetwork0_i16_neon;
                 } else {
@@ -803,7 +788,7 @@ static void selectFunctions(nnedi3Data *d) {
             }
 
             // evalFunc_1
-            if (d->fapprox & 2) // use int16 dot products
+            if (d->int16_predictor) // use int16 dot products
                 d->dotProd = dotProd_i16_neon;
             else // use float dot products
                 d->dotProd = dotProd_neon;
@@ -826,9 +811,9 @@ static void selectFunctions(nnedi3Data *d) {
         d->extract = extract_m8_C<uint16_t, int64_t, double>;
         d->dotProd = dotProd_C;
 
-        if ((d->fapprox & 12) == 0) // use slow exp
+        if (d->exp == 2) // use slow exp
             d->expfunc = e2_m16_C;
-        else if ((d->fapprox & 12) == 4) // use faster exp
+        else if (d->exp == 1) // use faster exp
             d->expfunc = e1_m16_C;
         else // use fastest exp
             d->expfunc = e0_m16_C;
@@ -852,9 +837,9 @@ static void selectFunctions(nnedi3Data *d) {
             if (cpu.fma4)
                 d->dotProd = nnedi3_dotProd_FMA4;
 
-            if ((d->fapprox & 12) == 0) { // use slow exp
+            if (d->exp == 2) { // use slow exp
                 d->expfunc = nnedi3_e2_m16_SSE2;
-            } else if ((d->fapprox & 12) == 4) { // use faster exp
+            } else if (d->exp == 1) { // use faster exp
                 d->expfunc = nnedi3_e1_m16_SSE2;
             } else { // use fastest exp
                 d->expfunc = nnedi3_e0_m16_SSE2;
@@ -888,9 +873,9 @@ static void selectFunctions(nnedi3Data *d) {
         d->extract = extract_m8_C<float, double, double>;
         d->dotProd = dotProd_C;
 
-        if ((d->fapprox & 12) == 0) // use slow exp
+        if (d->exp == 2) // use slow exp
             d->expfunc = e2_m16_C;
-        else if ((d->fapprox & 12) == 4) // use faster exp
+        else if (d->exp == 1) // use faster exp
             d->expfunc = e1_m16_C;
         else // use fastest exp
             d->expfunc = e0_m16_C;
@@ -913,9 +898,9 @@ static void selectFunctions(nnedi3Data *d) {
             if (cpu.fma4)
                 d->dotProd = nnedi3_dotProd_FMA4;
 
-            if ((d->fapprox & 12) == 0) { // use slow exp
+            if (d->exp == 2) { // use slow exp
                 d->expfunc = nnedi3_e2_m16_SSE2;
-            } else if ((d->fapprox & 12) == 4) { // use faster exp
+            } else if (d->exp == 1) { // use faster exp
                 d->expfunc = nnedi3_e1_m16_SSE2;
             } else { // use fastest exp
                 d->expfunc = nnedi3_e0_m16_SSE2;
@@ -1066,7 +1051,7 @@ static void VS_CC nnedi3Init(VSMap *in, VSMap *out, void **instanceData, VSNode 
                 cmean += bdata[j * 48 + k];
             mean[j] = cmean / 48.0;
         }
-        if (d->fapprox & 1) {// use int16 dot products in first layer
+        if (d->int16_prescreener) {// use int16 dot products in first layer
             int16_t *ws = (int16_t *)d->weights0;
             float *wf = (float *)&ws[4 * 48];
             // Factor mean removal and 1.0/127.5 scaling 
@@ -1138,7 +1123,7 @@ static void VS_CC nnedi3Init(VSMap *in, VSMap *out, void **instanceData, VSNode 
         for (int j = 0; j < asize + 1; ++j)
             mean[j] /= (double)(nnst);
 
-        if (d->fapprox & 2) {// use int16 dot products
+        if (d->int16_predictor) {// use int16 dot products
             int16_t *ws = (int16_t *)d->weights1[i];
             float *wf = (float *)&ws[nnst * 2 * asize];
             // Factor mean removal into weights, remove global offset from
@@ -1198,11 +1183,24 @@ static void VS_CC nnedi3Init(VSMap *in, VSMap *out, void **instanceData, VSNode 
 }
 
 
-int modnpf(const int m, const int n) {
+static int modnpf(const int m, const int n) {
     if ((m % n) == 0)
         return m;
     return m + n - (m % n);
 }
+
+
+typedef enum VSFieldBased {
+    VSFieldBasedProgressive = 0,
+    VSFieldBasedBFF,
+    VSFieldBasedTFF
+} VSFieldBased;
+
+
+typedef enum VSField {
+    VSFieldBottom = 0,
+    VSFieldTop
+} VSField;
 
 
 static const VSFrameRef *VS_CC nnedi3GetFrame(int n, int activationReason, void **instanceData, void **fData, VSFrameContext *frameCtx, VSCore *core, const VSAPI *vsapi) {
@@ -1215,15 +1213,27 @@ static const VSFrameRef *VS_CC nnedi3GetFrame(int n, int activationReason, void 
 
         int err;
         const VSMap *src_props = vsapi->getFramePropsRO(src);
-        int fieldbased = int64ToIntS(vsapi->propGetInt(src_props, "_FieldBased", 0, &err));
+
         int effective_field = d->field;
         if (effective_field > 1)
             effective_field -= 2;
 
-        if (fieldbased == 1)
-            effective_field = 0;
-        else if (fieldbased == 2)
-            effective_field = 1;
+        if (d->dh) {
+            int field = int64ToIntS(vsapi->propGetInt(src_props, "_Field", 0, &err));
+            if (!err) {
+                if (field == VSFieldBottom)
+                    effective_field = 0;
+                else if (field == VSFieldTop)
+                    effective_field = 1;
+            }
+        } else {
+            int fieldbased = int64ToIntS(vsapi->propGetInt(src_props, "_FieldBased", 0, &err));
+
+            if (fieldbased == VSFieldBasedBFF)
+                effective_field = 0;
+            else if (fieldbased == VSFieldBasedTFF)
+                effective_field = 1;
+        }
 
         int field_n;
         if (d->field > 1) {
@@ -1280,7 +1290,8 @@ static const VSFrameRef *VS_CC nnedi3GetFrame(int n, int activationReason, void 
         d->evalFunc_0(d, frameData);
 
         // The rest.
-        d->evalFunc_1(d, frameData);
+        if (!d->show_mask)
+            d->evalFunc_1(d, frameData);
 
 
         // Clean up.
@@ -1298,8 +1309,9 @@ static const VSFrameRef *VS_CC nnedi3GetFrame(int n, int activationReason, void 
 
         vsapi->freeFrame(src);
 
+        VSMap *dst_props = vsapi->getFramePropsRW(dst);
+
         if (d->field > 1) {
-            VSMap *dst_props = vsapi->getFramePropsRW(dst);
             int err_num, err_den;
             int64_t duration_num = vsapi->propGetInt(dst_props, "_DurationNum", 0, &err_num);
             int64_t duration_den = vsapi->propGetInt(dst_props, "_DurationDen", 0, &err_den);
@@ -1309,6 +1321,8 @@ static const VSFrameRef *VS_CC nnedi3GetFrame(int n, int activationReason, void 
                 vsapi->propSetInt(dst_props, "_DurationDen", duration_den, paReplace);
             }
         }
+
+        vsapi->propSetInt(dst_props, "_FieldBased", VSFieldBasedProgressive, paReplace);
 
         return dst;
     }
@@ -1377,34 +1391,6 @@ static void VS_CC nnedi3Create(const VSMap *in, VSMap *out, void *userData, VSCo
         d.process[o] = 1;
     }
 
-    int Y = int64ToIntS(vsapi->propGetInt(in, "Y", 0, &err));
-    if (!err) {
-        if (m > -1) {
-            vsapi->setError(out, "nnedi3: can't use 'Y' and 'planes' at the same time");
-            vsapi->freeNode(d.node);
-            return;
-        }
-        d.process[0] = Y;
-    }
-    int U = int64ToIntS(vsapi->propGetInt(in, "U", 0, &err));
-    if (!err) {
-        if (m > -1) {
-            vsapi->setError(out, "nnedi3: can't use 'U' and 'planes' at the same time");
-            vsapi->freeNode(d.node);
-            return;
-        }
-        d.process[1] = U;
-    }
-    int V = int64ToIntS(vsapi->propGetInt(in, "V", 0, &err));
-    if (!err) {
-        if (m > -1) {
-            vsapi->setError(out, "nnedi3: can't use 'V' and 'planes' at the same time");
-            vsapi->freeNode(d.node);
-            return;
-        }
-        d.process[2] = V;
-    }
-
     d.nsize = int64ToIntS(vsapi->propGetInt(in, "nsize", 0, &err));
     if (err)
         d.nsize = 6;
@@ -1435,13 +1421,17 @@ static void VS_CC nnedi3Create(const VSMap *in, VSMap *out, void *userData, VSCo
     d.opt = 0;
 #endif
 
-    d.fapprox = int64ToIntS(vsapi->propGetInt(in, "fapprox", 0, &err));
-    if (err) {
-        if (d.vi.format->bitsPerSample == 8)
-            d.fapprox = 15;
-        else
-            d.fapprox = 12;
-    }
+    d.int16_prescreener = !!vsapi->propGetInt(in, "int16_prescreener", 0, &err);
+    if (err)
+        d.int16_prescreener = 1;
+
+    d.int16_predictor = !!vsapi->propGetInt(in, "int16_predictor", 0, &err);
+    if (err)
+        d.int16_predictor = 1;
+
+    d.exp = int64ToIntS(vsapi->propGetInt(in, "exp", 0, &err));
+
+    d.show_mask = !!vsapi->propGetInt(in, "show_mask", 0, &err);
 
     // Check the values.
     if (d.field < 0 || d.field > 3) {
@@ -1496,18 +1486,10 @@ static void VS_CC nnedi3Create(const VSMap *in, VSMap *out, void *userData, VSCo
         }
     }
 
-    if (d.vi.format->bitsPerSample == 8) {
-        if (d.fapprox < 0 || d.fapprox > 15) {
-            vsapi->setError(out, "nnedi3: fapprox must be between 0 and 15 (inclusive)");
-            vsapi->freeNode(d.node);
-            return;
-        }
-    } else {
-        if (d.fapprox != 0 && d.fapprox != 4 && d.fapprox != 8 && d.fapprox != 12) {
-            vsapi->setError(out, "nnedi3: fapprox must be 4, 8, or 12");
-            vsapi->freeNode(d.node);
-            return;
-        }
+    if (d.exp < 0 || d.exp > 2) {
+        vsapi->setError(out, "nnedi3: exp must be between 0 and 2 (inclusive)");
+        vsapi->freeNode(d.node);
+        return;
     }
 
     // Changing the video info probably has to be done before createFilter.
@@ -1527,6 +1509,11 @@ static void VS_CC nnedi3Create(const VSMap *in, VSMap *out, void *userData, VSCo
 
     d.max_value = 65535 >> (16 - d.vi.format->bitsPerSample);
 
+    if (d.vi.format->bitsPerSample > 8) {
+        d.int16_prescreener = 0;
+        d.int16_predictor = 0;
+    }
+
     selectFunctions(&d);
 
     data = (nnedi3Data *)malloc(sizeof(d));
@@ -1544,16 +1531,16 @@ VS_EXTERNAL_API(void) VapourSynthPluginInit(VSConfigPlugin configFunc, VSRegiste
             "field:int;"
             "dh:int:opt;"
             "planes:int[]:opt;"
-            "Y:int:opt;"
-            "U:int:opt;"
-            "V:int:opt;"
             "nsize:int:opt;"
             "nns:int:opt;"
             "qual:int:opt;"
             "etype:int:opt;"
             "pscrn:int:opt;"
             "opt:int:opt;"
-            "fapprox:int:opt;"
+            "int16_prescreener:int:opt;"
+            "int16_predictor:int:opt;"
+            "exp:int:opt;"
+            "show_mask:int:opt;"
             , nnedi3Create, 0, plugin);
 }
 
