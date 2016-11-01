@@ -34,7 +34,7 @@ sudo apt-get install vapoursynth-extra-plugins
 
 **Plugins**:<br>
 [addgrain r5](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-AddGrain)<br>
-[awarpsharp2 1](https://github.com/dubhater/vapoursynth-awarpsharp2)<br>
+[awarpsharp2 3](https://github.com/dubhater/vapoursynth-awarpsharp2)<br>
 [bifrost 2.2](https://github.com/dubhater/vapoursynth-bifrost)<br>
 [bilateral r3](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Bilateral)<br>
 [bm3d r7](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-BM3D)<br>

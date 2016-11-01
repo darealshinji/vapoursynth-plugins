@@ -28,8 +28,8 @@ AWarp warps.
 
 Parameters:
     *clip*
-        Clip to process. Must be 8 bit, not RGB, with constant format and
-        dimensions.
+        Clip to process. Must have constant format and dimensions,
+        8..16 bit integer pixels, and it must not be RGB.
 
         For the AWarp filter, *clip* must be either the same size as
         *mask*, or four times the size of *mask* in each dimension. The
@@ -46,7 +46,8 @@ Parameters:
         No pixel in the edge mask will have a value greater than *thresh*.
         Decrease for weaker sharpening.
 
-        Range: 0..255.
+        Range: 0..255. It will be scaled internally for bit depths greater
+        than 8.
 
         Default: 128.
 

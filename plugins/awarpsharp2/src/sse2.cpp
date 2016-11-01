@@ -11,7 +11,74 @@
 #endif
 
 
-static FORCE_INLINE void sobel_xmmword_u8_sse2(const uint8_t *srcp, uint8_t *dstp, int stride, const __m128i &th) {
+template <typename PixelType>
+static FORCE_INLINE __m128i mm_avg_epu(const __m128i &a, const __m128i &b) {
+    if (sizeof(PixelType) == 1)
+        return _mm_avg_epu8(a, b);
+    else
+        return _mm_avg_epu16(a, b);
+}
+
+
+template <typename PixelType>
+static FORCE_INLINE __m128i mm_subs_epu(const __m128i &a, const __m128i &b) {
+    if (sizeof(PixelType) == 1)
+        return _mm_subs_epu8(a, b);
+    else
+        return _mm_subs_epu16(a, b);
+}
+
+
+template <typename PixelType>
+static FORCE_INLINE __m128i mm_adds_epu(const __m128i &a, const __m128i &b) {
+    if (sizeof(PixelType) == 1)
+        return _mm_adds_epu8(a, b);
+    else
+        return _mm_adds_epu16(a, b);
+}
+
+
+template <typename PixelType>
+static FORCE_INLINE __m128i mm_max_epu(const __m128i &a, const __m128i &b) {
+    if (sizeof(PixelType) == 1)
+        return _mm_max_epu8(a, b);
+    else {
+        __m128i word_32768 = _mm_set1_epi16(32768);
+
+        __m128i a_minus = _mm_sub_epi16(a, word_32768);
+        __m128i b_minus = _mm_sub_epi16(b, word_32768);
+
+        return _mm_add_epi16(_mm_max_epi16(a_minus, b_minus), word_32768);
+    }
+}
+
+
+template <typename PixelType>
+static FORCE_INLINE __m128i mm_min_epu(const __m128i &a, const __m128i &b) {
+    if (sizeof(PixelType) == 1)
+        return _mm_min_epu8(a, b);
+    else {
+        __m128i word_32768 = _mm_set1_epi16(32768);
+
+        __m128i a_minus = _mm_sub_epi16(a, word_32768);
+        __m128i b_minus = _mm_sub_epi16(b, word_32768);
+
+        return _mm_add_epi16(_mm_min_epi16(a_minus, b_minus), word_32768);
+    }
+}
+
+
+template <typename PixelType>
+static FORCE_INLINE __m128i mm_set1_epi(PixelType a) {
+    if (sizeof(PixelType) == 1)
+        return _mm_set1_epi8(a);
+    else
+        return _mm_set1_epi16(a);
+}
+
+
+template <typename PixelType>
+static FORCE_INLINE void sobel_xmmword_sse2(const PixelType *srcp, PixelType *dstp, int stride, const __m128i &th, const __m128i &pixel_max) {
     __m128i a11, a21, a31,
             a12,      a32,
             a13, a23, a33;
@@ -27,45 +94,68 @@ static FORCE_INLINE void sobel_xmmword_u8_sse2(const uint8_t *srcp, uint8_t *dst
     a23 = _mm_loadu_si128((const __m128i *)(srcp + stride));
     a33 = _mm_loadu_si128((const __m128i *)(srcp + stride + 1));
 
-    __m128i avg_up    = _mm_avg_epu8(a21, _mm_avg_epu8(a11, a31));
-    __m128i avg_down  = _mm_avg_epu8(a23, _mm_avg_epu8(a13, a33));
-    __m128i avg_left  = _mm_avg_epu8(a12, _mm_avg_epu8(a13, a11));
-    __m128i avg_right = _mm_avg_epu8(a32, _mm_avg_epu8(a33, a31));
+    __m128i avg_up    = mm_avg_epu<PixelType>(a21, mm_avg_epu<PixelType>(a11, a31));
+    __m128i avg_down  = mm_avg_epu<PixelType>(a23, mm_avg_epu<PixelType>(a13, a33));
+    __m128i avg_left  = mm_avg_epu<PixelType>(a12, mm_avg_epu<PixelType>(a13, a11));
+    __m128i avg_right = mm_avg_epu<PixelType>(a32, mm_avg_epu<PixelType>(a33, a31));
 
-    __m128i abs_v = _mm_or_si128(_mm_subs_epu8(avg_up, avg_down), _mm_subs_epu8(avg_down, avg_up));
-    __m128i abs_h = _mm_or_si128(_mm_subs_epu8(avg_left, avg_right), _mm_subs_epu8(avg_right, avg_left));
+    __m128i abs_v = _mm_or_si128(mm_subs_epu<PixelType>(avg_up, avg_down), mm_subs_epu<PixelType>(avg_down, avg_up));
+    __m128i abs_h = _mm_or_si128(mm_subs_epu<PixelType>(avg_left, avg_right), mm_subs_epu<PixelType>(avg_right, avg_left));
 
-    __m128i absolute = _mm_adds_epu8(abs_v, abs_h);
+    __m128i absolute = mm_adds_epu<PixelType>(abs_v, abs_h);
+    if (sizeof(PixelType) == 2)
+        absolute = mm_min_epu<PixelType>(absolute, pixel_max);
 
-    __m128i abs_max = _mm_max_epu8(abs_h, abs_v);
+    __m128i abs_max = mm_max_epu<PixelType>(abs_h, abs_v);
 
-    absolute = _mm_adds_epu8(absolute, abs_max);
+    absolute = mm_adds_epu<PixelType>(absolute, abs_max);
+    if (sizeof(PixelType) == 2)
+        absolute = mm_min_epu<PixelType>(absolute, pixel_max);
 
-    absolute = _mm_adds_epu8(_mm_adds_epu8(absolute, absolute), absolute);
-    absolute = _mm_adds_epu8(absolute, absolute);
+    __m128i absolute2 = mm_adds_epu<PixelType>(absolute, absolute);
+    if (sizeof(PixelType) == 2)
+        absolute2 = mm_min_epu<PixelType>(absolute2, pixel_max);
 
-    _mm_storeu_si128((__m128i *)(dstp), _mm_min_epu8(absolute, th));
+    absolute = mm_adds_epu<PixelType>(absolute2, absolute);
+    if (sizeof(PixelType) == 2)
+        absolute = mm_min_epu<PixelType>(absolute, pixel_max);
+
+    absolute = mm_adds_epu<PixelType>(absolute, absolute);
+    if (sizeof(PixelType) == 2)
+        absolute = mm_min_epu<PixelType>(absolute, pixel_max);
+
+    _mm_storeu_si128((__m128i *)(dstp), mm_min_epu<PixelType>(absolute, th));
 }
 
 
-void sobel_u8_sse2(const uint8_t *srcp, uint8_t *dstp, int stride, int width, int height, int thresh) {
-    uint8_t *dstp_orig = dstp;
+template <typename PixelType>
+static void sobel_sse2(const uint8_t *srcp8, uint8_t *dstp8, int stride, int width, int height, int thresh, int bits_per_sample) {
+    const PixelType *srcp = (const PixelType *)srcp8;
+    PixelType *dstp = (PixelType *)dstp8;
+
+    stride /= sizeof(PixelType);
+
+    __m128i pixel_max = _mm_set1_epi16((1 << bits_per_sample) - 1);
+
+    const int pixels_in_xmm = 16 / sizeof(PixelType);
+
+    PixelType *dstp_orig = dstp;
 
     srcp += stride;
     dstp += stride;
 
-    __m128i th = _mm_set1_epi8(thresh);
+    __m128i th = mm_set1_epi<PixelType>(thresh);
 
-    int width_sse2 = (width & ~15) + 2;
+    int width_sse2 = (width & ~(pixels_in_xmm - 1)) + 2;
     if (width_sse2 > stride)
-        width_sse2 -= 16;
+        width_sse2 -= pixels_in_xmm;
 
     for (int y = 1; y < height - 1; y++) {
-        for (int x = 1; x < width_sse2 - 1; x += 16)
-            sobel_xmmword_u8_sse2(srcp + x, dstp + x, stride, th);
+        for (int x = 1; x < width_sse2 - 1; x += pixels_in_xmm)
+            sobel_xmmword_sse2<PixelType>(srcp + x, dstp + x, stride, th, pixel_max);
 
         if (width + 2 > width_sse2)
-            sobel_xmmword_u8_sse2(srcp + width - 17, dstp + width - 17, stride, th);
+            sobel_xmmword_sse2<PixelType>(srcp + width - pixels_in_xmm - 1, dstp + width - pixels_in_xmm - 1, stride, th, pixel_max);
 
         dstp[0] = dstp[1];
         dstp[width - 1] = dstp[width - 2];
@@ -74,63 +164,75 @@ void sobel_u8_sse2(const uint8_t *srcp, uint8_t *dstp, int stride, int width, in
         dstp += stride;
     }
 
-    memcpy(dstp_orig, dstp_orig + stride, width);
-    memcpy(dstp, dstp - stride, width);
+    memcpy(dstp_orig, dstp_orig + stride, width * sizeof(PixelType));
+    memcpy(dstp, dstp - stride, width * sizeof(PixelType));
 }
 
 
-static FORCE_INLINE void blur_r6_h_left_u8_sse2(const uint8_t *srcp, uint8_t *dstp) {
-    __m128i avg12 = _mm_avg_epu8(_mm_loadu_si128((const __m128i *)(srcp + 1)), _mm_loadu_si128((const __m128i *)(srcp + 2)));
-    __m128i avg34 = _mm_avg_epu8(_mm_loadu_si128((const __m128i *)(srcp + 3)), _mm_loadu_si128((const __m128i *)(srcp + 4)));
-    __m128i avg56 = _mm_avg_epu8(_mm_loadu_si128((const __m128i *)(srcp + 5)), _mm_loadu_si128((const __m128i *)(srcp + 6)));
+template <typename PixelType>
+static FORCE_INLINE void blur_r6_h_left_sse2(const PixelType *srcp, PixelType *dstp) {
+    __m128i avg12 = mm_avg_epu<PixelType>(_mm_loadu_si128((const __m128i *)(srcp + 1)), _mm_loadu_si128((const __m128i *)(srcp + 2)));
+    __m128i avg34 = mm_avg_epu<PixelType>(_mm_loadu_si128((const __m128i *)(srcp + 3)), _mm_loadu_si128((const __m128i *)(srcp + 4)));
+    __m128i avg56 = mm_avg_epu<PixelType>(_mm_loadu_si128((const __m128i *)(srcp + 5)), _mm_loadu_si128((const __m128i *)(srcp + 6)));
 
-    __m128i avg012 = _mm_avg_epu8(_mm_loadu_si128((const __m128i *)(srcp)), avg12);
-    __m128i avg3456 = _mm_avg_epu8(avg34, avg56);
-    __m128i avg0123456 = _mm_avg_epu8(avg012, avg3456);
-    __m128i avg = _mm_avg_epu8(avg012, avg0123456);
+    __m128i avg012 = mm_avg_epu<PixelType>(_mm_loadu_si128((const __m128i *)(srcp)), avg12);
+    __m128i avg3456 = mm_avg_epu<PixelType>(avg34, avg56);
+    __m128i avg0123456 = mm_avg_epu<PixelType>(avg012, avg3456);
+    __m128i avg = mm_avg_epu<PixelType>(avg012, avg0123456);
 
     _mm_storeu_si128((__m128i *)(dstp), avg);
 }
 
 
-static FORCE_INLINE void blur_r6_h_middle_u8_sse2(const uint8_t *srcp, uint8_t *dstp) {
-    __m128i avg11 = _mm_avg_epu8(_mm_loadu_si128((const __m128i *)(srcp - 1)), _mm_loadu_si128((const __m128i *)(srcp + 1)));
-    __m128i avg22 = _mm_avg_epu8(_mm_loadu_si128((const __m128i *)(srcp - 2)), _mm_loadu_si128((const __m128i *)(srcp + 2)));
-    __m128i avg33 = _mm_avg_epu8(_mm_loadu_si128((const __m128i *)(srcp - 3)), _mm_loadu_si128((const __m128i *)(srcp + 3)));
-    __m128i avg44 = _mm_avg_epu8(_mm_loadu_si128((const __m128i *)(srcp - 4)), _mm_loadu_si128((const __m128i *)(srcp + 4)));
-    __m128i avg55 = _mm_avg_epu8(_mm_loadu_si128((const __m128i *)(srcp - 5)), _mm_loadu_si128((const __m128i *)(srcp + 5)));
-    __m128i avg66 = _mm_avg_epu8(_mm_loadu_si128((const __m128i *)(srcp - 6)), _mm_loadu_si128((const __m128i *)(srcp + 6)));
+template <typename PixelType>
+static FORCE_INLINE void blur_r6_h_middle_sse2(const PixelType *srcp, PixelType *dstp) {
+    __m128i avg11 = mm_avg_epu<PixelType>(_mm_loadu_si128((const __m128i *)(srcp - 1)), _mm_loadu_si128((const __m128i *)(srcp + 1)));
+    __m128i avg22 = mm_avg_epu<PixelType>(_mm_loadu_si128((const __m128i *)(srcp - 2)), _mm_loadu_si128((const __m128i *)(srcp + 2)));
+    __m128i avg33 = mm_avg_epu<PixelType>(_mm_loadu_si128((const __m128i *)(srcp - 3)), _mm_loadu_si128((const __m128i *)(srcp + 3)));
+    __m128i avg44 = mm_avg_epu<PixelType>(_mm_loadu_si128((const __m128i *)(srcp - 4)), _mm_loadu_si128((const __m128i *)(srcp + 4)));
+    __m128i avg55 = mm_avg_epu<PixelType>(_mm_loadu_si128((const __m128i *)(srcp - 5)), _mm_loadu_si128((const __m128i *)(srcp + 5)));
+    __m128i avg66 = mm_avg_epu<PixelType>(_mm_loadu_si128((const __m128i *)(srcp - 6)), _mm_loadu_si128((const __m128i *)(srcp + 6)));
 
-    __m128i avg12 = _mm_avg_epu8(avg11, avg22);
-    __m128i avg34 = _mm_avg_epu8(avg33, avg44);
-    __m128i avg56 = _mm_avg_epu8(avg55, avg66);
-    __m128i avg012 = _mm_avg_epu8(_mm_loadu_si128((const __m128i *)(srcp)), avg12);
-    __m128i avg3456 = _mm_avg_epu8(avg34, avg56);
-    __m128i avg0123456 = _mm_avg_epu8(avg012, avg3456);
-    __m128i avg = _mm_avg_epu8(avg012, avg0123456);
+    __m128i avg12 = mm_avg_epu<PixelType>(avg11, avg22);
+    __m128i avg34 = mm_avg_epu<PixelType>(avg33, avg44);
+    __m128i avg56 = mm_avg_epu<PixelType>(avg55, avg66);
+    __m128i avg012 = mm_avg_epu<PixelType>(_mm_loadu_si128((const __m128i *)(srcp)), avg12);
+    __m128i avg3456 = mm_avg_epu<PixelType>(avg34, avg56);
+    __m128i avg0123456 = mm_avg_epu<PixelType>(avg012, avg3456);
+    __m128i avg = mm_avg_epu<PixelType>(avg012, avg0123456);
 
     _mm_storeu_si128((__m128i *)(dstp), avg);
 }
 
 
-static FORCE_INLINE void blur_r6_h_right_u8_sse2(const uint8_t *srcp, uint8_t *dstp) {
-    __m128i avg12 = _mm_avg_epu8(_mm_loadu_si128((const __m128i *)(srcp - 1)), _mm_loadu_si128((const __m128i *)(srcp - 2)));
-    __m128i avg34 = _mm_avg_epu8(_mm_loadu_si128((const __m128i *)(srcp - 3)), _mm_loadu_si128((const __m128i *)(srcp - 4)));
-    __m128i avg56 = _mm_avg_epu8(_mm_loadu_si128((const __m128i *)(srcp - 5)), _mm_loadu_si128((const __m128i *)(srcp - 6)));
+template <typename PixelType>
+static FORCE_INLINE void blur_r6_h_right_sse2(const PixelType *srcp, PixelType *dstp) {
+    __m128i avg12 = mm_avg_epu<PixelType>(_mm_loadu_si128((const __m128i *)(srcp - 1)), _mm_loadu_si128((const __m128i *)(srcp - 2)));
+    __m128i avg34 = mm_avg_epu<PixelType>(_mm_loadu_si128((const __m128i *)(srcp - 3)), _mm_loadu_si128((const __m128i *)(srcp - 4)));
+    __m128i avg56 = mm_avg_epu<PixelType>(_mm_loadu_si128((const __m128i *)(srcp - 5)), _mm_loadu_si128((const __m128i *)(srcp - 6)));
 
-    __m128i avg012 = _mm_avg_epu8(_mm_loadu_si128((const __m128i *)(srcp)), avg12);
-    __m128i avg3456 = _mm_avg_epu8(avg34, avg56);
-    __m128i avg0123456 = _mm_avg_epu8(avg012, avg3456);
-    __m128i avg = _mm_avg_epu8(avg012, avg0123456);
+    __m128i avg012 = mm_avg_epu<PixelType>(_mm_loadu_si128((const __m128i *)(srcp)), avg12);
+    __m128i avg3456 = mm_avg_epu<PixelType>(avg34, avg56);
+    __m128i avg0123456 = mm_avg_epu<PixelType>(avg012, avg3456);
+    __m128i avg = mm_avg_epu<PixelType>(avg012, avg0123456);
 
-    // This is the right edge. Only the highest six bytes are needed.
-    int extra_bytes = *(int16_t *)(dstp + 8);
-    avg = _mm_insert_epi16(avg, extra_bytes, 4);
-    _mm_storeh_pi((__m64 *)(dstp + 8), _mm_castsi128_ps(avg));
+    // This is the right edge. Only the highest six pixels are needed.
+    if (sizeof(PixelType) == 1) {
+        int extra_bytes = *(int16_t *)(dstp + 8);
+        avg = _mm_insert_epi16(avg, extra_bytes, 4);
+        _mm_storeh_pi((__m64 *)(dstp + 8), _mm_castsi128_ps(avg));
+    } else {
+        int extra_bytes = dstp[0];
+        avg = _mm_insert_epi16(avg, extra_bytes, 0);
+        extra_bytes = dstp[1];
+        avg = _mm_insert_epi16(avg, extra_bytes, 1);
+        _mm_storeu_si128((__m128i *)(dstp), avg);
+    }
 }
 
 
-static FORCE_INLINE void blur_r6_v_top_u8_sse2(const uint8_t *srcp, uint8_t *dstp, int stride) {
+template <typename PixelType>
+static FORCE_INLINE void blur_r6_v_top_sse2(const PixelType *srcp, PixelType *dstp, int stride) {
     __m128i l0 = _mm_loadu_si128((const __m128i *)(srcp));
     __m128i l1 = _mm_loadu_si128((const __m128i *)(srcp + stride));
     __m128i l2 = _mm_loadu_si128((const __m128i *)(srcp + stride * 2));
@@ -139,20 +241,21 @@ static FORCE_INLINE void blur_r6_v_top_u8_sse2(const uint8_t *srcp, uint8_t *dst
     __m128i l5 = _mm_loadu_si128((const __m128i *)(srcp + stride * 5));
     __m128i l6 = _mm_loadu_si128((const __m128i *)(srcp + stride * 6));
 
-    __m128i avg12 = _mm_avg_epu8(l1, l2);
-    __m128i avg34 = _mm_avg_epu8(l3, l4);
-    __m128i avg56 = _mm_avg_epu8(l5, l6);
+    __m128i avg12 = mm_avg_epu<PixelType>(l1, l2);
+    __m128i avg34 = mm_avg_epu<PixelType>(l3, l4);
+    __m128i avg56 = mm_avg_epu<PixelType>(l5, l6);
 
-    __m128i avg3456 = _mm_avg_epu8(avg34, avg56);
-    __m128i avg012 = _mm_avg_epu8(l0, avg12);
-    __m128i avg0123456 = _mm_avg_epu8(avg012, avg3456);
-    __m128i avg = _mm_avg_epu8(avg012, avg0123456);
+    __m128i avg3456 = mm_avg_epu<PixelType>(avg34, avg56);
+    __m128i avg012 = mm_avg_epu<PixelType>(l0, avg12);
+    __m128i avg0123456 = mm_avg_epu<PixelType>(avg012, avg3456);
+    __m128i avg = mm_avg_epu<PixelType>(avg012, avg0123456);
 
     _mm_storeu_si128((__m128i *)(dstp), avg);
 }
 
 
-static FORCE_INLINE void blur_r6_v_middle_u8_sse2(const uint8_t *srcp, uint8_t *dstp, int stride) {
+template <typename PixelType>
+static FORCE_INLINE void blur_r6_v_middle_sse2(const PixelType *srcp, PixelType *dstp, int stride) {
     __m128i m6 = _mm_loadu_si128((const __m128i *)(srcp - stride * 6));
     __m128i m5 = _mm_loadu_si128((const __m128i *)(srcp - stride * 5));
     __m128i m4 = _mm_loadu_si128((const __m128i *)(srcp - stride * 4));
@@ -167,26 +270,27 @@ static FORCE_INLINE void blur_r6_v_middle_u8_sse2(const uint8_t *srcp, uint8_t *
     __m128i l5 = _mm_loadu_si128((const __m128i *)(srcp + stride * 5));
     __m128i l6 = _mm_loadu_si128((const __m128i *)(srcp + stride * 6));
 
-    __m128i avg11 = _mm_avg_epu8(m1, l1);
-    __m128i avg22 = _mm_avg_epu8(m2, l2);
-    __m128i avg33 = _mm_avg_epu8(m3, l3);
-    __m128i avg44 = _mm_avg_epu8(m4, l4);
-    __m128i avg55 = _mm_avg_epu8(m5, l5);
-    __m128i avg66 = _mm_avg_epu8(m6, l6);
+    __m128i avg11 = mm_avg_epu<PixelType>(m1, l1);
+    __m128i avg22 = mm_avg_epu<PixelType>(m2, l2);
+    __m128i avg33 = mm_avg_epu<PixelType>(m3, l3);
+    __m128i avg44 = mm_avg_epu<PixelType>(m4, l4);
+    __m128i avg55 = mm_avg_epu<PixelType>(m5, l5);
+    __m128i avg66 = mm_avg_epu<PixelType>(m6, l6);
 
-    __m128i avg12 = _mm_avg_epu8(avg11, avg22);
-    __m128i avg34 = _mm_avg_epu8(avg33, avg44);
-    __m128i avg56 = _mm_avg_epu8(avg55, avg66);
-    __m128i avg012 = _mm_avg_epu8(l0, avg12);
-    __m128i avg3456 = _mm_avg_epu8(avg34, avg56);
-    __m128i avg0123456 = _mm_avg_epu8(avg012, avg3456);
-    __m128i avg = _mm_avg_epu8(avg012, avg0123456);
+    __m128i avg12 = mm_avg_epu<PixelType>(avg11, avg22);
+    __m128i avg34 = mm_avg_epu<PixelType>(avg33, avg44);
+    __m128i avg56 = mm_avg_epu<PixelType>(avg55, avg66);
+    __m128i avg012 = mm_avg_epu<PixelType>(l0, avg12);
+    __m128i avg3456 = mm_avg_epu<PixelType>(avg34, avg56);
+    __m128i avg0123456 = mm_avg_epu<PixelType>(avg012, avg3456);
+    __m128i avg = mm_avg_epu<PixelType>(avg012, avg0123456);
 
     _mm_storeu_si128((__m128i *)(dstp), avg);
 }
 
 
-static FORCE_INLINE void blur_r6_v_bottom_u8_sse2(const uint8_t *srcp, uint8_t *dstp, int stride) {
+template <typename PixelType>
+static FORCE_INLINE void blur_r6_v_bottom_sse2(const PixelType *srcp, PixelType *dstp, int stride) {
     __m128i m6 = _mm_loadu_si128((const __m128i *)(srcp - stride * 6));
     __m128i m5 = _mm_loadu_si128((const __m128i *)(srcp - stride * 5));
     __m128i m4 = _mm_loadu_si128((const __m128i *)(srcp - stride * 4));
@@ -195,41 +299,49 @@ static FORCE_INLINE void blur_r6_v_bottom_u8_sse2(const uint8_t *srcp, uint8_t *
     __m128i m1 = _mm_loadu_si128((const __m128i *)(srcp - stride));
     __m128i l0 = _mm_loadu_si128((const __m128i *)(srcp));
 
-    __m128i avg12 = _mm_avg_epu8(m1, m2);
-    __m128i avg34 = _mm_avg_epu8(m3, m4);
-    __m128i avg56 = _mm_avg_epu8(m5, m6);
-    __m128i avg012 = _mm_avg_epu8(l0, avg12);
-    __m128i avg3456 = _mm_avg_epu8(avg34, avg56);
-    __m128i avg0123456 = _mm_avg_epu8(avg012, avg3456);
-    __m128i avg = _mm_avg_epu8(avg012, avg0123456);
+    __m128i avg12 = mm_avg_epu<PixelType>(m1, m2);
+    __m128i avg34 = mm_avg_epu<PixelType>(m3, m4);
+    __m128i avg56 = mm_avg_epu<PixelType>(m5, m6);
+    __m128i avg012 = mm_avg_epu<PixelType>(l0, avg12);
+    __m128i avg3456 = mm_avg_epu<PixelType>(avg34, avg56);
+    __m128i avg0123456 = mm_avg_epu<PixelType>(avg012, avg3456);
+    __m128i avg = mm_avg_epu<PixelType>(avg012, avg0123456);
 
     _mm_storeu_si128((__m128i *)(dstp), avg);
 }
 
 
-void blur_r6_u8_sse2(uint8_t *mask, uint8_t *temp, int stride, int width, int height) {
+template <typename PixelType>
+static void blur_r6_sse2(uint8_t *mask8, uint8_t *temp8, int stride, int width, int height) {
     // Horizontal blur from mask to temp.
     // Vertical blur from temp back to mask.
 
-    int width_sse2 = (width & ~15) + 12;
-    if (width_sse2 > stride)
-        width_sse2 -= 16;
+    PixelType *mask = (PixelType *)mask8;
+    PixelType *temp = (PixelType *)temp8;
 
-    uint8_t *mask_orig = mask;
-    uint8_t *temp_orig = temp;
+    stride /= sizeof(PixelType);
+
+    const int pixels_in_xmm = 16 / sizeof(PixelType);
+
+    int width_sse2 = (width & ~(pixels_in_xmm - 1)) + 12;
+    if (width_sse2 > stride)
+        width_sse2 -= pixels_in_xmm;
+
+    PixelType *mask_orig = mask;
+    PixelType *temp_orig = temp;
 
     // Horizontal blur.
 
     for (int y = 0; y < height; y++) {
-        blur_r6_h_left_u8_sse2(mask, temp);
+        blur_r6_h_left_sse2<PixelType>(mask, temp);
 
-        for (int x = 6; x < width_sse2 - 6; x += 16)
-            blur_r6_h_middle_u8_sse2(mask + x, temp + x);
+        for (int x = 6; x < width_sse2 - 6; x += pixels_in_xmm)
+            blur_r6_h_middle_sse2<PixelType>(mask + x, temp + x);
 
         if (width + 12 > width_sse2)
-            blur_r6_h_middle_u8_sse2(mask + width - 22, temp + width - 22);
+            blur_r6_h_middle_sse2<PixelType>(mask + width - pixels_in_xmm - 6, temp + width - pixels_in_xmm - 6);
 
-        blur_r6_h_right_u8_sse2(mask + width - 16, temp + width - 16);
+        blur_r6_h_right_sse2<PixelType>(mask + width - pixels_in_xmm, temp + width - pixels_in_xmm);
 
         mask += stride;
         temp += stride;
@@ -238,40 +350,40 @@ void blur_r6_u8_sse2(uint8_t *mask, uint8_t *temp, int stride, int width, int he
 
     // Vertical blur.
 
-    width_sse2 = width & ~15;
+    width_sse2 = width & ~(pixels_in_xmm - 1);
 
     mask = mask_orig;
     temp = temp_orig;
     int y;
 
     for (y = 0; y < 6; y++) {
-        for (int x = 0; x < width_sse2; x += 16)
-            blur_r6_v_top_u8_sse2(temp + x, mask + x, stride);
+        for (int x = 0; x < width_sse2; x += pixels_in_xmm)
+            blur_r6_v_top_sse2<PixelType>(temp + x, mask + x, stride);
 
         if (width > width_sse2)
-            blur_r6_v_top_u8_sse2(temp + width - 16, mask + width - 16, stride);
+            blur_r6_v_top_sse2<PixelType>(temp + width - pixels_in_xmm, mask + width - pixels_in_xmm, stride);
 
         mask += stride;
         temp += stride;
     }
 
     for ( ; y < height - 6; y++) {
-        for (int x = 0; x < width_sse2; x += 16)
-            blur_r6_v_middle_u8_sse2(temp + x, mask + x, stride);
+        for (int x = 0; x < width_sse2; x += pixels_in_xmm)
+            blur_r6_v_middle_sse2<PixelType>(temp + x, mask + x, stride);
 
         if (width > width_sse2)
-            blur_r6_v_middle_u8_sse2(temp + width - 16, mask + width - 16, stride);
+            blur_r6_v_middle_sse2<PixelType>(temp + width - pixels_in_xmm, mask + width - pixels_in_xmm, stride);
 
         mask += stride;
         temp += stride;
     }
 
     for ( ; y < height; y++) {
-        for (int x = 0; x < width_sse2; x += 16)
-            blur_r6_v_bottom_u8_sse2(temp + x, mask + x, stride);
+        for (int x = 0; x < width_sse2; x += pixels_in_xmm)
+            blur_r6_v_bottom_sse2<PixelType>(temp + x, mask + x, stride);
 
         if (width > width_sse2)
-            blur_r6_v_bottom_u8_sse2(temp + width - 16, mask + width - 16, stride);
+            blur_r6_v_bottom_sse2<PixelType>(temp + width - pixels_in_xmm, mask + width - pixels_in_xmm, stride);
 
         mask += stride;
         temp += stride;
@@ -279,45 +391,55 @@ void blur_r6_u8_sse2(uint8_t *mask, uint8_t *temp, int stride, int width, int he
 }
 
 
-static FORCE_INLINE void blur_r2_h_u8_sse2(const uint8_t *srcp, uint8_t *dstp) {
-    __m128i avg1 = _mm_avg_epu8(_mm_loadu_si128((const __m128i *)(srcp - 1)), _mm_loadu_si128((const __m128i *)(srcp + 1)));
-    __m128i avg2 = _mm_avg_epu8(_mm_loadu_si128((const __m128i *)(srcp - 2)), _mm_loadu_si128((const __m128i *)(srcp + 2)));
+template <typename PixelType>
+static FORCE_INLINE void blur_r2_h_sse2(const PixelType *srcp, PixelType *dstp) {
+    __m128i avg1 = mm_avg_epu<PixelType>(_mm_loadu_si128((const __m128i *)(srcp - 1)), _mm_loadu_si128((const __m128i *)(srcp + 1)));
+    __m128i avg2 = mm_avg_epu<PixelType>(_mm_loadu_si128((const __m128i *)(srcp - 2)), _mm_loadu_si128((const __m128i *)(srcp + 2)));
     __m128i middle = _mm_loadu_si128((const __m128i *)(srcp));
-    __m128i avg = _mm_avg_epu8(avg2, middle);
-    avg = _mm_avg_epu8(avg, middle);
-    avg = _mm_avg_epu8(avg, avg1);
+    __m128i avg = mm_avg_epu<PixelType>(avg2, middle);
+    avg = mm_avg_epu<PixelType>(avg, middle);
+    avg = mm_avg_epu<PixelType>(avg, avg1);
 
     _mm_storeu_si128((__m128i *)(dstp), avg);
 }
 
 
-static FORCE_INLINE void blur_r2_v_u8_sse2(const uint8_t *srcp, uint8_t *dstp, int stride_p2, int stride_p1, int stride_n1, int stride_n2) {
+template <typename PixelType>
+static FORCE_INLINE void blur_r2_v_sse2(const PixelType *srcp, PixelType *dstp, int stride_p2, int stride_p1, int stride_n1, int stride_n2) {
     __m128i m2 = _mm_loadu_si128((const __m128i *)(srcp + stride_p2));
     __m128i m1 = _mm_loadu_si128((const __m128i *)(srcp + stride_p1));
     __m128i l0 = _mm_loadu_si128((const __m128i *)(srcp));
     __m128i l1 = _mm_loadu_si128((const __m128i *)(srcp + stride_n1));
     __m128i l2 = _mm_loadu_si128((const __m128i *)(srcp + stride_n2));
 
-    __m128i avg1 = _mm_avg_epu8(m1, l1);
-    __m128i avg2 = _mm_avg_epu8(m2, l2);
-    __m128i avg = _mm_avg_epu8(avg2, l0);
-    avg = _mm_avg_epu8(avg, l0);
-    avg = _mm_avg_epu8(avg, avg1);
+    __m128i avg1 = mm_avg_epu<PixelType>(m1, l1);
+    __m128i avg2 = mm_avg_epu<PixelType>(m2, l2);
+    __m128i avg = mm_avg_epu<PixelType>(avg2, l0);
+    avg = mm_avg_epu<PixelType>(avg, l0);
+    avg = mm_avg_epu<PixelType>(avg, avg1);
 
     _mm_storeu_si128((__m128i *)(dstp), avg);
 }
 
 
-void blur_r2_u8_sse2(uint8_t *mask, uint8_t *temp, int stride, int width, int height) {
+template <typename PixelType>
+static void blur_r2_sse2(uint8_t *mask8, uint8_t *temp8, int stride, int width, int height) {
     // Horizontal blur from mask to temp.
     // Vertical blur from temp back to mask.
 
-    int width_sse2 = (width & ~15) + 4;
-    if (width_sse2 > stride)
-        width_sse2 -= 16;
+    PixelType *mask = (PixelType *)mask8;
+    PixelType *temp = (PixelType *)temp8;
 
-    uint8_t *mask_orig = mask;
-    uint8_t *temp_orig = temp;
+    stride /= sizeof(PixelType);
+
+    const int pixels_in_xmm = 16 / sizeof(PixelType);
+
+    int width_sse2 = (width & ~(pixels_in_xmm - 1)) + 4;
+    if (width_sse2 > stride)
+        width_sse2 -= pixels_in_xmm;
+
+    PixelType *mask_orig = mask;
+    PixelType *temp_orig = temp;
 
     // Horizontal blur.
 
@@ -340,11 +462,11 @@ void blur_r2_u8_sse2(uint8_t *mask, uint8_t *temp, int stride, int width, int he
 
         temp[1] = avg;
 
-        for (int x = 2; x < width_sse2 - 2; x += 16)
-            blur_r2_h_u8_sse2(mask + x, temp + x);
+        for (int x = 2; x < width_sse2 - 2; x += pixels_in_xmm)
+            blur_r2_h_sse2<PixelType>(mask + x, temp + x);
 
         if (width + 4 > width_sse2)
-            blur_r2_h_u8_sse2(mask + width - 18, temp + width - 18);
+            blur_r2_h_sse2<PixelType>(mask + width - pixels_in_xmm - 2, temp + width - pixels_in_xmm - 2);
 
         avg1 = (mask[width - 3] + mask[width - 1] + 1) >> 1;
         avg2 = (mask[width - 4] + mask[width - 1] + 1) >> 1;
@@ -369,7 +491,7 @@ void blur_r2_u8_sse2(uint8_t *mask, uint8_t *temp, int stride, int width, int he
 
     // Vertical blur.
 
-    width_sse2 = width & ~15;
+    width_sse2 = width & ~(pixels_in_xmm - 1);
 
     mask = mask_orig;
     temp = temp_orig;
@@ -380,11 +502,11 @@ void blur_r2_u8_sse2(uint8_t *mask, uint8_t *temp, int stride, int width, int he
         int stride_n1 = y < height - 1 ? stride : 0;
         int stride_n2 = y < height - 2 ? stride_n1 * 2 : stride_n1;
 
-        for (int x = 0; x < width_sse2; x += 16)
-            blur_r2_v_u8_sse2(temp + x, mask + x, stride_p2, stride_p1, stride_n1, stride_n2);
+        for (int x = 0; x < width_sse2; x += pixels_in_xmm)
+            blur_r2_v_sse2<PixelType>(temp + x, mask + x, stride_p2, stride_p1, stride_n1, stride_n2);
 
         if (width > width_sse2)
-            blur_r2_v_u8_sse2(temp + width - 16, mask + width - 16, stride_p2, stride_p1, stride_n1, stride_n2);
+            blur_r2_v_sse2<PixelType>(temp + width - pixels_in_xmm, mask + width - pixels_in_xmm, stride_p2, stride_p1, stride_n1, stride_n2);
 
         mask += stride;
         temp += stride;
@@ -705,11 +827,45 @@ static void warp_u8_sse2(const uint8_t *srcp, const uint8_t *edgep, uint8_t *dst
 }
 
 
-void warp0_u8_sse2(const uint8_t *srcp, const uint8_t *edgep, uint8_t *dstp, int src_stride, int edge_stride, int dst_stride, int width, int height, int depth) {
+void sobel_u8_sse2(const uint8_t *srcp, uint8_t *dstp, int stride, int width, int height, int thresh, int bits_per_sample) {
+    sobel_sse2<uint8_t>(srcp, dstp, stride, width, height, thresh, bits_per_sample);
+}
+
+
+void sobel_u16_sse2(const uint8_t *srcp, uint8_t *dstp, int stride, int width, int height, int thresh, int bits_per_sample) {
+    sobel_sse2<uint16_t>(srcp, dstp, stride, width, height, thresh, bits_per_sample);
+}
+
+
+void blur_r6_u8_sse2(uint8_t *mask, uint8_t *temp, int stride, int width, int height) {
+    blur_r6_sse2<uint8_t>(mask, temp, stride, width, height);
+}
+
+
+void blur_r6_u16_sse2(uint8_t *mask, uint8_t *temp, int stride, int width, int height) {
+    blur_r6_sse2<uint16_t>(mask, temp, stride, width, height);
+}
+
+
+void blur_r2_u8_sse2(uint8_t *mask, uint8_t *temp, int stride, int width, int height) {
+    blur_r2_sse2<uint8_t>(mask, temp, stride, width, height);
+}
+
+
+void blur_r2_u16_sse2(uint8_t *mask, uint8_t *temp, int stride, int width, int height) {
+    blur_r2_sse2<uint16_t>(mask, temp, stride, width, height);
+}
+
+
+void warp0_u8_sse2(const uint8_t *srcp, const uint8_t *edgep, uint8_t *dstp, int src_stride, int edge_stride, int dst_stride, int width, int height, int depth, int bits_per_sample) {
+    (void)bits_per_sample;
+
     warp_u8_sse2<0>(srcp, edgep, dstp, src_stride, edge_stride, dst_stride, width, height, depth);
 }
 
 
-void warp2_u8_sse2(const uint8_t *srcp, const uint8_t *edgep, uint8_t *dstp, int src_stride, int edge_stride, int dst_stride, int width, int height, int depth) {
+void warp2_u8_sse2(const uint8_t *srcp, const uint8_t *edgep, uint8_t *dstp, int src_stride, int edge_stride, int dst_stride, int width, int height, int depth, int bits_per_sample) {
+    (void)bits_per_sample;
+
     warp_u8_sse2<2>(srcp, edgep, dstp, src_stride, edge_stride, dst_stride, width, height, depth);
 }

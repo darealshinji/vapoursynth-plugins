@@ -9,16 +9,28 @@
 
 
 #if defined(AWARPSHARP2_X86)
-extern void sobel_u8_sse2(const uint8_t *srcp, uint8_t *dstp, int stride, int width, int height, int thresh);
+extern void sobel_u8_sse2(const uint8_t *srcp, uint8_t *dstp, int stride, int width, int height, int thresh, int bits_per_sample);
 extern void blur_r6_u8_sse2(uint8_t *mask, uint8_t *temp, int stride, int width, int height);
 extern void blur_r2_u8_sse2(uint8_t *mask, uint8_t *temp, int stride, int width, int height);
-extern void warp0_u8_sse2(const uint8_t *srcp, const uint8_t *edgep, uint8_t *dstp, int src_stride, int edge_stride, int dst_stride, int width, int height, int depth);
-extern void warp2_u8_sse2(const uint8_t *srcp, const uint8_t *edgep, uint8_t *dstp, int src_stride, int edge_stride, int dst_stride, int width, int height, int depth);
+extern void warp0_u8_sse2(const uint8_t *srcp, const uint8_t *edgep, uint8_t *dstp, int src_stride, int edge_stride, int dst_stride, int width, int height, int depth, int bits_per_sample);
+extern void warp2_u8_sse2(const uint8_t *srcp, const uint8_t *edgep, uint8_t *dstp, int src_stride, int edge_stride, int dst_stride, int width, int height, int depth, int bits_per_sample);
+
+extern void sobel_u16_sse2(const uint8_t *srcp, uint8_t *dstp, int stride, int width, int height, int thresh, int bits_per_sample);
+extern void blur_r6_u16_sse2(uint8_t *mask, uint8_t *temp, int stride, int width, int height);
+extern void blur_r2_u16_sse2(uint8_t *mask, uint8_t *temp, int stride, int width, int height);
 #endif
 
 
-static void sobel_c(const uint8_t *srcp, uint8_t *dstp, int stride, int width, int height, int thresh) {
-    uint8_t *dstp_orig = dstp;
+template <typename PixelType>
+static void sobel_c(const uint8_t *srcp8, uint8_t *dstp8, int stride, int width, int height, int thresh, int bits_per_sample) {
+    const PixelType *srcp = (const PixelType *)srcp8;
+    PixelType *dstp = (PixelType *)dstp8;
+
+    stride /= sizeof(PixelType);
+
+    int pixel_max = (1 << bits_per_sample) - 1;
+
+    PixelType *dstp_orig = dstp;
 
     srcp += stride;
     dstp += stride;
@@ -48,14 +60,14 @@ static void sobel_c(const uint8_t *srcp, uint8_t *dstp, int stride, int width, i
             int abs_v = abs(avg_up - avg_down);
             int abs_h = abs(avg_left - avg_right);
 
-            int absolute = std::min(abs_v + abs_h, 255);
+            int absolute = std::min(abs_v + abs_h, pixel_max);
 
             int abs_max = std::max(abs_h, abs_v);
 
-            absolute = std::min(absolute + abs_max, 255);
+            absolute = std::min(absolute + abs_max, pixel_max);
 
-            absolute = std::min(std::min(absolute * 2, 255) + absolute, 255);
-            absolute = std::min(absolute * 2, 255);
+            absolute = std::min(std::min(absolute * 2, pixel_max) + absolute, pixel_max);
+            absolute = std::min(absolute * 2, pixel_max);
 
             dstp[x] = std::min(absolute, thresh);
         }
@@ -67,17 +79,23 @@ static void sobel_c(const uint8_t *srcp, uint8_t *dstp, int stride, int width, i
         dstp += stride;
     }
 
-    memcpy(dstp_orig, dstp_orig + stride, width);
-    memcpy(dstp, dstp - stride, width);
+    memcpy(dstp_orig, dstp_orig + stride, width * sizeof(PixelType));
+    memcpy(dstp, dstp - stride, width * sizeof(PixelType));
 }
 
 
-static void blur_r6_c(uint8_t *mask, uint8_t *temp, int stride, int width, int height) {
+template <typename PixelType>
+static void blur_r6_c(uint8_t *mask8, uint8_t *temp8, int stride, int width, int height) {
     // Horizontal blur from mask to temp.
     // Vertical blur from temp back to mask.
 
-    uint8_t *mask_orig = mask;
-    uint8_t *temp_orig = temp;
+    PixelType *mask = (PixelType *)mask8;
+    PixelType *temp = (PixelType *)temp8;
+
+    stride /= sizeof(PixelType);
+
+    PixelType *mask_orig = mask;
+    PixelType *temp_orig = temp;
 
     // Horizontal blur.
 
@@ -229,12 +247,18 @@ static void blur_r6_c(uint8_t *mask, uint8_t *temp, int stride, int width, int h
 }
 
 
-static void blur_r2_c(uint8_t *mask, uint8_t *temp, int stride, int width, int height) {
+template <typename PixelType>
+static void blur_r2_c(uint8_t *mask8, uint8_t *temp8, int stride, int width, int height) {
     // Horizontal blur from mask to temp.
     // Vertical blur from temp back to mask.
 
-    uint8_t *mask_orig = mask;
-    uint8_t *temp_orig = temp;
+    PixelType *mask = (PixelType *)mask8;
+    PixelType *temp = (PixelType *)temp8;
+
+    stride /= sizeof(PixelType);
+
+    PixelType *mask_orig = mask;
+    PixelType *temp_orig = temp;
 
     // Horizontal blur.
 
@@ -321,7 +345,12 @@ static void blur_r2_c(uint8_t *mask, uint8_t *temp, int stride, int width, int h
 }
 
 
-static void bilinear_downscale_h_c(uint8_t *srcp, int src_stride, int src_width, int src_height) {
+template <typename PixelType>
+static void bilinear_downscale_h_c(uint8_t *srcp8, int src_stride, int src_width, int src_height) {
+    PixelType *srcp = (PixelType *)srcp8;
+
+    src_stride /= sizeof(PixelType);
+
     for (int y = 0; y < src_height; y++) {
         for (int x = 0; x < src_width / 2; x++)
             srcp[x] = (srcp[x * 2] + srcp[x * 2 + 1] + 1) >> 1;
@@ -331,7 +360,12 @@ static void bilinear_downscale_h_c(uint8_t *srcp, int src_stride, int src_width,
 }
 
 
-static void bilinear_downscale_v_c(uint8_t *srcp, int src_stride, int src_width, int src_height) {
+template <typename PixelType>
+static void bilinear_downscale_v_c(uint8_t *srcp8, int src_stride, int src_width, int src_height) {
+    PixelType *srcp = (PixelType *)srcp8;
+
+    src_stride /= sizeof(PixelType);
+
     for (int y = 0; y < src_height / 2; y++) {
         for (int x = 0; x < src_width; x++)
             srcp[x] = (srcp[x + y * src_stride] + srcp[x + (y + 1) * src_stride] + 1) >> 1;
@@ -341,7 +375,12 @@ static void bilinear_downscale_v_c(uint8_t *srcp, int src_stride, int src_width,
 }
 
 
-static void bilinear_downscale_hv_c(uint8_t *srcp, int src_stride, int src_width, int src_height) {
+template <typename PixelType>
+static void bilinear_downscale_hv_c(uint8_t *srcp8, int src_stride, int src_width, int src_height) {
+    PixelType *srcp = (PixelType *)srcp8;
+
+    src_stride /= sizeof(PixelType);
+
     for (int y = 0; y < src_height / 2; y++) {
         for (int x = 0; x < src_width / 2; x++) {
             int avg1 = (srcp[x * 2 + y * src_stride] + srcp[x * 2 + 1 + y * src_stride] + 1) >> 1;
@@ -354,8 +393,21 @@ static void bilinear_downscale_hv_c(uint8_t *srcp, int src_stride, int src_width
 }
 
 
-template <int SMAGL> // 0 or 2
-static void warp_c(const uint8_t *srcp, const uint8_t *edgep, uint8_t *dstp, int src_stride, int edge_stride, int dst_stride, int width, int height, int depth) {
+// SMAGL is 0 or 2
+// PixelType is uint8_t or uint16_t
+template <int SMAGL, typename PixelType>
+static void warp_c(const uint8_t *srcp8, const uint8_t *edgep8, uint8_t *dstp8, int src_stride, int edge_stride, int dst_stride, int width, int height, int depth, int bits_per_sample) {
+    const PixelType *srcp = (const PixelType *)srcp8;
+    const PixelType *edgep = (const PixelType *)edgep8;
+    PixelType *dstp = (PixelType *)dstp8;
+
+    src_stride /= sizeof(PixelType);
+    edge_stride /= sizeof(PixelType);
+    dst_stride /= sizeof(PixelType);
+
+    int extra_bits = bits_per_sample - 8;
+    int pixel_max = (1 << bits_per_sample) - 1;
+
     int SMAG = 1 << SMAGL;
 
     depth <<= 8;
@@ -394,6 +446,11 @@ static void warp_c(const uint8_t *srcp, const uint8_t *edgep, uint8_t *dstp, int
 
             int h = left - right;
             int v = above - below;
+
+            if (sizeof(PixelType) == 2) {
+                h >>= extra_bits;
+                v >>= extra_bits;
+            }
 
             h <<= 7;
             v <<= 7;
@@ -458,7 +515,7 @@ static void warp_c(const uint8_t *srcp, const uint8_t *edgep, uint8_t *dstp, int
 
             s >>= 7;
 
-            dstp[x] = std::min(std::max(s, 0), 255);
+            dstp[x] = std::min(std::max(s, 0), pixel_max);
         }
 
         srcp += src_stride * SMAG;
@@ -468,7 +525,7 @@ static void warp_c(const uint8_t *srcp, const uint8_t *edgep, uint8_t *dstp, int
 }
 
 
-typedef struct {
+typedef struct AwarpSharp2Data {
     VSNodeRef *node;
     VSNodeRef *mask;
     const VSVideoInfo *vi;
@@ -481,10 +538,10 @@ typedef struct {
     int process[3];
     int opt;
 
-    void (*edge_mask)(const uint8_t *srcp, uint8_t *dstp, int stride, int width, int height, int thresh);
+    void (*edge_mask)(const uint8_t *srcp, uint8_t *dstp, int stride, int width, int height, int thresh, int bits_per_sample);
     void (*blur)(uint8_t *mask, uint8_t *temp, int stride, int width, int height);
     void (*bilinear_downscale)(uint8_t *srcp, int src_stride, int src_width, int src_height);
-    void (*warp)(const uint8_t *srcp, const uint8_t *edgep, uint8_t *dstp, int src_stride, int edge_stride, int dst_stride, int width, int height, int depth);
+    void (*warp)(const uint8_t *srcp, const uint8_t *edgep, uint8_t *dstp, int src_stride, int edge_stride, int dst_stride, int width, int height, int depth, int bits_per_sample);
 } AWarpSharp2Data;
 
 
@@ -524,15 +581,15 @@ static const VSFrameRef *VS_CC aWarpSharp2GetFrame(int n, int activationReason, 
             const uint8_t *srcp = vsapi->getReadPtr(src, 0);
             uint8_t *dstp = vsapi->getWritePtr(dst, 0);
 
-            d->edge_mask(srcp, mask_y, stride_y, width_y, height_y, d->thresh);
+            d->edge_mask(srcp, mask_y, stride_y, width_y, height_y, d->thresh, d->vi->format->bitsPerSample);
 
             for (int i = 0; i < d->blur_level; i++)
                 d->blur(mask_y, dstp, stride_y, width_y, height_y);
 
             if (d->process[0])
-                d->warp(srcp, mask_y, dstp, stride_y, stride_y, stride_y, width_y, height_y, d->depth);
+                d->warp(srcp, mask_y, dstp, stride_y, stride_y, stride_y, width_y, height_y, d->depth, d->vi->format->bitsPerSample);
             else
-                vs_bitblt(dstp, stride_y, srcp, stride_y, width_y, height_y);
+                vs_bitblt(dstp, stride_y, srcp, stride_y, width_y * fmt->bytesPerSample, height_y);
         }
 
         if ((d->process[1] || d->process[2]) && fmt->numPlanes > 1) {
@@ -550,12 +607,12 @@ static const VSFrameRef *VS_CC aWarpSharp2GetFrame(int n, int activationReason, 
                     const uint8_t *srcp = vsapi->getReadPtr(src, plane);
                     uint8_t *dstp = vsapi->getWritePtr(dst, plane);
 
-                    d->edge_mask(srcp, mask_uv, stride_uv, width_uv, height_uv, d->thresh);
+                    d->edge_mask(srcp, mask_uv, stride_uv, width_uv, height_uv, d->thresh, d->vi->format->bitsPerSample);
 
                     for (int i = 0; i < (d->blur_level + 1) / 2; i++)
                         d->blur(mask_uv, dstp, stride_uv, width_uv, height_uv);
 
-                    d->warp(srcp, mask_uv, dstp, stride_uv, stride_uv, stride_uv, width_uv, height_uv, d->depth / 2);
+                    d->warp(srcp, mask_uv, dstp, stride_uv, stride_uv, stride_uv, width_uv, height_uv, d->depth / 2, d->vi->format->bitsPerSample);
                 }
 
                 vs_aligned_free(mask_uv);
@@ -575,7 +632,7 @@ static const VSFrameRef *VS_CC aWarpSharp2GetFrame(int n, int activationReason, 
                     const uint8_t *srcp = vsapi->getReadPtr(src, plane);
                     uint8_t *dstp = vsapi->getWritePtr(dst, plane);
 
-                    d->warp(srcp, mask_y, dstp, stride_uv, stride_y, stride_uv, width_uv, height_uv, d->depth / 2);
+                    d->warp(srcp, mask_y, dstp, stride_uv, stride_y, stride_uv, width_uv, height_uv, d->depth / 2, d->vi->format->bitsPerSample);
                 }
             }
         }
@@ -622,7 +679,7 @@ static const VSFrameRef *VS_CC aSobelGetFrame(int n, int activationReason, void 
             int width = vsapi->getFrameWidth(src, plane);
             int height = vsapi->getFrameHeight(src, plane);
 
-            d->edge_mask(srcp, dstp, stride, width, height, d->thresh);
+            d->edge_mask(srcp, dstp, stride, width, height, d->thresh, d->vi->format->bitsPerSample);
         }
 
         vsapi->freeFrame(src);
@@ -712,7 +769,7 @@ static const VSFrameRef *VS_CC aWarpGetFrame(int n, int activationReason, void *
             int dst_width_y = vsapi->getFrameWidth(dst, 0);
             int dst_height_y = vsapi->getFrameHeight(dst, 0);
 
-            d->warp(srcp, maskp, dstp, src_stride_y, dst_stride_y, dst_stride_y, dst_width_y, dst_height_y, d->depth);
+            d->warp(srcp, maskp, dstp, src_stride_y, dst_stride_y, dst_stride_y, dst_width_y, dst_height_y, d->depth, d->vi->format->bitsPerSample);
         }
 
         if ((d->process[1] || d->process[2]) && fmt->numPlanes > 1) {
@@ -730,7 +787,7 @@ static const VSFrameRef *VS_CC aWarpGetFrame(int n, int activationReason, void *
                     const uint8_t *maskp = vsapi->getReadPtr(mask, plane);
                     uint8_t *dstp = vsapi->getWritePtr(dst, plane);
 
-                    d->warp(srcp, maskp, dstp, src_stride_uv, dst_stride_uv, dst_stride_uv, dst_width_uv, dst_height_uv, d->depth / 2);
+                    d->warp(srcp, maskp, dstp, src_stride_uv, dst_stride_uv, dst_stride_uv, dst_width_uv, dst_height_uv, d->depth / 2, d->vi->format->bitsPerSample);
                 }
             } else if (d->chroma == 0) {
                 int src_stride_uv = vsapi->getStride(src, 1);
@@ -756,7 +813,7 @@ static const VSFrameRef *VS_CC aWarpGetFrame(int n, int activationReason, void *
                     const uint8_t *srcp = vsapi->getReadPtr(src, plane);
                     uint8_t *dstp = vsapi->getWritePtr(dst, plane);
 
-                    d->warp(srcp, maskp ? maskp : vsapi->getReadPtr(mask, 0), dstp, src_stride_uv, mask_stride_y, dst_stride_uv, dst_width_uv, dst_height_uv, d->depth / 2);
+                    d->warp(srcp, maskp ? maskp : vsapi->getReadPtr(mask, 0), dstp, src_stride_uv, mask_stride_y, dst_stride_uv, dst_width_uv, dst_height_uv, d->depth / 2, d->vi->format->bitsPerSample);
                 }
 
                 if (maskp)
@@ -785,42 +842,76 @@ static void VS_CC aWarpSharp2Free(void *instanceData, VSCore *core, const VSAPI 
 
 
 static void selectFunctions(AWarpSharp2Data *d, bool warp4=false) {
-    d->edge_mask = sobel_c;
-
-    if (d->blur_type == 0)
-        d->blur = blur_r6_c;
-    else
-        d->blur = blur_r2_c;
-
-    if (d->vi->format->subSamplingW && d->vi->format->subSamplingH)
-        d->bilinear_downscale = bilinear_downscale_hv_c;
-    else if (d->vi->format->subSamplingW)
-        d->bilinear_downscale = bilinear_downscale_h_c;
-    else if (d->vi->format->subSamplingH)
-        d->bilinear_downscale = bilinear_downscale_v_c;
-    else
-        d->bilinear_downscale = nullptr;
-
-    if (warp4)
-        d->warp = warp_c<2>;
-    else
-        d->warp = warp_c<0>;
-
-#if defined(AWARPSHARP2_X86)
-    if (d->opt) {
-        d->edge_mask = sobel_u8_sse2;
+    if (d->vi->format->bitsPerSample == 8) {
+        d->edge_mask = sobel_c<uint8_t>;
 
         if (d->blur_type == 0)
-            d->blur = blur_r6_u8_sse2;
+            d->blur = blur_r6_c<uint8_t>;
         else
-            d->blur = blur_r2_u8_sse2;
+            d->blur = blur_r2_c<uint8_t>;
+
+        if (d->vi->format->subSamplingW && d->vi->format->subSamplingH)
+            d->bilinear_downscale = bilinear_downscale_hv_c<uint8_t>;
+        else if (d->vi->format->subSamplingW)
+            d->bilinear_downscale = bilinear_downscale_h_c<uint8_t>;
+        else if (d->vi->format->subSamplingH)
+            d->bilinear_downscale = bilinear_downscale_v_c<uint8_t>;
+        else
+            d->bilinear_downscale = nullptr;
 
         if (warp4)
-            d->warp = warp2_u8_sse2;
+            d->warp = warp_c<2, uint8_t>;
         else
-            d->warp = warp0_u8_sse2;
-    }
+            d->warp = warp_c<0, uint8_t>;
+
+#if defined(AWARPSHARP2_X86)
+        if (d->opt) {
+            d->edge_mask = sobel_u8_sse2;
+
+            if (d->blur_type == 0)
+                d->blur = blur_r6_u8_sse2;
+            else
+                d->blur = blur_r2_u8_sse2;
+
+            if (warp4)
+                d->warp = warp2_u8_sse2;
+            else
+                d->warp = warp0_u8_sse2;
+        }
 #endif
+    } else if (d->vi->format->bitsPerSample <= 16) {
+        d->edge_mask = sobel_c<uint16_t>;
+
+        if (d->blur_type == 0)
+            d->blur = blur_r6_c<uint16_t>;
+        else
+            d->blur = blur_r2_c<uint16_t>;
+
+        if (d->vi->format->subSamplingW && d->vi->format->subSamplingH)
+            d->bilinear_downscale = bilinear_downscale_hv_c<uint16_t>;
+        else if (d->vi->format->subSamplingW)
+            d->bilinear_downscale = bilinear_downscale_h_c<uint16_t>;
+        else if (d->vi->format->subSamplingH)
+            d->bilinear_downscale = bilinear_downscale_v_c<uint16_t>;
+        else
+            d->bilinear_downscale = nullptr;
+
+        if (warp4)
+            d->warp = warp_c<2, uint16_t>;
+        else
+            d->warp = warp_c<0, uint16_t>;
+
+#if defined(AWARPSHARP2_X86)
+        if (d->opt) {
+            d->edge_mask = sobel_u16_sse2;
+
+            if (d->blur_type == 0)
+                d->blur = blur_r6_u16_sse2;
+            else
+                d->blur = blur_r2_u16_sse2;
+        }
+#endif
+    }
 }
 
 
@@ -883,8 +974,8 @@ static void VS_CC aWarpSharp2Create(const VSMap *in, VSMap *out, void *userData,
     d.vi = vsapi->getVideoInfo(d.node);
 
 
-    if (!d.vi->format || !d.vi->width || !d.vi->height || d.vi->format->bitsPerSample > 8 || d.vi->format->colorFamily == cmRGB) {
-        vsapi->setError(out, "AWarpSharp2: 8 bit, not RGB clips with constant format and dimensions supported.");
+    if (!d.vi->format || !d.vi->width || !d.vi->height || d.vi->format->sampleType != stInteger || d.vi->format->bitsPerSample > 16 || d.vi->format->colorFamily == cmRGB) {
+        vsapi->setError(out, "AWarpSharp2: 8..16 bit integer, not RGB clips with constant format and dimensions supported.");
         vsapi->freeNode(d.node);
         return;
     }
@@ -918,6 +1009,9 @@ static void VS_CC aWarpSharp2Create(const VSMap *in, VSMap *out, void *userData,
 
         d.process[o] = 1;
     }
+
+
+    d.thresh <<= d.vi->format->bitsPerSample - 8;
 
 
     selectFunctions(&d);
@@ -957,8 +1051,8 @@ static void VS_CC aSobelCreate(const VSMap *in, VSMap *out, void *userData, VSCo
     d.vi = vsapi->getVideoInfo(d.node);
 
 
-    if (!d.vi->format || !d.vi->width || !d.vi->height || d.vi->format->bitsPerSample > 8 || d.vi->format->colorFamily == cmRGB) {
-        vsapi->setError(out, "ASobel: 8 bit, not RGB clips with constant format and dimensions supported.");
+    if (!d.vi->format || !d.vi->width || !d.vi->height || d.vi->format->sampleType != stInteger || d.vi->format->bitsPerSample > 16 || d.vi->format->colorFamily == cmRGB) {
+        vsapi->setError(out, "ASobel: only 8..16 bit integer, not RGB clips with constant format and dimensions supported.");
         vsapi->freeNode(d.node);
         return;
     }
@@ -986,6 +1080,9 @@ static void VS_CC aSobelCreate(const VSMap *in, VSMap *out, void *userData, VSCo
 
         d.process[o] = 1;
     }
+
+
+    d.thresh <<= d.vi->format->bitsPerSample - 8;
 
 
     selectFunctions(&d);
@@ -1034,8 +1131,8 @@ static void VS_CC aBlurCreate(const VSMap *in, VSMap *out, void *userData, VSCor
     d.vi = vsapi->getVideoInfo(d.node);
 
 
-    if (!d.vi->format || !d.vi->width || !d.vi->height || d.vi->format->bitsPerSample > 8 || d.vi->format->colorFamily == cmRGB) {
-        vsapi->setError(out, "ABlur: 8 bit, not RGB clips with constant format and dimensions supported.");
+    if (!d.vi->format || !d.vi->width || !d.vi->height || d.vi->format->sampleType != stInteger || d.vi->format->bitsPerSample > 16 || d.vi->format->colorFamily == cmRGB) {
+        vsapi->setError(out, "ABlur: only 8..16 bit integer, not RGB clips with constant format and dimensions supported.");
         vsapi->freeNode(d.node);
         return;
     }
@@ -1111,8 +1208,8 @@ static void VS_CC aWarpCreate(const VSMap *in, VSMap *out, void *userData, VSCor
     const VSVideoInfo *clipvi = vsapi->getVideoInfo(d.node);
 
 
-    if (!d.vi->format || !d.vi->width || !d.vi->height || d.vi->format->bitsPerSample > 8 || d.vi->format->colorFamily == cmRGB) {
-        vsapi->setError(out, "AWarp: 8 bit, not RGB clips with constant format and dimensions supported.");
+    if (!d.vi->format || !d.vi->width || !d.vi->height || d.vi->format->sampleType != stInteger || d.vi->format->bitsPerSample > 16 || d.vi->format->colorFamily == cmRGB) {
+        vsapi->setError(out, "AWarp: only 8..16 bit integer, not RGB clips with constant format and dimensions supported.");
         vsapi->freeNode(d.node);
         vsapi->freeNode(d.mask);
         return;
