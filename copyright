@@ -271,8 +271,7 @@ Copyright: 2007 Kevin Eliot Stone <kes25c@mail.missouri.edu>
            2014-2016 HolyWu
 License: GPL-2+
 
-Files: plugins/zimg/*
-       plugins/waifu2x-opt/libzimg/*
+Files: plugins/waifu2x-opt/libzimg/*
 Copyright: 2013-2014 dubhater
            2013-2014 Stephen R. Savage
 License: WTFPL
