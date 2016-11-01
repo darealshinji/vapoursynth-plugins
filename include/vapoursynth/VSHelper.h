@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <math.h>
 #ifdef _WIN32
 #include <malloc.h>
 #endif
