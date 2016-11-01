@@ -1,7 +1,7 @@
 include ../../config.mak
 
 YASM   := yasm
-ASMINC := -I. -I../../include/asm
+ASMINC := -I.
 
 ifneq ($(V),1)
 GEN_silent    = @ echo '  GEN      '$@;

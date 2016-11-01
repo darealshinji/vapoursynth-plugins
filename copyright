@@ -328,8 +328,7 @@ License: public-domain
  No license required for any purpose; the work is not subject to copyright
  in any jurisdiction.
 
-Files: include/asm/include/x86inc.asm
-       plugins/mvtools/src/asm/include/x86inc.asm
+Files: plugins/mvtools/src/asm/include/x86inc.asm
 Copyright: 2005-2016 x264 project
            Loren Merritt <lorenm@u.washington.edu>
            Anton Mitrofanov <BugMaster@narod.ru>
@@ -337,8 +336,7 @@ Copyright: 2005-2016 x264 project
            Henrik Gramner <henrik@gramner.com>
 License: ISC
 
-Files: include/asm/include/x86util.asm
-       plugins/mvtools/src/asm/include/x86util.asm
+Files: plugins/mvtools/src/asm/include/x86util.asm
 Copyright: 2008-2015 x264 project
            Holger Lubitz <holger@lubitz.org>
            Loren Merritt <lorenm@u.washington.edu>
