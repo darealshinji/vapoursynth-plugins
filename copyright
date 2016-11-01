@@ -330,7 +330,7 @@ License: public-domain
 
 Files: include/asm/include/x86inc.asm
        plugins/mvtools/src/asm/include/x86inc.asm
-Copyright: 2005-2015 x264 project
+Copyright: 2005-2016 x264 project
            Loren Merritt <lorenm@u.washington.edu>
            Anton Mitrofanov <BugMaster@narod.ru>
            Fiona Glaser <fiona@x264.com>
