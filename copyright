@@ -134,6 +134,7 @@ Copyright: 2002 thejam79
 License: GPL-2+
 
 Files: plugins/cnr2/*
+       plugins/degrainmedian/*
        plugins/histogram/*
        plugins/msmoosh/*
        plugins/mvtools/*
