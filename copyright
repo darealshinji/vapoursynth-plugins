@@ -133,7 +133,8 @@ Copyright: 2002 thejam79
            2014 msg7086
 License: GPL-2+
 
-Files: plugins/plugins/histogram/*
+Files: plugins/cnr2/*
+       plugins/histogram/*
        plugins/msmoosh/*
        plugins/mvtools/*
        plugins/nnedi3/*

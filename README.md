@@ -40,6 +40,7 @@ sudo apt-get install vapoursynth-extra-plugins
 [bm3d r7](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-BM3D)<br>
 [combmask 0.0.1](https://github.com/chikuzen/CombMask)<br>
 [convo2d 0.2.0](https://github.com/chikuzen/convo2d)<br>
+[cnr2 1](https://github.com/dubhater/vapoursynth-cnr2)<br>
 [ctmf r2](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-CTMF)<br>
 [d2vsource 1.0](https://github.com/dwbuiten/d2vsource)<br>
 [damb r3](https://github.com/dubhater/vapoursynth-damb)<br>
