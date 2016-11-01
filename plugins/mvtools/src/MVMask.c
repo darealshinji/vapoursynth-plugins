@@ -36,9 +36,11 @@ typedef struct MVMaskData {
     float ml;
     float fGamma;
     int kind;
+    int time256;
     int nSceneChangeValue;
     int thscd1;
     int thscd2;
+    int opt;
 
     float fMaskNormFactor;
     float fMaskNormFactor2;
@@ -72,11 +74,6 @@ static inline uint8_t mvmaskLength(VECTOR v, uint8_t pel, float fMaskNormFactor2
 
     double l = 255 * pow(norme * fMaskNormFactor2, fHalfGamma); //Fizick - simply rewritten
 
-    return (uint8_t)((l > 255) ? 255 : l);
-}
-
-static inline uint8_t mvmaskSAD(unsigned int s, float fMaskNormFactor, float fGamma, int nBlkSizeX, int nBlkSizeY) {
-    double l = 255 * pow((s * 4 * fMaskNormFactor) / (nBlkSizeX * nBlkSizeY), fGamma); // Fizick - now linear for gm=1
     return (uint8_t)((l > 255) ? 255 : l);
 }
 
@@ -139,6 +136,8 @@ static const VSFrameRef *VS_CC mvmaskGetFrame(int n, int activationReason, void 
             const int nHeightBUV = d->nHeightBUV;
             SimpleResize *upsizer = &d->upsizer;
             SimpleResize *upsizerUV = &d->upsizerUV;
+            const int time256 = d->time256;
+            const int bitsPerSample = vsapi->getFrameFormat(src)->bitsPerSample;
 
             uint8_t *smallMask = (uint8_t *)malloc(nBlkX * nBlkY);
             uint8_t *smallMaskV = (uint8_t *)malloc(nBlkX * nBlkY);
@@ -147,28 +146,27 @@ static const VSFrameRef *VS_CC mvmaskGetFrame(int n, int activationReason, void 
                 for (int j = 0; j < nBlkCount; j++)
                     smallMask[j] = mvmaskLength(fgopGetBlock(&fgop, 0, j)->vector, nPel, fMaskNormFactor2, fHalfGamma);
             } else if (kind == 1) { // SAD mask
-                for (int j = 0; j < nBlkCount; j++)
-                    smallMask[j] = mvmaskSAD(fgopGetBlock(&fgop, 0, j)->vector.sad, fMaskNormFactor, fGamma, nBlkSizeX, nBlkSizeY);
+                MakeSADMaskTime(&fgop, nBlkX, nBlkY, 4.0 * fMaskNormFactor / (nBlkSizeX * nBlkSizeY), fGamma, nPel, smallMask, nBlkX, time256, nBlkSizeX - nOverlapX, nBlkSizeY - nOverlapY, bitsPerSample);
             } else if (kind == 2) { // occlusion mask
-                MakeVectorOcclusionMaskTime(&fgop, nBlkX, nBlkY, fMaskNormFactor, fGamma, nPel, smallMask, nBlkX, 256, nBlkSizeX - nOverlapX, nBlkSizeY - nOverlapY);
+                MakeVectorOcclusionMaskTime(&fgop, d->vectors_data.isBackward, nBlkX, nBlkY, 1.0 / fMaskNormFactor, fGamma, nPel, smallMask, nBlkX, time256, nBlkSizeX - nOverlapX, nBlkSizeY - nOverlapY);
             } else if (kind == 3) { // vector x mask
                 for (int j = 0; j < nBlkCount; j++)
-                    smallMask[j] = fgopGetBlock(&fgop, 0, j)->vector.x + 128; // shited by 128 for signed support
-            } else if (kind == 4) {                                      // vector y mask
+                    smallMask[j] = VSMAX(0, VSMIN(255, (int)(fgopGetBlock(&fgop, 0, j)->vector.x * fMaskNormFactor * 100 + 128))); // shited by 128 for signed support
+            } else if (kind == 4) { // vector y mask
                 for (int j = 0; j < nBlkCount; j++)
-                    smallMask[j] = fgopGetBlock(&fgop, 0, j)->vector.y + 128; // shited by 128 for signed support
+                    smallMask[j] = VSMAX(0, VSMIN(255, (int)(fgopGetBlock(&fgop, 0, j)->vector.y * fMaskNormFactor * 100 + 128))); // shited by 128 for signed support
             } else if (kind == 5) {                                      // vector x mask in U, y mask in V
                 for (int j = 0; j < nBlkCount; j++) {
                     VECTOR v = fgopGetBlock(&fgop, 0, j)->vector;
-                    smallMask[j] = v.x + 128;  // shited by 128 for signed support
-                    smallMaskV[j] = v.y + 128; // shited by 128 for signed support
+                    smallMask[j] = VSMAX(0, VSMIN(255, (int)(v.x * fMaskNormFactor * 100 + 128)));  // shited by 128 for signed support
+                    smallMaskV[j] = VSMAX(0, VSMIN(255, (int)(v.y * fMaskNormFactor * 100 + 128))); // shited by 128 for signed support
                 }
             }
 
             if (kind == 5) { // do not change luma for kind=5
                 memcpy(pDst[0], pSrc[0], nSrcPitches[0] * nHeight);
             } else {
-                simpleResize(upsizer, pDst[0], nDstPitches[0], smallMask, nBlkX);
+                upsizer->simpleResize_uint8_t(upsizer, pDst[0], nDstPitches[0], smallMask, nBlkX);
                 if (nWidth > nWidthB)
                     for (int h = 0; h < nHeight; h++)
                         for (int w = nWidthB; w < nWidth; w++)
@@ -178,10 +176,10 @@ static const VSFrameRef *VS_CC mvmaskGetFrame(int n, int activationReason, void 
             }
 
             // chroma
-            simpleResize(upsizerUV, pDst[1], nDstPitches[1], smallMask, nBlkX);
+            upsizerUV->simpleResize_uint8_t(upsizerUV, pDst[1], nDstPitches[1], smallMask, nBlkX);
 
             if (kind == 5)
-                simpleResize(upsizerUV, pDst[2], nDstPitches[2], smallMaskV, nBlkX);
+                upsizerUV->simpleResize_uint8_t(upsizerUV, pDst[2], nDstPitches[2], smallMaskV, nBlkX);
             else
                 memcpy(pDst[2], pDst[1], nHeightUV * nDstPitches[1]);
 
@@ -250,6 +248,10 @@ static void VS_CC mvmaskCreate(const VSMap *in, VSMap *out, void *userData, VSCo
 
     d.kind = int64ToIntS(vsapi->propGetInt(in, "kind", 0, &err));
 
+    double time = vsapi->propGetFloat(in, "time", 0, &err);
+    if (err)
+        time = 100.0;
+
     d.nSceneChangeValue = int64ToIntS(vsapi->propGetInt(in, "ysc", 0, &err));
 
     d.thscd1 = int64ToIntS(vsapi->propGetInt(in, "thscd1", 0, &err));
@@ -260,6 +262,10 @@ static void VS_CC mvmaskCreate(const VSMap *in, VSMap *out, void *userData, VSCo
     if (err)
         d.thscd2 = MV_DEFAULT_SCD2;
 
+    d.opt = !!vsapi->propGetInt(in, "opt", 0, &err);
+    if (err)
+        d.opt = 1;
+
 
     if (d.fGamma < 0.0f) {
         vsapi->setError(out, "Mask: gamma must not be negative.");
@@ -268,6 +274,11 @@ static void VS_CC mvmaskCreate(const VSMap *in, VSMap *out, void *userData, VSCo
 
     if (d.kind < 0 || d.kind > 5) {
         vsapi->setError(out, "Mask: kind must 0, 1, 2, 3, 4, or 5.");
+        return;
+    }
+
+    if (time < 0.0 || time > 100.0) {
+        vsapi->setError(out, "Mask: time must be between 0.0 and 100.0 (inclusive).");
         return;
     }
 
@@ -323,8 +334,10 @@ static void VS_CC mvmaskCreate(const VSMap *in, VSMap *out, void *userData, VSCo
     if (d.vi.format->colorFamily == cmGray)
         d.vi.format = vsapi->getFormatPreset(pfYUV444P8, core);
 
-    simpleInit(&d.upsizer, d.nWidthB, d.nHeightB, d.vectors_data.nBlkX, d.vectors_data.nBlkY);
-    simpleInit(&d.upsizerUV, d.nWidthBUV, d.nHeightBUV, d.vectors_data.nBlkX, d.vectors_data.nBlkY);
+    simpleInit(&d.upsizer, d.nWidthB, d.nHeightB, d.vectors_data.nBlkX, d.vectors_data.nBlkY, d.opt);
+    simpleInit(&d.upsizerUV, d.nWidthBUV, d.nHeightBUV, d.vectors_data.nBlkX, d.vectors_data.nBlkY, d.opt);
+
+    d.time256 = (int)(time * 256 / 100);
 
 
     data = (MVMaskData *)malloc(sizeof(d));
@@ -341,8 +354,10 @@ void mvmaskRegister(VSRegisterFunction registerFunc, VSPlugin *plugin) {
                  "ml:float:opt;"
                  "gamma:float:opt;"
                  "kind:int:opt;"
+                 "time:float:opt;"
                  "ysc:int:opt;"
                  "thscd1:int:opt;"
-                 "thscd2:int:opt;",
-                 mvmaskCreate, 0, plugin);
+                 "thscd2:int:opt;"
+                 "opt:int:opt;"
+                 , mvmaskCreate, 0, plugin);
 }

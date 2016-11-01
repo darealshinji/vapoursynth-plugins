@@ -17,13 +17,13 @@
 // Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA, or visit
 // http://www.gnu.org/copyleft/gpl.html .
 
+// For posix_memalign.
+#define _POSIX_C_SOURCE 200112L
 #include <VSHelper.h>
 
 #include "CPU.h"
 #include "PlaneOfBlocks.h"
 
-#define max(a, b) ((a) > (b) ? (a) : (b))
-#define min(a, b) ((a) > (b) ? (b) : (a))
 
 
 /* fetch the block in the reference frame, which is pointed by the vector (vx, vy) */
@@ -84,7 +84,7 @@ static inline unsigned int SquareDifferenceNorm(const VECTOR *v1, const int v2x,
 /* computes the cost of a vector (vx, vy) */
 static inline int pobMotionDistorsion(PlaneOfBlocks *pob, int vx, int vy) {
     int dist = SquareDifferenceNorm(&pob->predictor, vx, vy);
-    return (pob->nLambda * dist) >> 8;
+    return (int)((pob->nLambda * dist) >> 8);
 }
 
 
@@ -381,296 +381,7 @@ static inline int Median(int a, int b, int c) {
 }
 
 
-static void pobSelectFunctions(PlaneOfBlocks *pob) {
-    SADFunction sads[33][33];
-    LUMAFunction lumas[33][33];
-    COPYFunction blits[33][33];
-    SADFunction satds[33][33];
-
-    // valid block sizes for luma: 4x4, 8x4, 8x8, 16x2, 16x8, 16x16, 32x16, 32x32.
-    if (pob->bytesPerSample == 1) {
-        sads[2][2] = mvtools_sad_2x2_u8_c;
-        blits[2][2] = mvtools_copy_2x2_u8_c;
-
-        sads[2][4] = mvtools_sad_2x4_u8_c;
-        blits[2][4] = mvtools_copy_2x4_u8_c;
-
-        sads[4][2] = mvtools_sad_4x2_u8_c;
-        blits[4][2] = mvtools_copy_4x2_u8_c;
-
-        sads[4][4] = mvtools_sad_4x4_u8_c;
-        lumas[4][4] = mvtools_luma_4x4_u8_c;
-        blits[4][4] = mvtools_copy_4x4_u8_c;
-        satds[4][4] = mvtools_satd_4x4_u8_c;
-
-        sads[4][8] = mvtools_sad_4x8_u8_c;
-        blits[4][8] = mvtools_copy_4x8_u8_c;
-
-        sads[8][1] = mvtools_sad_8x1_u8_c;
-        blits[8][1] = mvtools_copy_8x1_u8_c;
-
-        sads[8][2] = mvtools_sad_8x2_u8_c;
-        blits[8][2] = mvtools_copy_8x2_u8_c;
-
-        sads[8][4] = mvtools_sad_8x4_u8_c;
-        lumas[8][4] = mvtools_luma_8x4_u8_c;
-        blits[8][4] = mvtools_copy_8x4_u8_c;
-        satds[8][4] = mvtools_satd_8x4_u8_c;
-
-        sads[8][8] = mvtools_sad_8x8_u8_c;
-        lumas[8][8] = mvtools_luma_8x8_u8_c;
-        blits[8][8] = mvtools_copy_8x8_u8_c;
-        satds[8][8] = mvtools_satd_8x8_u8_c;
-
-        sads[8][16] = mvtools_sad_8x16_u8_c;
-        blits[8][16] = mvtools_copy_8x16_u8_c;
-
-        sads[16][1] = mvtools_sad_16x1_u8_c;
-        blits[16][1] = mvtools_copy_16x1_u8_c;
-
-        sads[16][2] = mvtools_sad_16x2_u8_c;
-        lumas[16][2] = mvtools_luma_16x2_u8_c;
-        blits[16][2] = mvtools_copy_16x2_u8_c;
-
-        sads[16][4] = mvtools_sad_16x4_u8_c;
-        blits[16][4] = mvtools_copy_16x4_u8_c;
-
-        sads[16][8] = mvtools_sad_16x8_u8_c;
-        lumas[16][8] = mvtools_luma_16x8_u8_c;
-        blits[16][8] = mvtools_copy_16x8_u8_c;
-        satds[16][8] = mvtools_satd_16x8_u8_c;
-
-        sads[16][16] = mvtools_sad_16x16_u8_c;
-        lumas[16][16] = mvtools_luma_16x16_u8_c;
-        blits[16][16] = mvtools_copy_16x16_u8_c;
-        satds[16][16] = mvtools_satd_16x16_u8_c;
-
-        sads[16][32] = mvtools_sad_16x32_u8_c;
-        blits[16][32] = mvtools_copy_16x32_u8_c;
-
-        sads[32][8] = mvtools_sad_32x8_u8_c;
-        blits[32][8] = mvtools_copy_32x8_u8_c;
-
-        sads[32][16] = mvtools_sad_32x16_u8_c;
-        lumas[32][16] = mvtools_luma_32x16_u8_c;
-        blits[32][16] = mvtools_copy_32x16_u8_c;
-
-        sads[32][32] = mvtools_sad_32x32_u8_c;
-        lumas[32][32] = mvtools_luma_32x32_u8_c;
-        blits[32][32] = mvtools_copy_32x32_u8_c;
-
-        if (pob->isse) {
-#if defined(MVTOOLS_X86)
-            sads[4][2] = mvtools_sad_4x2_sse2;
-
-            sads[4][4] = mvtools_pixel_sad_4x4_mmx2;
-            lumas[4][4] = mvtools_luma_4x4_u8_sse2;
-            satds[4][4] = mvtools_pixel_satd_4x4_mmx2;
-
-            sads[4][8] = mvtools_pixel_sad_4x8_mmx2;
-
-            sads[8][1] = mvtools_sad_8x1_sse2;
-
-            sads[8][2] = mvtools_sad_8x2_sse2;
-
-            sads[8][4] = mvtools_pixel_sad_8x4_mmx2;
-            lumas[8][4] = mvtools_luma_8x4_u8_sse2;
-            satds[8][4] = mvtools_pixel_satd_8x4_sse2;
-
-            sads[8][8] = mvtools_pixel_sad_8x8_mmx2;
-            lumas[8][8] = mvtools_luma_8x8_u8_sse2;
-            satds[8][8] = mvtools_pixel_satd_8x8_sse2;
-
-            sads[8][16] = mvtools_pixel_sad_8x16_sse2;
-
-            sads[16][1] = mvtools_sad_16x1_sse2;
-
-            sads[16][2] = mvtools_sad_16x2_sse2;
-            lumas[16][2] = mvtools_luma_16x2_u8_sse2;
-
-            sads[16][4] = mvtools_sad_16x4_sse2;
-
-            sads[16][8] = mvtools_pixel_sad_16x8_sse2;
-            lumas[16][8] = mvtools_luma_16x8_u8_sse2;
-            satds[16][8] = mvtools_pixel_satd_16x8_sse2;
-
-            sads[16][16] = mvtools_pixel_sad_16x16_sse2;
-            lumas[16][16] = mvtools_luma_16x16_u8_sse2;
-            satds[16][16] = mvtools_pixel_satd_16x16_sse2;
-
-            sads[16][32] = mvtools_sad_16x32_sse2;
-
-            sads[32][8] = mvtools_sad_32x8_sse2;
-
-            sads[32][16] = mvtools_sad_32x16_sse2;
-            lumas[32][16] = mvtools_luma_32x16_u8_sse2;
-
-            sads[32][32] = mvtools_sad_32x32_sse2;
-            lumas[32][32] = mvtools_luma_32x32_u8_sse2;
-
-            if (pob->nCPUFlags & X264_CPU_CACHELINE_64) {
-                sads[8][4] = mvtools_pixel_sad_8x4_cache64_mmx2;
-                sads[8][8] = mvtools_pixel_sad_8x8_cache64_mmx2;
-            }
-
-            if (pob->nCPUFlags & X264_CPU_SSE3) {
-                sads[16][8] = mvtools_pixel_sad_16x8_sse3;
-                sads[16][16] = mvtools_pixel_sad_16x16_sse3;
-            }
-
-            if ((pob->nCPUFlags & X264_CPU_SSSE3) && (pob->nCPUFlags & X264_CPU_CACHELINE_64)) {
-                sads[16][8] = mvtools_pixel_sad_16x8_cache64_ssse3;
-                sads[16][16] = mvtools_pixel_sad_16x16_cache64_ssse3;
-            }
-
-            if (pob->nCPUFlags & X264_CPU_SSSE3) {
-                satds[4][4] = mvtools_pixel_satd_4x4_ssse3;
-                satds[8][4] = mvtools_pixel_satd_8x4_ssse3;
-                satds[8][8] = mvtools_pixel_satd_8x8_ssse3;
-                satds[16][8] = mvtools_pixel_satd_16x8_ssse3;
-                satds[16][16] = mvtools_pixel_satd_16x16_ssse3;
-            }
-
-            if (pob->nCPUFlags & X264_CPU_SSE4) {
-                satds[4][4] = mvtools_pixel_satd_4x4_sse4;
-                satds[8][4] = mvtools_pixel_satd_8x4_sse4;
-                satds[8][8] = mvtools_pixel_satd_8x8_sse4;
-                satds[16][8] = mvtools_pixel_satd_16x8_sse4;
-                satds[16][16] = mvtools_pixel_satd_16x16_sse4;
-            }
-
-            if (pob->nCPUFlags & X264_CPU_AVX) {
-                satds[4][4] = mvtools_pixel_satd_4x4_avx;
-                satds[8][4] = mvtools_pixel_satd_8x4_avx;
-                satds[8][8] = mvtools_pixel_satd_8x8_avx;
-                satds[16][8] = mvtools_pixel_satd_16x8_avx;
-                satds[16][16] = mvtools_pixel_satd_16x16_avx;
-            }
-
-            if (pob->nCPUFlags & X264_CPU_XOP) {
-                satds[4][4] = mvtools_pixel_satd_4x4_xop;
-                satds[8][4] = mvtools_pixel_satd_8x4_xop;
-                satds[8][8] = mvtools_pixel_satd_8x8_xop;
-                satds[16][8] = mvtools_pixel_satd_16x8_xop;
-                satds[16][16] = mvtools_pixel_satd_16x16_xop;
-            }
-
-            if (pob->nCPUFlags & X264_CPU_AVX2) {
-                satds[8][8] = mvtools_pixel_satd_8x8_avx2;
-                satds[16][8] = mvtools_pixel_satd_16x8_avx2;
-                satds[16][16] = mvtools_pixel_satd_16x16_avx2;
-            }
-#endif
-        }
-    } else {
-        sads[2][2] = mvtools_sad_2x2_u16_c;
-        blits[2][2] = mvtools_copy_2x2_u16_c;
-
-        sads[2][4] = mvtools_sad_2x4_u16_c;
-        blits[2][4] = mvtools_copy_2x4_u16_c;
-
-        sads[4][2] = mvtools_sad_4x2_u16_c;
-        blits[4][2] = mvtools_copy_4x2_u16_c;
-
-        sads[4][4] = mvtools_sad_4x4_u16_c;
-        lumas[4][4] = mvtools_luma_4x4_u16_c;
-        blits[4][4] = mvtools_copy_4x4_u16_c;
-        satds[4][4] = mvtools_satd_4x4_u16_c;
-
-        sads[4][8] = mvtools_sad_4x8_u16_c;
-        blits[4][8] = mvtools_copy_4x8_u16_c;
-
-        sads[8][1] = mvtools_sad_8x1_u16_c;
-        blits[8][1] = mvtools_copy_8x1_u16_c;
-
-        sads[8][2] = mvtools_sad_8x2_u16_c;
-        blits[8][2] = mvtools_copy_8x2_u16_c;
-
-        sads[8][4] = mvtools_sad_8x4_u16_c;
-        lumas[8][4] = mvtools_luma_8x4_u16_c;
-        blits[8][4] = mvtools_copy_8x4_u16_c;
-        satds[8][4] = mvtools_satd_8x4_u16_c;
-
-        sads[8][8] = mvtools_sad_8x8_u16_c;
-        lumas[8][8] = mvtools_luma_8x8_u16_c;
-        blits[8][8] = mvtools_copy_8x8_u16_c;
-        satds[8][8] = mvtools_satd_8x8_u16_c;
-
-        sads[8][16] = mvtools_sad_8x16_u16_c;
-        blits[8][16] = mvtools_copy_8x16_u16_c;
-
-        sads[16][1] = mvtools_sad_16x1_u16_c;
-        blits[16][1] = mvtools_copy_16x1_u16_c;
-
-        sads[16][2] = mvtools_sad_16x2_u16_c;
-        lumas[16][2] = mvtools_luma_16x2_u16_c;
-        blits[16][2] = mvtools_copy_16x2_u16_c;
-
-        sads[16][4] = mvtools_sad_16x4_u16_c;
-        blits[16][4] = mvtools_copy_16x4_u16_c;
-
-        sads[16][8] = mvtools_sad_16x8_u16_c;
-        lumas[16][8] = mvtools_luma_16x8_u16_c;
-        blits[16][8] = mvtools_copy_16x8_u16_c;
-        satds[16][8] = mvtools_satd_16x8_u16_c;
-
-        sads[16][16] = mvtools_sad_16x16_u16_c;
-        lumas[16][16] = mvtools_luma_16x16_u16_c;
-        blits[16][16] = mvtools_copy_16x16_u16_c;
-        satds[16][16] = mvtools_satd_16x16_u16_c;
-
-        sads[16][32] = mvtools_sad_16x32_u16_c;
-        blits[16][32] = mvtools_copy_16x32_u16_c;
-
-        sads[32][8] = mvtools_sad_32x8_u16_c;
-        blits[32][8] = mvtools_copy_32x8_u16_c;
-
-        sads[32][16] = mvtools_sad_32x16_u16_c;
-        lumas[32][16] = mvtools_luma_32x16_u16_c;
-        blits[32][16] = mvtools_copy_32x16_u16_c;
-
-        sads[32][32] = mvtools_sad_32x32_u16_c;
-        lumas[32][32] = mvtools_luma_32x32_u16_c;
-        blits[32][32] = mvtools_copy_32x32_u16_c;
-
-        if (pob->isse) {
-#if defined(MVTOOLS_X86)
-            sads[2][2] = mvtools_sad_2x2_u16_sse2;
-            sads[2][4] = mvtools_sad_2x4_u16_sse2;
-            sads[4][2] = mvtools_sad_4x2_u16_sse2;
-            sads[4][4] = mvtools_sad_4x4_u16_sse2;
-            sads[4][8] = mvtools_sad_4x8_u16_sse2;
-            sads[8][1] = mvtools_sad_8x1_u16_sse2;
-            sads[8][2] = mvtools_sad_8x2_u16_sse2;
-            sads[8][4] = mvtools_sad_8x4_u16_sse2;
-            sads[8][8] = mvtools_sad_8x8_u16_sse2;
-            sads[8][16] = mvtools_sad_8x16_u16_sse2;
-            sads[16][1] = mvtools_sad_16x1_u16_sse2;
-            sads[16][2] = mvtools_sad_16x2_u16_sse2;
-            sads[16][4] = mvtools_sad_16x4_u16_sse2;
-            sads[16][8] = mvtools_sad_16x8_u16_sse2;
-            sads[16][16] = mvtools_sad_16x16_u16_sse2;
-            sads[16][32] = mvtools_sad_16x32_u16_sse2;
-            sads[32][8] = mvtools_sad_32x8_u16_sse2;
-            sads[32][16] = mvtools_sad_32x16_u16_sse2;
-            sads[32][32] = mvtools_sad_32x32_u16_sse2;
-#endif
-        }
-    }
-
-
-    pob->SAD = sads[pob->nBlkSizeX][pob->nBlkSizeY];
-    pob->LUMA = lumas[pob->nBlkSizeX][pob->nBlkSizeY];
-    pob->BLITLUMA = blits[pob->nBlkSizeX][pob->nBlkSizeY];
-
-    pob->SADCHROMA = sads[pob->nBlkSizeX / pob->xRatioUV][pob->nBlkSizeY / pob->yRatioUV];
-    pob->BLITCHROMA = blits[pob->nBlkSizeX / pob->xRatioUV][pob->nBlkSizeY / pob->yRatioUV];
-
-    pob->SATD = satds[pob->nBlkSizeX][pob->nBlkSizeY];
-}
-
-
-void pobInit(PlaneOfBlocks *pob, int _nBlkX, int _nBlkY, int _nBlkSizeX, int _nBlkSizeY, int _nPel, int _nLevel, int _nMotionFlags, int _nCPUFlags, int _nOverlapX, int _nOverlapY, int _xRatioUV, int _yRatioUV, int _bitsPerSample) {
+void pobInit(PlaneOfBlocks *pob, int _nBlkX, int _nBlkY, int _nBlkSizeX, int _nBlkSizeY, int _nPel, int _nLevel, int nMotionFlags, int nCPUFlags, int _nOverlapX, int _nOverlapY, int _xRatioUV, int _yRatioUV, int bitsPerSample) {
 
     /* constant fields */
 
@@ -689,19 +400,16 @@ void pobInit(PlaneOfBlocks *pob, int _nBlkX, int _nBlkY, int _nBlkSizeX, int _nB
     pob->nBlkY = _nBlkY;
     pob->nBlkCount = pob->nBlkX * pob->nBlkY;
 
-    pob->nMotionFlags = _nMotionFlags;
-    pob->nCPUFlags = _nCPUFlags;
     pob->xRatioUV = _xRatioUV;
     pob->yRatioUV = _yRatioUV;
     pob->nLogxRatioUV = ilog2(pob->xRatioUV);
     pob->nLogyRatioUV = ilog2(pob->yRatioUV);
 
-    pob->bitsPerSample = _bitsPerSample;
-    pob->bytesPerSample = (pob->bitsPerSample + 7) / 8;
+    pob->bytesPerSample = (bitsPerSample + 7) / 8;
 
-    pob->smallestPlane = !!(pob->nMotionFlags & MOTION_SMALLEST_PLANE);
-    pob->isse = !!(pob->nMotionFlags & MOTION_USE_ISSE);
-    pob->chroma = !!(pob->nMotionFlags & MOTION_USE_CHROMA_MOTION);
+    pob->smallestPlane = !!(nMotionFlags & MOTION_SMALLEST_PLANE);
+    int opt = !!(nMotionFlags & MOTION_USE_SIMD);
+    pob->chroma = !!(nMotionFlags & MOTION_USE_CHROMA_MOTION);
 
     pob->globalMVPredictor.x = zeroMV.x;
     pob->globalMVPredictor.y = zeroMV.y;
@@ -712,14 +420,24 @@ void pobInit(PlaneOfBlocks *pob, int _nBlkX, int _nBlkY, int _nBlkSizeX, int _nB
     pob->vectors = (VECTOR *)malloc(pob->nBlkCount * sizeof(VECTOR));
     memset(pob->vectors, 0, pob->nBlkCount * sizeof(VECTOR));
 
-    /* function's pointers initialization */
-    pobSelectFunctions(pob);
+    /* function pointers initialization */
+    pob->SAD = selectSADFunction(pob->nBlkSizeX, pob->nBlkSizeY, pob->bytesPerSample * 8, opt, nCPUFlags);
+    pob->LUMA = selectLumaFunction(pob->nBlkSizeX, pob->nBlkSizeY, pob->bytesPerSample * 8, opt);
+    pob->BLITLUMA = selectCopyFunction(pob->nBlkSizeX, pob->nBlkSizeY, pob->bytesPerSample * 8);
+
+    pob->SADCHROMA = selectSADFunction(pob->nBlkSizeX / pob->xRatioUV, pob->nBlkSizeY / pob->yRatioUV, pob->bytesPerSample * 8, opt, nCPUFlags);
+    pob->BLITCHROMA = selectCopyFunction(pob->nBlkSizeX / pob->xRatioUV, pob->nBlkSizeY / pob->yRatioUV, pob->bytesPerSample * 8);
+
+    if (pob->nBlkSizeX == 16 && pob->nBlkSizeY == 2)
+        pob->SATD = NULL;
+    else
+        pob->SATD = selectSATDFunction(pob->nBlkSizeX, pob->nBlkSizeY, pob->bytesPerSample * 8, opt, nCPUFlags);
 
     if (!pob->chroma)
         pob->SADCHROMA = NULL;
 
 
-    pob->dctpitch = max(pob->nBlkSizeX, 16) * pob->bytesPerSample;
+    pob->dctpitch = VSMAX(pob->nBlkSizeX, 16) * pob->bytesPerSample;
 
     // 64 required for effective use of x264 sad on Core2
 #define ALIGN_PLANES 64
@@ -741,7 +459,7 @@ void pobInit(PlaneOfBlocks *pob, int _nBlkX, int _nBlkY, int _nBlkSizeX, int _nB
     pob->freqSize = 8192 * pob->nPel * 2; // half must be more than max vector length, which is (framewidth + Padding) * nPel
     pob->freqArray = (int *)malloc(pob->freqSize * sizeof(int));
 
-    pob->verybigSAD = pob->nBlkSizeX * pob->nBlkSizeY * (1 << pob->bitsPerSample);
+    pob->verybigSAD = pob->nBlkSizeX * pob->nBlkSizeY * (1 << bitsPerSample);
 }
 
 
@@ -793,7 +511,7 @@ void pobFetchPredictors(PlaneOfBlocks *pob) {
         //      predictors[0].sad = Median(predictors[1].sad, predictors[2].sad, predictors[3].sad);
         // but it is not true median vector (x and y may be mixed) and not its sad ?!
         // we really do not know SAD, here is more safe estimation especially for phaseshift method - v1.6.0
-        pob->predictors[0].sad = max(pob->predictors[1].sad, max(pob->predictors[2].sad, pob->predictors[3].sad));
+        pob->predictors[0].sad = VSMAX(pob->predictors[1].sad, VSMAX(pob->predictors[2].sad, pob->predictors[3].sad));
     } else {
         //		predictors[0].x = (predictors[1].x + predictors[2].x + predictors[3].x);
         //		predictors[0].y = (predictors[1].y + predictors[2].y + predictors[3].y);
@@ -1302,14 +1020,14 @@ void pobPseudoEPZSearch(PlaneOfBlocks *pob) {
 void pobSearchMVs(PlaneOfBlocks *pob, MVFrame *pSrcFrame, MVFrame *pRefFrame,
                   SearchType st, int stp, int lambda, int lsad, int pnew,
                   int plevel, int *out, VECTOR *globalMVec,
-                  int fieldShift, DCTFFTW *DCT, int *pmeanLumaChange,
+                  int fieldShift, DCTFFTW *DCT, int dctmode, int *pmeanLumaChange,
                   int pzero, int pglobal, int64_t badSAD, int badrange, int meander, int tryMany) {
     pob->DCT = DCT;
     if (pob->DCT == 0)
         pob->dctmode = 0;
     else
-        pob->dctmode = pob->DCT->dctmode;
-    pob->dctweight16 = min(16, abs(*pmeanLumaChange) / (pob->nBlkSizeX * pob->nBlkSizeY)); //equal dct and spatial weights for meanLumaChange=8 (empirical)
+        pob->dctmode = dctmode;
+    pob->dctweight16 = VSMIN(16, abs(*pmeanLumaChange) / (pob->nBlkSizeX * pob->nBlkSizeY)); //equal dct and spatial weights for meanLumaChange=8 (empirical)
     pob->badSAD = badSAD;
     pob->badrange = badrange;
     pob->zeroMVfieldShifted.x = 0;
@@ -1467,12 +1185,12 @@ void pobSearchMVs(PlaneOfBlocks *pob, MVFrame *pSrcFrame, MVFrame *pRefFrame,
 
 void pobRecalculateMVs(PlaneOfBlocks *pob, const FakeGroupOfPlanes *fgop, MVFrame *pSrcFrame, MVFrame *pRefFrame,
                        SearchType st, int stp, int lambda, int pnew, int *out,
-                       int fieldShift, int thSAD, DCTFFTW *DCT, int smooth, int meander) {
+                       int fieldShift, int thSAD, DCTFFTW *DCT, int dctmode, int smooth, int meander) {
     pob->DCT = DCT;
     if (pob->DCT == 0)
         pob->dctmode = 0;
     else
-        pob->dctmode = pob->DCT->dctmode;
+        pob->dctmode = dctmode;
     pob->dctweight16 = 8; //min(16,abs(*pmeanLumaChange)/(nBlkSizeX*nBlkSizeY)); //equal dct and spatial weights for meanLumaChange=8 (empirical)
     pob->zeroMVfieldShifted.x = 0;
     pob->zeroMVfieldShifted.y = fieldShift;
@@ -1592,13 +1310,13 @@ void pobRecalculateMVs(PlaneOfBlocks *pob, const FakeGroupOfPlanes *fgop, MVFram
             int centerY = pob->nBlkSizeY / 2 + (pob->nBlkSizeY - pob->nOverlapY) * pob->blky;
             int blkyold = (centerY - nBlkSizeYold / 2) / nStepYold;
 
-            int deltaX = max(0, centerX - (nBlkSizeXold / 2 + nStepXold * blkxold)); // distance from old to new
-            int deltaY = max(0, centerY - (nBlkSizeYold / 2 + nStepYold * blkyold));
+            int deltaX = VSMAX(0, centerX - (nBlkSizeXold / 2 + nStepXold * blkxold)); // distance from old to new
+            int deltaY = VSMAX(0, centerY - (nBlkSizeYold / 2 + nStepYold * blkyold));
 
-            int blkxold1 = min(nBlkXold - 1, max(0, blkxold));
-            int blkxold2 = min(nBlkXold - 1, max(0, blkxold + 1));
-            int blkyold1 = min(nBlkYold - 1, max(0, blkyold));
-            int blkyold2 = min(nBlkYold - 1, max(0, blkyold + 1));
+            int blkxold1 = VSMIN(nBlkXold - 1, VSMAX(0, blkxold));
+            int blkxold2 = VSMIN(nBlkXold - 1, VSMAX(0, blkxold + 1));
+            int blkyold1 = VSMIN(nBlkYold - 1, VSMAX(0, blkyold));
+            int blkyold2 = VSMIN(nBlkYold - 1, VSMAX(0, blkyold + 1));
 
             VECTOR vectorOld; // interpolated or nearest
 
@@ -1619,7 +1337,7 @@ void pobRecalculateMVs(PlaneOfBlocks *pob, const FakeGroupOfPlanes *fgop, MVFram
 
                 vectorOld.x = (vector1_x + deltaY * (vector2_x - vector1_x) / nStepYold) / nStepXold;
                 vectorOld.y = (vector1_y + deltaY * (vector2_y - vector1_y) / nStepYold) / nStepXold;
-                vectorOld.sad = (vector1_sad + deltaY * (vector2_sad - vector1_sad) / nStepYold) / nStepXold;
+                vectorOld.sad = (int)((vector1_sad + deltaY * (vector2_sad - vector1_sad) / nStepYold) / nStepXold);
 
             } else { // nearest
                 if (deltaX * 2 < nStepXold && deltaY * 2 < nStepYold)
@@ -1790,8 +1508,8 @@ void pobInterpolatePrediction(PlaneOfBlocks *pob, const PlaneOfBlocks *pob2) {
                 int ay2 = (pob->nBlkSizeY - pob->nOverlapY) * 4 - ay1;
                 // 64 bit so that the multiplications by the SADs don't overflow with 16 bit input.
                 int64_t a11 = ax1 * ay1, a12 = ax1 * ay2, a21 = ax2 * ay1, a22 = ax2 * ay2;
-                pob->vectors[index].x = (a11 * v1.x + a21 * v2.x + a12 * v3.x + a22 * v4.x) / normov;
-                pob->vectors[index].y = (a11 * v1.y + a21 * v2.y + a12 * v3.y + a22 * v4.y) / normov;
+                pob->vectors[index].x = (int)((a11 * v1.x + a21 * v2.x + a12 * v3.x + a22 * v4.x) / normov);
+                pob->vectors[index].y = (int)((a11 * v1.y + a21 * v2.y + a12 * v3.y + a22 * v4.y) / normov);
                 temp_sad = (a11 * v1.sad + a21 * v2.sad + a12 * v3.sad + a22 * v4.sad) / normov;
             } else { // large overlap. Weights are not quite correct but let it be
                 // Dead branch. The overlap is no longer allowed to be more than half the block size.
@@ -1801,7 +1519,7 @@ void pobInterpolatePrediction(PlaneOfBlocks *pob, const PlaneOfBlocks *pob2) {
             }
             pob->vectors[index].x = (pob->vectors[index].x >> normFactor) * (1 << mulFactor);
             pob->vectors[index].y = (pob->vectors[index].y >> normFactor) * (1 << mulFactor);
-            pob->vectors[index].sad = temp_sad >> 4;
+            pob->vectors[index].sad = (int)(temp_sad >> 4);
         }
     }
 }

@@ -46,7 +46,7 @@ typedef struct MVFlowInterData {
     int blend;
     int thscd1;
     int thscd2;
-    int isse;
+    int opt;
 
     MVAnalysisData mvbw_data;
     MVAnalysisData mvfw_data;
@@ -68,11 +68,12 @@ typedef struct MVFlowInterData {
 
     int time256;
 
-    int *LUTVB;
-    int *LUTVF;
-
     SimpleResize upsizer;
     SimpleResize upsizerUV;
+
+    FlowInterSimpleFunction FlowInterSimple;
+    FlowInterFunction FlowInter;
+    FlowInterExtraFunction FlowInterExtra;
 } MVFlowInterData;
 
 
@@ -183,49 +184,44 @@ static const VSFrameRef *VS_CC mvflowinterGetFrame(int n, int activationReason, 
             const int nBlkYP = d->nBlkYP;
             SimpleResize *upsizer = &d->upsizer;
             SimpleResize *upsizerUV = &d->upsizerUV;
-            const int *LUTVB = d->LUTVB;
-            const int *LUTVF = d->LUTVF;
 
             int nOffsetY = nRefPitches[0] * nVPadding * nPel + nHPadding * bytesPerSample * nPel;
             int nOffsetUV = nRefPitches[1] * nVPaddingUV * nPel + nHPaddingUV * bytesPerSample * nPel;
 
 
-            uint8_t *VXFullYB = (uint8_t *)malloc(nHeightP * VPitchY);
-            uint8_t *VYFullYB = (uint8_t *)malloc(nHeightP * VPitchY);
-            uint8_t *VXFullYF = (uint8_t *)malloc(nHeightP * VPitchY);
-            uint8_t *VYFullYF = (uint8_t *)malloc(nHeightP * VPitchY);
-            uint8_t *VXSmallYB = (uint8_t *)malloc(nBlkXP * nBlkYP);
-            uint8_t *VYSmallYB = (uint8_t *)malloc(nBlkXP * nBlkYP);
-            uint8_t *VXSmallYF = (uint8_t *)malloc(nBlkXP * nBlkYP);
-            uint8_t *VYSmallYF = (uint8_t *)malloc(nBlkXP * nBlkYP);
+            int16_t *VXFullYB = (int16_t *)malloc(nHeightP * VPitchY * sizeof(int16_t));
+            int16_t *VYFullYB = (int16_t *)malloc(nHeightP * VPitchY * sizeof(int16_t));
+            int16_t *VXFullYF = (int16_t *)malloc(nHeightP * VPitchY * sizeof(int16_t));
+            int16_t *VYFullYF = (int16_t *)malloc(nHeightP * VPitchY * sizeof(int16_t));
+            int16_t *VXSmallYB = (int16_t *)malloc(nBlkXP * nBlkYP * sizeof(int16_t));
+            int16_t *VYSmallYB = (int16_t *)malloc(nBlkXP * nBlkYP * sizeof(int16_t));
+            int16_t *VXSmallYF = (int16_t *)malloc(nBlkXP * nBlkYP * sizeof(int16_t));
+            int16_t *VYSmallYF = (int16_t *)malloc(nBlkXP * nBlkYP * sizeof(int16_t));
             uint8_t *MaskSmallB = (uint8_t *)malloc(nBlkXP * nBlkYP);
             uint8_t *MaskFullYB = (uint8_t *)malloc(nHeightP * VPitchY);
             uint8_t *MaskSmallF = (uint8_t *)malloc(nBlkXP * nBlkYP);
             uint8_t *MaskFullYF = (uint8_t *)malloc(nHeightP * VPitchY);
-            uint8_t *VXFullUVB = NULL;
-            uint8_t *VYFullUVB = NULL;
-            uint8_t *VXFullUVF = NULL;
-            uint8_t *VYFullUVF = NULL;
-            uint8_t *VXSmallUVB = NULL;
-            uint8_t *VYSmallUVB = NULL;
-            uint8_t *VXSmallUVF = NULL;
-            uint8_t *VYSmallUVF = NULL;
+            int16_t *VXFullUVB = NULL;
+            int16_t *VYFullUVB = NULL;
+            int16_t *VXFullUVF = NULL;
+            int16_t *VYFullUVF = NULL;
+            int16_t *VXSmallUVB = NULL;
+            int16_t *VYSmallUVB = NULL;
+            int16_t *VXSmallUVF = NULL;
+            int16_t *VYSmallUVF = NULL;
             uint8_t *MaskFullUVB = NULL;
             uint8_t *MaskFullUVF = NULL;
 
 
             // make  vector vx and vy small masks
-            // 1. ATTENTION: vectors are assumed SHORT (|vx|, |vy| < 127) !
-            // 2. they will be zeroed if not
-            // 3. added 128 to all values
             MakeVectorSmallMasks(&fgopB, nBlkX, nBlkY, VXSmallYB, nBlkXP, VYSmallYB, nBlkXP);
             MakeVectorSmallMasks(&fgopF, nBlkX, nBlkY, VXSmallYF, nBlkXP, VYSmallYF, nBlkXP);
             if (nBlkXP > nBlkX) // fill right
             {
                 for (int j = 0; j < nBlkY; j++) {
-                    VXSmallYB[j * nBlkXP + nBlkX] = VSMIN(VXSmallYB[j * nBlkXP + nBlkX - 1], 128);
+                    VXSmallYB[j * nBlkXP + nBlkX] = VSMIN(VXSmallYB[j * nBlkXP + nBlkX - 1], 0);
                     VYSmallYB[j * nBlkXP + nBlkX] = VYSmallYB[j * nBlkXP + nBlkX - 1];
-                    VXSmallYF[j * nBlkXP + nBlkX] = VSMIN(VXSmallYF[j * nBlkXP + nBlkX - 1], 128);
+                    VXSmallYF[j * nBlkXP + nBlkX] = VSMIN(VXSmallYF[j * nBlkXP + nBlkX - 1], 0);
                     VYSmallYF[j * nBlkXP + nBlkX] = VYSmallYF[j * nBlkXP + nBlkX - 1];
                 }
             }
@@ -233,16 +229,16 @@ static const VSFrameRef *VS_CC mvflowinterGetFrame(int n, int activationReason, 
             {
                 for (int i = 0; i < nBlkXP; i++) {
                     VXSmallYB[nBlkXP * nBlkY + i] = VXSmallYB[nBlkXP * (nBlkY - 1) + i];
-                    VYSmallYB[nBlkXP * nBlkY + i] = VSMIN(VYSmallYB[nBlkXP * (nBlkY - 1) + i], 128);
+                    VYSmallYB[nBlkXP * nBlkY + i] = VSMIN(VYSmallYB[nBlkXP * (nBlkY - 1) + i], 0);
                     VXSmallYF[nBlkXP * nBlkY + i] = VXSmallYF[nBlkXP * (nBlkY - 1) + i];
-                    VYSmallYF[nBlkXP * nBlkY + i] = VSMIN(VYSmallYF[nBlkXP * (nBlkY - 1) + i], 128);
+                    VYSmallYF[nBlkXP * nBlkY + i] = VSMIN(VYSmallYF[nBlkXP * (nBlkY - 1) + i], 0);
                 }
             }
             // analyse vectors field to detect occlusion
             //      double occNormB = (256-time256)/(256*ml);
-            MakeVectorOcclusionMaskTime(&fgopB, nBlkX, nBlkY, ml, 1.0, nPel, MaskSmallB, nBlkXP, (256 - time256), nBlkSizeX - nOverlapX, nBlkSizeY - nOverlapY);
+            MakeVectorOcclusionMaskTime(&fgopB, 1, nBlkX, nBlkY, ml, 1.0, nPel, MaskSmallB, nBlkXP, (256 - time256), nBlkSizeX - nOverlapX, nBlkSizeY - nOverlapY);
             //      double occNormF = time256/(256*ml);
-            MakeVectorOcclusionMaskTime(&fgopF, nBlkX, nBlkY, ml, 1.0, nPel, MaskSmallF, nBlkXP, time256, nBlkSizeX - nOverlapX, nBlkSizeY - nOverlapY);
+            MakeVectorOcclusionMaskTime(&fgopF, 0, nBlkX, nBlkY, ml, 1.0, nPel, MaskSmallF, nBlkXP, time256, nBlkSizeX - nOverlapX, nBlkSizeY - nOverlapY);
             if (nBlkXP > nBlkX) // fill right
             {
                 for (int j = 0; j < nBlkY; j++) {
@@ -260,22 +256,22 @@ static const VSFrameRef *VS_CC mvflowinterGetFrame(int n, int activationReason, 
             // upsize (bilinear interpolate) vector masks to fullframe size
 
 
-            simpleResize(upsizer, VXFullYB, VPitchY, VXSmallYB, nBlkXP);
-            simpleResize(upsizer, VYFullYB, VPitchY, VYSmallYB, nBlkXP);
-            simpleResize(upsizer, VXFullYF, VPitchY, VXSmallYF, nBlkXP);
-            simpleResize(upsizer, VYFullYF, VPitchY, VYSmallYF, nBlkXP);
-            simpleResize(upsizer, MaskFullYB, VPitchY, MaskSmallB, nBlkXP);
-            simpleResize(upsizer, MaskFullYF, VPitchY, MaskSmallF, nBlkXP);
+            upsizer->simpleResize_int16_t(upsizer, VXFullYB, VPitchY, VXSmallYB, nBlkXP);
+            upsizer->simpleResize_int16_t(upsizer, VYFullYB, VPitchY, VYSmallYB, nBlkXP);
+            upsizer->simpleResize_int16_t(upsizer, VXFullYF, VPitchY, VXSmallYF, nBlkXP);
+            upsizer->simpleResize_int16_t(upsizer, VYFullYF, VPitchY, VYSmallYF, nBlkXP);
+            upsizer->simpleResize_uint8_t(upsizer, MaskFullYB, VPitchY, MaskSmallB, nBlkXP);
+            upsizer->simpleResize_uint8_t(upsizer, MaskFullYF, VPitchY, MaskSmallF, nBlkXP);
 
             if (d->vi->format->colorFamily != cmGray) {
-                VXFullUVB = (uint8_t *)malloc(nHeightPUV * VPitchUV);
-                VYFullUVB = (uint8_t *)malloc(nHeightPUV * VPitchUV);
-                VXFullUVF = (uint8_t *)malloc(nHeightPUV * VPitchUV);
-                VYFullUVF = (uint8_t *)malloc(nHeightPUV * VPitchUV);
-                VXSmallUVB = (uint8_t *)malloc(nBlkXP * nBlkYP);
-                VYSmallUVB = (uint8_t *)malloc(nBlkXP * nBlkYP);
-                VXSmallUVF = (uint8_t *)malloc(nBlkXP * nBlkYP);
-                VYSmallUVF = (uint8_t *)malloc(nBlkXP * nBlkYP);
+                VXFullUVB = (int16_t *)malloc(nHeightPUV * VPitchUV * sizeof(int16_t));
+                VYFullUVB = (int16_t *)malloc(nHeightPUV * VPitchUV * sizeof(int16_t));
+                VXFullUVF = (int16_t *)malloc(nHeightPUV * VPitchUV * sizeof(int16_t));
+                VYFullUVF = (int16_t *)malloc(nHeightPUV * VPitchUV * sizeof(int16_t));
+                VXSmallUVB = (int16_t *)malloc(nBlkXP * nBlkYP * sizeof(int16_t));
+                VYSmallUVB = (int16_t *)malloc(nBlkXP * nBlkYP * sizeof(int16_t));
+                VXSmallUVF = (int16_t *)malloc(nBlkXP * nBlkYP * sizeof(int16_t));
+                VYSmallUVF = (int16_t *)malloc(nBlkXP * nBlkYP * sizeof(int16_t));
                 MaskFullUVB = (uint8_t *)malloc(nHeightPUV * VPitchUV);
                 MaskFullUVF = (uint8_t *)malloc(nHeightPUV * VPitchUV);
 
@@ -284,12 +280,12 @@ static const VSFrameRef *VS_CC mvflowinterGetFrame(int n, int activationReason, 
                 VectorSmallMaskYToHalfUV(VXSmallYF, nBlkXP, nBlkYP, VXSmallUVF, xRatioUV);
                 VectorSmallMaskYToHalfUV(VYSmallYF, nBlkXP, nBlkYP, VYSmallUVF, yRatioUV);
 
-                simpleResize(upsizerUV, VXFullUVB, VPitchUV, VXSmallUVB, nBlkXP);
-                simpleResize(upsizerUV, VYFullUVB, VPitchUV, VYSmallUVB, nBlkXP);
-                simpleResize(upsizerUV, VXFullUVF, VPitchUV, VXSmallUVF, nBlkXP);
-                simpleResize(upsizerUV, VYFullUVF, VPitchUV, VYSmallUVF, nBlkXP);
-                simpleResize(upsizerUV, MaskFullUVB, VPitchUV, MaskSmallB, nBlkXP);
-                simpleResize(upsizerUV, MaskFullUVF, VPitchUV, MaskSmallF, nBlkXP);
+                upsizerUV->simpleResize_int16_t(upsizerUV, VXFullUVB, VPitchUV, VXSmallUVB, nBlkXP);
+                upsizerUV->simpleResize_int16_t(upsizerUV, VYFullUVB, VPitchUV, VYSmallUVB, nBlkXP);
+                upsizerUV->simpleResize_int16_t(upsizerUV, VXFullUVF, VPitchUV, VXSmallUVF, nBlkXP);
+                upsizerUV->simpleResize_int16_t(upsizerUV, VYFullUVF, VPitchUV, VYSmallUVF, nBlkXP);
+                upsizerUV->simpleResize_uint8_t(upsizerUV, MaskFullUVB, VPitchUV, MaskSmallB, nBlkXP);
+                upsizerUV->simpleResize_uint8_t(upsizerUV, MaskFullUVF, VPitchUV, MaskSmallF, nBlkXP);
             }
 
 
@@ -309,14 +305,14 @@ static const VSFrameRef *VS_CC mvflowinterGetFrame(int n, int activationReason, 
 
 
             if (isUsableF && isUsableB) {
-                uint8_t *VXFullYBB = (uint8_t *)malloc(nHeightP * VPitchY);
-                uint8_t *VYFullYBB = (uint8_t *)malloc(nHeightP * VPitchY);
-                uint8_t *VXFullYFF = (uint8_t *)malloc(nHeightP * VPitchY);
-                uint8_t *VYFullYFF = (uint8_t *)malloc(nHeightP * VPitchY);
-                uint8_t *VXSmallYBB = (uint8_t *)malloc(nBlkXP * nBlkYP);
-                uint8_t *VYSmallYBB = (uint8_t *)malloc(nBlkXP * nBlkYP);
-                uint8_t *VXSmallYFF = (uint8_t *)malloc(nBlkXP * nBlkYP);
-                uint8_t *VYSmallYFF = (uint8_t *)malloc(nBlkXP * nBlkYP);
+                int16_t *VXFullYBB = (int16_t *)malloc(nHeightP * VPitchY * sizeof(int16_t));
+                int16_t *VYFullYBB = (int16_t *)malloc(nHeightP * VPitchY * sizeof(int16_t));
+                int16_t *VXFullYFF = (int16_t *)malloc(nHeightP * VPitchY * sizeof(int16_t));
+                int16_t *VYFullYFF = (int16_t *)malloc(nHeightP * VPitchY * sizeof(int16_t));
+                int16_t *VXSmallYBB = (int16_t *)malloc(nBlkXP * nBlkYP * sizeof(int16_t));
+                int16_t *VYSmallYBB = (int16_t *)malloc(nBlkXP * nBlkYP * sizeof(int16_t));
+                int16_t *VXSmallYFF = (int16_t *)malloc(nBlkXP * nBlkYP * sizeof(int16_t));
+                int16_t *VYSmallYFF = (int16_t *)malloc(nBlkXP * nBlkYP * sizeof(int16_t));
 
                 // get vector mask from extra frames
                 MakeVectorSmallMasks(&fgopB, nBlkX, nBlkY, VXSmallYBB, nBlkXP, VYSmallYBB, nBlkXP);
@@ -324,9 +320,9 @@ static const VSFrameRef *VS_CC mvflowinterGetFrame(int n, int activationReason, 
                 if (nBlkXP > nBlkX) // fill right
                 {
                     for (int j = 0; j < nBlkY; j++) {
-                        VXSmallYBB[j * nBlkXP + nBlkX] = VSMIN(VXSmallYBB[j * nBlkXP + nBlkX - 1], 128);
+                        VXSmallYBB[j * nBlkXP + nBlkX] = VSMIN(VXSmallYBB[j * nBlkXP + nBlkX - 1], 0);
                         VYSmallYBB[j * nBlkXP + nBlkX] = VYSmallYBB[j * nBlkXP + nBlkX - 1];
-                        VXSmallYFF[j * nBlkXP + nBlkX] = VSMIN(VXSmallYFF[j * nBlkXP + nBlkX - 1], 128);
+                        VXSmallYFF[j * nBlkXP + nBlkX] = VSMIN(VXSmallYFF[j * nBlkXP + nBlkX - 1], 0);
                         VYSmallYFF[j * nBlkXP + nBlkX] = VYSmallYFF[j * nBlkXP + nBlkX - 1];
                     }
                 }
@@ -334,48 +330,57 @@ static const VSFrameRef *VS_CC mvflowinterGetFrame(int n, int activationReason, 
                 {
                     for (int i = 0; i < nBlkXP; i++) {
                         VXSmallYBB[nBlkXP * nBlkY + i] = VXSmallYBB[nBlkXP * (nBlkY - 1) + i];
-                        VYSmallYBB[nBlkXP * nBlkY + i] = VSMIN(VYSmallYBB[nBlkXP * (nBlkY - 1) + i], 128);
+                        VYSmallYBB[nBlkXP * nBlkY + i] = VSMIN(VYSmallYBB[nBlkXP * (nBlkY - 1) + i], 0);
                         VXSmallYFF[nBlkXP * nBlkY + i] = VXSmallYFF[nBlkXP * (nBlkY - 1) + i];
-                        VYSmallYFF[nBlkXP * nBlkY + i] = VSMIN(VYSmallYFF[nBlkXP * (nBlkY - 1) + i], 128);
+                        VYSmallYFF[nBlkXP * nBlkY + i] = VSMIN(VYSmallYFF[nBlkXP * (nBlkY - 1) + i], 0);
                     }
                 }
 
                 // upsize vectors to full frame
-                simpleResize(upsizer, VXFullYBB, VPitchY, VXSmallYBB, nBlkXP);
-                simpleResize(upsizer, VYFullYBB, VPitchY, VYSmallYBB, nBlkXP);
-                simpleResize(upsizer, VXFullYFF, VPitchY, VXSmallYFF, nBlkXP);
-                simpleResize(upsizer, VYFullYFF, VPitchY, VYSmallYFF, nBlkXP);
+                upsizer->simpleResize_int16_t(upsizer, VXFullYBB, VPitchY, VXSmallYBB, nBlkXP);
+                upsizer->simpleResize_int16_t(upsizer, VYFullYBB, VPitchY, VYSmallYBB, nBlkXP);
+                upsizer->simpleResize_int16_t(upsizer, VXFullYFF, VPitchY, VXSmallYFF, nBlkXP);
+                upsizer->simpleResize_int16_t(upsizer, VYFullYFF, VPitchY, VYSmallYFF, nBlkXP);
 
-                FlowInterExtra(pDst[0], nDstPitches[0], pRef[0] + nOffsetY, pSrc[0] + nOffsetY, nRefPitches[0],
-                               VXFullYB, VXFullYF, VYFullYB, VYFullYF, MaskFullYB, MaskFullYF, VPitchY,
-                               nWidth, nHeight, time256, nPel, LUTVB, LUTVF, VXFullYBB, VXFullYFF, VYFullYBB, VYFullYFF, bitsPerSample);
+                d->FlowInterExtra(pDst[0], nDstPitches[0],
+                                  pRef[0] + nOffsetY, pSrc[0] + nOffsetY, nRefPitches[0],
+                                  VXFullYB, VXFullYF, VYFullYB, VYFullYF,
+                                  MaskFullYB, MaskFullYF, VPitchY,
+                                  nWidth, nHeight, time256, nPel,
+                                  VXFullYBB, VXFullYFF, VYFullYBB, VYFullYFF);
 
                 if (d->vi->format->colorFamily != cmGray) {
-                    uint8_t *VXFullUVFF = (uint8_t *)malloc(nHeightPUV * VPitchUV);
-                    uint8_t *VXFullUVBB = (uint8_t *)malloc(nHeightPUV * VPitchUV);
-                    uint8_t *VYFullUVBB = (uint8_t *)malloc(nHeightPUV * VPitchUV);
-                    uint8_t *VYFullUVFF = (uint8_t *)malloc(nHeightPUV * VPitchUV);
-                    uint8_t *VXSmallUVBB = (uint8_t *)malloc(nBlkXP * nBlkYP);
-                    uint8_t *VYSmallUVBB = (uint8_t *)malloc(nBlkXP * nBlkYP);
-                    uint8_t *VXSmallUVFF = (uint8_t *)malloc(nBlkXP * nBlkYP);
-                    uint8_t *VYSmallUVFF = (uint8_t *)malloc(nBlkXP * nBlkYP);
+                    int16_t *VXFullUVFF = (int16_t *)malloc(nHeightPUV * VPitchUV * sizeof(int16_t));
+                    int16_t *VXFullUVBB = (int16_t *)malloc(nHeightPUV * VPitchUV * sizeof(int16_t));
+                    int16_t *VYFullUVBB = (int16_t *)malloc(nHeightPUV * VPitchUV * sizeof(int16_t));
+                    int16_t *VYFullUVFF = (int16_t *)malloc(nHeightPUV * VPitchUV * sizeof(int16_t));
+                    int16_t *VXSmallUVBB = (int16_t *)malloc(nBlkXP * nBlkYP * sizeof(int16_t));
+                    int16_t *VYSmallUVBB = (int16_t *)malloc(nBlkXP * nBlkYP * sizeof(int16_t));
+                    int16_t *VXSmallUVFF = (int16_t *)malloc(nBlkXP * nBlkYP * sizeof(int16_t));
+                    int16_t *VYSmallUVFF = (int16_t *)malloc(nBlkXP * nBlkYP * sizeof(int16_t));
 
                     VectorSmallMaskYToHalfUV(VXSmallYBB, nBlkXP, nBlkYP, VXSmallUVBB, xRatioUV);
                     VectorSmallMaskYToHalfUV(VYSmallYBB, nBlkXP, nBlkYP, VYSmallUVBB, yRatioUV);
                     VectorSmallMaskYToHalfUV(VXSmallYFF, nBlkXP, nBlkYP, VXSmallUVFF, xRatioUV);
                     VectorSmallMaskYToHalfUV(VYSmallYFF, nBlkXP, nBlkYP, VYSmallUVFF, yRatioUV);
 
-                    simpleResize(upsizerUV, VXFullUVBB, VPitchUV, VXSmallUVBB, nBlkXP);
-                    simpleResize(upsizerUV, VYFullUVBB, VPitchUV, VYSmallUVBB, nBlkXP);
-                    simpleResize(upsizerUV, VXFullUVFF, VPitchUV, VXSmallUVFF, nBlkXP);
-                    simpleResize(upsizerUV, VYFullUVFF, VPitchUV, VYSmallUVFF, nBlkXP);
+                    upsizerUV->simpleResize_int16_t(upsizerUV, VXFullUVBB, VPitchUV, VXSmallUVBB, nBlkXP);
+                    upsizerUV->simpleResize_int16_t(upsizerUV, VYFullUVBB, VPitchUV, VYSmallUVBB, nBlkXP);
+                    upsizerUV->simpleResize_int16_t(upsizerUV, VXFullUVFF, VPitchUV, VXSmallUVFF, nBlkXP);
+                    upsizerUV->simpleResize_int16_t(upsizerUV, VYFullUVFF, VPitchUV, VYSmallUVFF, nBlkXP);
 
-                    FlowInterExtra(pDst[1], nDstPitches[1], pRef[1] + nOffsetUV, pSrc[1] + nOffsetUV, nRefPitches[1],
-                                   VXFullUVB, VXFullUVF, VYFullUVB, VYFullUVF, MaskFullUVB, MaskFullUVF, VPitchUV,
-                                   nWidthUV, nHeightUV, time256, nPel, LUTVB, LUTVF, VXFullUVBB, VXFullUVFF, VYFullUVBB, VYFullUVFF, bitsPerSample);
-                    FlowInterExtra(pDst[2], nDstPitches[2], pRef[2] + nOffsetUV, pSrc[2] + nOffsetUV, nRefPitches[2],
-                                   VXFullUVB, VXFullUVF, VYFullUVB, VYFullUVF, MaskFullUVB, MaskFullUVF, VPitchUV,
-                                   nWidthUV, nHeightUV, time256, nPel, LUTVB, LUTVF, VXFullUVBB, VXFullUVFF, VYFullUVBB, VYFullUVFF, bitsPerSample);
+                    d->FlowInterExtra(pDst[1], nDstPitches[1],
+                                      pRef[1] + nOffsetUV, pSrc[1] + nOffsetUV, nRefPitches[1],
+                                      VXFullUVB, VXFullUVF, VYFullUVB, VYFullUVF,
+                                      MaskFullUVB, MaskFullUVF, VPitchUV,
+                                      nWidthUV, nHeightUV, time256, nPel,
+                                      VXFullUVBB, VXFullUVFF, VYFullUVBB, VYFullUVFF);
+                    d->FlowInterExtra(pDst[2], nDstPitches[2],
+                                      pRef[2] + nOffsetUV, pSrc[2] + nOffsetUV, nRefPitches[2],
+                                      VXFullUVB, VXFullUVF, VYFullUVB, VYFullUVF,
+                                      MaskFullUVB, MaskFullUVF, VPitchUV,
+                                      nWidthUV, nHeightUV, time256, nPel,
+                                      VXFullUVBB, VXFullUVFF, VYFullUVBB, VYFullUVFF);
 
                     free(VXFullUVBB);
                     free(VYFullUVBB);
@@ -396,16 +401,22 @@ static const VSFrameRef *VS_CC mvflowinterGetFrame(int n, int activationReason, 
                 free(VXSmallYFF);
                 free(VYSmallYFF);
             } else { // bad extra frames, use old method without extra frames
-                FlowInter(pDst[0], nDstPitches[0], pRef[0] + nOffsetY, pSrc[0] + nOffsetY, nRefPitches[0],
-                          VXFullYB, VXFullYF, VYFullYB, VYFullYF, MaskFullYB, MaskFullYF, VPitchY,
-                          nWidth, nHeight, time256, nPel, LUTVB, LUTVF, bitsPerSample);
+                d->FlowInter(pDst[0], nDstPitches[0],
+                             pRef[0] + nOffsetY, pSrc[0] + nOffsetY, nRefPitches[0],
+                             VXFullYB, VXFullYF, VYFullYB, VYFullYF,
+                             MaskFullYB, MaskFullYF, VPitchY,
+                             nWidth, nHeight, time256, nPel);
                 if (d->vi->format->colorFamily != cmGray) {
-                    FlowInter(pDst[1], nDstPitches[1], pRef[1] + nOffsetUV, pSrc[1] + nOffsetUV, nRefPitches[1],
-                              VXFullUVB, VXFullUVF, VYFullUVB, VYFullUVF, MaskFullUVB, MaskFullUVF, VPitchUV,
-                              nWidthUV, nHeightUV, time256, nPel, LUTVB, LUTVF, bitsPerSample);
-                    FlowInter(pDst[2], nDstPitches[2], pRef[2] + nOffsetUV, pSrc[2] + nOffsetUV, nRefPitches[2],
-                              VXFullUVB, VXFullUVF, VYFullUVB, VYFullUVF, MaskFullUVB, MaskFullUVF, VPitchUV,
-                              nWidthUV, nHeightUV, time256, nPel, LUTVB, LUTVF, bitsPerSample);
+                    d->FlowInter(pDst[1], nDstPitches[1],
+                                 pRef[1] + nOffsetUV, pSrc[1] + nOffsetUV, nRefPitches[1],
+                                 VXFullUVB, VXFullUVF, VYFullUVB, VYFullUVF,
+                                 MaskFullUVB, MaskFullUVF, VPitchUV,
+                                 nWidthUV, nHeightUV, time256, nPel);
+                    d->FlowInter(pDst[2], nDstPitches[2],
+                                 pRef[2] + nOffsetUV, pSrc[2] + nOffsetUV, nRefPitches[2],
+                                 VXFullUVB, VXFullUVF, VYFullUVB, VYFullUVF,
+                                 MaskFullUVB, MaskFullUVF, VPitchUV,
+                                 nWidthUV, nHeightUV, time256, nPel);
                 }
             }
 
@@ -496,9 +507,6 @@ static void VS_CC mvflowinterFree(void *instanceData, VSCore *core, const VSAPI 
     if (d->vi->format->colorFamily != cmGray)
         simpleDeinit(&d->upsizerUV);
 
-    free(d->LUTVB);
-    free(d->LUTVF);
-
     vsapi->freeNode(d->finest);
     vsapi->freeNode(d->super);
     vsapi->freeNode(d->mvfw);
@@ -536,9 +544,9 @@ static void VS_CC mvflowinterCreate(const VSMap *in, VSMap *out, void *userData,
     if (err)
         d.thscd2 = MV_DEFAULT_SCD2;
 
-    d.isse = !!vsapi->propGetInt(in, "isse", 0, &err);
+    d.opt = !!vsapi->propGetInt(in, "opt", 0, &err);
     if (err)
-        d.isse = 1;
+        d.opt = 1;
 
 
     if (d.time < 0.0f || d.time > 100.0f) {
@@ -567,9 +575,10 @@ static void VS_CC mvflowinterCreate(const VSMap *in, VSMap *out, void *userData,
         return;
     }
     const VSMap *props = vsapi->getFramePropsRO(evil);
-    int evil_err[2];
+    int evil_err[3];
     int nHeightS = int64ToIntS(vsapi->propGetInt(props, "Super_height", 0, &evil_err[0]));
     d.nSuperHPad = int64ToIntS(vsapi->propGetInt(props, "Super_hpad", 0, &evil_err[1]));
+    int nSuperPel = int64ToIntS(vsapi->propGetInt(props, "Super_pel", 0, &evil_err[2]));
     vsapi->freeFrame(evil);
 
     for (int i = 0; i < 2; i++)
@@ -598,6 +607,15 @@ static void VS_CC mvflowinterCreate(const VSMap *in, VSMap *out, void *userData,
     if (error[0]) {
         vsapi->setError(out, error);
 
+        vsapi->freeNode(d.super);
+        vsapi->freeNode(d.mvfw);
+        vsapi->freeNode(d.mvbw);
+        return;
+    }
+
+
+    if (d.mvbw_data.nDeltaFrame <= 0 || d.mvfw_data.nDeltaFrame <= 0) {
+        vsapi->setError(out, "FlowInter: cannot use motion vectors with absolute frame references.");
         vsapi->freeNode(d.super);
         vsapi->freeNode(d.mvfw);
         vsapi->freeNode(d.mvbw);
@@ -633,7 +651,7 @@ static void VS_CC mvflowinterCreate(const VSMap *in, VSMap *out, void *userData,
 
         VSMap *args = vsapi->createMap();
         vsapi->propSetNode(args, "super", d.super, paReplace);
-        vsapi->propSetInt(args, "isse", d.isse, paReplace);
+        vsapi->propSetInt(args, "opt", d.opt, paReplace);
         VSMap *ret = vsapi->invoke(mvtoolsPlugin, "Finest", args);
         if (vsapi->getError(ret)) {
 #define ERROR_SIZE 512
@@ -680,7 +698,7 @@ static void VS_CC mvflowinterCreate(const VSMap *in, VSMap *out, void *userData,
     const VSVideoInfo *supervi = vsapi->getVideoInfo(d.super);
     int nSuperWidth = supervi->width;
 
-    if (d.mvbw_data.nHeight != nHeightS || d.mvbw_data.nWidth != nSuperWidth - d.nSuperHPad * 2) {
+    if (d.mvbw_data.nHeight != nHeightS || d.mvbw_data.nWidth != nSuperWidth - d.nSuperHPad * 2 || d.mvbw_data.nPel != nSuperPel) {
         vsapi->setError(out, "FlowInter: wrong source or super clip frame size.");
         vsapi->freeNode(d.finest);
         vsapi->freeNode(d.super);
@@ -700,9 +718,6 @@ static void VS_CC mvflowinterCreate(const VSMap *in, VSMap *out, void *userData,
         return;
     }
 
-    if (d.vi->format->bitsPerSample > 8)
-        d.isse = 0;
-
 
     d.nBlkXP = (d.mvbw_data.nBlkX * (d.mvbw_data.nBlkSizeX - d.mvbw_data.nOverlapX) + d.mvbw_data.nOverlapX < d.mvbw_data.nWidth) ? d.mvbw_data.nBlkX + 1 : d.mvbw_data.nBlkX;
     d.nBlkYP = (d.mvbw_data.nBlkY * (d.mvbw_data.nBlkSizeY - d.mvbw_data.nOverlapY) + d.mvbw_data.nOverlapY < d.mvbw_data.nHeight) ? d.mvbw_data.nBlkY + 1 : d.mvbw_data.nBlkY;
@@ -721,14 +736,11 @@ static void VS_CC mvflowinterCreate(const VSMap *in, VSMap *out, void *userData,
     d.VPitchUV = (d.nWidthPUV + 15) & (~15);
 
 
-    simpleInit(&d.upsizer, d.nWidthP, d.nHeightP, d.nBlkXP, d.nBlkYP);
+    simpleInit(&d.upsizer, d.nWidthP, d.nHeightP, d.nBlkXP, d.nBlkYP, d.opt);
     if (d.vi->format->colorFamily != cmGray)
-        simpleInit(&d.upsizerUV, d.nWidthPUV, d.nHeightPUV, d.nBlkXP, d.nBlkYP);
+        simpleInit(&d.upsizerUV, d.nWidthPUV, d.nHeightPUV, d.nBlkXP, d.nBlkYP, d.opt);
 
-
-    d.LUTVB = (int *)malloc(256 * sizeof(int));
-    d.LUTVF = (int *)malloc(256 * sizeof(int));
-    Create_LUTV(d.time256, d.LUTVB, d.LUTVF);
+    selectFlowInterFunctions(&d.FlowInterSimple, &d.FlowInter, &d.FlowInterExtra, d.vi->format->bitsPerSample, d.opt);
 
 
     data = (MVFlowInterData *)malloc(sizeof(d));
@@ -749,6 +761,6 @@ void mvflowinterRegister(VSRegisterFunction registerFunc, VSPlugin *plugin) {
                  "blend:int:opt;"
                  "thscd1:int:opt;"
                  "thscd2:int:opt;"
-                 "isse:int:opt;",
+                 "opt:int:opt;",
                  mvflowinterCreate, 0, plugin);
 }

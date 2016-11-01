@@ -12,6 +12,9 @@
 #include "MVAnalysisData.h"
 
 
+extern uint32_t g_cpuinfo;
+
+
 typedef struct MVRecalculateData {
     VSNodeRef *node;
     const VSVideoInfo *vi;
@@ -21,8 +24,8 @@ typedef struct MVRecalculateData {
     MVAnalysisData analysisData;
     MVAnalysisData analysisDataDivided;
 
-    /*! \brief isse optimisations enabled */
-    int isse;
+    /*! \brief optimisations enabled */
+    int opt;
 
     /*! \brief motion vecteur cost factor */
     int nLambda;
@@ -58,7 +61,7 @@ typedef struct MVRecalculateData {
 
     int fields;
     int tff;
-    int tffexists;
+    int tff_exists;
 } MVRecalculateData;
 
 
@@ -79,8 +82,14 @@ static const VSFrameRef *VS_CC mvrecalculateGetFrame(int n, int activationReason
     if (activationReason == arInitial) {
         vsapi->requestFrameFilter(n, d->vectors, frameCtx);
 
-        int offset = (d->analysisData.isBackward) ? d->analysisData.nDeltaFrame : -d->analysisData.nDeltaFrame;
-        int nref = n + offset;
+        int nref;
+        int offset = d->analysisData.nDeltaFrame;
+
+        if (offset > 0) {
+            nref = d->analysisData.isBackward ? n + offset : n - offset;
+        } else {
+            nref = -offset;
+        }
 
         if (nref >= 0 && nref < d->vi->numFrames) {
             if (n < nref) {
@@ -105,15 +114,21 @@ static const VSFrameRef *VS_CC mvrecalculateGetFrame(int n, int activationReason
         int nSrcPitch[3] = { 0 };
         int nRefPitch[3] = { 0 };
 
-        int offset = (d->analysisData.isBackward) ? d->analysisData.nDeltaFrame : -d->analysisData.nDeltaFrame;
-        int nref = n + offset;
+        int nref;
+        int offset = d->analysisData.nDeltaFrame;
+
+        if (offset > 0) {
+            nref = d->analysisData.isBackward ? n + offset : n - offset;
+        } else {
+            nref = -offset;
+        }
 
         const VSFrameRef *src = vsapi->getFrameFilter(n, d->node, frameCtx);
         const VSMap *srcprops = vsapi->getFramePropsRO(src);
         int err;
 
-        int srctff = !!vsapi->propGetInt(srcprops, "_Field", 0, &err);
-        if (err && d->fields && !d->tffexists) {
+        int src_top_field = !!vsapi->propGetInt(srcprops, "_Field", 0, &err);
+        if (err && d->fields && !d->tff_exists) {
             vsapi->setFilterError("Recalculate: _Field property not found in input frame. Therefore, you must pass tff argument.", frameCtx);
             gopDeinit(&vectorFields);
             vsapi->freeFrame(src);
@@ -121,8 +136,8 @@ static const VSFrameRef *VS_CC mvrecalculateGetFrame(int n, int activationReason
         }
 
         // if tff was passed, it overrides _Field.
-        if (d->tffexists)
-            srctff = d->tff && (n % 2 == 0); //child->GetParity(n); // int tff;
+        if (d->tff_exists)
+            src_top_field = d->tff ^ (n % 2);
 
 
         for (int plane = 0; plane < d->vi->format->numPlanes; plane++) {
@@ -147,8 +162,8 @@ static const VSFrameRef *VS_CC mvrecalculateGetFrame(int n, int activationReason
             const VSFrameRef *ref = vsapi->getFrameFilter(nref, d->node, frameCtx);
             const VSMap *refprops = vsapi->getFramePropsRO(ref);
 
-            int reftff = !!vsapi->propGetInt(refprops, "_Field", 0, &err);
-            if (err && d->fields && !d->tffexists) {
+            int ref_top_field = !!vsapi->propGetInt(refprops, "_Field", 0, &err);
+            if (err && d->fields && !d->tff_exists) {
                 vsapi->setFilterError("Recalculate: _Field property not found in input frame. Therefore, you must pass tff argument.", frameCtx);
                 gopDeinit(&vectorFields);
                 vsapi->freeFrame(src);
@@ -159,12 +174,12 @@ static const VSFrameRef *VS_CC mvrecalculateGetFrame(int n, int activationReason
             }
 
             // if tff was passed, it overrides _Field.
-            if (d->tffexists)
-                reftff = d->tff && (nref % 2 == 0); //child->GetParity(n); // int tff;
+            if (d->tff_exists)
+                ref_top_field = d->tff ^ (nref % 2);
 
             int fieldShift = 0;
             if (d->fields && d->analysisData.nPel > 1 && (d->analysisData.nDeltaFrame % 2)) {
-                fieldShift = (srctff && !reftff) ? d->analysisData.nPel / 2 : ((reftff && !srctff) ? -(d->analysisData.nPel / 2) : 0);
+                fieldShift = (src_top_field && !ref_top_field) ? d->analysisData.nPel / 2 : ((ref_top_field && !src_top_field) ? -(d->analysisData.nPel / 2) : 0);
                 // vertical shift of fields for fieldbased video at finest level pel2
             }
 
@@ -177,8 +192,8 @@ static const VSFrameRef *VS_CC mvrecalculateGetFrame(int n, int activationReason
 
             MVGroupOfFrames pSrcGOF, pRefGOF;
 
-            mvgofInit(&pSrcGOF, d->nSuperLevels, d->analysisData.nWidth, d->analysisData.nHeight, d->nSuperPel, d->nSuperHPad, d->nSuperVPad, d->nSuperModeYUV, d->isse, d->analysisData.xRatioUV, d->analysisData.yRatioUV, d->vi->format->bitsPerSample);
-            mvgofInit(&pRefGOF, d->nSuperLevels, d->analysisData.nWidth, d->analysisData.nHeight, d->nSuperPel, d->nSuperHPad, d->nSuperVPad, d->nSuperModeYUV, d->isse, d->analysisData.xRatioUV, d->analysisData.yRatioUV, d->vi->format->bitsPerSample);
+            mvgofInit(&pSrcGOF, d->nSuperLevels, d->analysisData.nWidth, d->analysisData.nHeight, d->nSuperPel, d->nSuperHPad, d->nSuperVPad, d->nSuperModeYUV, d->opt, d->analysisData.xRatioUV, d->analysisData.yRatioUV, d->vi->format->bitsPerSample);
+            mvgofInit(&pRefGOF, d->nSuperLevels, d->analysisData.nWidth, d->analysisData.nHeight, d->nSuperPel, d->nSuperHPad, d->nSuperVPad, d->nSuperModeYUV, d->opt, d->analysisData.xRatioUV, d->analysisData.yRatioUV, d->vi->format->bitsPerSample);
 
             // cast away the const, because why not.
             mvgofUpdate(&pSrcGOF, (uint8_t **)pSrc, nSrcPitch);
@@ -186,13 +201,13 @@ static const VSFrameRef *VS_CC mvrecalculateGetFrame(int n, int activationReason
 
 
             DCTFFTW *DCTc = NULL;
-            if (d->dctmode != 0) {
+            if (d->dctmode >= 1 && d->dctmode <= 4) {
                 DCTc = (DCTFFTW *)malloc(sizeof(DCTFFTW));
-                dctInit(DCTc, d->analysisData.nBlkSizeX, d->analysisData.nBlkSizeY, d->dctmode, d->vi->format->bitsPerSample);
+                dctInit(DCTc, d->analysisData.nBlkSizeX, d->analysisData.nBlkSizeY, d->vi->format->bitsPerSample, d->opt);
             }
 
 
-            gopRecalculateMVs(&vectorFields, &fgop, &pSrcGOF, &pRefGOF, d->searchType, d->nSearchParam, d->nLambda, d->pnew, vectors, fieldShift, d->thSAD, DCTc, d->smooth, d->meander);
+            gopRecalculateMVs(&vectorFields, &fgop, &pSrcGOF, &pRefGOF, d->searchType, d->nSearchParam, d->nLambda, d->pnew, vectors, fieldShift, d->thSAD, DCTc, d->dctmode, d->smooth, d->meander);
 
             if (d->divideExtra) {
                 // make extra level with divided sublocks with median (not estimated) motion
@@ -229,8 +244,10 @@ static const VSFrameRef *VS_CC mvrecalculateGetFrame(int n, int activationReason
 
         free(vectors);
 
+#if defined(MVTOOLS_X86)
         // FIXME: Get rid of all mmx shit.
         mvtools_cpu_emms();
+#endif
 
         vsapi->freeFrame(src);
 
@@ -312,9 +329,9 @@ static void VS_CC mvrecalculateCreate(const VSMap *in, VSMap *out, void *userDat
 
     d.divideExtra = int64ToIntS(vsapi->propGetInt(in, "divide", 0, &err));
 
-    d.isse = !!vsapi->propGetInt(in, "isse", 0, &err);
+    d.opt = !!vsapi->propGetInt(in, "opt", 0, &err);
     if (err)
-        d.isse = 1;
+        d.opt = 1;
 
     d.meander = !!vsapi->propGetInt(in, "meander", 0, &err);
     if (err)
@@ -323,7 +340,7 @@ static void VS_CC mvrecalculateCreate(const VSMap *in, VSMap *out, void *userDat
     d.fields = !!vsapi->propGetInt(in, "fields", 0, &err);
 
     d.tff = !!vsapi->propGetInt(in, "tff", 0, &err);
-    d.tffexists = err;
+    d.tff_exists = !err;
 
 
     if (d.searchType < 0 || d.searchType > 7) {
@@ -336,13 +353,8 @@ static void VS_CC mvrecalculateCreate(const VSMap *in, VSMap *out, void *userDat
         return;
     }
 
-    if (d.dctmode >= 5 &&
-        !((d.analysisData.nBlkSizeX == 4 && d.analysisData.nBlkSizeY == 4) ||
-          (d.analysisData.nBlkSizeX == 8 && d.analysisData.nBlkSizeY == 4) ||
-          (d.analysisData.nBlkSizeX == 8 && d.analysisData.nBlkSizeY == 8) ||
-          (d.analysisData.nBlkSizeX == 16 && d.analysisData.nBlkSizeY == 8) ||
-          (d.analysisData.nBlkSizeX == 16 && d.analysisData.nBlkSizeY == 16))) {
-        vsapi->setError(out, "Recalculate: dct 5..10 can only work with 4x4, 8x4, 8x8, 16x8, and 16x16 blocks.");
+    if (d.dctmode >= 5 && d.analysisData.nBlkSizeX == 16 && d.analysisData.nBlkSizeY == 2) {
+        vsapi->setError(out, "Recalculate: dct 5..10 cannot work with 16x2 blocks.");
         return;
     }
 
@@ -358,10 +370,14 @@ static void VS_CC mvrecalculateCreate(const VSMap *in, VSMap *out, void *userDat
         (d.analysisData.nBlkSizeX != 16 || d.analysisData.nBlkSizeY != 2) &&
         (d.analysisData.nBlkSizeX != 16 || d.analysisData.nBlkSizeY != 8) &&
         (d.analysisData.nBlkSizeX != 16 || d.analysisData.nBlkSizeY != 16) &&
+        (d.analysisData.nBlkSizeX != 32 || d.analysisData.nBlkSizeY != 16) &&
         (d.analysisData.nBlkSizeX != 32 || d.analysisData.nBlkSizeY != 32) &&
-        (d.analysisData.nBlkSizeX != 32 || d.analysisData.nBlkSizeY != 16)) {
+        (d.analysisData.nBlkSizeX != 64 || d.analysisData.nBlkSizeY != 32) &&
+        (d.analysisData.nBlkSizeX != 64 || d.analysisData.nBlkSizeY != 64) &&
+        (d.analysisData.nBlkSizeX != 128 || d.analysisData.nBlkSizeY != 64) &&
+        (d.analysisData.nBlkSizeX != 128 || d.analysisData.nBlkSizeY != 128)) {
 
-        vsapi->setError(out, "Recalculate: the block size must be 4x4, 8x4, 8x8, 16x2, 16x8, 16x16, 32x16, or 32x32.");
+        vsapi->setError(out, "Recalculate: the block size must be 4x4, 8x4, 8x8, 16x2, 16x8, 16x16, 32x16, 32x32, 64x32, 64x64, 128x64, or 128x128.");
         return;
     }
 
@@ -479,6 +495,7 @@ static void VS_CC mvrecalculateCreate(const VSMap *in, VSMap *out, void *userDat
 
     int pixelMax = (1 << d.vi->format->bitsPerSample) - 1;
     d.thSAD = (int)((double)d.thSAD * pixelMax / 255.0 + 0.5);
+    d.nLambda = (int)((double)d.nLambda * pixelMax / 255.0 + 0.5);
 
     // normalize threshold to block size
     int referenceBlockSize = 8 * 8;
@@ -488,17 +505,14 @@ static void VS_CC mvrecalculateCreate(const VSMap *in, VSMap *out, void *userDat
 
 
     d.analysisData.nMotionFlags = 0;
-    d.analysisData.nMotionFlags |= d.isse ? MOTION_USE_ISSE : 0;
+    d.analysisData.nMotionFlags |= d.opt ? MOTION_USE_SIMD : 0;
     d.analysisData.nMotionFlags |= d.analysisData.isBackward ? MOTION_IS_BACKWARD : 0;
     d.analysisData.nMotionFlags |= d.chroma ? MOTION_USE_CHROMA_MOTION : 0;
 
 
-    if (d.isse) {
-        d.analysisData.nCPUFlags = cpu_detect();
+    if (d.opt) {
+        d.analysisData.nCPUFlags = g_cpuinfo;
     }
-
-    if (d.vi->format->bitsPerSample > 8)
-        d.isse = 0; // needed here because MVPlane can't have isse=1 with more than 8 bits
 
     d.analysisData.nPel = d.nSuperPel; //x
 
@@ -559,7 +573,7 @@ void mvrecalculateRegister(VSRegisterFunction registerFunc, VSPlugin *plugin) {
                  "overlap:int:opt;"
                  "overlapv:int:opt;"
                  "divide:int:opt;"
-                 "isse:int:opt;"
+                 "opt:int:opt;"
                  "meander:int:opt;"
                  "fields:int:opt;"
                  "tff:int:opt;"
