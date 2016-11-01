@@ -14,7 +14,7 @@ SmoothT (**T**\ emporal) examines each pixel and compares it to the correspondin
 
 Parameters:
    clip
-      Clip to process. Only constant format 8..16 bits supported.
+      Clip to process. Only clips with constant format and dimensions and 8..16 bit integer pixels are supported.
 
    temporal_threshold
       Temporal neighbour pixels within this threshold from the current pixel are included in the average.
@@ -33,7 +33,7 @@ The first and last rows and the first and last columns are not processed by Smoo
 
 Parameters:
    clip
-      Clip to process. Only constant format 8..16 bits supported.
+      Clip to process. Only clips with constant format and dimensions and 8..16 bit integer pixels are supported.
 
    temporal_threshold
       Temporal neighbour pixels within this threshold from the current pixel are included in the average. If set to -1, no temporal smoothing occurs.
@@ -61,9 +61,3 @@ License
 The original FluxSmooth author said:
 "There is no copyright on this code, and there are no conditions on its distribution or use. Do with it what you will."
 Thank you.
-
-
-To do
-=====
-
-Convert the asm for the spatiotemporal version from this 64 bit edition: http://forum.doom9.org/showthread.php?t=158245

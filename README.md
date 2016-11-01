@@ -54,7 +54,7 @@ sudo apt-get install vapoursynth-extra-plugins
 [fieldhint 3](https://github.com/dubhater/vapoursynth-fieldhint)<br>
 [fillborders 1.0](https://github.com/dubhater/vapoursynth-fillborders)<br>
 [flash3kyuu_deband 2.0.0](https://github.com/SAPikachu/flash3kyuu_deband)<br>
-[fluxsmooth 1.0+git20141002](https://github.com/dubhater/vapoursynth-fluxsmooth)<br>
+[fluxsmooth 2.0](https://github.com/dubhater/vapoursynth-fluxsmooth)<br>
 [fmtconv r20](https://github.com/EleonoreMizo/fmtconv)<br>
 [genericfilters 1.0.0+git20160316](https://github.com/myrsloik/GenericFilters)<br>
 [histogram 1.0+git20141212](https://github.com/dubhater/vapoursynth-histogram)<br>
