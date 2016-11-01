@@ -60,7 +60,7 @@ sudo apt-get install vapoursynth-extra-plugins
 [histogram 1.0+git20141212](https://github.com/dubhater/vapoursynth-histogram)<br>
 [imagereader 0.2.1](https://github.com/chikuzen/vsimagereader)<br>
 [it 1.2](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-IT)<br>
-[knlmeanscl 0.7.6](https://github.com/Khanattila/KNLMeansCL)<br>
+[knlmeanscl 0.7.7](https://github.com/Khanattila/KNLMeansCL)<br>
 [lsmashsource git20160306](https://github.com/VFR-maniac/L-SMASH-Works)<br>
 [msmoosh 1.1](https://github.com/dubhater/vapoursynth-msmoosh)<br>
 [mvtools 13](https://github.com/dubhater/vapoursynth-mvtools)<br>
