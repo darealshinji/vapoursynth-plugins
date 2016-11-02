@@ -16,7 +16,6 @@ m4_define([AX_CHECK_LIB_LINK], [{
 
 m4_include([include/ac/ax_check_cl.m4])
 m4_include([include/ac/ax_cxx_compile_stdcxx.m4])
-m4_include([include/ac/ax_cxx_compile_stdcxx_11.m4])
 m4_include([include/ac/ax_check_gnu_make.m4])
 m4_include([include/ac/ax_check_compile_flag.m4])
 
@@ -27,6 +26,7 @@ AC_CANONICAL_HOST
 
 : ${CFLAGS="-O3"}
 : ${CXXFLAGS="-O3"}
+: ${CPPFLAGS="-D_FORTIFY_SOURCE=2"}
 
 
 # programs
@@ -54,7 +54,17 @@ AS_IF([test "x$YASM" = "x"], [have_yasm="no"], [have_yasm="yes"])
 
 
 # build flags
-AX_CXX_COMPILE_STDCXX_11([noext],[mandatory])
+CXX_bak="$CXX"
+AX_CXX_COMPILE_STDCXX([14], [ext], [optional])
+AS_IF([test "x$ax_cv_cxx_compile_cxx14" = "xyes"], [
+       CXX="$CXX_bak"
+       AX_CHECK_COMPILE_FLAG([-std=gnu++14], [CXXFLAGS="$CXXFLAGS -std=gnu++14"], [exit 1])
+], [
+       CXX="$CXX_bak"
+       AX_CXX_COMPILE_STDCXX([11], [ext], [mandatory])
+       CXX="$CXX_bak"
+       AX_CHECK_COMPILE_FLAG([-std=gnu++11], [CXXFLAGS="$CXXFLAGS -std=gnu++11"], [exit 1])
+])
 
 _sps="-fstack-protector-strong"
 _sp="-fstack-protector --param=ssp-buffer-size=4"
