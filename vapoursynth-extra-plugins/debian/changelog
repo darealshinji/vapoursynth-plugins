@@ -1,3 +1,14 @@
+vapoursynth-extra-plugins (20161106-1~xenial) xenial; urgency=low
+
+  * Updates: lsmashsource, knlmeanscl, deblock, awarpsharp2, fluxsmooth,
+    mvtools, ffms2, nnedi3
+  * New plugins: degrainmedian, cnr2
+  * Update scripts: havsfunc, vstaambk
+  * Update VS headers (r35)
+  * Update vectorclass (v1.23)
+
+ -- Marshall Banana <djcj@gmx.de>  Sun, 06 Nov 2016 16:22:01 +0100
+
 vapoursynth-extra-plugins (20160526-2~xenial) xenial; urgency=low
 
   * Fix mvtools not being build correctly

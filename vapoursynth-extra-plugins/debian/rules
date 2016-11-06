@@ -15,6 +15,11 @@ override_dh_auto_clean:
 	dh_auto_clean -- distclean
 	rm -f config.mak
 
+override_dh_auto_configure:
+	CC=$(shell test -x /usr/bin/gcc-5 && echo gcc-5 || echo gcc) \
+	CXX=$(shell test -x /usr/bin/g++-5 && echo g++-5 || echo g++) \
+	dh_auto_configure
+
 override_dh_auto_install:
 	$(MAKE) install DESTDIR=$(CURDIR)/debian/tmp INSTALL_MODEL_WEIGHTS=0
 

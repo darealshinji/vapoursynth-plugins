@@ -4,6 +4,8 @@ Priority: optional
 Maintainer: Marshall Banana <djcj@gmx.de>
 Build-Depends:
  debhelper (>= 9),
+ gcc-5 | libc,
+ g++-5 | libc,
  nasm,
  yasm,
  libtool,
