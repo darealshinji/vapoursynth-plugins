@@ -24,12 +24,14 @@ all:
 install:
 	$(INSTALL) -d $(DESTDIR)$(pluginsdir)
 	$(INSTALL) -d $(DESTDIR)$(docdir)
-	$(INSTALL) -d $(DESTDIR)$(prefix)/share/nnedi3
+	$(INSTALL) -d $(DESTDIR)$(datarootdir)/nnedi3
+	$(INSTALL) -d $(DESTDIR)$(datarootdir)/vsscripts
 	$(INSTALL) -d $(DESTDIR)$(dist-packages)
+	ln -rs $(DESTDIR)$(datarootdir)/vsscripts $(DESTDIR)$(dist-packages)/vsscripts
 
 	$(foreach LIB,$(shell ls plugins/*/*.so),$(INSTALL_DATA) $(LIB) $(DESTDIR)$(pluginsdir) $(NL))
 	$(foreach SCRIPT,$(shell ls plugins/*/*.py scripts/*.py), \
-		$(INSTALL_DATA) $(SCRIPT) $(DESTDIR)$(dist-packages)/vs-$$(basename $(SCRIPT)) $(NL))
+		$(INSTALL_DATA) $(SCRIPT) $(DESTDIR)$(datarootdir)/vsscripts/$$(basename $(SCRIPT)) $(NL))
 
 	$(INSTALL) -m 755 plugins/d2vsource/d2vscan.pl $(DESTDIR)$(pluginsdir)
 	$(INSTALL_DATA) plugins/d2vsource/d2vscan.txt $(DESTDIR)$(docdir)/d2vscan
@@ -47,7 +49,7 @@ install:
 	$(INSTALL_DATA) plugins/fmtconv/doc/vapourdoc.css $(DESTDIR)$(docdir)
 
 ifneq ($(INSTALL_MODEL_WEIGHTS),0)
-	$(INSTALL_DATA) models/nnedi3_weights.bin $(DESTDIR)$(prefix)/share/nnedi3
+	$(INSTALL_DATA) models/nnedi3_weights.bin $(DESTDIR)$(datarootdir)/nnedi3
 
 	$(foreach DIR,anime_style_art anime_style_art_rgb photo,\
 		$(INSTALL) -d $(DESTDIR)$(pluginsdir)/models/$(DIR) $(NL)\
