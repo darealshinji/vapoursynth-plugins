@@ -1,8 +1,8 @@
 /****************************  vectorf128.h   *******************************
 * Author:        Agner Fog
 * Date created:  2012-05-30
-* Last modified: 2016-09-27
-* Version:       1.23
+* Last modified: 2016-11-25
+* Version:       1.25
 * Project:       vector classes
 * Description:
 * Header file defining floating point vector classes as interface to 
@@ -30,7 +30,7 @@
 *
 * For detailed instructions, see VectorClass.pdf
 *
-* (c) Copyright 2012 - 2016 GNU General Public License http://www.gnu.org/licenses
+* (c) Copyright 2012-2016 GNU General Public License http://www.gnu.org/licenses
 *****************************************************************************/
 #ifndef VECTORF128_H
 #define VECTORF128_H
@@ -865,17 +865,17 @@ static inline VTYPE pow_template_i(VTYPE const & x0, int n) {
 // exponent to int when calling pow(vector, float) and vectormath_exp.h is
 // not included
 
-template <typename TT> static Vec4f pow(Vec4f const & a, TT n);
+template <typename TT> static Vec4f pow(Vec4f const & a, TT const & n);
 
 // Raise floating point numbers to integer power n
 template <>
-inline Vec4f pow<int>(Vec4f const & x0, int n) {
+inline Vec4f pow<int>(Vec4f const & x0, int const & n) {
     return pow_template_i<Vec4f>(x0, n);
 }
 
 // allow conversion from unsigned int
 template <>
-inline Vec4f pow<uint32_t>(Vec4f const & x0, uint32_t n) {
+inline Vec4f pow<uint32_t>(Vec4f const & x0, uint32_t const & n) {
     return pow_template_i<Vec4f>(x0, (int)n);
 }
 
@@ -1027,16 +1027,51 @@ static inline Vec4f to_float(Vec4i const & a) {
     return _mm_cvtepi32_ps(a);
 }
 
+// function to_float: convert unsigned integer vector to float vector
+static inline Vec4f to_float(Vec4ui const & a) {
+#ifdef __AVX512VL__
+    return _mm_cvtepu32_ps(a);
+#else
+    Vec4f b = to_float(Vec4i(a & 0x7FFFFFFF));             // 31 bits
+    Vec4i c = Vec4i(a) >> 31;                              // generate mask from highest bit
+    Vec4f d = Vec4f(2147483648.f) & Vec4f(_mm_castsi128_ps(c));// mask floating point constant 2^31
+    return b + d;
+#endif
+}
+
+
 // Approximate math functions
 
 // approximate reciprocal (Faster than 1.f / a. relative accuracy better than 2^-11)
 static inline Vec4f approx_recipr(Vec4f const & a) {
+#if INSTRSET >= 9  // use more accurate version if available. (none of these will raise exceptions on zero)
+#ifdef __AVX512ER__  // AVX512ER: full precision
+    // todo: if future processors have both AVX512ER and AVX512VL: _mm128_rcp28_round_ps(a, _MM_FROUND_NO_EXC);
+    return _mm512_castps512_ps128(_mm512_rcp28_round_ps(_mm512_castps128_ps512(a), _MM_FROUND_NO_EXC));
+#elif defined __AVX512VL__  // AVX512VL: 14 bit precision
+    return _mm_rcp14_ps(a);
+#else  // AVX512F: 14 bit precision
+    return _mm512_castps512_ps128(_mm512_rcp14_ps(_mm512_castps128_ps512(a)));
+#endif
+#else  // AVX: 11 bit precision
     return _mm_rcp_ps(a);
+#endif
 }
 
 // approximate reciprocal squareroot (Faster than 1.f / sqrt(a). Relative accuracy better than 2^-11)
 static inline Vec4f approx_rsqrt(Vec4f const & a) {
+#if INSTRSET >= 9  // use more accurate version if available. (none of these will raise exceptions on zero)
+#ifdef __AVX512ER__  // AVX512ER: full precision
+    // todo: if future processors have both AVX512ER and AVX521VL: _mm128_rsqrt28_round_ps(a, _MM_FROUND_NO_EXC);
+    return _mm512_castps512_ps128(_mm512_rsqrt28_round_ps(_mm512_castps128_ps512(a), _MM_FROUND_NO_EXC));
+#elif defined __AVX512VL__  // AVX512VL: 14 bit precision
+    return _mm_rsqrt14_ps(a);
+#else  // AVX512F: 14 bit precision
+    return _mm512_castps512_ps128(_mm512_rsqrt14_ps(_mm512_castps128_ps512(a)));
+#endif
+#else  // AVX: 11 bit precision
     return _mm_rsqrt_ps(a);
+#endif
 }
 
 // Fused multiply and add functions
@@ -1835,17 +1870,17 @@ static inline Vec2d square(Vec2d const & a) {
 // exponent to int when calling pow(vector, float) and vectormath_exp.h is
 // not included
 
-template <typename TT> static Vec2d pow(Vec2d const & a, TT n);
+template <typename TT> static Vec2d pow(Vec2d const & a, TT const & n);
 
 // Raise floating point numbers to integer power n
 template <>
-inline Vec2d pow<int>(Vec2d const & x0, int n) {
+inline Vec2d pow<int>(Vec2d const & x0, int const & n) {
     return pow_template_i<Vec2d>(x0, n);
 }
 
 // allow conversion from unsigned int
 template <>
-inline Vec2d pow<uint32_t>(Vec2d const & x0, uint32_t n) {
+inline Vec2d pow<uint32_t>(Vec2d const & x0, uint32_t const & n) {
     return pow_template_i<Vec2d>(x0, (int)n);
 }
 
@@ -1980,21 +2015,6 @@ static inline Vec4i truncate_to_int(Vec2d const & a, Vec2d const & b) {
     return blend4i<0,1,4,5> (t1, t2);
 }
 
-// function truncate_to_int64: round towards zero. (inefficient)
-static inline Vec2q truncate_to_int64(Vec2d const & a) {
-    double aa[2];
-    a.store(aa);
-    return Vec2q(int64_t(aa[0]), int64_t(aa[1]));
-}
-
-// function truncate_to_int64_limited: round towards zero. (inefficient)
-// result as 64-bit integer vector, but with limited range
-static inline Vec2q truncate_to_int64_limited(Vec2d const & a) {
-    // Note: assume MXCSR control register is set to rounding
-    Vec4i t1 = _mm_cvttpd_epi32(a);
-    return extend_low(t1);
-}
-
 // function round_to_int: round to nearest integer (even).
 // result as 32-bit integer vector
 static inline Vec4i round_to_int(Vec2d const & a, Vec2d const & b) {
@@ -2010,31 +2030,71 @@ static inline Vec4i round_to_int(Vec2d const & a) {
     return t1;
 }
 
+// function truncate_to_int64: round towards zero. (inefficient)
+static inline Vec2q truncate_to_int64(Vec2d const & a) {
+#if defined (__AVX512DQ__) && defined (__AVX512VL__)
+    //return _mm_maskz_cvttpd_epi64( __mmask8(0xFF), a);
+    return _mm_cvttpd_epi64(a);
+#else
+    double aa[2];
+    a.store(aa);
+    return Vec2q(int64_t(aa[0]), int64_t(aa[1]));
+#endif
+}
+
+// function truncate_to_int64_limited: round towards zero. (inefficient)
+// result as 64-bit integer vector, but with limited range. Deprecated!
+static inline Vec2q truncate_to_int64_limited(Vec2d const & a) {
+#if defined (__AVX512DQ__) && defined (__AVX512VL__)
+    return truncate_to_int64(a);
+#else
+    // Note: assume MXCSR control register is set to rounding
+    Vec4i t1 = _mm_cvttpd_epi32(a);
+    return extend_low(t1);
+#endif
+}
+
 // function round_to_int64: round to nearest or even. (inefficient)
 static inline Vec2q round_to_int64(Vec2d const & a) {
+#if defined (__AVX512DQ__) && defined (__AVX512VL__)
+    return _mm_cvtpd_epi64(a);
+#else
     return truncate_to_int64(round(a));
+#endif
 }
 
 // function round_to_int: round to nearest integer (even)
-// result as 64-bit integer vector, but with limited range
+// result as 64-bit integer vector, but with limited range. Deprecated!
 static inline Vec2q round_to_int64_limited(Vec2d const & a) {
+#if defined (__AVX512DQ__) && defined (__AVX512VL__)
+    return round_to_int64(a);
+#else
     // Note: assume MXCSR control register is set to rounding
     Vec4i t1 = _mm_cvtpd_epi32(a);
     return extend_low(t1);
+#endif
 }
 
 // function to_double: convert integer vector elements to double vector (inefficient)
 static inline Vec2d to_double(Vec2q const & a) {
+#if defined (__AVX512DQ__) && defined (__AVX512VL__)
+    return _mm_maskz_cvtepi64_pd( __mmask8(0xFF), a);
+#else
     int64_t aa[2];
     a.store(aa);
     return Vec2d(double(aa[0]), double(aa[1]));
+#endif
 }
 
 // function to_double_limited: convert integer vector elements to double vector
-// limited to abs(x) < 2^31
+// limited to abs(x) < 2^31. Deprecated!
 static inline Vec2d to_double_limited(Vec2q const & x) {
+#if defined (__AVX512DQ__) && defined (__AVX512VL__)
+    return to_double(x);
+#else
     Vec4i compressed = permute4i<0,2,-256,-256>(Vec4i(x));
     return _mm_cvtepi32_pd(compressed);
+#endif
 }
 
 // function to_double_low: convert integer vector elements [0] and [1] to double vector
@@ -2578,7 +2638,72 @@ static inline Vec2d gather2d(void const * a) {
     return reinterpret_d(gather2q<i0, i1>(a));
 }
 
+/*****************************************************************************
+*
+*          Vector scatter functions
+*
+******************************************************************************
+*
+* These functions write the elements of a vector to arbitrary positions in an
+* array in memory. Each vector element is written to an array position 
+* determined by an index. An element is not written if the corresponding
+* index is out of range.
+* The indexes can be specified as constant template parameters or as an
+* integer vector.
+* 
+* The scatter functions are useful if the data are distributed in a sparce
+* manner into the array. If the array is dense then it is more efficient
+* to permute the data into the right positions and then write the whole
+* permuted vector into the array.
+*
+* Example:
+* Vec8d a(10,11,12,13,14,15,16,17);
+* double b[16] = {0};
+* scatter<0,2,14,10,1,-1,5,9>(a,b); 
+* // Now, b = {10,14,11,0,0,16,0,0,0,17,13,0,0,0,12,0}
+*
+*****************************************************************************/
 
+template <int i0, int i1, int i2, int i3>
+static inline void scatter(Vec4f data, float * array) {
+#if defined (__AVX512VL__)
+    __m128i indx = constant4i<i0,i1,i2,i3>();
+    __mmask16 mask = uint16_t(i0>=0 | (i1>=0)<<1 | (i2>=0)<<2 | (i3>=0)<<3);
+    _mm_mask_i32scatter_ps(array, mask, indx, data, 4);
+#else
+    const int index[4] = {i0,i1,i2,i3};
+    for (int i = 0; i < 4; i++) {
+        if (index[i] >= 0) array[index[i]] = data[i];
+    }
+#endif
+}
+
+template <int i0, int i1>
+static inline void scatter(Vec2d data, double * array) {
+    if (i0 >= 0) array[i0] = data[0];
+    if (i1 >= 0) array[i1] = data[1];
+}
+
+static inline void scatter(Vec4i index, uint32_t limit, Vec4f data, float * array) {
+#if defined (__AVX512VL__)
+    __mmask16 mask = _mm_cmplt_epu32_mask(index, Vec4ui(limit));
+    _mm_mask_i32scatter_ps(array, mask, index, data, 4);
+#else
+    for (int i = 0; i < 4; i++) {
+        if (uint32_t(index[i]) < limit) array[index[i]] = data[i];
+    }
+#endif
+}
+
+static inline void scatter(Vec2q index, uint32_t limit, Vec2d data, double * array) {
+    if (uint64_t(index[0]) < uint64_t(limit)) array[index[0]] = data[0];
+    if (uint64_t(index[1]) < uint64_t(limit)) array[index[1]] = data[1];
+}
+
+static inline void scatter(Vec4i index, uint32_t limit, Vec2d data, double * array) {
+    if (uint32_t(index[0]) < limit) array[index[0]] = data[0];
+    if (uint32_t(index[1]) < limit) array[index[1]] = data[1];
+}
 
 /*****************************************************************************
 *

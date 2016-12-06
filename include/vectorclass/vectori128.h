@@ -1,8 +1,8 @@
 /****************************  vectori128.h   *******************************
 * Author:        Agner Fog
 * Date created:  2012-05-30
-* Last modified: 2016-04-26
-* Version:       1.22
+* Last modified: 2016-11-25
+* Version:       1.25
 * Project:       vector classes
 * Description:
 * Header file defining integer vector classes as interface to intrinsic 
@@ -39,7 +39,7 @@
 *
 * For detailed instructions, see VectorClass.pdf
 *
-* (c) Copyright 2012 - 2016 GNU General Public License http://www.gnu.org/licenses
+* (c) Copyright 2012-2016 GNU General Public License http://www.gnu.org/licenses
 *****************************************************************************/
 #ifndef VECTORI128_H
 #define VECTORI128_H
@@ -1549,7 +1549,7 @@ static inline Vec8s operator ! (Vec8s const & a) {
 // for (int i = 0; i < 8; i++) result[i] = s[i] ? a[i] : b[i];
 // Each byte in s must be either 0 (false) or -1 (true). No other values are allowed.
 // (s is signed)
-static inline Vec8s select (Vec8s const & s, Vec8s const & a, Vec8s const & b) {
+static inline Vec8s select (Vec8sb const & s, Vec8s const & a, Vec8s const & b) {
     return selectb(s,a,b);
 }
 
@@ -1830,7 +1830,7 @@ static inline Vec8us operator ~ (Vec8us const & a) {
 // for (int i = 0; i < 8; i++) result[i] = s[i] ? a[i] : b[i];
 // Each word in s must be either 0 (false) or -1 (true). No other values are allowed.
 // (s is signed)
-static inline Vec8us select (Vec8s const & s, Vec8us const & a, Vec8us const & b) {
+static inline Vec8us select (Vec8sb const & s, Vec8us const & a, Vec8us const & b) {
     return selectb(s,a,b);
 }
 
@@ -2491,7 +2491,9 @@ static inline Vec4i abs_saturated(Vec4i const & a) {
 // function rotate_left all elements
 // Use negative count to rotate right
 static inline Vec4i rotate_left(Vec4i const & a, int b) {
-#ifdef __XOP__  // AMD XOP instruction set
+#ifdef __AVX512VL__
+    return _mm_rolv_epi32(a, _mm_set1_epi32(b));
+#elif defined __XOP__  // AMD XOP instruction set
     return _mm_rot_epi32(a,_mm_set1_epi32(b));
 #else  // SSE2 instruction set
     __m128i left  = _mm_sll_epi32(a,_mm_cvtsi32_si128(b & 0x1F));      // a << b 
@@ -3102,7 +3104,9 @@ static inline Vec2q & operator -- (Vec2q & a) {
 
 // vector operator * : multiply element by element
 static inline Vec2q operator * (Vec2q const & a, Vec2q const & b) {
-#if INSTRSET >= 5   // SSE4.1 supported
+#if defined (__AVX512DQ__) && defined (__AVX512VL__)
+    return _mm_mullo_epi64(a, b);
+#elif INSTRSET >= 5   // SSE4.1 supported
     // instruction does not exist. Split into 32-bit multiplies
     __m128i bswap   = _mm_shuffle_epi32(b,0xB1);           // b0H,b0L,b1H,b1L (swap H<->L)
     __m128i prodlh  = _mm_mullo_epi32(a,bswap);            // a0Lb0H,a0Hb0L,a1Lb1H,a1Hb1L, 32 bit L*H products
@@ -3340,7 +3344,9 @@ static inline Vec2q abs_saturated(Vec2q const & a) {
 // function rotate_left all elements
 // Use negative count to rotate right
 static inline Vec2q rotate_left(Vec2q const & a, int b) {
-#ifdef __XOP__  // AMD XOP instruction set
+#ifdef __AVX512VL__
+    return _mm_rolv_epi64(a, _mm_set1_epi64x(int64_t(b)));
+#elif defined __XOP__  // AMD XOP instruction set
     return (Vec2q)_mm_rot_epi64(a,Vec2q(b));
 #else  // SSE2 instruction set
     __m128i left  = _mm_sll_epi64(a,_mm_cvtsi32_si128(b & 0x3F));      // a << b 
@@ -3455,14 +3461,14 @@ static inline Vec2qb operator > (Vec2uq const & a, Vec2uq const & b) {
     return Vec2qb(_mm_comgt_epu64(a,b));
 #elif INSTRSET >= 6 // SSE4.2
     __m128i sign64 = constant4i<0,(int32_t)0x80000000,0,(int32_t)0x80000000>();
-    __m128i aflip  = _mm_xor_si128(a, sign64);
+    __m128i aflip  = _mm_xor_si128(a, sign64);             // flip sign bits to use signed compare
     __m128i bflip  = _mm_xor_si128(b, sign64);
     Vec2q   cmp    = _mm_cmpgt_epi64(aflip,bflip);
     return Vec2qb(cmp);
 #else  // SSE2 instruction set
     __m128i sign32  = _mm_set1_epi32(0x80000000);          // sign bit of each dword
-    __m128i aflip   = _mm_xor_si128(a,sign32);             // a with sign bits flipped
-    __m128i bflip   = _mm_xor_si128(b,sign32);             // b with sign bits flipped
+    __m128i aflip   = _mm_xor_si128(a,sign32);             // a with sign bits flipped to use signed compare
+    __m128i bflip   = _mm_xor_si128(b,sign32);             // b with sign bits flipped to use signed compare
     __m128i equal   = _mm_cmpeq_epi32(a,b);                // a == b, dwords
     __m128i bigger  = _mm_cmpgt_epi32(aflip,bflip);        // a > b, dwords
     __m128i biggerl = _mm_shuffle_epi32(bigger,0xA0);      // a > b, low dwords copied to high dwords
@@ -5016,6 +5022,78 @@ static inline Vec2q gather2q(void const * a) {
 
 /*****************************************************************************
 *
+*          Vector scatter functions
+*
+******************************************************************************
+*
+* These functions write the elements of a vector to arbitrary positions in an
+* array in memory. Each vector element is written to an array position 
+* determined by an index. An element is not written if the corresponding
+* index is out of range.
+* The indexes can be specified as constant template parameters or as an
+* integer vector.
+* 
+* The scatter functions are useful if the data are distributed in a sparce
+* manner into the array. If the array is dense then it is more efficient
+* to permute the data into the right positions and then write the whole
+* permuted vector into the array.
+*
+* Example:
+* Vec8q a(10,11,12,13,14,15,16,17);
+* int64_t b[16] = {0};
+* scatter<0,2,14,10,1,-1,5,9>(a,b); 
+* // Now, b = {10,14,11,0,0,16,0,0,0,17,13,0,0,0,12,0}
+*
+*****************************************************************************/
+
+template <int i0, int i1, int i2, int i3>
+static inline void scatter(Vec4i data, void * array) {
+#if defined (__AVX512VL__)
+    __m128i indx = constant4i<i0,i1,i2,i3>();
+    __mmask16 mask = uint16_t(i0>=0 | (i1>=0)<<1 | (i2>=0)<<2 | (i3>=0)<<3);
+    _mm_mask_i32scatter_epi32((int*)array, mask, indx, data, 4);
+#else
+    int32_t* arr = (int32_t*)array;
+    const int index[4] = {i0,i1,i2,i3};
+    for (int i = 0; i < 4; i++) {
+        if (index[i] >= 0) arr[index[i]] = data[i];
+    }
+#endif
+}
+
+template <int i0, int i1>
+static inline void scatter(Vec2q data, void * array) {
+    int64_t* arr = (int64_t*)array;
+    if (i0 >= 0) arr[i0] = data[0];
+    if (i1 >= 0) arr[i1] = data[1];
+}
+
+static inline void scatter(Vec4i index, uint32_t limit, Vec4i data, void * array) {
+#if defined (__AVX512VL__)
+    __mmask16 mask = _mm_cmplt_epu32_mask(index, Vec4ui(limit));
+    _mm_mask_i32scatter_epi32((int*)array, mask, index, data, 4);
+#else
+    int32_t* arr = (int32_t*)array;
+    for (int i = 0; i < 4; i++) {
+        if (uint32_t(index[i]) < limit) arr[index[i]] = data[i];
+    }
+#endif
+}
+
+static inline void scatter(Vec2q index, uint32_t limit, Vec2q data, void * array) {
+    int64_t* arr = (int64_t*)array;
+    if (uint64_t(index[0]) < uint64_t(limit)) arr[index[0]] = data[0];
+    if (uint64_t(index[1]) < uint64_t(limit)) arr[index[1]] = data[1];
+} 
+
+static inline void scatter(Vec4i index, uint32_t limit, Vec2q data, void * array) {
+    int64_t* arr = (int64_t*)array;
+    if (uint32_t(index[0]) < limit) arr[index[0]] = data[0];
+    if (uint32_t(index[1]) < limit) arr[index[1]] = data[1];
+} 
+
+/*****************************************************************************
+*
 *          Functions for conversion between integer sizes
 *
 *****************************************************************************/
@@ -5979,7 +6057,7 @@ static inline Vec8us divide_by_ui(Vec8us const & x) {
     __m128i xm = _mm_mulhi_epu16(x1, multv);                         // high part of 16x16->32 bit unsigned multiplication
     Vec8us q    = _mm_srli_epi16(xm, b);                             // shift right by b
     if (round_down) {
-        Vec8s overfl = (x1 == (Vec8us)_mm_setzero_si128());                  // check for overflow of x+1
+        Vec8sb overfl = (x1 == (Vec8us)_mm_setzero_si128());         // check for overflow of x+1
         return select(overfl, Vec8us(mult >> b), q);                 // deal with overflow (rarely needed)
     }
     else {
