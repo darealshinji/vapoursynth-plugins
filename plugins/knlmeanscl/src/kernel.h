@@ -23,630 +23,430 @@
 
 //////////////////////////////////////////
 // Type Definition
-#define NLM_COLOR_GRAY           (1 << 0)
-#define NLM_COLOR_YUV            (1 << 1)
-#define NLM_COLOR_RGB            (1 << 2)
-#define NLM_CLIP_UNORM           (1 << 3)
-#define NLM_CLIP_UNSIGNED        (1 << 4)
-#define NLM_CLIP_STACKED         (1 << 5)
-#define NLM_EXTRA_FALSE          (1 << 6)
-#define NLM_EXTRA_TRUE           (1 << 7)
 
-#define nlmSpatialDistance        0x0
-#define nlmSpatialHorizontal      0x1
-#define nlmSpatialVertical        0x2
-#define nlmSpatialAccumulation    0x3
-#define nlmSpatialFinish          0x4
-#define nlmSpatialPack            0x5
-#define nlmSpatialUnpack          0x6
-#define nlmDistanceLeft           0x7
-#define nlmDistanceRight          0x8
-#define nlmHorizontal             0x9
-#define nlmVertical               0xA
-#define nlmAccumulation           0xB
-#define nlmFinish                 0xC
-#define nlmPack                   0xD
-#define nlmUnpack                 0xE
-#define NLM_NUMBER_KERNELS        0xF
+#define nlmDistance                0x0
+#define nlmHorizontal              0x1
+#define nlmVertical                0x2
+#define nlmAccumulation            0x3
+#define nlmFinish                  0x4
+#define nlmPack                    0x5
+#define nlmUnpack                  0x6
+#define NLM_KERNELS                0x7
 
-#define NLM_RGBA_RED              0.6664827524
-#define NLM_RGBA_GREEN            1.2866580779
-#define NLM_RGBA_BLUE             1.0468591696
-#define NLM_RGBA_ALPHA            0.0
-#define NLM_16BIT_MSB             0.9961089494163424
-#define NLM_16BIT_LSB             0.003891050583657588
+#define memU1a                     0x0
+#define memU1b                     0x1
+#define memU1z                     0x2
+#define memU2                      0x3
+#define memU4a                     0x4
+#define memU4b                     0x5
+#define memU5                      0x6
+#define NLM_MEMORY                 0x7
+
+#define NLM_CLIP_EXTRA_FALSE      (1 << 0)
+#define NLM_CLIP_EXTRA_TRUE       (1 << 1)
+#define NLM_CLIP_TYPE_UNORM       (1 << 2)
+#define NLM_CLIP_TYPE_UNSIGNED    (1 << 3)
+#define NLM_CLIP_TYPE_STACKED     (1 << 4)
+#define NLM_CLIP_REF_LUMA         (1 << 5)
+#define NLM_CLIP_REF_CHROMA       (1 << 6)
+#define NLM_CLIP_REF_YUV          (1 << 7)
+#define NLM_CLIP_REF_RGB          (1 << 8)
+
+#define NLM_WMODE_WELSCH           0x0
+#define NLM_WMODE_BISQUARE1        0x1
+#define NLM_WMODE_BISQUARE2        0x2
+#define NLM_WMODE_BISQUARE8        0x3
 
 //////////////////////////////////////////
 // Kernel Definition
-static const char* kernel_source_code_spatial =
-"#define CHECK_FLAG(flag) ((NLM_TCLIP & (flag)) == (flag))                                                        \n" \
-"                                                                                                                 \n" \
-"float   norm(uint u);                                                                                            \n" \
-"ushort  denorm(float f);                                                                                         \n" \
-"ushort4 denorm4(float4 f);                                                                                       \n" \
-"                                                                                                                 \n" \
-"float   norm(uint u)      { return native_divide((float) (u << NLM_BIT_SHIFT), (float) USHRT_MAX); }             \n" \
-"ushort  denorm(float f)   { return convert_ushort_sat(f * (float) USHRT_MAX) >> (ushort) NLM_BIT_SHIFT; }        \n" \
-"ushort4 denorm4(float4 f) { return convert_ushort4_sat(f * (float4) USHRT_MAX) >> (ushort4) NLM_BIT_SHIFT; }     \n" \
-"                                                                                                                 \n" \
-"__kernel                                                                                                         \n" \
-"void nlmSpatialDistance(__read_only image2d_t U1, __write_only image2d_t U4, const int2 dim, const int2 q) {     \n" \
-"                                                                                                                 \n" \
-"   const int x = get_global_id(0);                                                                               \n" \
-"   const int y = get_global_id(1);                                                                               \n" \
-"   if(x >= dim.x || y >= dim.y) return;                                                                          \n" \
-"                                                                                                                 \n" \
-"   const sampler_t smp = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST;                   \n" \
-"   const int2 p = (int2) (x, y);                                                                                 \n" \
-"                                                                                                                 \n" \
-"   if (CHECK_FLAG(NLM_COLOR_GRAY)) {                                                                             \n" \
-"       const float  u1    = read_imagef(U1, smp, p    ).x;                                                       \n" \
-"       const float  u1_pq = read_imagef(U1, smp, p + q).x;                                                       \n" \
-"       const float  val   = 3.0f * (u1 - u1_pq) * (u1 - u1_pq);                                                  \n" \
-"       write_imagef(U4, p, (float4) val);                                                                        \n" \
-"   } else if (CHECK_FLAG(NLM_COLOR_YUV)) {                                                                       \n" \
-"       const float4 u1    = read_imagef(U1, smp, p    );                                                         \n" \
-"       const float4 u1_pq = read_imagef(U1, smp, p + q);                                                         \n" \
-"       const float4 dist  = (u1 - u1_pq) * (u1 - u1_pq);                                                         \n" \
-"       const float  val   = dist.x + dist.y + dist.z;                                                            \n" \
-"       write_imagef(U4, p, (float4) val);                                                                        \n" \
-"   } else if (CHECK_FLAG(NLM_COLOR_RGB)) {                                                                       \n" \
-"       const float4 u1    = read_imagef(U1, smp, p    );                                                         \n" \
-"       const float4 u1_pq = read_imagef(U1, smp, p + q);                                                         \n" \
-"       const float4 wgh   = (float4) (NLM_RGBA_RED, NLM_RGBA_GREEN, NLM_RGBA_BLUE, NLM_RGBA_ALPHA);              \n" \
-"       const float4 dist  = wgh * (u1 - u1_pq) * (u1 - u1_pq);                                                   \n" \
-"       const float  val   = dist.x + dist.y + dist.z;                                                            \n" \
-"       write_imagef(U4, p, (float4) val);                                                                        \n" \
-"   }                                                                                                             \n" \
-"}                                                                                                                \n" \
-"                                                                                                                 \n" \
-"__kernel __attribute__((reqd_work_group_size(HRZ_BLOCK_X, HRZ_BLOCK_Y, 1)))                                      \n" \
-"void nlmSpatialHorizontal(__read_only image2d_t U4_in, __write_only image2d_t U4_out, const int2 dim) {          \n" \
-"                                                                                                                 \n" \
-"   __local float buffer[HRZ_BLOCK_Y][3*HRZ_BLOCK_X];                                                             \n" \
-"   const int x = get_global_id(0);                                                                               \n" \
-"   const int y = get_global_id(1);                                                                               \n" \
-"   const int lx = get_local_id(0);                                                                               \n" \
-"   const int ly = get_local_id(1);                                                                               \n" \
-"                                                                                                                 \n" \
-"   const sampler_t smp = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST;                   \n" \
-"   const int2 p = (int2) (x, y);                                                                                 \n" \
-"                                                                                                                 \n" \
-"   buffer[ly][lx + HRZ_BLOCK_X]   = read_imagef(U4_in, smp, p                          ).x;                      \n" \
-"   buffer[ly][lx]                 = read_imagef(U4_in, smp, p - (int2) (HRZ_BLOCK_X, 0)).x;                      \n" \
-"   buffer[ly][lx + 2*HRZ_BLOCK_X] = read_imagef(U4_in, smp, p + (int2) (HRZ_BLOCK_X, 0)).x;                      \n" \
-"   barrier(CLK_LOCAL_MEM_FENCE);                                                                                 \n" \
-"                                                                                                                 \n" \
-"   if(x >= dim.x || y >= dim.y) return;                                                                          \n" \
-"   float sum = 0.0f;                                                                                             \n" \
-"   for(int i = -NLM_S; i <= NLM_S; i++)                                                                          \n" \
-"       sum += buffer[ly][lx + HRZ_BLOCK_X + i];                                                                  \n" \
-"   write_imagef(U4_out, p, (float4) sum);                                                                        \n" \
-"}                                                                                                                \n" \
-"                                                                                                                 \n" \
-"__kernel __attribute__((reqd_work_group_size(VRT_BLOCK_X, VRT_BLOCK_Y, 1)))                                      \n" \
-"void nlmSpatialVertical(__read_only image2d_t U4_in, __write_only image2d_t U4_out, const int2 dim) {            \n" \
-"                                                                                                                 \n" \
-"   __local float buffer[3*VRT_BLOCK_Y][VRT_BLOCK_X];                                                             \n" \
-"   const int x = get_global_id(0);                                                                               \n" \
-"   const int y = get_global_id(1);                                                                               \n" \
-"   const int lx = get_local_id(0);                                                                               \n" \
-"   const int ly = get_local_id(1);                                                                               \n" \
-"                                                                                                                 \n" \
-"   const sampler_t smp = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST;                   \n" \
-"   const int2 p = (int2) (x, y);                                                                                 \n" \
-"                                                                                                                 \n" \
-"   buffer[ly + VRT_BLOCK_Y][lx]   = read_imagef(U4_in, smp, p                          ).x;                      \n" \
-"   buffer[ly][lx]                 = read_imagef(U4_in, smp, p - (int2) (0, VRT_BLOCK_Y)).x;                      \n" \
-"   buffer[ly + 2*VRT_BLOCK_Y][lx] = read_imagef(U4_in, smp, p + (int2) (0, VRT_BLOCK_Y)).x;                      \n" \
-"   barrier(CLK_LOCAL_MEM_FENCE);                                                                                 \n" \
-"                                                                                                                 \n" \
-"   if(x >= dim.x || y >= dim.y) return;                                                                          \n" \
-"   float sum = 0.0f;                                                                                             \n" \
-"   for(int j = -NLM_S; j <= NLM_S; j++)                                                                          \n" \
-"       sum += buffer[ly + VRT_BLOCK_Y + j][lx];                                                                  \n" \
-"                                                                                                                 \n" \
-"   if(NLM_WMODE == 0) {                                                                                          \n" \
-"       const float val = native_recip(1.0f + sum * NLM_H2_INV_NORM);                                             \n" \
-"       write_imagef(U4_out, p, (float4) val);                                                                    \n" \
-"   } else if (NLM_WMODE == 1) {                                                                                  \n" \
-"       const float val = native_exp(- sum * NLM_H2_INV_NORM);                                                    \n" \
-"       write_imagef(U4_out, p, (float4) val);                                                                    \n" \
-"   } else if (NLM_WMODE == 2) {                                                                                  \n" \
-"       const float val = pown(fdim(1.0f, sum * NLM_H2_INV_NORM), 2);                                             \n" \
-"       write_imagef(U4_out, p, (float4) val);                                                                    \n" \
-"   }                                                                                                             \n" \
-"}                                                                                                                \n" \
-"                                                                                                                 \n" \
-"__kernel                                                                                                         \n" \
-"void nlmSpatialAccumulation(__read_only image2d_t U1, __global void* U2, __read_only image2d_t U4,               \n" \
-"__global float* M, const int2 dim, const int2 q) {                                                               \n" \
-"                                                                                                                 \n" \
-"   const int x = get_global_id(0);                                                                               \n" \
-"   const int y = get_global_id(1);                                                                               \n" \
-"   if(x >= dim.x || y >= dim.y) return;                                                                          \n" \
-"                                                                                                                 \n" \
-"   const sampler_t smp = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST;                   \n" \
-"   const int2 p = (int2) (x, y);                                                                                 \n" \
-"   const int gidx = mad24(y, dim.x, x);                                                                          \n" \
-"                                                                                                                 \n" \
-"   const float u4    = read_imagef(U4, smp, p    ).x;                                                            \n" \
-"   const float u4_mq = read_imagef(U4, smp, p - q).x;                                                            \n" \
-"   M[gidx] = fmax(M[gidx], fmax(u4, u4_mq));                                                                     \n" \
-"                                                                                                                 \n" \
-"   if (CHECK_FLAG(NLM_COLOR_GRAY)) {                                                                             \n" \
-"       __global float2* U2c = (__global float2*) U2;                                                             \n" \
-"       const float u1_pq = read_imagef(U1, smp, p + q).x;                                                        \n" \
-"       const float u1_mq = read_imagef(U1, smp, p - q).x;                                                        \n" \
-"       float2 accu;                                                                                              \n" \
-"              accu.x = (u4 * u1_pq) + (u4_mq * u1_mq);                                                           \n" \
-"              accu.y = (u4 + u4_mq);                                                                             \n" \
-"       U2c[gidx] += accu;                                                                                        \n" \
-"   } else if (CHECK_FLAG(NLM_COLOR_YUV) | CHECK_FLAG(NLM_COLOR_RGB)) {                                           \n" \
-"       __global float4* U2c = (__global float4*) U2;                                                             \n" \
-"       const float4 u1_pq = read_imagef(U1, smp, p + q);                                                         \n" \
-"       const float4 u1_mq = read_imagef(U1, smp, p - q);                                                         \n" \
-"       float4 accu   = (u4 * u1_pq) + (u4_mq * u1_mq);                                                           \n" \
-"              accu.w = (u4 + u4_mq);                                                                             \n" \
-"       U2c[gidx] += accu;                                                                                        \n" \
-"   }                                                                                                             \n" \
-"}                                                                                                                \n" \
-"                                                                                                                 \n" \
-"__kernel                                                                                                         \n" \
-"void nlmSpatialFinish(__read_only image2d_t U1_in, __write_only image2d_t U1_out, __global void* U2,             \n" \
-"__global float* M, const int2 dim) {                                                                             \n" \
-"                                                                                                                 \n" \
-"   const int x = get_global_id(0);                                                                               \n" \
-"   const int y = get_global_id(1);                                                                               \n" \
-"   if(x >= dim.x || y >= dim.y) return;                                                                          \n" \
-"                                                                                                                 \n" \
-"   const sampler_t smp = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_NONE | CLK_FILTER_NEAREST;                    \n" \
-"   const int2 p = (int2) (x, y);                                                                                 \n" \
-"   const int gidx = mad24(y, dim.x, x);                                                                          \n" \
-"   const float wM = NLM_WREF * M[gidx];                                                                          \n" \
-"                                                                                                                 \n" \
-"   if (CHECK_FLAG(NLM_COLOR_GRAY)) {                                                                             \n" \
-"       __global float2* U2c = (__global float2*) U2;                                                             \n" \
-"           const float  u1  = read_imagef(U1_in, smp, p).x;                                                      \n" \
-"           const float  num = U2c[gidx].x + wM * u1;                                                             \n" \
-"           const float  den = U2c[gidx].y + wM;                                                                  \n" \
-"           const float  val = native_divide(num, den);                                                           \n" \
-"           write_imagef(U1_out, p, (float4) val);                                                                \n" \
-"   } else if (CHECK_FLAG(NLM_COLOR_YUV) | CHECK_FLAG(NLM_COLOR_RGB)) {                                           \n" \
-"       __global float4* U2c = (__global float4*) U2;                                                             \n" \
-"           const float4 u1  = read_imagef(U1_in, smp, p);                                                        \n" \
-"           const float4 num = U2c[gidx] + (float4) wM * u1;                                                      \n" \
-"           const float  den = U2c[gidx].w + wM;                                                                  \n" \
-"           const float4 val = native_divide(num, (float4) den);                                                  \n" \
-"           write_imagef(U1_out, p, val);                                                                         \n" \
-"   }                                                                                                             \n" \
-"}                                                                                                                \n" \
-"                                                                                                                 \n" \
-"__kernel                                                                                                         \n" \
-"void nlmSpatialPack(__read_only image2d_t R, __read_only image2d_t G, __read_only image2d_t B,                   \n" \
-"__write_only image2d_t U1, const int2 dim) {                                                                     \n" \
-"                                                                                                                 \n" \
-"   const int x = get_global_id(0);                                                                               \n" \
-"   const int y = get_global_id(1);                                                                               \n" \
-"   if(x >= dim.x || y >= dim.y) return;                                                                          \n" \
-"                                                                                                                 \n" \
-"   const sampler_t smp = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_NONE | CLK_FILTER_NEAREST;                    \n" \
-"   const int2 p = (int2) (x, y);                                                                                 \n" \
-"                                                                                                                 \n" \
-"   if (CHECK_FLAG(NLM_CLIP_UNSIGNED | NLM_COLOR_GRAY)) {                                                         \n" \
-"       const float r     = norm(read_imageui(R, smp, p).x);                                                      \n" \
-"       write_imagef(U1, p, (float4) r);                                                                          \n" \
-"   } else if (CHECK_FLAG(NLM_CLIP_STACKED | NLM_COLOR_GRAY)) {                                                   \n" \
-"       const int2  p_lsb = (int2) (x, y + dim.y);                                                                \n" \
-"       const float r_msb = read_imagef(R, smp, p    ).x;                                                         \n" \
-"       const float r_lsb = read_imagef(R, smp, p_lsb).x;                                                         \n" \
-"       const float r     = NLM_16BIT_MSB * r_msb + NLM_16BIT_LSB * r_lsb;                                        \n" \
-"       write_imagef(U1, p, (float4) r);                                                                          \n" \
-"   } else if (CHECK_FLAG(NLM_CLIP_UNORM | NLM_COLOR_YUV)) {                                                      \n" \
-"       const float r     = read_imagef(R, smp, p).x;                                                             \n" \
-"       const float g     = read_imagef(G, smp, p).x;                                                             \n" \
-"       const float b     = read_imagef(B, smp, p).x;                                                             \n" \
-"       write_imagef(U1, p, (float4) (r, g, b, 1.0f));                                                            \n" \
-"   } else if (CHECK_FLAG(NLM_CLIP_UNSIGNED | NLM_COLOR_YUV)) {                                                   \n" \
-"       const float r     = norm(read_imageui(R, smp, p).x);                                                      \n" \
-"       const float g     = norm(read_imageui(G, smp, p).x);                                                      \n" \
-"       const float b     = norm(read_imageui(B, smp, p).x);                                                      \n" \
-"       write_imagef(U1, p, (float4) (r, g, b, 1.0f));                                                            \n" \
-"   } else if (CHECK_FLAG(NLM_CLIP_STACKED | NLM_COLOR_YUV)) {                                                    \n" \
-"       const int2 p_lsb  = (int2) (x, y + dim.y);                                                                \n" \
-"       const float r_msb = read_imagef(R, smp, p    ).x;                                                         \n" \
-"       const float g_msb = read_imagef(G, smp, p    ).x;                                                         \n" \
-"       const float b_msb = read_imagef(B, smp, p    ).x;                                                         \n" \
-"       const float r_lsb = read_imagef(R, smp, p_lsb).x;                                                         \n" \
-"       const float g_lsb = read_imagef(G, smp, p_lsb).x;                                                         \n" \
-"       const float b_lsb = read_imagef(B, smp, p_lsb).x;                                                         \n" \
-"       const float r     = NLM_16BIT_MSB * r_msb + NLM_16BIT_LSB * r_lsb;                                        \n" \
-"       const float g     = NLM_16BIT_MSB * g_msb + NLM_16BIT_LSB * g_lsb;                                        \n" \
-"       const float b     = NLM_16BIT_MSB * b_msb + NLM_16BIT_LSB * b_lsb;                                        \n" \
-"       write_imagef(U1, p, (float4) (r, g, b, 1.0f));                                                            \n" \
-"   } else if (CHECK_FLAG(NLM_CLIP_UNORM | NLM_COLOR_RGB)) {                                                      \n" \
-"       const float r     = read_imagef(R, smp, p).x;                                                             \n" \
-"       const float g     = read_imagef(G, smp, p).x;                                                             \n" \
-"       const float b     = read_imagef(B, smp, p).x;                                                             \n" \
-"       write_imagef(U1, p, (float4) (r, g, b, 1.0f));                                                            \n" \
-"   } else if (CHECK_FLAG(NLM_CLIP_UNSIGNED | NLM_COLOR_RGB)) {                                                   \n" \
-"       const float r     = norm(read_imageui(R, smp, p).x);                                                      \n" \
-"       const float g     = norm(read_imageui(G, smp, p).x);                                                      \n" \
-"       const float b     = norm(read_imageui(B, smp, p).x);                                                      \n" \
-"       write_imagef(U1, p, (float4) (r, g, b, 1.0f));                                                            \n" \
-"   }                                                                                                             \n" \
-"}                                                                                                                \n" \
-"                                                                                                                 \n" \
-"__kernel                                                                                                         \n" \
-"void nlmSpatialUnpack(__write_only image2d_t R, __write_only image2d_t G, __write_only image2d_t B,              \n" \
-"__read_only image2d_t U1, const int2 dim) {                                                                      \n" \
-"                                                                                                                 \n" \
-"   const int x = get_global_id(0);                                                                               \n" \
-"   const int y = get_global_id(1);                                                                               \n" \
-"   if(x >= dim.x || y >= dim.y) return;                                                                          \n" \
-"                                                                                                                 \n" \
-"   const sampler_t smp = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_NONE | CLK_FILTER_NEAREST;                    \n" \
-"   const int2 s = (int2) (x, y);                                                                                 \n" \
-"                                                                                                                 \n" \
-"   if (CHECK_FLAG(NLM_CLIP_UNSIGNED | NLM_COLOR_GRAY)) {                                                         \n" \
-"       const ushort  val     = denorm(read_imagef(U1, smp, s).x);                                                \n" \
-"       write_imageui(R, s,    (uint4) val);                                                                      \n" \
-"   } else if (CHECK_FLAG(NLM_CLIP_STACKED | NLM_COLOR_GRAY)) {                                                   \n" \
-"       const int2    s_lsb   = (int2) (x, y + dim.y);                                                            \n" \
-"       const ushort  in      = convert_ushort_sat(read_imagef(U1, smp, s).x * (float) USHRT_MAX);                \n" \
-"       const float   in_msb  = convert_float(in >> CHAR_BIT);                                                    \n" \
-"       const float   in_lsb  = convert_float(in & 0xFF);                                                         \n" \
-"       const float   val_msb = native_divide(in_msb, (float) UCHAR_MAX);                                         \n" \
-"       const float   val_lsb = native_divide(in_lsb, (float) UCHAR_MAX);                                         \n" \
-"       write_imagef(R, s,     (float4) val_msb);                                                                 \n" \
-"       write_imagef(R, s_lsb, (float4) val_lsb);                                                                 \n" \
-"   } else if (CHECK_FLAG(NLM_CLIP_UNORM | NLM_COLOR_YUV)) {                                                      \n" \
-"       const float4  val     = read_imagef(U1, smp, s);                                                          \n" \
-"       write_imagef(R, s,     (float4) val.x);                                                                   \n" \
-"       write_imagef(G, s,     (float4) val.y);                                                                   \n" \
-"       write_imagef(B, s,     (float4) val.z);                                                                   \n" \
-"   } else if (CHECK_FLAG(NLM_CLIP_UNSIGNED | NLM_COLOR_YUV)) {                                                   \n" \
-"       const ushort4 val     = denorm4(read_imagef(U1, smp, s));                                                 \n" \
-"       write_imageui(R, s,    (uint4) val.x);                                                                    \n" \
-"       write_imageui(G, s,    (uint4) val.y);                                                                    \n" \
-"       write_imageui(B, s,    (uint4) val.z);                                                                    \n" \
-"   } else if (CHECK_FLAG(NLM_CLIP_STACKED | NLM_COLOR_YUV)) {                                                    \n" \
-"       const int2    s_lsb   = (int2) (x, y + dim.y);                                                            \n" \
-"       const ushort4 in      = convert_ushort4_sat(read_imagef(U1, smp, s) * (float4) USHRT_MAX);                \n" \
-"       const float4  in_msb  = convert_float4(in >> (ushort4) CHAR_BIT);                                         \n" \
-"       const float4  in_lsb  = convert_float4(in & (ushort4) 0xFF);                                              \n" \
-"       const float4  val_msb = native_divide(in_msb, (float4) UCHAR_MAX);                                        \n" \
-"       const float4  val_lsb = native_divide(in_lsb, (float4) UCHAR_MAX);                                        \n" \
-"       write_imagef(R, s,     (float4) val_msb.x);                                                               \n" \
-"       write_imagef(G, s,     (float4) val_msb.y);                                                               \n" \
-"       write_imagef(B, s,     (float4) val_msb.z);                                                               \n" \
-"       write_imagef(R, s_lsb, (float4) val_lsb.x);                                                               \n" \
-"       write_imagef(G, s_lsb, (float4) val_lsb.y);                                                               \n" \
-"       write_imagef(B, s_lsb, (float4) val_lsb.z);                                                               \n" \
-"   } else if (CHECK_FLAG(NLM_CLIP_UNORM | NLM_COLOR_RGB)) {                                                      \n" \
-"       const float4  val     = read_imagef(U1, smp, s);                                                          \n" \
-"       write_imagef(R, s,     (float4) val.x);                                                                   \n" \
-"       write_imagef(G, s,     (float4) val.y);                                                                   \n" \
-"       write_imagef(B, s,     (float4) val.z);                                                                   \n" \
-"   } else if (CHECK_FLAG(NLM_CLIP_UNSIGNED | NLM_COLOR_RGB)) {                                                   \n" \
-"       const ushort4 val     = denorm4(read_imagef(U1, smp, s));                                                 \n" \
-"       write_imageui(R, s,    (uint4) val.x);                                                                    \n" \
-"       write_imageui(G, s,    (uint4) val.y);                                                                    \n" \
-"       write_imageui(B, s,    (uint4) val.z);                                                                    \n" \
-"   }                                                                                                             \n" \
-"}                                                                                                                ";
-
 static const char* kernel_source_code =
-"#define CHECK_FLAG(flag) ((NLM_TCLIP & (flag)) == (flag))                                                        \n" \
 "                                                                                                                 \n" \
-"float   norm(uint u);                                                                                            \n" \
-"ushort  denorm(float f);                                                                                         \n" \
-"ushort4 denorm4(float4 f);                                                                                       \n" \
-"                                                                                                                 \n" \
-"float   norm(uint u)      { return native_divide((float) (u << NLM_BIT_SHIFT), (float) USHRT_MAX); }             \n" \
-"ushort  denorm(float f)   { return convert_ushort_sat(f * (float) USHRT_MAX) >> (ushort) NLM_BIT_SHIFT; }        \n" \
-"ushort4 denorm4(float4 f) { return convert_ushort4_sat(f * (float4) USHRT_MAX) >> (ushort4) NLM_BIT_SHIFT; }     \n" \
+"#define NLM_NORM            ( 255.0f * 255.0f )                                                                  \n" \
+"#define NLM_S_SIZE          ( (2 * NLM_S + 1) * (2 * NLM_S + 1) )                                                \n" \
+"#define NLM_H2_INV_NORM     ( NLM_NORM / (NLM_H * NLM_H * NLM_S_SIZE) )                                          \n" \
+"#define NLM_16BIT_MSB       ( 256.0f / (257.0f * 255.0f) )                                                       \n" \
+"#define NLM_16BIT_LSB       (   1.0f / (257.0f * 255.0f) )                                                       \n" \
+"#define CHECK_FLAG(flag)    ( (NLM_TCLIP & (flag)) == (flag) )                                                   \n" \
 "                                                                                                                 \n" \
 "__kernel                                                                                                         \n" \
-"void nlmDistanceLeft(__read_only image2d_array_t U1, __write_only image2d_array_t U4, const int2 dim,            \n" \
-"const int4 q) {                                                                                                  \n" \
+"void nlmDistance(__read_only image2d_array_t U1, __write_only image2d_array_t U4, const int t, const int4 q) {   \n" \
 "                                                                                                                 \n" \
-"   const int x = get_global_id(0);                                                                               \n" \
-"   const int y = get_global_id(1);                                                                               \n" \
-"   if(x >= dim.x || y >= dim.y) return;                                                                          \n" \
+"   int x = get_global_id(0);                                                                                     \n" \
+"   int y = get_global_id(1);                                                                                     \n" \
+"   if (x >= VI_DIM_X || y >= VI_DIM_Y) return;                                                                   \n" \
 "                                                                                                                 \n" \
-"   const sampler_t smp = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST;                   \n" \
-"   const int4 p = (int4) (x, y, NLM_D, 0);                                                                       \n" \
+"   const sampler_t smp_f = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_NONE | CLK_FILTER_NEAREST;                  \n" \
+"   const sampler_t smp_t = CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_REPEAT | CLK_FILTER_NEAREST;                 \n" \
+"   int4   p    = (int4) (x, y, t, 0);                                                                            \n" \
+"   float  x_pq = native_divide((float) (x + q.x), (float) (VI_DIM_X - 1));                                       \n" \
+"   float  y_pq = native_divide((float) (y + q.y), (float) (VI_DIM_Y - 1));                                       \n" \
+"   float4 p_pq = (float4) (x_pq, y_pq, t + q.z, 0);                                                              \n" \
 "                                                                                                                 \n" \
-"   if (CHECK_FLAG(NLM_COLOR_GRAY)) {                                                                             \n" \
-"       const float  u1    = read_imagef(U1, smp, p    ).x;                                                       \n" \
-"       const float  u1_pq = read_imagef(U1, smp, p + q).x;                                                       \n" \
-"       const float  val   = 3.0f * (u1 - u1_pq) * (u1 - u1_pq);                                                  \n" \
-"       write_imagef(U4, p, (float4) val);                                                                        \n" \
-"   } else if (CHECK_FLAG(NLM_COLOR_YUV)) {                                                                       \n" \
-"       const float4 u1    = read_imagef(U1, smp, p    );                                                         \n" \
-"       const float4 u1_pq = read_imagef(U1, smp, p + q);                                                         \n" \
-"       const float4 dist  = (u1 - u1_pq) * (u1 - u1_pq);                                                         \n" \
-"       const float  val   = dist.x + dist.y + dist.z;                                                            \n" \
-"       write_imagef(U4, p, (float4) val);                                                                        \n" \
-"   } else if (CHECK_FLAG(NLM_COLOR_RGB)) {                                                                       \n" \
-"       const float4 u1    = read_imagef(U1, smp, p    );                                                         \n" \
-"       const float4 u1_pq = read_imagef(U1, smp, p + q);                                                         \n" \
-"       const float4 wgh   = (float4) (NLM_RGBA_RED, NLM_RGBA_GREEN, NLM_RGBA_BLUE, NLM_RGBA_ALPHA);              \n" \
-"       const float4 dist  = wgh * (u1 - u1_pq) * (u1 - u1_pq);                                                   \n" \
-"       const float  val   = dist.x + dist.y + dist.z;                                                            \n" \
-"       write_imagef(U4, p, (float4) val);                                                                        \n" \
-"   }                                                                                                             \n" \
-"}                                                                                                                \n" \
+"   if (CHECK_FLAG(NLM_CLIP_REF_LUMA)) {                                                                          \n" \
 "                                                                                                                 \n" \
-"__kernel                                                                                                         \n" \
-"void nlmDistanceRight(__read_only image2d_array_t U1, __write_only image2d_array_t U4, const int2 dim,           \n" \
-"const int4 q) {                                                                                                  \n" \
+"       float  u1    = read_imagef(U1, smp_f, p   ).x;                                                            \n" \
+"       float  u1_pq = read_imagef(U1, smp_t, p_pq).x;                                                            \n" \
+"       float  val   = 3.0f * (u1 - u1_pq) * (u1 - u1_pq);                                                        \n" \
+"       write_imagef(U4, p, (float4) (val, 0.0f, 0.0f, 0.0f));                                                    \n" \
 "                                                                                                                 \n" \
-"   const int x = get_global_id(0);                                                                               \n" \
-"   const int y = get_global_id(1);                                                                               \n" \
-"   if((x - q.x) < 0 || (x - q.x) >= dim.x || (y - q.y) < 0 || (y - q.y) >= dim.y) return;                        \n" \
+"   } else if (CHECK_FLAG(NLM_CLIP_REF_CHROMA)) {                                                                 \n" \
 "                                                                                                                 \n" \
-"   const sampler_t smp = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST;                   \n" \
-"   const int4 p = (int4) (x, y, NLM_D, 0);                                                                       \n" \
+"       float2 u1    = read_imagef(U1, smp_f, p   ).xy;                                                           \n" \
+"       float2 u1_pq = read_imagef(U1, smp_t, p_pq).xy;                                                           \n" \
+"       float  dst_u = (u1.x - u1_pq.x) * (u1.x - u1_pq.x);                                                       \n" \
+"       float  dst_v = (u1.y - u1_pq.y) * (u1.y - u1_pq.y);                                                       \n" \
+"       float  val   = 1.5f * (dst_u + dst_v);                                                                    \n" \
+"       write_imagef(U4, p, (float4) (val, 0.0f, 0.0f, 0.0f));                                                    \n" \
 "                                                                                                                 \n" \
-"   if (CHECK_FLAG(NLM_COLOR_GRAY)) {                                                                             \n" \
-"       const float  u1    = read_imagef(U1, smp, p    ).x;                                                       \n" \
-"       const float  u1_mq = read_imagef(U1, smp, p - q).x;                                                       \n" \
-"       const float  val   = 3.0f * (u1 - u1_mq) * (u1 - u1_mq);                                                  \n" \
-"       write_imagef(U4, p - q, (float4) val);                                                                    \n" \
-"   } else if (CHECK_FLAG(NLM_COLOR_YUV)) {                                                                       \n" \
-"       const float4 u1    = read_imagef(U1, smp, p    );                                                         \n" \
-"       const float4 u1_mq = read_imagef(U1, smp, p - q);                                                         \n" \
-"       const float4 dist  = (u1 - u1_mq) * (u1 - u1_mq);                                                         \n" \
-"       const float  val   = dist.x + dist.y + dist.z;                                                            \n" \
-"       write_imagef(U4, p - q, (float4) val);                                                                    \n" \
-"   } else if (CHECK_FLAG(NLM_COLOR_RGB)) {                                                                       \n" \
-"       const float4 u1    = read_imagef(U1, smp, p    );                                                         \n" \
-"       const float4 u1_mq = read_imagef(U1, smp, p - q);                                                         \n" \
-"       const float4 wgh   = (float4) (NLM_RGBA_RED, NLM_RGBA_GREEN, NLM_RGBA_BLUE, NLM_RGBA_ALPHA);              \n" \
-"       const float4 dist  = wgh * (u1 - u1_mq) * (u1 - u1_mq);                                                   \n" \
-"       const float  val   = dist.x + dist.y + dist.z;                                                            \n" \
-"       write_imagef(U4, p - q, (float4) val);                                                                    \n" \
+"   } else if (CHECK_FLAG(NLM_CLIP_REF_YUV)) {                                                                    \n" \
+"                                                                                                                 \n" \
+"       float3 u1    = read_imagef(U1, smp_f, p   ).xyz;                                                          \n" \
+"       float3 u1_pq = read_imagef(U1, smp_t, p_pq).xyz;                                                          \n" \
+"       float  dst_y = (u1.x - u1_pq.x) * (u1.x - u1_pq.x);                                                       \n" \
+"       float  dst_u = (u1.y - u1_pq.y) * (u1.y - u1_pq.y);                                                       \n" \
+"       float  dst_v = (u1.z - u1_pq.z) * (u1.z - u1_pq.z);                                                       \n" \
+"       float  val   = dst_y + dst_u + dst_v;                                                                     \n" \
+"       write_imagef(U4, p, (float4) (val, 0.0f, 0.0f, 0.0f));                                                    \n" \
+"                                                                                                                 \n" \
+"   } else if (CHECK_FLAG(NLM_CLIP_REF_RGB)) {                                                                    \n" \
+"                                                                                                                 \n" \
+"       float3 u1    = read_imagef(U1, smp_f, p   ).xyz;                                                          \n" \
+"       float3 u1_pq = read_imagef(U1, smp_t, p_pq).xyz;                                                          \n" \
+"       float  m_red = native_divide(u1.x + u1_pq.x, 6.0f);                                                       \n" \
+"       float  dst_r = (2.0f/3.0f + m_red) * (u1.x - u1_pq.x) * (u1.x - u1_pq.x);                                 \n" \
+"       float  dst_g = (4.0f/3.0f        ) * (u1.y - u1_pq.y) * (u1.y - u1_pq.y);                                 \n" \
+"       float  dst_b = (     1.0f - m_red) * (u1.z - u1_pq.z) * (u1.z - u1_pq.z);                                 \n" \
+"       float  val   = dst_r + dst_g + dst_b;                                                                     \n" \
+"       write_imagef(U4, p, (float4) (val, 0.0f, 0.0f, 0.0f));                                                    \n" \
+"                                                                                                                 \n" \
 "   }                                                                                                             \n" \
 "}                                                                                                                \n" \
 "                                                                                                                 \n" \
 "__kernel __attribute__((reqd_work_group_size(HRZ_BLOCK_X, HRZ_BLOCK_Y, 1)))                                      \n" \
-"void nlmHorizontal(__read_only image2d_array_t U4_in, __write_only image2d_array_t U4_out,                       \n" \
-"const int t, const int2 dim) {                                                                                   \n" \
+"void nlmHorizontal(__read_only image2d_array_t U4_in, __write_only image2d_array_t U4_out, const int t) {        \n" \
 "                                                                                                                 \n" \
-"   __local float buffer[HRZ_BLOCK_Y][3*HRZ_BLOCK_X];                                                             \n" \
-"   const int x = get_global_id(0);                                                                               \n" \
-"   const int y = get_global_id(1);                                                                               \n" \
-"   const int lx = get_local_id(0);                                                                               \n" \
-"   const int ly = get_local_id(1);                                                                               \n" \
+"   __local float buffer[HRZ_BLOCK_Y][(HRZ_RESULT + 2) * HRZ_BLOCK_X];                                            \n" \
+"   int x = (get_group_id(0) * HRZ_RESULT - 1) * HRZ_BLOCK_X + get_local_id(0);                                   \n" \
+"   int y = get_group_id(1) * HRZ_BLOCK_Y + get_local_id(1);                                                      \n" \
 "                                                                                                                 \n" \
 "   const sampler_t smp = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST;                   \n" \
-"   const int4 p = (int4) (x, y, t, 0);                                                                           \n" \
 "                                                                                                                 \n" \
-"   buffer[ly][lx + HRZ_BLOCK_X]   = read_imagef(U4_in, smp, p                                ).x;                \n" \
-"   buffer[ly][lx]                 = read_imagef(U4_in, smp, p - (int4) (HRZ_BLOCK_X, 0, 0, 0)).x;                \n" \
-"   buffer[ly][lx + 2*HRZ_BLOCK_X] = read_imagef(U4_in, smp, p + (int4) (HRZ_BLOCK_X, 0, 0, 0)).x;                \n" \
+"   for (int i = 1; i < 1 + HRZ_RESULT; i++)                                                                      \n" \
+"       buffer[get_local_id(1)][get_local_id(0) + i * HRZ_BLOCK_X] =                                              \n" \
+"           read_imagef(U4_in, smp, (int4) (x + i * HRZ_BLOCK_X, y, t, 0)).x;                                     \n" \
+"                                                                                                                 \n" \
+"   buffer[get_local_id(1)][get_local_id(0)] =                                                                    \n" \
+"       read_imagef(U4_in, smp, (int4) (x, y, t, 0)).x;                                                           \n" \
+"                                                                                                                 \n" \
+"   buffer[get_local_id(1)][get_local_id(0) + (1 + HRZ_RESULT) * HRZ_BLOCK_X] =                                   \n" \
+"       read_imagef(U4_in, smp, (int4) (x + (1 + HRZ_RESULT) * HRZ_BLOCK_X, y, t, 0)).x;                          \n" \
+"                                                                                                                 \n" \
 "   barrier(CLK_LOCAL_MEM_FENCE);                                                                                 \n" \
 "                                                                                                                 \n" \
-"   if(x >= dim.x || y >= dim.y) return;                                                                          \n" \
-"   float sum = 0.0f;                                                                                             \n" \
-"   for(int i = -NLM_S; i <= NLM_S; i++)                                                                          \n" \
-"       sum += buffer[ly][lx + HRZ_BLOCK_X + i];                                                                  \n" \
-"   write_imagef(U4_out, p, (float4) sum);                                                                        \n" \
+"   for (int i = 1; i < 1 + HRZ_RESULT; i++) {                                                                    \n" \
+"       if ((x + i * HRZ_BLOCK_X) >= VI_DIM_X || y >= VI_DIM_Y) return;                                           \n" \
+"       float sum = 0.0f;                                                                                         \n" \
+"       for (int j = -NLM_S; j <= NLM_S; j++)                                                                     \n" \
+"           sum += buffer[get_local_id(1)][get_local_id(0) + i * HRZ_BLOCK_X + j];                                \n" \
+"                                                                                                                 \n" \
+"       write_imagef(U4_out, (int4) (x + i * HRZ_BLOCK_X, y, t, 0), (float4) (sum, 0.0f, 0.0f, 0.0f));            \n" \
+"   }                                                                                                             \n" \
 "}                                                                                                                \n" \
 "                                                                                                                 \n" \
 "__kernel __attribute__((reqd_work_group_size(VRT_BLOCK_X, VRT_BLOCK_Y, 1)))                                      \n" \
-"void nlmVertical(__read_only image2d_array_t U4_in, __write_only image2d_array_t U4_out,                         \n" \
-"const int t, const int2 dim) {                                                                                   \n" \
+"void nlmVertical(__read_only image2d_array_t U4_in, __write_only image2d_array_t U4_out, const int t) {          \n" \
 "                                                                                                                 \n" \
-"   __local float buffer[3*VRT_BLOCK_Y][VRT_BLOCK_X];                                                             \n" \
-"   const int x = get_global_id(0);                                                                               \n" \
-"   const int y = get_global_id(1);                                                                               \n" \
-"   const int lx = get_local_id(0);                                                                               \n" \
-"   const int ly = get_local_id(1);                                                                               \n" \
+"   __local float buffer[VRT_BLOCK_X][(VRT_RESULT + 2) * VRT_BLOCK_Y + 1];                                        \n" \
+"   int x = get_group_id(0) * VRT_BLOCK_X + get_local_id(0);                                                      \n" \
+"   int y = (get_group_id(1) * VRT_RESULT - 1) * VRT_BLOCK_Y + get_local_id(1);                                   \n" \
 "                                                                                                                 \n" \
 "   const sampler_t smp = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST;                   \n" \
-"   const int4 p = (int4) (x, y, t, 0);                                                                           \n" \
 "                                                                                                                 \n" \
-"   buffer[ly + VRT_BLOCK_Y][lx]   = read_imagef(U4_in, smp, p                                ).x;                \n" \
-"   buffer[ly][lx]                 = read_imagef(U4_in, smp, p - (int4) (0, VRT_BLOCK_Y, 0, 0)).x;                \n" \
-"   buffer[ly + 2*VRT_BLOCK_Y][lx] = read_imagef(U4_in, smp, p + (int4) (0, VRT_BLOCK_Y, 0, 0)).x;                \n" \
+"   for (int i = 1; i < 1 + VRT_RESULT; i++)                                                                      \n" \
+"       buffer[get_local_id(0)][get_local_id(1) + i * VRT_BLOCK_Y] =                                              \n" \
+"           read_imagef(U4_in, smp, (int4) (x, y + i * VRT_BLOCK_Y, t, 0)).x;                                     \n" \
+"                                                                                                                 \n" \
+"   buffer[get_local_id(0)][get_local_id(1)] =                                                                    \n" \
+"       read_imagef(U4_in, smp, (int4) (x, y, t, 0)).x;                                                           \n" \
+"                                                                                                                 \n" \
+"   buffer[get_local_id(0)][get_local_id(1) + (1 + VRT_RESULT) * VRT_BLOCK_Y] =                                   \n" \
+"       read_imagef(U4_in, smp, (int4) (x, y + (1 + VRT_RESULT) * VRT_BLOCK_Y, t, 0)).x;                          \n" \
+"                                                                                                                 \n" \
 "   barrier(CLK_LOCAL_MEM_FENCE);                                                                                 \n" \
 "                                                                                                                 \n" \
-"   if(x >= dim.x || y >= dim.y) return;                                                                          \n" \
-"   float sum = 0.0f;                                                                                             \n" \
-"   for(int j = -NLM_S; j <= NLM_S; j++)                                                                          \n" \
-"       sum += buffer[ly + VRT_BLOCK_Y + j][lx];                                                                  \n" \
+"   for (int i = 1; i < 1 + VRT_RESULT; i++) {                                                                    \n" \
+"       if (x >= VI_DIM_X || (y + i * VRT_BLOCK_Y) >= VI_DIM_Y) return;                                           \n" \
+"       float sum = 0.0f;                                                                                         \n" \
+"       for (int j = -NLM_S; j <= NLM_S; j++)                                                                     \n" \
+"           sum += buffer[get_local_id(0)][get_local_id(1) + i * VRT_BLOCK_Y + j];                                \n" \
 "                                                                                                                 \n" \
-"   if(NLM_WMODE == 0) {                                                                                          \n" \
-"       const float val = native_recip(1.0f + sum * NLM_H2_INV_NORM);                                             \n" \
-"       write_imagef(U4_out, p, (float4) val);                                                                    \n" \
-"   } else if (NLM_WMODE == 1) {                                                                                  \n" \
-"       const float val = native_exp(- sum * NLM_H2_INV_NORM);                                                    \n" \
-"       write_imagef(U4_out, p, (float4) val);                                                                    \n" \
-"   } else if (NLM_WMODE == 2) {                                                                                  \n" \
-"       const float val = pown(fdim(1.0f, sum * NLM_H2_INV_NORM), 2);                                             \n" \
-"       write_imagef(U4_out, p, (float4) val);                                                                    \n" \
+"       float val = 0.0f;                                                                                         \n" \
+"       if (NLM_WMODE == NLM_WMODE_WELSCH) {                                                                      \n" \
+"           val = native_exp(- sum * NLM_H2_INV_NORM);                                                            \n" \
+"       } else if (NLM_WMODE == NLM_WMODE_BISQUARE1) {                                                            \n" \
+"           val = fdim(1.0f, sum * NLM_H2_INV_NORM);                                                              \n" \
+"       } else if (NLM_WMODE == NLM_WMODE_BISQUARE2) {                                                            \n" \
+"           val = pown(fdim(1.0f, sum * NLM_H2_INV_NORM), 2);                                                     \n" \
+"       } else if (NLM_WMODE == NLM_WMODE_BISQUARE8) {                                                            \n" \
+"           val = pown(fdim(1.0f, sum * NLM_H2_INV_NORM), 8);                                                     \n" \
+"       }                                                                                                         \n" \
+"       write_imagef(U4_out, (int4) (x, y + i * VRT_BLOCK_Y, t, 0), (float4) (val, 0.0f, 0.0f, 0.0f));            \n" \
 "   }                                                                                                             \n" \
 "}                                                                                                                \n" \
 "                                                                                                                 \n" \
 "__kernel                                                                                                         \n" \
-"void nlmAccumulation(__read_only image2d_array_t U1, __global void* U2, __read_only image2d_array_t U4,          \n" \
-"__global float* M, const int2 dim, const int4 q) {                                                               \n" \
+"void nlmAccumulation(__read_only image2d_array_t U1, __global float* U2, __read_only image2d_array_t U4,         \n" \
+"__global float* U5, const int4 q) {                                                                              \n" \
 "                                                                                                                 \n" \
-"   const int x = get_global_id(0);                                                                               \n" \
-"   const int y = get_global_id(1);                                                                               \n" \
-"   if(x >= dim.x || y >= dim.y) return;                                                                          \n" \
+"   int x = get_global_id(0);                                                                                     \n" \
+"   int y = get_global_id(1);                                                                                     \n" \
+"   if (x >= VI_DIM_X || y >= VI_DIM_Y) return;                                                                   \n" \
 "                                                                                                                 \n" \
 "   const sampler_t smp = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST;                   \n" \
-"   const int4 p = (int4) (x, y, NLM_D, 0);                                                                       \n" \
-"   const int gidx = mad24(y, dim.x, x);                                                                          \n" \
+"   int4 p = (int4) (x, y, NLM_D, 0);                                                                             \n" \
+"   int2 s = (int2) (x, y);                                                                                       \n" \
+"   int gidx = mad24(y, VI_DIM_X, x);                                                                             \n" \
 "                                                                                                                 \n" \
-"   const float u4    = read_imagef(U4, smp, p    ).x;                                                            \n" \
-"   const float u4_mq = read_imagef(U4, smp, p - q).x;                                                            \n" \
-"   M[gidx] = fmax(M[gidx], fmax(u4, u4_mq));                                                                     \n" \
+"   float u4    = read_imagef(U4, smp, p    ).x;                                                                  \n" \
+"   float u4_mq = read_imagef(U4, smp, p - q).x;                                                                  \n" \
+"   U5[gidx]    = fmax(U5[gidx], fmax(u4, u4_mq));                                                                \n" \
 "                                                                                                                 \n" \
-"   if (CHECK_FLAG(NLM_COLOR_GRAY)) {                                                                             \n" \
-"       __global float2* U2c = (__global float2*) U2;                                                             \n" \
-"       const float u1_pq = read_imagef(U1, smp, p + q).x;                                                        \n" \
-"       const float u1_mq = read_imagef(U1, smp, p - q).x;                                                        \n" \
-"       float2 accu;                                                                                              \n" \
-"              accu.x = (u4 * u1_pq) + (u4_mq * u1_mq);                                                           \n" \
-"              accu.y = (u4 + u4_mq);                                                                             \n" \
-"       U2c[gidx] += accu;                                                                                        \n" \
-"   } else if (CHECK_FLAG(NLM_COLOR_YUV) | CHECK_FLAG(NLM_COLOR_RGB)) {                                           \n" \
-"       __global float4* U2c = (__global float4*) U2;                                                             \n" \
-"       const float4 u1_pq = read_imagef(U1, smp, p + q);                                                         \n" \
-"       const float4 u1_mq = read_imagef(U1, smp, p - q);                                                         \n" \
-"       float4 accu   = (u4 * u1_pq) + (u4_mq * u1_mq);                                                           \n" \
-"              accu.w = (u4 + u4_mq);                                                                             \n" \
-"       U2c[gidx] += accu;                                                                                        \n" \
+"   if (CHECK_FLAG(NLM_CLIP_REF_LUMA)) {                                                                          \n" \
+"                                                                                                                 \n" \
+"       float  u1_pq = read_imagef(U1, smp, p + q).x;                                                             \n" \
+"       float  u1_mq = read_imagef(U1, smp, p - q).x;                                                             \n" \
+"       float2 u2    = vload2(gidx, U2);                                                                          \n" \
+"              u2.x += (u4 * u1_pq) + (u4_mq * u1_mq);                                                            \n" \
+"              u2.y += (u4 + u4_mq);                                                                              \n" \
+"       vstore2(u2, gidx, U2);                                                                                    \n" \
+"                                                                                                                 \n" \
+"   } else if (CHECK_FLAG(NLM_CLIP_REF_CHROMA)) {                                                                 \n" \
+"                                                                                                                 \n" \
+"       float2 u1_pq = read_imagef(U1, smp, p + q).xy;                                                            \n" \
+"       float2 u1_mq = read_imagef(U1, smp, p - q).xy;                                                            \n" \
+"       float3 u2    = vload3(gidx, U2);                                                                          \n" \
+"              u2.x += (u4 * u1_pq.x) + (u4_mq * u1_mq.x);                                                        \n" \
+"              u2.y += (u4 * u1_pq.y) + (u4_mq * u1_mq.y);                                                        \n" \
+"              u2.z += (u4 + u4_mq);                                                                              \n" \
+"       vstore3(u2, gidx, U2);                                                                                    \n" \
+"                                                                                                                 \n" \
+"   } else if (CHECK_FLAG(NLM_CLIP_REF_YUV)) {                                                                    \n" \
+"                                                                                                                 \n" \
+"       float3 u1_pq = read_imagef(U1, smp, p + q).xyz;                                                           \n" \
+"       float3 u1_mq = read_imagef(U1, smp, p - q).xyz;                                                           \n" \
+"       float4 u2    = vload4(gidx, U2);                                                                          \n" \
+"              u2.x += (u4 * u1_pq.x) + (u4_mq * u1_mq.x);                                                        \n" \
+"              u2.y += (u4 * u1_pq.y) + (u4_mq * u1_mq.y);                                                        \n" \
+"              u2.z += (u4 * u1_pq.z) + (u4_mq * u1_mq.z);                                                        \n" \
+"              u2.w += (u4 + u4_mq);                                                                              \n" \
+"       vstore4(u2, gidx, U2);                                                                                    \n" \
+"                                                                                                                 \n" \
+"   } else if (CHECK_FLAG(NLM_CLIP_REF_RGB)) {                                                                    \n" \
+"                                                                                                                 \n" \
+"       float3 u1_pq = read_imagef(U1, smp, p + q).xyz;                                                           \n" \
+"       float3 u1_mq = read_imagef(U1, smp, p - q).xyz;                                                           \n" \
+"       float4 u2    = vload4(gidx, U2);                                                                          \n" \
+"              u2.x += (u4 * u1_pq.x) + (u4_mq * u1_mq.x);                                                        \n" \
+"              u2.y += (u4 * u1_pq.y) + (u4_mq * u1_mq.y);                                                        \n" \
+"              u2.z += (u4 * u1_pq.z) + (u4_mq * u1_mq.z);                                                        \n" \
+"              u2.w += (u4 + u4_mq);                                                                              \n" \
+"       vstore4(u2, gidx, U2);                                                                                    \n" \
+"                                                                                                                 \n" \
 "   }                                                                                                             \n" \
 "}                                                                                                                \n" \
 "                                                                                                                 \n" \
 "__kernel                                                                                                         \n" \
-"void nlmFinish(__read_only image2d_array_t U1_in, __write_only image2d_t U1_out, __global void* U2,              \n" \
-"__global float* M, const int2 dim) {                                                                             \n" \
+"void nlmFinish(__read_only image2d_array_t U1_in, __write_only image2d_t U1_out, __global float* U2,             \n" \
+"__global float* U5) {                                                                                            \n" \
 "                                                                                                                 \n" \
-"   const int x = get_global_id(0);                                                                               \n" \
-"   const int y = get_global_id(1);                                                                               \n" \
-"   if(x >= dim.x || y >= dim.y) return;                                                                          \n" \
+"   int x = get_global_id(0);                                                                                     \n" \
+"   int y = get_global_id(1);                                                                                     \n" \
+"   if (x >= VI_DIM_X || y >= VI_DIM_Y) return;                                                                   \n" \
 "                                                                                                                 \n" \
 "   const sampler_t smp = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_NONE | CLK_FILTER_NEAREST;                    \n" \
-"   const int4 p = (int4) (x, y, NLM_D, 0);                                                                       \n" \
-"   const int2 s = (int2) (x, y);                                                                                 \n" \
-"   const int gidx = mad24(y, dim.x, x);                                                                          \n" \
-"   const float wM = NLM_WREF * M[gidx];                                                                          \n" \
+"   int4 p = (int4) (x, y, NLM_D, 0);                                                                             \n" \
+"   int2 s = (int2) (x, y);                                                                                       \n" \
+"   int gidx = mad24(y, VI_DIM_X, x);                                                                             \n" \
+"   float wM = NLM_WREF * U5[gidx];                                                                               \n" \
 "                                                                                                                 \n" \
-"   if (CHECK_FLAG(NLM_COLOR_GRAY)) {                                                                             \n" \
-"       __global float2* U2c = (__global float2*) U2;                                                             \n" \
-"           const float  u1  = read_imagef(U1_in, smp, p).x;                                                      \n" \
-"           const float  num = U2c[gidx].x + wM * u1;                                                             \n" \
-"           const float  den = U2c[gidx].y + wM;                                                                  \n" \
-"           const float  val = native_divide(num, den);                                                           \n" \
-"           write_imagef(U1_out, s, (float4) val);                                                                \n" \
-"   } else if (CHECK_FLAG(NLM_COLOR_YUV) | CHECK_FLAG(NLM_COLOR_RGB)) {                                           \n" \
-"       __global float4* U2c = (__global float4*) U2;                                                             \n" \
-"           const float4 u1  = read_imagef(U1_in, smp, p);                                                        \n" \
-"           const float4 num = U2c[gidx] + (float4) wM * u1;                                                      \n" \
-"           const float  den = U2c[gidx].w + wM;                                                                  \n" \
-"           const float4 val = native_divide(num, (float4) den);                                                  \n" \
-"           write_imagef(U1_out, s, val);                                                                         \n" \
+"   if (CHECK_FLAG(NLM_CLIP_REF_LUMA)) {                                                                          \n" \
+"                                                                                                                 \n" \
+"       float  u1    = read_imagef(U1_in, smp, p).x;                                                              \n" \
+"       float2 u2    = vload2(gidx, U2);                                                                          \n" \
+"       float  num   = mad(u1, wM, u2.x);                                                                         \n" \
+"       float  den   = wM + u2.y;                                                                                 \n" \
+"       float  val   = native_divide(num, den);                                                                   \n" \
+"       write_imagef(U1_out, s, (float4) (val, 0.0f, 0.0f, 0.0f));                                                \n" \
+"                                                                                                                 \n" \
+"   } else if (CHECK_FLAG(NLM_CLIP_REF_CHROMA)) {                                                                 \n" \
+"                                                                                                                 \n" \
+"       float2 u1    = read_imagef(U1_in, smp, p).xy;                                                             \n" \
+"       float3 u2    = vload3(gidx, U2);                                                                          \n" \
+"       float  num_u = mad(u1.x, wM, u2.x);                                                                       \n" \
+"       float  num_v = mad(u1.y, wM, u2.y);                                                                       \n" \
+"       float  den   = wM + u2.z;                                                                                 \n" \
+"       float  val_u = native_divide(num_u, den);                                                                 \n" \
+"       float  val_v = native_divide(num_v, den);                                                                 \n" \
+"       write_imagef(U1_out, s,  (float4) (val_u, val_v, 0.0f, 0.0f));                                            \n" \
+"                                                                                                                 \n" \
+"   } else if (CHECK_FLAG(NLM_CLIP_REF_YUV)) {                                                                    \n" \
+"                                                                                                                 \n" \
+"       float3 u1    = read_imagef(U1_in, smp, p).xyz;                                                            \n" \
+"       float4 u2    = vload4(gidx, U2);                                                                          \n" \
+"       float  num_y = mad(u1.x, wM, u2.x);                                                                       \n" \
+"       float  num_u = mad(u1.y, wM, u2.y);                                                                       \n" \
+"       float  num_v = mad(u1.z, wM, u2.z);                                                                       \n" \
+"       float  den   = wM + u2.w;                                                                                 \n" \
+"       float  val_y = native_divide(num_y, den);                                                                 \n" \
+"       float  val_u = native_divide(num_u, den);                                                                 \n" \
+"       float  val_v = native_divide(num_v, den);                                                                 \n" \
+"       write_imagef(U1_out, s,  (float4) (val_y, val_u, val_v, 0.0f));                                           \n" \
+"                                                                                                                 \n" \
+"   } else if (CHECK_FLAG(NLM_CLIP_REF_RGB)) {                                                                    \n" \
+"                                                                                                                 \n" \
+"       float3 u1    = read_imagef(U1_in, smp, p).xyz;                                                            \n" \
+"       float4 u2    = vload4(gidx, U2);                                                                          \n" \
+"       float  num_r = mad(u1.x, wM, u2.x);                                                                       \n" \
+"       float  num_g = mad(u1.y, wM, u2.y);                                                                       \n" \
+"       float  num_b = mad(u1.z, wM, u2.z);                                                                       \n" \
+"       float  den   = wM + u2.w;                                                                                 \n" \
+"       float  val_r = native_divide(num_r, den);                                                                 \n" \
+"       float  val_g = native_divide(num_g, den);                                                                 \n" \
+"       float  val_b = native_divide(num_b, den);                                                                 \n" \
+"       write_imagef(U1_out, s,  (float4) (val_r, val_g, val_b, 0.0f));                                           \n" \
+"                                                                                                                 \n" \
 "   }                                                                                                             \n" \
 "}                                                                                                                \n" \
 "                                                                                                                 \n" \
 "__kernel                                                                                                         \n" \
 "void nlmPack(__read_only image2d_t R, __read_only image2d_t G, __read_only image2d_t B,                          \n" \
-"__write_only image2d_array_t U1, const int t, const int2 dim) {                                                  \n" \
+"__read_only image2d_t R_lsb, __read_only image2d_t G_lsb, __read_only image2d_t B_lsb,                           \n" \
+"__write_only image2d_array_t U1, const int t) {                                                                  \n" \
 "                                                                                                                 \n" \
-"   const int x = get_global_id(0);                                                                               \n" \
-"   const int y = get_global_id(1);                                                                               \n" \
-"   if(x >= dim.x || y >= dim.y) return;                                                                          \n" \
+"   int x = get_global_id(0);                                                                                     \n" \
+"   int y = get_global_id(1);                                                                                     \n" \
+"   if (x >= VI_DIM_X || y >= VI_DIM_Y) return;                                                                   \n" \
 "                                                                                                                 \n" \
 "   const sampler_t smp = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_NONE | CLK_FILTER_NEAREST;                    \n" \
-"   const int4 p = (int4) (x, y, t, 0);                                                                           \n" \
-"   const int2 s = (int2) (x, y);                                                                                 \n" \
+"   int4 p = (int4) (x, y, t, 0);                                                                                 \n" \
+"   int2 s = (int2) (x, y);                                                                                       \n" \
 "                                                                                                                 \n" \
-"   if (CHECK_FLAG(NLM_CLIP_UNSIGNED | NLM_COLOR_GRAY)) {                                                         \n" \
-"       const float r     = norm(read_imageui(R, smp, s).x);                                                      \n" \
-"       write_imagef(U1, p, (float4) r);                                                                          \n" \
-"   } else if (CHECK_FLAG(NLM_CLIP_STACKED | NLM_COLOR_GRAY)) {                                                   \n" \
-"       const int2  s_lsb = (int2) (x, y + dim.y);                                                                \n" \
-"       const float r_msb = read_imagef(R, smp, s    ).x;                                                         \n" \
-"       const float r_lsb = read_imagef(R, smp, s_lsb).x;                                                         \n" \
-"       const float r     = NLM_16BIT_MSB * r_msb + NLM_16BIT_LSB * r_lsb;                                        \n" \
-"       write_imagef(U1, p, (float4) r);                                                                          \n" \
-"   } else if (CHECK_FLAG(NLM_CLIP_UNORM | NLM_COLOR_YUV)) {                                                      \n" \
-"       const float r     = read_imagef(R, smp, s).x;                                                             \n" \
-"       const float g     = read_imagef(G, smp, s).x;                                                             \n" \
-"       const float b     = read_imagef(B, smp, s).x;                                                             \n" \
-"       write_imagef(U1, p, (float4) (r, g, b, 1.0f));                                                            \n" \
-"   } else if (CHECK_FLAG(NLM_CLIP_UNSIGNED | NLM_COLOR_YUV)) {                                                   \n" \
-"       const float r     = norm(read_imageui(R, smp, s).x);                                                      \n" \
-"       const float g     = norm(read_imageui(G, smp, s).x);                                                      \n" \
-"       const float b     = norm(read_imageui(B, smp, s).x);                                                      \n" \
-"       write_imagef(U1, p, (float4) (r, g, b, 1.0f));                                                            \n" \
-"   } else if (CHECK_FLAG(NLM_CLIP_STACKED | NLM_COLOR_YUV)) {                                                    \n" \
-"       const int2 s_lsb  = (int2) (x, y + dim.y);                                                                \n" \
-"       const float r_msb = read_imagef(R, smp, s    ).x;                                                         \n" \
-"       const float g_msb = read_imagef(G, smp, s    ).x;                                                         \n" \
-"       const float b_msb = read_imagef(B, smp, s    ).x;                                                         \n" \
-"       const float r_lsb = read_imagef(R, smp, s_lsb).x;                                                         \n" \
-"       const float g_lsb = read_imagef(G, smp, s_lsb).x;                                                         \n" \
-"       const float b_lsb = read_imagef(B, smp, s_lsb).x;                                                         \n" \
-"       const float r     = NLM_16BIT_MSB * r_msb + NLM_16BIT_LSB * r_lsb;                                        \n" \
-"       const float g     = NLM_16BIT_MSB * g_msb + NLM_16BIT_LSB * g_lsb;                                        \n" \
-"       const float b     = NLM_16BIT_MSB * b_msb + NLM_16BIT_LSB * b_lsb;                                        \n" \
-"       write_imagef(U1, p, (float4) (r, g, b, 1.0f));                                                            \n" \
-"   } else if (CHECK_FLAG(NLM_CLIP_UNORM | NLM_COLOR_RGB)) {                                                      \n" \
-"       const float r     = read_imagef(R, smp, s).x;                                                             \n" \
-"       const float g     = read_imagef(G, smp, s).x;                                                             \n" \
-"       const float b     = read_imagef(B, smp, s).x;                                                             \n" \
-"       write_imagef(U1, p, (float4) (r, g, b, 1.0f));                                                            \n" \
-"   } else if (CHECK_FLAG(NLM_CLIP_UNSIGNED | NLM_COLOR_RGB)) {                                                   \n" \
-"       const float r     = norm(read_imageui(R, smp, s).x);                                                      \n" \
-"       const float g     = norm(read_imageui(G, smp, s).x);                                                      \n" \
-"       const float b     = norm(read_imageui(B, smp, s).x);                                                      \n" \
-"       write_imagef(U1, p, (float4) (r, g, b, 1.0f));                                                            \n" \
+"   if (CHECK_FLAG(NLM_CLIP_TYPE_STACKED | NLM_CLIP_REF_LUMA)) {                                                  \n" \
+"       float y_msb = convert_float(read_imageui(R,     smp, s).x);                                               \n" \
+"       float y_lsb = convert_float(read_imageui(R_lsb, smp, s).x);                                               \n" \
+"       float y     = NLM_16BIT_MSB * y_msb + NLM_16BIT_LSB * y_lsb;                                              \n" \
+"       write_imagef(U1, p, (float4) (y, 0.0f, 0.0f, 0.0f));                                                      \n" \
+"   } else if (CHECK_FLAG(NLM_CLIP_TYPE_UNORM | NLM_CLIP_REF_CHROMA)) {                                           \n" \
+"       float u     = read_imagef(R, smp, s).x;                                                                   \n" \
+"       float v     = read_imagef(G, smp, s).x;                                                                   \n" \
+"       write_imagef(U1, p, (float4) (u, v, 0.0f, 0.0f));                                                         \n" \
+"   } else if (CHECK_FLAG(NLM_CLIP_TYPE_STACKED | NLM_CLIP_REF_CHROMA)) {                                         \n" \
+"       float u_msb = convert_float(read_imageui(R,     smp, s).x);                                               \n" \
+"       float v_msb = convert_float(read_imageui(G,     smp, s).x);                                               \n" \
+"       float u_lsb = convert_float(read_imageui(R_lsb, smp, s).x);                                               \n" \
+"       float v_lsb = convert_float(read_imageui(G_lsb, smp, s).x);                                               \n" \
+"       float u     = NLM_16BIT_MSB * u_msb + NLM_16BIT_LSB * u_lsb;                                              \n" \
+"       float v     = NLM_16BIT_MSB * v_msb + NLM_16BIT_LSB * v_lsb;                                              \n" \
+"       write_imagef(U1, p, (float4) (u, v, 0.0f, 0.0f));                                                         \n" \
+"   } else if (CHECK_FLAG(NLM_CLIP_TYPE_UNORM | NLM_CLIP_REF_YUV)) {                                              \n" \
+"       float y     = read_imagef(R, smp, s).x;                                                                   \n" \
+"       float u     = read_imagef(G, smp, s).x;                                                                   \n" \
+"       float v     = read_imagef(B, smp, s).x;                                                                   \n" \
+"       write_imagef(U1, p, (float4) (y, u, v, 0.0f));                                                            \n" \
+"   } else if (CHECK_FLAG(NLM_CLIP_TYPE_UNSIGNED | NLM_CLIP_REF_YUV)) {                                           \n" \
+"       float y     = native_divide(convert_float(read_imageui(R, smp, s).x), 1023.0f);                           \n" \
+"       float u     = native_divide(convert_float(read_imageui(G, smp, s).x), 1023.0f);                           \n" \
+"       float v     = native_divide(convert_float(read_imageui(B, smp, s).x), 1023.0f);                           \n" \
+"       write_imagef(U1, p, (float4) (y, u, v, 0.0f));                                                            \n" \
+"   } else if (CHECK_FLAG(NLM_CLIP_TYPE_STACKED | NLM_CLIP_REF_YUV)) {                                            \n" \
+"       float y_msb = convert_float(read_imageui(R,     smp, s).x);                                               \n" \
+"       float u_msb = convert_float(read_imageui(G,     smp, s).x);                                               \n" \
+"       float v_msb = convert_float(read_imageui(B,     smp, s).x);                                               \n" \
+"       float y_lsb = convert_float(read_imageui(R_lsb, smp, s).x);                                               \n" \
+"       float u_lsb = convert_float(read_imageui(G_lsb, smp, s).x);                                               \n" \
+"       float v_lsb = convert_float(read_imageui(B_lsb, smp, s).x);                                               \n" \
+"       float y     = NLM_16BIT_MSB * y_msb + NLM_16BIT_LSB * y_lsb;                                              \n" \
+"       float u     = NLM_16BIT_MSB * u_msb + NLM_16BIT_LSB * u_lsb;                                              \n" \
+"       float v     = NLM_16BIT_MSB * v_msb + NLM_16BIT_LSB * v_lsb;                                              \n" \
+"       write_imagef(U1, p, (float4) (y, u, v, 0.0f));                                                            \n" \
+"   } else if (CHECK_FLAG(NLM_CLIP_TYPE_UNORM | NLM_CLIP_REF_RGB)) {                                              \n" \
+"       float r     = read_imagef(R, smp, s).x;                                                                   \n" \
+"       float g     = read_imagef(G, smp, s).x;                                                                   \n" \
+"       float b     = read_imagef(B, smp, s).x;                                                                   \n" \
+"       write_imagef(U1, p, (float4) (r, g, b, 0.0f));                                                            \n" \
+"   } else if (CHECK_FLAG(NLM_CLIP_TYPE_UNSIGNED | NLM_CLIP_REF_RGB)) {                                           \n" \
+"       float r     = native_divide(convert_float(read_imageui(R, smp, s).x), 1023.0f);                           \n" \
+"       float g     = native_divide(convert_float(read_imageui(G, smp, s).x), 1023.0f);                           \n" \
+"       float b     = native_divide(convert_float(read_imageui(B, smp, s).x), 1023.0f);                           \n" \
+"       write_imagef(U1, p, (float4) (r, g, b, 0.0f));                                                            \n" \
 "   }                                                                                                             \n" \
 "}                                                                                                                \n" \
 "                                                                                                                 \n" \
 "__kernel                                                                                                         \n" \
 "void nlmUnpack(__write_only image2d_t R, __write_only image2d_t G, __write_only image2d_t B,                     \n" \
-"__read_only image2d_t U1, const int2 dim) {                                                                      \n" \
+"__write_only image2d_t R_lsb, __write_only image2d_t G_lsb, __write_only image2d_t B_lsb,                        \n" \
+"__read_only image2d_t U1) {                                                                                      \n" \
 "                                                                                                                 \n" \
-"   const int x = get_global_id(0);                                                                               \n" \
-"   const int y = get_global_id(1);                                                                               \n" \
-"   if(x >= dim.x || y >= dim.y) return;                                                                          \n" \
+"   int x = get_global_id(0);                                                                                     \n" \
+"   int y = get_global_id(1);                                                                                     \n" \
+"   if (x >= VI_DIM_X || y >= VI_DIM_Y) return;                                                                   \n" \
 "                                                                                                                 \n" \
 "   const sampler_t smp = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_NONE | CLK_FILTER_NEAREST;                    \n" \
-"   const int2 s = (int2) (x, y);                                                                                 \n" \
+"   int2 s = (int2) (x, y);                                                                                       \n" \
 "                                                                                                                 \n" \
-"   if (CHECK_FLAG(NLM_CLIP_UNSIGNED | NLM_COLOR_GRAY)) {                                                         \n" \
-"       const ushort  val     = denorm(read_imagef(U1, smp, s).x);                                                \n" \
-"       write_imageui(R, s,    (uint4) val);                                                                      \n" \
-"   } else if (CHECK_FLAG(NLM_CLIP_STACKED | NLM_COLOR_GRAY)) {                                                   \n" \
-"       const int2    s_lsb   = (int2) (x, y + dim.y);                                                            \n" \
-"       const ushort  in      = convert_ushort_sat(read_imagef(U1, smp, s).x * (float) USHRT_MAX);                \n" \
-"       const float   in_msb  = convert_float(in >> CHAR_BIT);                                                    \n" \
-"       const float   in_lsb  = convert_float(in & 0xFF);                                                         \n" \
-"       const float   val_msb = native_divide(in_msb, (float) UCHAR_MAX);                                         \n" \
-"       const float   val_lsb = native_divide(in_lsb, (float) UCHAR_MAX);                                         \n" \
-"       write_imagef(R, s,     (float4) val_msb);                                                                 \n" \
-"       write_imagef(R, s_lsb, (float4) val_lsb);                                                                 \n" \
-"   } else if (CHECK_FLAG(NLM_CLIP_UNORM | NLM_COLOR_YUV)) {                                                      \n" \
-"       const float4  val     = read_imagef(U1, smp, s);                                                          \n" \
-"       write_imagef(R, s,     (float4) val.x);                                                                   \n" \
-"       write_imagef(G, s,     (float4) val.y);                                                                   \n" \
-"       write_imagef(B, s,     (float4) val.z);                                                                   \n" \
-"   } else if (CHECK_FLAG(NLM_CLIP_UNSIGNED | NLM_COLOR_YUV)) {                                                   \n" \
-"       const ushort4 val     = denorm4(read_imagef(U1, smp, s));                                                 \n" \
-"       write_imageui(R, s,    (uint4) val.x);                                                                    \n" \
-"       write_imageui(G, s,    (uint4) val.y);                                                                    \n" \
-"       write_imageui(B, s,    (uint4) val.z);                                                                    \n" \
-"   } else if (CHECK_FLAG(NLM_CLIP_STACKED | NLM_COLOR_YUV)) {                                                    \n" \
-"       const int2    s_lsb   = (int2) (x, y + dim.y);                                                            \n" \
-"       const ushort4 in      = convert_ushort4_sat(read_imagef(U1, smp, s) * (float4) USHRT_MAX);                \n" \
-"       const float4  in_msb  = convert_float4(in >> (ushort4) CHAR_BIT);                                         \n" \
-"       const float4  in_lsb  = convert_float4(in & (ushort4) 0xFF);                                              \n" \
-"       const float4  val_msb = native_divide(in_msb, (float4) UCHAR_MAX);                                        \n" \
-"       const float4  val_lsb = native_divide(in_lsb, (float4) UCHAR_MAX);                                        \n" \
-"       write_imagef(R, s,     (float4) val_msb.x);                                                               \n" \
-"       write_imagef(G, s,     (float4) val_msb.y);                                                               \n" \
-"       write_imagef(B, s,     (float4) val_msb.z);                                                               \n" \
-"       write_imagef(R, s_lsb, (float4) val_lsb.x);                                                               \n" \
-"       write_imagef(G, s_lsb, (float4) val_lsb.y);                                                               \n" \
-"       write_imagef(B, s_lsb, (float4) val_lsb.z);                                                               \n" \
-"   } else if (CHECK_FLAG(NLM_CLIP_UNORM | NLM_COLOR_RGB)) {                                                      \n" \
-"       const float4  val     = read_imagef(U1, smp, s);                                                          \n" \
-"       write_imagef(R, s,     (float4) val.x);                                                                   \n" \
-"       write_imagef(G, s,     (float4) val.y);                                                                   \n" \
-"       write_imagef(B, s,     (float4) val.z);                                                                   \n" \
-"   } else if (CHECK_FLAG(NLM_CLIP_UNSIGNED | NLM_COLOR_RGB)) {                                                   \n" \
-"       const ushort4 val     = denorm4(read_imagef(U1, smp, s));                                                 \n" \
-"       write_imageui(R, s,    (uint4) val.x);                                                                    \n" \
-"       write_imageui(G, s,    (uint4) val.y);                                                                    \n" \
-"       write_imageui(B, s,    (uint4) val.z);                                                                    \n" \
+"   if (CHECK_FLAG(NLM_CLIP_TYPE_STACKED | NLM_CLIP_REF_LUMA)) {                                                  \n" \
+"       float  val = read_imagef(U1, smp, s).x;                                                                   \n" \
+"       ushort y   = convert_ushort_sat(val * 65535.0f);                                                          \n" \
+"       write_imageui(R,     s, (uint4)  (y >> CHAR_BIT, 0u, 0u, 0u));                                            \n" \
+"       write_imageui(R_lsb, s, (uint4)  (y &  0xFF,     0u, 0u, 0u));                                            \n" \
+"   } else if (CHECK_FLAG(NLM_CLIP_TYPE_UNORM | NLM_CLIP_REF_CHROMA)) {                                           \n" \
+"       float2 val = read_imagef(U1, smp, s).xy;                                                                  \n" \
+"       write_imagef(R,      s, (float4) (val.x, 0.0f, 0.0f, 0.0f));                                              \n" \
+"       write_imagef(G,      s, (float4) (val.y, 0.0f, 0.0f, 0.0f));                                              \n" \
+"   } else if (CHECK_FLAG(NLM_CLIP_TYPE_STACKED | NLM_CLIP_REF_CHROMA)) {                                         \n" \
+"       float2 val = read_imagef(U1, smp, s).xy;                                                                  \n" \
+"       ushort u   = convert_ushort_sat(val.x * 65535.0f);                                                        \n" \
+"       ushort v   = convert_ushort_sat(val.y * 65535.0f);                                                        \n" \
+"       write_imageui(R,     s, (uint4)  (u >> CHAR_BIT, 0u, 0u, 0u));                                            \n" \
+"       write_imageui(G,     s, (uint4)  (v >> CHAR_BIT, 0u, 0u, 0u));                                            \n" \
+"       write_imageui(R_lsb, s, (uint4)  (u &  0xFF,     0u, 0u, 0u));                                            \n" \
+"       write_imageui(G_lsb, s, (uint4)  (v &  0xFF,     0u, 0u, 0u));                                            \n" \
+"   } else if (CHECK_FLAG(NLM_CLIP_TYPE_UNORM | NLM_CLIP_REF_YUV)) {                                              \n" \
+"       float3 val = read_imagef(U1, smp, s).xyz;                                                                 \n" \
+"       write_imagef(R,      s, (float4) (val.x, 0.0f, 0.0f, 0.0f));                                              \n" \
+"       write_imagef(G,      s, (float4) (val.y, 0.0f, 0.0f, 0.0f));                                              \n" \
+"       write_imagef(B,      s, (float4) (val.z, 0.0f, 0.0f, 0.0f));                                              \n" \
+"   } else if (CHECK_FLAG(NLM_CLIP_TYPE_UNSIGNED | NLM_CLIP_REF_YUV)) {                                           \n" \
+"       float3 val = read_imagef(U1, smp, s).xyz;                                                                 \n" \
+"       ushort y   = convert_ushort_sat(val.x * 1023.0f);                                                         \n" \
+"       ushort u   = convert_ushort_sat(val.y * 1023.0f);                                                         \n" \
+"       ushort v   = convert_ushort_sat(val.z * 1023.0f);                                                         \n" \
+"       write_imageui(R,     s, (uint4)  (y, 0u, 0u, 0u));                                                        \n" \
+"       write_imageui(G,     s, (uint4)  (u, 0u, 0u, 0u));                                                        \n" \
+"       write_imageui(B,     s, (uint4)  (v, 0u, 0u, 0u));                                                        \n" \
+"   } else if (CHECK_FLAG(NLM_CLIP_TYPE_STACKED | NLM_CLIP_REF_YUV)) {                                            \n" \
+"       float3 val = read_imagef(U1, smp, s).xyz;                                                                 \n" \
+"       ushort y   = convert_ushort_sat(val.x * 65535.0f);                                                        \n" \
+"       ushort u   = convert_ushort_sat(val.y * 65535.0f);                                                        \n" \
+"       ushort v   = convert_ushort_sat(val.z * 65535.0f);                                                        \n" \
+"       write_imageui(R,     s, (uint4)  (y >> CHAR_BIT, 0u, 0u, 0u));                                            \n" \
+"       write_imageui(G,     s, (uint4)  (u >> CHAR_BIT, 0u, 0u, 0u));                                            \n" \
+"       write_imageui(B,     s, (uint4)  (v >> CHAR_BIT, 0u, 0u, 0u));                                            \n" \
+"       write_imageui(R_lsb, s, (uint4)  (y &  0xFF,     0u, 0u, 0u));                                            \n" \
+"       write_imageui(G_lsb, s, (uint4)  (u &  0xFF,     0u, 0u, 0u));                                            \n" \
+"       write_imageui(B_lsb, s, (uint4)  (v &  0xFF,     0u, 0u, 0u));                                            \n" \
+"   } else if (CHECK_FLAG(NLM_CLIP_TYPE_UNORM | NLM_CLIP_REF_RGB)) {                                              \n" \
+"       float3  val    = read_imagef(U1, smp, s).xyz;                                                             \n" \
+"       write_imagef(R,      s, (float4) (val.x, 0.0f, 0.0f, 0.0f));                                              \n" \
+"       write_imagef(G,      s, (float4) (val.y, 0.0f, 0.0f, 0.0f));                                              \n" \
+"       write_imagef(B,      s, (float4) (val.z, 0.0f, 0.0f, 0.0f));                                              \n" \
+"   } else if (CHECK_FLAG(NLM_CLIP_TYPE_UNSIGNED | NLM_CLIP_REF_RGB)) {                                           \n" \
+"       float3 val = read_imagef(U1, smp, s).xyz;                                                                 \n" \
+"       ushort r   = convert_ushort(val.x * 1023.0f);                                                             \n" \
+"       ushort g   = convert_ushort(val.y * 1023.0f);                                                             \n" \
+"       ushort b   = convert_ushort(val.z * 1023.0f);                                                             \n" \
+"       write_imageui(R,     s, (uint4)  (r, 0u, 0u, 0u));                                                        \n" \
+"       write_imageui(G,     s, (uint4)  (g, 0u, 0u, 0u));                                                        \n" \
+"       write_imageui(B,     s, (uint4)  (b, 0u, 0u, 0u));                                                        \n" \
 "   }                                                                                                             \n" \
 "}                                                                                                                ";

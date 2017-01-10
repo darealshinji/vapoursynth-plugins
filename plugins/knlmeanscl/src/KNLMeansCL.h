@@ -16,8 +16,8 @@
 *    along with KNLMeansCL. If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define VERSION "0.7.7"
-#define CL_USE_DEPRECATED_OPENCL_1_2_APIS
+#define VERSION "1.0.0-beta.2"
+#define CL_USE_DEPRECATED_OPENCL_2_0_APIS
 
 #include <cstdint>
 #include <cinttypes>
@@ -50,21 +50,22 @@ private:
     const int d, a, s, wmode, ocl_id;
     const double wref, h;
     PClip baby;
-    const char* ocl_device;
-    const bool cmode, lsb, info;
-    unsigned int clip_t;
-    cl_uint idmn[3], HRZ_BLOCK_X, HRZ_BLOCK_Y, VRT_BLOCK_X, VRT_BLOCK_Y;
+    const char *channels, *ocl_device;
+    const bool lsb, info;
+    cl_uint clip_t, channel_num, idmn[2];
     cl_platform_id platformID;
     cl_device_id deviceID;
     cl_context context;
+    cl_command_queue command_queue;
     cl_program program;
-    cl_kernel kernel[NLM_NUMBER_KERNELS];
-    cl_mem mem_in[2], mem_out, mem_U[4], mem_P[3];
+    cl_kernel kernel[NLM_KERNELS];
+    cl_mem mem_U[NLM_MEMORY], mem_P[6];
+    size_t hrz_result, vrt_result, hrz_block_x, hrz_block_y, vrt_block_x, vrt_block_y;
     bool equals(VideoInfo *v, VideoInfo *w);
     void oclErrorCheck(const char* function, cl_int errcode, IScriptEnvironment *env);
 public:
-    _NLMAvisynth(PClip _child, const int _d, const int _a, const int _s, const double _h, const bool _cmode, const int _wmode,
-        const double _wref, PClip _baby, const char* _ocl_device, const int _ocl_id, const bool _lsb, const bool _info, 
+    _NLMAvisynth(PClip _child, const int _d, const int _a, const int _s, const double _h, const char* _channels, const int _wmode,
+        const double _wref, PClip _baby, const char* _ocl_device, const int _ocl_id, const bool _lsb, const bool _info,
         IScriptEnvironment *env);
     ~_NLMAvisynth();
     PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment *env);
@@ -76,17 +77,18 @@ typedef struct _NLMVapoursynth {
 public:
     VSNodeRef *node, *knot;
     const VSVideoInfo *vi;
-    int64_t d, a, s, cmode, wmode, ocl_id, info;
+    int64_t d, a, s, wmode, ocl_id, info;
     double wref, h;
-    const char* ocl_device;
-    unsigned int bit_shift, clip_t;
-    cl_uint idmn[2], HRZ_BLOCK_X, HRZ_BLOCK_Y, VRT_BLOCK_X, VRT_BLOCK_Y;
+    const char *channels, *ocl_device;
+    cl_uint clip_t, channel_num, idmn[2];
     cl_platform_id platformID;
     cl_device_id deviceID;
     cl_context context;
+    cl_command_queue command_queue;
     cl_program program;
-    cl_kernel kernel[NLM_NUMBER_KERNELS];
-    cl_mem mem_in[2], mem_out, mem_U[4], mem_P[3];
+    cl_kernel kernel[NLM_KERNELS];
+    cl_mem mem_U[NLM_MEMORY], mem_P[3];
+    size_t hrz_result, vrt_result, hrz_block_x, hrz_block_y, vrt_block_x, vrt_block_y;
     bool equals(const VSVideoInfo *v, const VSVideoInfo *w);
     void oclErrorCheck(const char* function, cl_int errcode, VSMap *out, const VSAPI *vsapi);
 } NLMVapoursynth;
