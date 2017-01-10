@@ -1,10 +1,8 @@
 include ../../config.mak
 
-PACKAGE_VERSION = 8
-
 LIBNAME = nnedi3
 LIBADD = -lm
-local_CXXFLAGS = -Wno-unused-variable -DPACKAGE_VERSION='"$(PACKAGE_VERSION)"' -DNNEDI3_X86 -DNNEDI3_DATADIR='"$(datarootdir)/nnedi3"'
+local_CXXFLAGS = -Wno-unused-variable -DPACKAGE_VERSION='"$(shell cat VERSION)"' -DNNEDI3_X86 -DNNEDI3_DATADIR='"$(datarootdir)/nnedi3"'
 
 ifeq ($(HAVE_YASM),yes)
 VSASFLAGS = -f elf -Dprivate_prefix=nnedi3
