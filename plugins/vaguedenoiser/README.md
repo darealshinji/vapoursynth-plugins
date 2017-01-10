@@ -13,6 +13,8 @@ Usage
 
     vd.VagueDenoiser(clip clip[, float threshold=2.0, int method=2, int nsteps=6, float percent=85.0, int[] planes])
 
+* clip: Clip to process. Any planar format with either integer sample type of 8-16 bit depth or float sample type of 32 bit depth is supported.
+
 * threshold: Filtering strength. The higher, the more filtered the clip will be. Hard thresholding can use a higher threshold than Soft thresholding before the clip looks overfiltered.
 
 * method: The filtering method the filter will use.
