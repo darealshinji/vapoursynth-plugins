@@ -439,8 +439,8 @@ static void filter_3(float * _dftc, const float * _sigmas, const int ccnt, const
         const Vec4f sigmas2Low = Vec4f().load_a(_sigmas2 + h);
         const Vec4f sigmas2High = Vec4f().load_a(_sigmas2 + h + 4);
         const Vec4f sigmas2 = blend4f<0, 2, 4, 6>(sigmas2Low, sigmas2High);
-        real = select(psd >= pmin & psd <= pmax, real * sigmas, real * sigmas2);
-        imag = select(psd >= pmin & psd <= pmax, imag * sigmas, imag * sigmas2);
+        real = select((psd >= pmin) & (psd <= pmax), real * sigmas, real * sigmas2);
+        imag = select((psd >= pmin) & (psd <= pmax), imag * sigmas, imag * sigmas2);
         dftcLow = blend4f<0, 4, 1, 5>(real, imag);
         dftcHigh = blend4f<2, 6, 3, 7>(real, imag);
         const Vec8f dftc(dftcLow, dftcHigh);

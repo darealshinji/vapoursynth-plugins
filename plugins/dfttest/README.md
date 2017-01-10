@@ -14,6 +14,11 @@ Usage
     dfttest.DFTTest(clip clip[, int ftype=0, float sigma=5.0, float sigma2=5.0, float pmin=0.0, float pmax=500.0, int sbsize=12, int smode=1, int sosize=9, int tbsize=3, int tmode=0, int tosize=0, int swin=0, int twin=7, float sbeta=2.5, float tbeta=2.5, bint zmean=True, float f0beta=1.0, string nstring='', string sstring='', string ssx='', string ssy='', string sst='', int[] planes])
 
 ```
+clip -
+
+   Clip to process.  Any planar format with either integer sample type of 8-16 bit depth or float sample type of 32 bit depth is supported.
+
+
 ftype -
 
    Controls the filter type.  Possible settings are:
