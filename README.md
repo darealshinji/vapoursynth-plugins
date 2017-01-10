@@ -44,7 +44,7 @@ sudo apt-get install vapoursynth-extra-plugins
 [ctmf r2](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-CTMF)<br>
 [d2vsource 1.0+git20161224](https://github.com/dwbuiten/d2vsource)<br>
 [damb r3](https://github.com/dubhater/vapoursynth-damb)<br>
-[dctfilter r2](https://bitbucket.org/mystery_keeper/vapoursynth-dctfilter)<br>
+[dctfilter r3](https://bitbucket.org/mystery_keeper/vapoursynth-dctfilter)<br>
 [deblock r5](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Deblock)<br>
 [degrainmedian 1](https://github.com/dubhater/vapoursynth-degrainmedian)<br>
 [delogo 0.4](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-DeLogo)<br>
