@@ -64,13 +64,15 @@ typedef struct {
 
 static const char *open_source_file(rs_hnd_t *rh, const char *src_name)
 {
-    struct stat st;
 #ifdef _WIN32
+    struct _stat64 st;
     wchar_t tmp[FILENAME_MAX * 4];
     MultiByteToWideChar(CP_UTF8, 0, src_name, -1, tmp, FILENAME_MAX * 4);
 
-    if (wstat(tmp, &st) != 0) {
+    if (_wstat64(tmp, &st) != 0) {
 #else
+    struct stat st;
+
     if (stat(src_name, &st) != 0) {
 #endif
     return "source does not exist.";

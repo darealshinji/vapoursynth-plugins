@@ -67,7 +67,7 @@ sudo apt-get install vapoursynth-extra-plugins
 [msmoosh 1.1](https://github.com/dubhater/vapoursynth-msmoosh)<br>
 [mvtools 17](https://github.com/dubhater/vapoursynth-mvtools)<br>
 [nnedi3 10](https://github.com/dubhater/vapoursynth-nnedi3)<br>
-[rawsource git20130731](https://github.com/chikuzen/vsrawsource)<br>
+[rawsource git20160426](https://github.com/chikuzen/vsrawsource)<br>
 [reduceflicker git20150225](https://github.com/VFR-maniac/VapourSynth-ReduceFlicker)<br>
 [retinex r3](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Retinex)<br>
 [sangnommod 0.1+git20150109](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-SangNomMod)<br>
