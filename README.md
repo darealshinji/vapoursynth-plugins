@@ -59,7 +59,7 @@ sudo apt-get install vapoursynth-extra-plugins
 [fluxsmooth 2.0](https://github.com/dubhater/vapoursynth-fluxsmooth)<br>
 [fmtconv r20](https://github.com/EleonoreMizo/fmtconv)<br>
 [genericfilters 1.0.0+git20160316](https://github.com/myrsloik/GenericFilters)<br>
-[histogram 1.0+git20141212](https://github.com/dubhater/vapoursynth-histogram)<br>
+[histogram 1.0+git20150927](https://github.com/dubhater/vapoursynth-histogram)<br>
 [imagereader 0.2.1](https://github.com/chikuzen/vsimagereader)<br>
 [it 1.2](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-IT)<br>
 [knlmeanscl 1.0.0-beta2](https://github.com/Khanattila/KNLMeansCL)<br>
