@@ -9,6 +9,8 @@ Usage
 
     w3fdif.W3FDIF(clip clip, int order[, int mode=1])
 
+* clip: Clip to process. Any planar format with either integer sample type of 8-16 bit depth or float sample type of 32 bit depth is supported.
+
 * order: Sets the field order. The filter will use the field order specified in the source frames and will only fall back to the specified order if not present.
   * 0 = bff
   * 1 = tff
