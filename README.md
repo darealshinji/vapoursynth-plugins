@@ -79,7 +79,7 @@ sudo apt-get install vapoursynth-extra-plugins
 [tcanny r5](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-TCanny)<br>
 [tcomb 2](https://github.com/dubhater/vapoursynth-tcomb)<br>
 [tdeintmod r6+git20160110](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-TDeintMod)<br>
-[templinearapproximate r3+git20160228](https://bitbucket.org/mystery_keeper/templinearapproximate-vapoursynth)<br>
+[templinearapproximate r3+git20161107](https://bitbucket.org/mystery_keeper/templinearapproximate-vapoursynth)<br>
 [temporalsoften 1.0](https://github.com/dubhater/vapoursynth-temporalsoften)<br>
 [temporalsoften2 0.1.1](http://forum.doom9.org/showthread.php?t=166769)<br>
 [tnlmeans git20150225](https://github.com/VFR-maniac/VapourSynth-TNLMeans)<br>
