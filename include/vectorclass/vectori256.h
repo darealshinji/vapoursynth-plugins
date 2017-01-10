@@ -1,8 +1,8 @@
 /****************************  vectori256.h   *******************************
 * Author:        Agner Fog
 * Date created:  2012-05-30
-* Last modified: 2016-11-25
-* Version:       1.25
+* Last modified: 2016-12-21
+* Version:       1.26
 * Project:       vector classes
 * Description:
 * Header file defining integer vector classes as interface to intrinsic 
@@ -234,7 +234,7 @@ static inline Vec256b andnot (Vec256b const & a, Vec256b const & b) {
 *****************************************************************************/
 // Generate a constant vector of 8 integers stored in memory.
 // Can be converted to any integer vector type
-template <int i0, int i1, int i2, int i3, int i4, int i5, int i6, int i7>
+template <int32_t i0, int32_t i1, int32_t i2, int32_t i3, int32_t i4, int32_t i5, int32_t i6, int32_t i7>
 static inline __m256i constant8i() {
     static const union {
         int32_t i[8];
@@ -243,6 +243,10 @@ static inline __m256i constant8i() {
     return u.ymm;
 }
 
+template <uint32_t i0, uint32_t i1, uint32_t i2, uint32_t i3, uint32_t i4, uint32_t i5, uint32_t i6, uint32_t i7>
+static inline __m256i constant8ui() {
+    return constant8i<int32_t(i0), int32_t(i1), int32_t(i2), int32_t(i3), int32_t(i4), int32_t(i5), int32_t(i6), int32_t(i7)>();
+}
 
 /*****************************************************************************
 *
@@ -5069,8 +5073,8 @@ static inline Vec8i compress (Vec4q const & low, Vec4q const & high) {
 // Function compress : packs two vectors of 64-bit integers into one vector of 32-bit integers
 // Signed, with saturation
 static inline Vec8i compress_saturated (Vec4q const & a, Vec4q const & b) {
-    Vec4q maxval = constant8i<0x7FFFFFFF,0,0x7FFFFFFF,0,0x7FFFFFFF,0,0x7FFFFFFF,0>();
-    Vec4q minval = constant8i<(int)0x80000000,-1,(int)0x80000000,-1,(int)0x80000000,-1,(int)0x80000000,-1>();
+    Vec4q maxval = constant8ui<0x7FFFFFFF,0,0x7FFFFFFF,0,0x7FFFFFFF,0,0x7FFFFFFF,0>();
+    Vec4q minval = constant8ui<0x80000000,0xFFFFFFFF,0x80000000,0xFFFFFFFF,0x80000000,0xFFFFFFFF,0x80000000,0xFFFFFFFF>();
     Vec4q a1  = min(a,maxval);
     Vec4q b1  = min(b,maxval);
     Vec4q a2  = max(a1,minval);

@@ -1,8 +1,8 @@
 /****************************  vectorf128.h   *******************************
 * Author:        Agner Fog
 * Date created:  2012-05-30
-* Last modified: 2016-11-25
-* Version:       1.25
+* Last modified: 2016-12-21
+* Version:       1.26
 * Project:       vector classes
 * Description:
 * Header file defining floating point vector classes as interface to 
@@ -956,8 +956,8 @@ static inline Vec4f round(Vec4f const & a) {
 #else // SSE2. Use magic number method
     // Note: assume MXCSR control register is set to rounding
     // (don't use conversion to int, it will limit the value to +/- 2^31)
-    Vec4f signmask    = _mm_castsi128_ps(constant4i<(int)0x80000000,(int)0x80000000,(int)0x80000000,(int)0x80000000>());  // -0.0
-    Vec4f magic       = _mm_castsi128_ps(constant4i<0x4B000000,0x4B000000,0x4B000000,0x4B000000>());  // magic number = 2^23
+    Vec4f signmask    = _mm_castsi128_ps(constant4ui<0x80000000,0x80000000,0x80000000,0x80000000>());  // -0.0
+    Vec4f magic       = _mm_castsi128_ps(constant4ui<0x4B000000,0x4B000000,0x4B000000,0x4B000000>());  // magic number = 2^23
     Vec4f sign        = _mm_and_ps(a, signmask);                                    // signbit of a
     Vec4f signedmagic = _mm_or_ps(magic, sign);                                     // magic number with sign of a
     // volatile
@@ -1237,7 +1237,7 @@ static inline Vec4fb sign_bit(Vec4f const & a) {
 // Function sign_combine: changes the sign of a when b has the sign bit set
 // same as select(sign_bit(b), -a, a)
 static inline Vec4f sign_combine(Vec4f const & a, Vec4f const & b) {
-    Vec4f signmask = _mm_castsi128_ps(constant4i<(int)0x80000000,(int)0x80000000,(int)0x80000000,(int)0x80000000>());  // -0.0
+    Vec4f signmask = _mm_castsi128_ps(constant4ui<0x80000000,0x80000000,0x80000000,0x80000000>());  // -0.0
     return a ^ (b & signmask);
 }
 
@@ -1484,7 +1484,7 @@ DOZERO:
 template <int i0, int i1, int i2, int i3>
 static inline Vec4f change_sign(Vec4f const & a) {
     if ((i0 | i1 | i2 | i3) == 0) return a;
-    __m128i mask = constant4i<i0 ? (int)0x80000000 : 0, i1 ? (int)0x80000000 : 0, i2 ? (int)0x80000000 : 0, i3 ? (int)0x80000000 : 0>();
+    __m128i mask = constant4ui<i0 ? 0x80000000 : 0, i1 ? 0x80000000 : 0, i2 ? 0x80000000 : 0, i3 ? 0x80000000 : 0>();
     return  _mm_xor_ps(a, _mm_castsi128_ps(mask));     // flip sign bits
 }
 
@@ -1953,8 +1953,8 @@ static inline Vec2d round(Vec2d const & a) {
 #else // SSE2. Use magic number method
     // Note: assume MXCSR control register is set to rounding
     // (don't use conversion to int, it will limit the value to +/- 2^31)
-    Vec2d signmask    = _mm_castsi128_pd(constant4i<0,(int)0x80000000,0,(int)0x80000000>());  // -0.0
-    Vec2d magic       = _mm_castsi128_pd(constant4i<0,0x43300000,0,0x43300000>());  // magic number = 2^52
+    Vec2d signmask    = _mm_castsi128_pd(constant4ui<0,0x80000000,0,0x80000000>());  // -0.0
+    Vec2d magic       = _mm_castsi128_pd(constant4ui<0,0x43300000,0,0x43300000>());  // magic number = 2^52
     Vec2d sign        = _mm_and_pd(a, signmask);                                    // signbit of a
     Vec2d signedmagic = _mm_or_pd(magic, sign);                                     // magic number with sign of a
     return a + signedmagic - signedmagic;                                           // round by adding magic number
@@ -2235,7 +2235,7 @@ static inline Vec2db sign_bit(Vec2d const & a) {
 // Function sign_combine: changes the sign of a when b has the sign bit set
 // same as select(sign_bit(b), -a, a)
 static inline Vec2d sign_combine(Vec2d const & a, Vec2d const & b) {
-    Vec2d signmask = _mm_castsi128_pd(constant4i<0,(int)0x80000000,0,(int)0x80000000>());  // -0.0
+    Vec2d signmask = _mm_castsi128_pd(constant4ui<0,0x80000000,0,0x80000000>());  // -0.0
     return a ^ (b & signmask);
 }
 
@@ -2445,7 +2445,7 @@ static inline Vec2d blend2d(Vec2d const & a, Vec2d const & b) {
 template <int i0, int i1>
 static inline Vec2d change_sign(Vec2d const & a) {
     if ((i0 | i1) == 0) return a;
-    __m128i mask = constant4i<0, i0 ? (int)0x80000000 : 0, 0, i1 ? (int)0x80000000 : 0> ();
+    __m128i mask = constant4ui<0, i0 ? 0x80000000 : 0, 0, i1 ? 0x80000000 : 0> ();
     return  _mm_xor_pd(a, _mm_castsi128_pd(mask));     // flip sign bits
 }
 

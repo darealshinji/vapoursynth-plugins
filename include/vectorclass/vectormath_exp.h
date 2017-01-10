@@ -1,8 +1,8 @@
 /****************************  vectormath_exp.h   ******************************
 * Author:        Agner Fog
 * Date created:  2014-04-18
-* Last modified: 2016-11-25
-* Version:       1.25
+* Last modified: 2016-12-26
+* Version:       1.26
 * Project:       vector classes
 * Description:
 * Header file containing inline vector functions of logarithms, exponential 
@@ -1261,8 +1261,6 @@ static inline Vec16f square_cbrt(Vec16f const & x) {
     return cbrt_f<Vec16f, Vec16ui, Vec16fb, 2> (x);
 }
 
-#endif // MAX_VECTOR_SIZE >= 512
-
 // Helper function for power function: insert special values of pow(x,y) when x=0:
 // y<0 -> inf, y=0 -> 1, y>0 -> 0, y=nan -> nan
 static inline Vec8d wm_pow_case_x0(Vec8db const & xiszero, Vec8d const & y, Vec8d const & z) {
@@ -1274,6 +1272,10 @@ static inline Vec8d wm_pow_case_x0(Vec8db const & xiszero, Vec8d const & y, Vec8
 #endif
 }
 
+#endif // MAX_VECTOR_SIZE >= 512
+
+#if MAX_VECTOR_SIZE >= 256
+
 static inline Vec4d wm_pow_case_x0(Vec4db const & xiszero, Vec4d const & y, Vec4d const & z) {
 //#if defined __AVX512VL__ && defined ?
 //   const __m256i table = Vec4q(0x85858A00);
@@ -1282,6 +1284,7 @@ static inline Vec4d wm_pow_case_x0(Vec4db const & xiszero, Vec4d const & y, Vec4
     return select(xiszero, select(y < 0., infinite_vec<Vec4d>(), select(y == 0., Vec4d(1.), Vec4d(0.))), z);
 //#endif
 }
+#endif
 
 static inline Vec2d wm_pow_case_x0(Vec2db const & xiszero, Vec2d const & y, Vec2d const & z) {
 //#if defined __AVX512VL__ && defined ?
@@ -1527,8 +1530,6 @@ inline Vec8d pow<float>(Vec8d const & x, float const & y) {
     return pow_template_d<Vec8d, Vec8q, Vec8db>(x, (double)y);
 }
 
-#endif // MAX_VECTOR_SIZE >= 512
-
 // Helper function for power function: insert special values of pow(x,y) when x=0:
 // y<0 -> inf, y=0 -> 1, y>0 -> 0, y=nan -> nan
 static inline Vec16f wm_pow_case_x0(Vec16fb const & xiszero, Vec16f const & y, Vec16f const & z) {
@@ -1540,9 +1541,13 @@ static inline Vec16f wm_pow_case_x0(Vec16fb const & xiszero, Vec16f const & y, V
 #endif
 }
 
+#endif // MAX_VECTOR_SIZE >= 512
+
+#if MAX_VECTOR_SIZE >= 256
 static inline Vec8f wm_pow_case_x0(Vec8fb const & xiszero, Vec8f const & y, Vec8f const & z) {
     return select(xiszero, select(y < 0.f, infinite_vec<Vec8f>(), select(y == 0.f, Vec8f(1.f), Vec8f(0.f))), z);
 }
+#endif
 
 static inline Vec4f wm_pow_case_x0(Vec4fb const & xiszero, Vec4f const & y, Vec4f const & z) {
     return select(xiszero, select(y < 0.f, infinite_vec<Vec4f>(), select(y == 0.f, Vec4f(1.f), Vec4f(0.f))), z);
@@ -1833,14 +1838,6 @@ public:
         return y;
     }
 #endif // MAX_VECTOR_SIZE >= 512
-};
-
-// partial specialization for b = 0
-template<int a>
-class Power_rational<a,0> {
-public:
-    template<class VTYPE>
-    VTYPE pow(VTYPE const & x) {return nan_vec<VTYPE>(NAN_LOG);}
 };
 
 // partial specialization for b = 1

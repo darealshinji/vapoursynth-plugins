@@ -1,8 +1,8 @@
 /****************************  vectori128.h   *******************************
 * Author:        Agner Fog
 * Date created:  2012-05-30
-* Last modified: 2016-11-25
-* Version:       1.25
+* Last modified: 2016-12-21
+* Version:       1.26
 * Project:       vector classes
 * Description:
 * Header file defining integer vector classes as interface to intrinsic 
@@ -212,7 +212,7 @@ static inline Vec128b andnot (Vec128b const & a, Vec128b const & b) {
 *****************************************************************************/
 // Generate a constant vector of 4 integers stored in memory.
 // Can be converted to any integer vector type
-template <int i0, int i1, int i2, int i3>
+template <int32_t i0, int32_t i1, int32_t i2, int32_t i3>
 static inline __m128i constant4i() {
     static const union {
         int     i[4];
@@ -221,6 +221,10 @@ static inline __m128i constant4i() {
     return u.xmm;
 }
 
+template <uint32_t i0, uint32_t i1, uint32_t i2, uint32_t i3>
+static inline __m128i constant4ui() {
+    return constant4i<int32_t(i0), int32_t(i1), int32_t(i2), int32_t(i3)>();
+}
 
 /*****************************************************************************
 *
@@ -3460,7 +3464,7 @@ static inline Vec2qb operator > (Vec2uq const & a, Vec2uq const & b) {
 #if defined ( __XOP__ ) // AMD XOP instruction set
     return Vec2qb(_mm_comgt_epu64(a,b));
 #elif INSTRSET >= 6 // SSE4.2
-    __m128i sign64 = constant4i<0,(int32_t)0x80000000,0,(int32_t)0x80000000>();
+    __m128i sign64 = constant4ui<0,0x80000000,0,0x80000000>();
     __m128i aflip  = _mm_xor_si128(a, sign64);             // flip sign bits to use signed compare
     __m128i bflip  = _mm_xor_si128(b, sign64);
     Vec2q   cmp    = _mm_cmpgt_epi64(aflip,bflip);

@@ -5,6 +5,11 @@ Projected future version (2018?):
   * use mask registers for boolean vectors of all sizes with AVX512VL
   * use C++14
   * replace long template argument lists by constant arrays
+  
+2016-12-21 version 1.26
+  * added constant4ui template
+  * fixed error for complexvec.h with clang  
+  * fixed error in vectormath_exp.h for MAX_VECTOR_SIZE < 512
 
 2016-11-25 version 1.25
   * scatter functions
