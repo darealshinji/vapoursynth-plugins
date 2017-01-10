@@ -54,16 +54,9 @@ AS_IF([test "x$YASM" = "x"], [have_yasm="no"], [have_yasm="yes"])
 
 
 # build flags
-CXX_bak="$CXX"
 AX_CXX_COMPILE_STDCXX([14], [ext], [optional])
-AS_IF([test "x$ax_cv_cxx_compile_cxx14" = "xyes"], [
-       CXX="$CXX_bak"
-       AX_CHECK_COMPILE_FLAG([-std=gnu++14], [CXXFLAGS="$CXXFLAGS -std=gnu++14"], [exit 1])
-], [
-       CXX="$CXX_bak"
-       AX_CXX_COMPILE_STDCXX([11], [ext], [mandatory])
-       CXX="$CXX_bak"
-       AX_CHECK_COMPILE_FLAG([-std=gnu++11], [CXXFLAGS="$CXXFLAGS -std=gnu++11"], [exit 1])
+AS_IF([test "x$ax_cv_cxx_compile_cxx14" != "xyes"], [
+    AX_CXX_COMPILE_STDCXX([11], [ext], [mandatory])
 ])
 
 _sps="-fstack-protector-strong"
@@ -124,66 +117,69 @@ AS_IF([test "x$have_xvidcore" != "xno"],    [AC_SUBST([HAVE_XVIDCORE], [yes])])
 AS_IF([test "x$have_fftw3f" != "xno"],      [AC_SUBST([HAVE_FFTW3F], [yes])])
 AS_IF([test "x$have_fftw3_newer" != "xno"], [AC_SUBST([HAVE_FFTW3F_NEWER], [yes])])
 
-# Optional YASM: NNEDI3 TComb
-opt_yasm_plugins="nnedi3 tcomb"
-AS_IF([test "x$have_yasm" != "xno"],
-      [build_with_yasm="with" opt_yasm_plugins="nnedi3 tcomb"],
-      [build_with_yasm="without"])
 
-# ImageReader
-AS_IF([test "x$have_png" != "xno" -a "x$have_zlib" != "xno"],
-      [build_plugins="$build_plugins imagereader"],
-      [no_build_plugins="$no_build_plugins imagereader"])
-# MVTools
-AS_IF([test "x$have_fftw3f" != "xno" -a "x$have_yasm" != "xno"],
-      [build_plugins="$build_plugins mvtools"],
-      [no_build_plugins="$no_build_plugins mvtools"])
-# FFMS2
-AS_IF([test "x$have_zlib" != "xno"],
-      [build_plugins="$build_plugins ffms2"],
-      [no_build_plugins="$no_build_plugins ffms2"])
-# Damb
-AS_IF([test "x$have_sndfile" != "xno"],
-      [build_plugins="$build_plugins damb"],
-      [no_build_plugins="$no_build_plugins damb"])
-# DePan, DFTTest, FFT3DFilter
-AS_IF([test "x$have_fftw3" != "xno"],
-      [build_plugins="$build_plugins depan dfttest fft3dfilter"],
-      [no_build_plugins="$no_build_plugins depan dfttest fft3dfilter"])
-# BM3D
-AS_IF([test "x$have_fftw3f" != "xno" -a "x$have_fftw3_newer" != "xno"],
-      [build_plugins="$build_plugins bm3d"],
-      [no_build_plugins="$no_build_plugins bm3d"])
-# scxvid
-AS_IF([test "x$have_xvidcore" != "xno"],
-      [build_plugins="$build_plugins scxvid"],
-      [no_build_plugins="$no_build_plugins scxvid"])
-# KNLMeansCL
-AS_IF([test "x$no_cl" != "xno"],
-      [build_plugins="$build_plugins knlmeanscl"],
-      [no_build_plugins="$no_build_plugins knlmeanscl"])
-# waifu2x-w2xc
-AS_IF([test "x$no_cl" != "xno" -a "x$have_opencv_core" = "xyes"],
-      [build_plugins="$build_plugins waifu2x-w2xc"],
-      [no_build_plugins="$no_build_plugins waifu2x-w2xc"])
+dnl # Optional YASM: NNEDI3 TComb
+dnl opt_yasm_plugins="nnedi3 tcomb"
+dnl AS_IF([test "x$have_yasm" != "xno"],
+dnl       [build_with_yasm="with" opt_yasm_plugins="nnedi3 tcomb"],
+dnl       [build_with_yasm="without"])
 
-# plugins without special dependencies
-build_plugins="$build_plugins $opt_yasm_plugins addgrain awarpsharp2 bifrost bilateral combmask convo2d ctmf d2vsource dctfilter deblock delogo eedi2 fieldhint fillborders flash3kyuu_deband fmtconv genericfilters histogram it lsmashsource msmoosh rawsource reduceflicker retinex sangnommod scenechange scrawl ssiq tc2cfr tcanny tcomb tdeintmod templinearapproximate temporalsoften temporalsoften2 tnlmeans vaguedenoiser vautodeint videoscope waifu2x-opt wwxd yadifmod zimg"
+dnl # ImageReader
+dnl AS_IF([test "x$have_png" != "xno" -a "x$have_zlib" != "xno"],
+dnl       [build_plugins="$build_plugins imagereader"],
+dnl       [no_build_plugins="$no_build_plugins imagereader"])
+dnl # MVTools
+dnl AS_IF([test "x$have_fftw3f" != "xno" -a "x$have_yasm" != "xno"],
+dnl       [build_plugins="$build_plugins mvtools"],
+dnl       [no_build_plugins="$no_build_plugins mvtools"])
+dnl # FFMS2
+dnl AS_IF([test "x$have_zlib" != "xno"],
+dnl       [build_plugins="$build_plugins ffms2"],
+dnl       [no_build_plugins="$no_build_plugins ffms2"])
+dnl # Damb
+dnl AS_IF([test "x$have_sndfile" != "xno"],
+dnl       [build_plugins="$build_plugins damb"],
+dnl       [no_build_plugins="$no_build_plugins damb"])
+dnl # DePan, DFTTest, FFT3DFilter
+dnl AS_IF([test "x$have_fftw3" != "xno"],
+dnl       [build_plugins="$build_plugins depan dfttest fft3dfilter"],
+dnl       [no_build_plugins="$no_build_plugins depan dfttest fft3dfilter"])
+dnl # BM3D
+dnl AS_IF([test "x$have_fftw3f" != "xno" -a "x$have_fftw3_newer" != "xno"],
+dnl       [build_plugins="$build_plugins bm3d"],
+dnl       [no_build_plugins="$no_build_plugins bm3d"])
+dnl # scxvid
+dnl AS_IF([test "x$have_xvidcore" != "xno"],
+dnl       [build_plugins="$build_plugins scxvid"],
+dnl       [no_build_plugins="$no_build_plugins scxvid"])
+dnl # KNLMeansCL
+dnl AS_IF([test "x$no_cl" != "xno"],
+dnl       [build_plugins="$build_plugins knlmeanscl"],
+dnl       [no_build_plugins="$no_build_plugins knlmeanscl"])
+dnl # waifu2x-w2xc
+dnl AS_IF([test "x$no_cl" != "xno" -a "x$have_opencv_core" = "xyes"],
+dnl       [build_plugins="$build_plugins waifu2x-w2xc"],
+dnl       [no_build_plugins="$no_build_plugins waifu2x-w2xc"])
+
+dnl # plugins without special dependencies
+dnl build_plugins="$build_plugins $opt_yasm_plugins addgrain awarpsharp2 bifrost bilateral combmask convo2d ctmf d2vsource dctfilter deblock delogo eedi2 fieldhint fillborders flash3kyuu_deband fmtconv genericfilters histogram it lsmashsource msmoosh rawsource reduceflicker retinex sangnommod scenechange scrawl ssiq tc2cfr tcanny tcomb tdeintmod templinearapproximate temporalsoften temporalsoften2 tnlmeans vaguedenoiser vautodeint videoscope waifu2x-opt wwxd yadifmod zimg"
+
+dnl TODO: update this^^^^
 
 
 AC_CONFIG_FILES([config.mak])
 AC_OUTPUT
 
 
-build_plugins="$(echo $build_plugins | tr ' ' '\n' | sort | tr '\n' ' ')"
-no_build_plugins="$(echo $no_build_plugins | tr ' ' '\n' | sort | tr '\n' ' ')"
+dnl build_plugins="$(echo $build_plugins | tr ' ' '\n' | sort | tr '\n' ' ')"
+dnl no_build_plugins="$(echo $no_build_plugins | tr ' ' '\n' | sort | tr '\n' ' ')"
 
-AC_MSG_RESULT([
-Plugins to build:
-$build_plugins
+dnl AC_MSG_RESULT([
+dnl Plugins to build:
+dnl $build_plugins
 
-Build with optional YASM assembler: $opt_yasm_plugins
+dnl Build with optional YASM assembler: $opt_yasm_plugins
 
-Plugins that won't be build: $no_build_plugins
-])
+dnl Plugins that won't be build: $no_build_plugins
+dnl ])
 

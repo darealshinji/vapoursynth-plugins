@@ -21,505 +21,262 @@
 */
 
 #include <algorithm>
-#include <cfloat>
 #include <cmath>
-#include <cstdlib>
-#include <vapoursynth/VapourSynth.h>
-#include <vapoursynth/VSHelper.h>
+#include <limits>
+#include <thread>
+#include <type_traits>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
+#include <VapourSynth.h>
+#include <VSHelper.h>
+
 #ifdef VS_TARGET_CPU_X86
-#include "vectorclass/vectormath_trig.h"
+#include "vectorclass/vectorclass.h"
+
+extern void gaussianBlurHorizontal_SSE2(float *, float *, const float *, const int, const int);
+extern void gaussianBlurHorizontal_AVX(float *, float *, const float *, const int, const int);
+extern void gaussianBlurHorizontal_AVX2(float *, float *, const float *, const int, const int);
+
+template<typename T> extern void gaussianBlurVertical_SSE2(const T *, float *, float *, const float *, const float *, const unsigned, const int, const unsigned, const unsigned, const int, const int, const float);
+template<typename T> extern void gaussianBlurVertical_AVX(const T *, float *, float *, const float *, const float *, const unsigned, const int, const unsigned, const unsigned, const int, const int, const float);
+template<typename T> extern void gaussianBlurVertical_AVX2(const T *, float *, float *, const float *, const float *, const unsigned, const int, const unsigned, const unsigned, const int, const int, const float);
+
+extern void detectEdge_SSE2(float *, float *, float *, const int, const unsigned, const unsigned, const unsigned, const int, const unsigned);
+extern void detectEdge_AVX(float *, float *, float *, const int, const unsigned, const unsigned, const unsigned, const int, const unsigned);
+extern void detectEdge_AVX2(float *, float *, float *, const int, const unsigned, const unsigned, const unsigned, const int, const unsigned);
+
+extern void nonMaximumSuppression_SSE2(const float *, const float *, float *, const int, const unsigned, const int, const unsigned);
+extern void nonMaximumSuppression_AVX(const float *, const float *, float *, const int, const unsigned, const int, const unsigned);
+extern void nonMaximumSuppression_AVX2(const float *, const float *, float *, const int, const unsigned, const int, const unsigned);
+
+template<typename T> extern void outputGB_SSE2(const float *, T *, const unsigned, const unsigned, const unsigned, const unsigned, const uint16_t, const float, const float);
+template<typename T> extern void outputGB_AVX(const float *, T *, const unsigned, const unsigned, const unsigned, const unsigned, const uint16_t, const float, const float);
+template<typename T> extern void outputGB_AVX2(const float *, T *, const unsigned, const unsigned, const unsigned, const unsigned, const uint16_t, const float, const float);
+
+template<typename T> extern void binarizeCE_SSE2(const float *, T *, const unsigned, const unsigned, const unsigned, const unsigned, const uint16_t, const float, const float);
+template<typename T> extern void binarizeCE_AVX(const float *, T *, const unsigned, const unsigned, const unsigned, const unsigned, const uint16_t, const float, const float);
+template<typename T> extern void binarizeCE_AVX2(const float *, T *, const unsigned, const unsigned, const unsigned, const unsigned, const uint16_t, const float, const float);
+
+template<typename T> extern void discretizeGM_SSE2(const float *, T *, const unsigned, const unsigned, const unsigned, const float, const uint16_t, const float, const float);
+template<typename T> extern void discretizeGM_AVX(const float *, T *, const unsigned, const unsigned, const unsigned, const float, const uint16_t, const float, const float);
+template<typename T> extern void discretizeGM_AVX2(const float *, T *, const unsigned, const unsigned, const unsigned, const float, const uint16_t, const float, const float);
 #endif
 
-#define M_PIF 3.14159265358979323846f
-#define M_1_PIF 0.318309886183790671538f
+static constexpr float M_PIF = 3.14159265358979323846f;
+static constexpr float M_1_PIF = 0.318309886183790671538f;
+
+static void (*gaussianBlurHorizontal)(float *, float *, const float *, const int, const int);
+template<typename T> void (*gaussianBlurVertical)(const T *, float *, float *, const float *, const float *, const unsigned, const int, const unsigned, const unsigned, const int, const int, const float);
+static void (*detectEdge)(float *, float *, float *, const int, const unsigned, const unsigned, const unsigned, const int, const unsigned);
+static void (*nonMaximumSuppression)(const float *, const float *, float *, const int, const unsigned, const int, const unsigned);
+template<typename T> void (*outputGB)(const float *, T *, const unsigned, const unsigned, const unsigned, const unsigned, const uint16_t, const float, const float);
+template<typename T> void (*binarizeCE)(const float *, T *, const unsigned, const unsigned, const unsigned, const unsigned, const uint16_t, const float, const float);
+template<typename T> void (*discretizeGM)(const float *, T *, const unsigned, const unsigned, const unsigned, const float, const uint16_t, const float, const float);
 
 struct TCannyData {
     VSNodeRef * node;
     const VSVideoInfo * vi;
-    float sigma, t_h, t_l, gmmax;
-    int nms, mode, op;
+    float t_h, t_l;
+    int mode, op;
     bool process[3];
-    int grad, bins;
-    float * weights;
+    int radiusHorizontal[3], radiusVertical[3];
+    float * weightsHorizontal[3], * weightsVertical[3];
     float magnitude;
-    int peak;
-    float lower[3], upper[3];
-    void (*genConvV)(const uint8_t * srcp, float * dstp, const float * weights, const int width, const int height, const int stride, const int rad, const float offset);
+    unsigned radiusAlign, bins;
+    uint16_t peak;
+    float offset[3], lower[3], upper[3];
+    std::unordered_map<std::thread::id, float *> buffer, blur, gradient, direction;
+    std::unordered_map<std::thread::id, uint8_t *> label;
 };
 
-struct Stack {
-    uint8_t * map;
-    std::pair<int, int> * pos;
-    int index;
-};
-
-static inline void push(Stack & s, const int x, const int y) {
-    s.pos[++s.index].first = x;
-    s.pos[s.index].second = y;
-}
-
-static inline std::pair<int, int> pop(Stack & s) {
-    return s.pos[s.index--];
-}
-
-static inline float scale(const float val, const int bits) {
-    return val * ((1 << bits) - 1) / 255.f;
-}
-
-static float * gaussianWeights(const float sigma, int & rad) {
-    const int dia = std::max(static_cast<int>(sigma * 3.f + 0.5f), 1) * 2 + 1;
-    rad = dia / 2;
+static float * gaussianWeights(const float sigma, int * radius) noexcept {
+    const unsigned diameter = std::max(static_cast<int>(sigma * 3.f + 0.5f), 1) * 2 + 1;
+    *radius = diameter / 2;
     float sum = 0.f;
 
-    float * VS_RESTRICT weights = new (std::nothrow) float[dia];
+    float * VS_RESTRICT weights = new (std::nothrow) float[diameter];
     if (!weights)
         return nullptr;
 
-    for (int k = -rad; k <= rad; k++) {
+    for (int k = -(*radius); k <= *radius; k++) {
         const float w = std::exp(-(k * k) / (2.f * sigma * sigma));
-        weights[k + rad] = w;
+        weights[k + *radius] = w;
         sum += w;
     }
 
-    for (int k = 0; k < dia; k++)
+    for (unsigned k = 0; k < diameter; k++)
         weights[k] /= sum;
 
     return weights;
 }
 
-#ifdef VS_TARGET_CPU_X86
-static void genConvV_uint8(const uint8_t * __srcp, float * dstp, const float * _weights, const int width, const int height, const int stride, const int rad, const float offset) {
-    const int length = rad * 2 + 1;
-    const uint8_t ** _srcp = new const uint8_t *[length];
-    const Vec8f zero(0.f);
-
-    for (int i = -rad; i <= rad; i++)
-        _srcp[i + rad] = __srcp + stride * std::abs(i);
-
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x += 8) {
-            Vec8f sum = zero;
-
-            for (int i = 0; i < length; i++) {
-                const Vec16uc srcp_16uc = Vec16uc().load(_srcp[i] + x);
-                const Vec8s srcp_8s = Vec8s(extend_low(srcp_16uc));
-                const Vec8i srcp_8i = Vec8i(extend_low(srcp_8s), extend_high(srcp_8s));
-                const Vec8f srcp = to_float(srcp_8i);
-                const Vec8f weights(_weights[i]);
-                sum = mul_add(srcp, weights, sum);
-            }
-
-            sum.store_a(dstp + x);
-        }
-
-        for (int i = 0; i < length - 1; i++)
-            _srcp[i] = _srcp[i + 1];
-
-        _srcp[length - 1] += stride * (y < height - rad - 1 ? 1 : -1);
-        dstp += stride;
+template<typename T>
+static inline T getBin(const float dir, const unsigned n) noexcept {
+    if (!std::is_same<T, float>::value) {
+        const unsigned bin = static_cast<unsigned>(dir * n * M_1_PIF + 0.5f);
+        return (bin >= n) ? 0 : bin;
+    } else {
+        const float bin = dir * M_1_PIF;
+        return (bin > n) ? 0.f : bin;
     }
-
-    delete[] _srcp;
 }
 
-static void genConvV_uint16(const uint8_t * __srcp, float * dstp, const float * _weights, const int width, const int height, const int stride, const int rad, const float offset) {
-    const int length = rad * 2 + 1;
-    const uint16_t ** _srcp = new const uint16_t *[length];
-    const Vec8f zero(0.f);
-
-    for (int i = -rad; i <= rad; i++)
-        _srcp[i + rad] = reinterpret_cast<const uint16_t *>(__srcp) + stride * std::abs(i);
-
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x += 8) {
-            Vec8f sum = zero;
-
-            for (int i = 0; i < length; i++) {
-                const Vec8us srcp_8us = Vec8us().load_a(_srcp[i] + x);
-                const Vec8i srcp_8i = Vec8i(extend_low(srcp_8us), extend_high(srcp_8us));
-                const Vec8f srcp = to_float(srcp_8i);
-                const Vec8f weights(_weights[i]);
-                sum = mul_add(srcp, weights, sum);
-            }
-
-            sum.store_a(dstp + x);
-        }
-
-        for (int i = 0; i < length - 1; i++)
-            _srcp[i] = _srcp[i + 1];
-
-        _srcp[length - 1] += stride * (y < height - rad - 1 ? 1 : -1);
-        dstp += stride;
+static void gaussianBlurHorizontal_C(float * VS_RESTRICT buffer, float * VS_RESTRICT blur, const float * weights, const int width, const int radius) noexcept {
+    for (int i = 1; i <= radius; i++) {
+        buffer[-i] = buffer[i - 1];
+        buffer[width - 1 + i] = buffer[width - i];
     }
 
-    delete[] _srcp;
-}
+    for (int x = 0; x < width; x++) {
+        float sum = 0.f;
 
-static void genConvV_float(const uint8_t * __srcp, float * dstp, const float * _weights, const int width, const int height, const int stride, const int rad, const float _offset) {
-    const int length = rad * 2 + 1;
-    const float ** _srcp = new const float *[length];
-    const Vec8f zero(0.f);
-    const Vec8f offset(_offset);
+        for (int i = -radius; i <= radius; i++)
+            sum += buffer[x + i] * weights[i];
 
-    for (int i = -rad; i <= rad; i++)
-        _srcp[i + rad] = reinterpret_cast<const float *>(__srcp) + stride * std::abs(i);
-
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x += 8) {
-            Vec8f sum = zero;
-
-            for (int i = 0; i < length; i++) {
-                const Vec8f srcp = Vec8f().load_a(_srcp[i] + x);
-                const Vec8f weights(_weights[i]);
-                sum = mul_add((srcp + offset), weights, sum);
-            }
-
-            sum.store_a(dstp + x);
-        }
-
-        for (int i = 0; i < length - 1; i++)
-            _srcp[i] = _srcp[i + 1];
-
-        _srcp[length - 1] += stride * (y < height - rad - 1 ? 1 : -1);
-        dstp += stride;
+        blur[x] = sum;
     }
-
-    delete[] _srcp;
 }
-
-static void genConvH(const float * __srcp, float * dstp, const float * _weights, const int width, const int height, const int stride, const int rad) {
-    float * VS_RESTRICT _srcp = new float[stride + rad * 2];
-    float * srcpSaved = _srcp;
-    _srcp += rad;
-    const Vec8f zero(0.f);
-
-    for (int y = 0; y < height; y++) {
-        memcpy(_srcp, __srcp, width * sizeof(float));
-        for (int i = 1; i <= rad; i++) {
-            _srcp[-i] = __srcp[i];
-            _srcp[width - 1 + i] = __srcp[width - 1 - i];
-        }
-
-        for (int x = 0; x < width; x += 8) {
-            Vec8f sum = zero;
-
-            for (int i = -rad; i <= rad; i++) {
-                const Vec8f srcp = Vec8f().load(_srcp + x + i);
-                const Vec8f weights(_weights[i + rad]);
-                sum = mul_add(srcp, weights, sum);
-            }
-
-            sum.store_a(dstp + x);
-        }
-
-        __srcp += stride;
-        dstp += stride;
-    }
-
-    delete[] srcpSaved;
-}
-
-static void detectEdge(float * _srcp, float * _gimg, float * _dimg, const int width, const int height, const int stride, const int mode, const int op) {
-    const int regularPart = (width % 8 ? width : width - 1) & -8;
-    const Vec8f zero(0.f);
-    const Vec8f pointFive(0.5f);
-    const Vec8f two(2.f);
-    const Vec8f PI(M_PIF);
-
-    memset(_gimg, 0, stride * height * sizeof(float));
-    memset(_dimg, 0, stride * height * sizeof(float));
-
-    float * VS_RESTRICT srcp = _srcp + stride;
-    float * VS_RESTRICT gimg = _gimg + stride;
-    float * VS_RESTRICT dimg = _dimg + stride;
-
-    for (int y = 1; y < height - 1; y++) {
-        int x;
-
-        for (x = 1; x < regularPart; x += 8) {
-            Vec8f dx, dy;
-
-            if (op == 0) {
-                dx = Vec8f().load(srcp + x + 1) - Vec8f().load_a(srcp + x - 1);
-                dy = Vec8f().load(srcp + x - stride) - Vec8f().load(srcp + x + stride);
-            } else if (op == 1) {
-                dx = (Vec8f().load(srcp + x - stride + 1) + Vec8f().load(srcp + x + 1) + Vec8f().load(srcp + x + stride + 1)
-                    - Vec8f().load_a(srcp + x - stride - 1) - Vec8f().load_a(srcp + x - 1) - Vec8f().load_a(srcp + x + stride - 1)) * pointFive;
-                dy = (Vec8f().load_a(srcp + x - stride - 1) + Vec8f().load(srcp + x - stride) + Vec8f().load(srcp + x - stride + 1)
-                    - Vec8f().load_a(srcp + x + stride - 1) - Vec8f().load(srcp + x + stride) - Vec8f().load(srcp + x + stride + 1)) * pointFive;
-            } else {
-                dx = Vec8f().load(srcp + x - stride + 1) + mul_add(two, Vec8f().load(srcp + x + 1), Vec8f().load(srcp + x + stride + 1))
-                    - Vec8f().load_a(srcp + x - stride - 1) - mul_add(two, Vec8f().load_a(srcp + x - 1), Vec8f().load_a(srcp + x + stride - 1));
-                dy = Vec8f().load_a(srcp + x - stride - 1) + mul_add(two, Vec8f().load(srcp + x - stride), Vec8f().load(srcp + x - stride + 1))
-                    - Vec8f().load_a(srcp + x + stride - 1) - mul_add(two, Vec8f().load(srcp + x + stride), Vec8f().load(srcp + x + stride + 1));
-            }
-
-            sqrt(mul_add(dx, dx, dy * dy)).store(gimg + x);
-
-            if (mode != 1) {
-                const Vec8f dr = atan2(dy, dx);
-                (dr + select(dr < zero, PI, zero)).store(dimg + x);
-            }
-        }
-
-        for (; x < width - 1; x++) {
-            float dx, dy;
-
-            if (op == 0) {
-                dx = srcp[x + 1] - srcp[x - 1];
-                dy = srcp[x - stride] - srcp[x + stride];
-            } else if (op == 1) {
-                dx = (srcp[x - stride + 1] + srcp[x + 1] + srcp[x + stride + 1] - srcp[x - stride - 1] - srcp[x - 1] - srcp[x + stride - 1]) * 0.5f;
-                dy = (srcp[x - stride - 1] + srcp[x - stride] + srcp[x - stride + 1] - srcp[x + stride - 1] - srcp[x + stride] - srcp[x + stride + 1]) * 0.5f;
-            } else {
-                dx = srcp[x - stride + 1] + 2.f * srcp[x + 1] + srcp[x + stride + 1] - srcp[x - stride - 1] - 2.f * srcp[x - 1] - srcp[x + stride - 1];
-                dy = srcp[x - stride - 1] + 2.f * srcp[x - stride] + srcp[x - stride + 1] - srcp[x + stride - 1] - 2.f * srcp[x + stride] - srcp[x + stride + 1];
-            }
-
-            gimg[x] = std::sqrt(dx * dx + dy * dy);
-
-            if (mode != 1) {
-                const float dr = std::atan2(dy, dx);
-                dimg[x] = dr + (dr < 0.f ? M_PIF : 0.f);
-            }
-        }
-
-        srcp += stride;
-        gimg += stride;
-        dimg += stride;
-    }
-
-    memcpy(_srcp, _gimg, stride * height * sizeof(float));
-}
-#else
-static void genConvV_uint8(const uint8_t * _srcp, float * VS_RESTRICT dstp, const float * weights, const int width, const int height, const int stride, const int rad, const float offset) {
-    const int length = rad * 2 + 1;
-    const uint8_t ** srcp = new const uint8_t *[length];
-
-    for (int i = -rad; i <= rad; i++)
-        srcp[i + rad] = _srcp + stride * std::abs(i);
-
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
-            float sum = 0.f;
-            for (int i = 0; i < length; i++)
-                sum += srcp[i][x] * weights[i];
-            dstp[x] = sum;
-        }
-
-        for (int i = 0; i < length - 1; i++)
-            srcp[i] = srcp[i + 1];
-
-        srcp[length - 1] += stride * (y < height - rad - 1 ? 1 : -1);
-        dstp += stride;
-    }
-
-    delete[] srcp;
-}
-
-static void genConvV_uint16(const uint8_t * _srcp, float * VS_RESTRICT dstp, const float * weights, const int width, const int height, const int stride, const int rad, const float offset) {
-    const int length = rad * 2 + 1;
-    const uint16_t ** srcp = new const uint16_t *[length];
-
-    for (int i = -rad; i <= rad; i++)
-        srcp[i + rad] = reinterpret_cast<const uint16_t *>(_srcp) + stride * std::abs(i);
-
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
-            float sum = 0.f;
-            for (int i = 0; i < length; i++)
-                sum += srcp[i][x] * weights[i];
-            dstp[x] = sum;
-        }
-
-        for (int i = 0; i < length - 1; i++)
-            srcp[i] = srcp[i + 1];
-
-        srcp[length - 1] += stride * (y < height - rad - 1 ? 1 : -1);
-        dstp += stride;
-    }
-
-    delete[] srcp;
-}
-
-static void genConvV_float(const uint8_t * _srcp, float * VS_RESTRICT dstp, const float * weights, const int width, const int height, const int stride, const int rad, const float offset) {
-    const int length = rad * 2 + 1;
-    const float ** srcp = new const float *[length];
-
-    for (int i = -rad; i <= rad; i++)
-        srcp[i + rad] = reinterpret_cast<const float *>(_srcp) + stride * std::abs(i);
-
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
-            float sum = 0.f;
-            for (int i = 0; i < length; i++)
-                sum += (srcp[i][x] + offset) * weights[i];
-            dstp[x] = sum;
-        }
-
-        for (int i = 0; i < length - 1; i++)
-            srcp[i] = srcp[i + 1];
-
-        srcp[length - 1] += stride * (y < height - rad - 1 ? 1 : -1);
-        dstp += stride;
-    }
-
-    delete[] srcp;
-}
-
-static void genConvH(const float * _srcp, float * VS_RESTRICT dstp, const float * weights, const int width, const int height, const int stride, const int rad) {
-    float * VS_RESTRICT srcp = new float[stride + rad * 2];
-    float * srcpSaved = srcp;
-    srcp += rad;
-
-    for (int y = 0; y < height; y++) {
-        memcpy(srcp, _srcp, width * sizeof(float));
-        for (int i = 1; i <= rad; i++) {
-            srcp[-i] = _srcp[i];
-            srcp[width - 1 + i] = _srcp[width - 1 - i];
-        }
-
-        for (int x = 0; x < width; x++) {
-            float sum = 0.f;
-            for (int i = -rad; i <= rad; i++)
-                sum += srcp[x + i] * weights[i + rad];
-            dstp[x] = sum;
-        }
-
-        _srcp += stride;
-        dstp += stride;
-    }
-
-    delete[] srcpSaved;
-}
-
-static void detectEdge(float * _srcp, float * _gimg, float * _dimg, const int width, const int height, const int stride, const int mode, const int op) {
-    memset(_gimg, 0, stride * height * sizeof(float));
-    memset(_dimg, 0, stride * height * sizeof(float));
-
-    float * VS_RESTRICT srcp = _srcp + stride;
-    float * VS_RESTRICT gimg = _gimg + stride;
-    float * VS_RESTRICT dimg = _dimg + stride;
-
-    for (int y = 1; y < height - 1; y++) {
-        for (int x = 1; x < width - 1; x++) {
-            float dx, dy;
-
-            if (op == 0) {
-                dx = srcp[x + 1] - srcp[x - 1];
-                dy = srcp[x - stride] - srcp[x + stride];
-            } else if (op == 1) {
-                dx = (srcp[x - stride + 1] + srcp[x + 1] + srcp[x + stride + 1] - srcp[x - stride - 1] - srcp[x - 1] - srcp[x + stride - 1]) * 0.5f;
-                dy = (srcp[x - stride - 1] + srcp[x - stride] + srcp[x - stride + 1] - srcp[x + stride - 1] - srcp[x + stride] - srcp[x + stride + 1]) * 0.5f;
-            } else {
-                dx = srcp[x - stride + 1] + 2.f * srcp[x + 1] + srcp[x + stride + 1] - srcp[x - stride - 1] - 2.f * srcp[x - 1] - srcp[x + stride - 1];
-                dy = srcp[x - stride - 1] + 2.f * srcp[x - stride] + srcp[x - stride + 1] - srcp[x + stride - 1] - 2.f * srcp[x + stride] - srcp[x + stride + 1];
-            }
-
-            gimg[x] = std::sqrt(dx * dx + dy * dy);
-
-            if (mode != 1) {
-                const float dr = std::atan2(dy, dx);
-                dimg[x] = dr + (dr < 0.f ? M_PIF : 0.f);
-            }
-        }
-
-        srcp += stride;
-        gimg += stride;
-        dimg += stride;
-    }
-
-    memcpy(_srcp, _gimg, stride * height * sizeof(float));
-}
-#endif
 
 template<typename T>
-static T getBin(const float dir, const int n) {
-    const int bin = static_cast<int>(dir * (n * M_1_PIF) + 0.5f);
-    return (bin >= n) ? 0 : bin;
-}
+static void gaussianBlurVertical_C(const T * _srcp, float * VS_RESTRICT buffer, float * VS_RESTRICT blur, const float * weightsHorizontal, const float * weightsVertical,
+                                   const unsigned width, const int height, const unsigned stride, const unsigned blurStride,
+                                   const int radiusHorizontal, const int radiusVertical, const float offset) noexcept {
+    const unsigned diameter = radiusVertical * 2 + 1;
+    const T ** srcp = new const T *[diameter];
 
-template<>
-float getBin<float>(const float dir, const int n) {
-    const float bin = dir * (n * M_1_PIF);
-    return (bin > static_cast<float>(n)) ? 0.f : bin;
-}
+    srcp[radiusVertical] = _srcp;
+    for (int i = 1; i <= radiusVertical; i++) {
+        srcp[radiusVertical - i] = srcp[radiusVertical + i - 1];
+        srcp[radiusVertical + i] = srcp[radiusVertical] + stride * i;
+    }
 
-static void gmDirImages(float * VS_RESTRICT srcp, float * VS_RESTRICT gimg, float * VS_RESTRICT dimg, const int width, const int height, const int stride, const int nms) {
-    const int offTable[4] = { 1, -stride + 1, -stride, -stride - 1 };
-    srcp += stride;
-    gimg += stride;
-    dimg += stride;
+    for (int y = 0; y < height; y++) {
+        for (unsigned x = 0; x < width; x++) {
+            float sum = 0.f;
 
-    for (int y = 1; y < height - 1; y++) {
-        for (int x = 1; x < width - 1; x++) {
-            if (nms & 1) {
-                const int off = offTable[getBin<int>(dimg[x], 4)];
-                if (gimg[x] >= std::max(gimg[x + off], gimg[x - off]))
-                    continue;
+            for (unsigned i = 0; i < diameter; i++) {
+                if (!std::is_same<T, float>::value)
+                    sum += srcp[i][x] * weightsVertical[i];
+                else
+                    sum += (srcp[i][x] + offset) * weightsVertical[i];
             }
 
-            if (nms & 2) {
-                const int c = static_cast<int>(dimg[x] * (4.f * M_1_PIF));
-                float val1, val2;
-
-                if (c == 0 || c >= 4) {
-                    const float h = std::tan(dimg[x]);
-                    val1 = (1.f - h) * gimg[x + 1] + h * gimg[x - stride + 1];
-                    val2 = (1.f - h) * gimg[x - 1] + h * gimg[x + stride - 1];
-                } else if (c == 1) {
-                    const float w = 1.f / std::tan(dimg[x]);
-                    val1 = (1.f - w) * gimg[x - stride] + w * gimg[x - stride + 1];
-                    val2 = (1.f - w) * gimg[x + stride] + w * gimg[x + stride - 1];
-                } else if (c == 2) {
-                    const float w = 1.f / std::tan(M_PIF - dimg[x]);
-                    val1 = (1.f - w) * gimg[x - stride] + w * gimg[x - stride - 1];
-                    val2 = (1.f - w) * gimg[x + stride] + w * gimg[x + stride + 1];
-                } else {
-                    const float h = std::tan(M_PIF - dimg[x]);
-                    val1 = (1.f - h) * gimg[x - 1] + h * gimg[x - stride - 1];
-                    val2 = (1.f - h) * gimg[x + 1] + h * gimg[x + stride + 1];
-                }
-
-                if (gimg[x] >= std::max(val1, val2))
-                    continue;
-            }
-
-            srcp[x] = -FLT_MAX;
+            buffer[x] = sum;
         }
 
-        srcp += stride;
-        gimg += stride;
-        dimg += stride;
+        gaussianBlurHorizontal_C(buffer, blur, weightsHorizontal + radiusHorizontal, width, radiusHorizontal);
+
+        for (unsigned i = 0; i < diameter - 1; i++)
+            srcp[i] = srcp[i + 1];
+        if (y < height - 1 - radiusVertical)
+            srcp[diameter - 1] += stride;
+        else if (y > height - 1 - radiusVertical)
+            srcp[diameter - 1] -= stride;
+        blur += blurStride;
+    }
+
+    delete[] srcp;
+}
+
+static void detectEdge_C(float * blur, float * VS_RESTRICT gradient, float * VS_RESTRICT direction, const int width, const unsigned height,
+                         const unsigned stride, const unsigned blurStride, const int mode, const unsigned op) noexcept {
+    float * VS_RESTRICT srcpp = blur;
+    float * VS_RESTRICT srcp = blur;
+    float * VS_RESTRICT srcpn = blur + blurStride;
+
+    srcp[-1] = srcp[0];
+    srcp[width] = srcp[width - 1];
+
+    for (unsigned y = 0; y < height; y++) {
+        srcpn[-1] = srcpn[0];
+        srcpn[width] = srcpn[width - 1];
+
+        for (int x = 0; x < width; x++) {
+            float gx, gy;
+
+            if (op == 0) {
+                gx = srcp[x + 1] - srcp[x - 1];
+                gy = srcpp[x] - srcpn[x];
+            } else if (op == 1) {
+                gx = (srcpp[x + 1] + srcp[x + 1] + srcpn[x + 1] - srcpp[x - 1] - srcp[x - 1] - srcpn[x - 1]) / 2.f;
+                gy = (srcpp[x - 1] + srcpp[x] + srcpp[x + 1] - srcpn[x - 1] - srcpn[x] - srcpn[x + 1]) / 2.f;
+            } else if (op == 2) {
+                gx = srcpp[x + 1] + 2.f * srcp[x + 1] + srcpn[x + 1] - srcpp[x - 1] - 2.f * srcp[x - 1] - srcpn[x - 1];
+                gy = srcpp[x - 1] + 2.f * srcpp[x] + srcpp[x + 1] - srcpn[x - 1] - 2.f * srcpn[x] - srcpn[x + 1];
+            } else {
+                gx = 3.f * srcpp[x + 1] + 10.f * srcp[x + 1] + 3.f * srcpn[x + 1] - 3.f * srcpp[x - 1] - 10.f * srcp[x - 1] - 3.f * srcpn[x - 1];
+                gy = 3.f * srcpp[x - 1] + 10.f * srcpp[x] + 3.f * srcpp[x + 1] - 3.f * srcpn[x - 1] - 10.f * srcpn[x] - 3.f * srcpn[x + 1];
+            }
+
+            gradient[x] = std::sqrt(gx * gx + gy * gy);
+
+            if (mode != 1) {
+                float dr = std::atan2(gy, gx);
+                if (dr < 0.f)
+                    dr += M_PIF;
+                direction[x] = dr;
+            }
+        }
+
+        srcpp = srcp;
+        srcp = srcpn;
+        if (y < height - 2)
+            srcpn += blurStride;
+        gradient += stride;
+        direction += stride;
     }
 }
 
-static void hystersis(float * VS_RESTRICT srcp, Stack & VS_RESTRICT stack, const int width, const int height, const int stride, const float t_h, const float t_l) {
-    memset(stack.map, 0, width * height);
-    stack.index = -1;
+static void nonMaximumSuppression_C(const float * gradient, const float * direction, float * VS_RESTRICT blur, const int width, const unsigned height,
+                                    const int stride, const unsigned blurStride) noexcept {
+    const int offsets[] { 1, -stride + 1, -stride, -stride - 1 };
 
-    for (int y = 1; y < height - 1; y++) {
+    std::fill_n(blur, width, std::numeric_limits<float>::lowest());
+
+    for (unsigned y = 1; y < height - 1; y++) {
+        gradient += stride;
+        direction += stride;
+        blur += blurStride;
+
         for (int x = 1; x < width - 1; x++) {
-            if (srcp[x + stride * y] < t_h || stack.map[x + width * y])
-                continue;
+            const int offset = offsets[getBin<unsigned>(direction[x], 4)];
+            blur[x] = (gradient[x] >= std::max(gradient[x + offset], gradient[x - offset])) ? gradient[x] : std::numeric_limits<float>::lowest();
+        }
 
-            srcp[x + stride * y] = FLT_MAX;
-            stack.map[x + width * y] = UINT8_MAX;
-            push(stack, x, y);
+        blur[0] = blur[width - 1] = std::numeric_limits<float>::lowest();
+    }
 
-            while (stack.index > -1) {
-                const std::pair<int, int> pos = pop(stack);
-                const int xMin = (pos.first > 1) ? pos.first - 1 : 1;
-                const int xMax = (pos.first < width - 2) ? pos.first + 1 : pos.first;
-                const int yMin = (pos.second > 1) ? pos.second - 1 : 1;
-                const int yMax = (pos.second < height - 2) ? pos.second + 1 : pos.second;
+    std::fill_n(blur + blurStride, width, std::numeric_limits<float>::lowest());
+}
 
-                for (int yy = yMin; yy <= yMax; yy++) {
-                    for (int xx = xMin; xx <= xMax; xx++) {
-                        if (srcp[xx + stride * yy] > t_l && !stack.map[xx + width * yy]) {
-                            srcp[xx + stride * yy] = FLT_MAX;
-                            stack.map[xx + width * yy] = UINT8_MAX;
-                            push(stack, xx, yy);
+static void hysteresis(float * VS_RESTRICT blur, uint8_t * VS_RESTRICT label, const unsigned width, const unsigned height, const unsigned blurStride,
+                       const float t_h, const float t_l) noexcept {
+    std::fill_n(label, width * height, static_cast<uint8_t>(0));
+
+    std::vector<std::pair<unsigned, unsigned>> coordinates;
+
+    for (unsigned y = 1; y < height - 1; y++) {
+        for (unsigned x = 1; x < width - 1; x++) {
+            if (!label[width * y + x] && blur[blurStride * y + x] >= t_h) {
+                label[width * y + x] = std::numeric_limits<uint8_t>::max();
+                blur[blurStride * y + x] = std::numeric_limits<float>::max();
+
+                coordinates.emplace_back(std::make_pair(x, y));
+
+                while (!coordinates.empty()) {
+                    const auto pos = coordinates.back();
+                    coordinates.pop_back();
+
+                    for (unsigned yy = pos.second - 1; yy <= pos.second + 1; yy++) {
+                        for (unsigned xx = pos.first - 1; xx <= pos.first + 1; xx++) {
+                            if (!label[width * yy + xx] && blur[blurStride * yy + xx] >= t_l) {
+                                label[width * yy + xx] = std::numeric_limits<uint8_t>::max();
+                                blur[blurStride * yy + xx] = std::numeric_limits<float>::max();
+
+                                coordinates.emplace_back(std::make_pair(xx, yy));
+                            }
                         }
                     }
                 }
@@ -529,159 +286,221 @@ static void hystersis(float * VS_RESTRICT srcp, Stack & VS_RESTRICT stack, const
 }
 
 template<typename T>
-static void outputGB(const float * srcp, T * VS_RESTRICT dstp, const int width, const int height, const int stride,
-                     const int peak, const float offset, const float lower, const float upper) {
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++)
-            dstp[x] = std::min(std::max(static_cast<int>(srcp[x] + 0.5f), 0), peak);
+static void outputGB_C(const float * blur, T * VS_RESTRICT dstp, const unsigned width, const unsigned height, const unsigned stride, const unsigned blurStride,
+                       const uint16_t peak, const float offset, const float upper) noexcept {
+    for (unsigned y = 0; y < height; y++) {
+        for (unsigned x = 0; x < width; x++) {
+            if (!std::is_same<T, float>::value)
+                dstp[x] = std::min<unsigned>(static_cast<unsigned>(blur[x] + 0.5f), peak);
+            else
+                dstp[x] = std::min(blur[x] - offset, upper);
+        }
 
-        srcp += stride;
-        dstp += stride;
-    }
-}
-
-template<>
-void outputGB<float>(const float * srcp, float * VS_RESTRICT dstp, const int width, const int height, const int stride,
-                     const int peak, const float offset, const float lower, const float upper) {
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++)
-            dstp[x] = std::min(std::max(srcp[x] - offset, lower), upper);
-
-        srcp += stride;
+        blur += blurStride;
         dstp += stride;
     }
 }
 
 template<typename T>
-static void binarizeCE(const float * srcp, T * VS_RESTRICT dstp, const int width, const int height, const int stride, const float t_h, const T peak, const float lower, const float upper) {
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++)
-            dstp[x] = (srcp[x] >= t_h) ? peak : 0;
+static void binarizeCE_C(const float * blur, T * VS_RESTRICT dstp, const unsigned width, const unsigned height, const unsigned stride, const unsigned blurStride,
+                         const uint16_t peak, const float lower, const float upper) noexcept {
+    for (unsigned y = 0; y < height; y++) {
+        for (unsigned x = 0; x < width; x++) {
+            if (!std::is_same<T, float>::value)
+                dstp[x] = (blur[x] == std::numeric_limits<float>::max()) ? peak : 0;
+            else
+                dstp[x] = (blur[x] == std::numeric_limits<float>::max()) ? upper : lower;
+        }
 
-        srcp += stride;
-        dstp += stride;
-    }
-}
-
-template<>
-void binarizeCE<float>(const float * srcp, float * VS_RESTRICT dstp, const int width, const int height, const int stride,
-                       const float t_h, const float peak, const float lower, const float upper) {
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++)
-            dstp[x] = (srcp[x] >= t_h) ? upper : lower;
-
-        srcp += stride;
+        blur += blurStride;
         dstp += stride;
     }
 }
 
 template<typename T>
-static void discretizeGM(const float * gimg, T * VS_RESTRICT dstp, const int width, const int height, const int stride,
-                         const float magnitude, const int peak, const float offset, const float upper) {
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++)
-            dstp[x] = std::min(static_cast<int>(gimg[x] * magnitude + 0.5f), peak);
+static void discretizeGM_C(const float * gradient, T * VS_RESTRICT dstp, const unsigned width, const unsigned height, const unsigned stride, const float magnitude,
+                           const uint16_t peak, const float offset, const float upper) noexcept {
+    for (unsigned y = 0; y < height; y++) {
+        for (unsigned x = 0; x < width; x++) {
+            if (!std::is_same<T, float>::value)
+                dstp[x] = std::min<unsigned>(static_cast<unsigned>(gradient[x] * magnitude + 0.5f), peak);
+            else
+                dstp[x] = std::min(gradient[x] * magnitude - offset, upper);
+        }
 
-        gimg += stride;
-        dstp += stride;
-    }
-}
-
-template<>
-void discretizeGM<float>(const float * gimg, float * VS_RESTRICT dstp, const int width, const int height, const int stride,
-                         const float magnitude, const int peak, const float offset, const float upper) {
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++)
-            dstp[x] = std::min(gimg[x] * magnitude - offset, upper);
-
-        gimg += stride;
+        gradient += stride;
         dstp += stride;
     }
 }
 
 template<typename T>
-static void discretizeDM_T(const float * srcp, const float * dimg, T * VS_RESTRICT dstp, const int width, const int height, const int stride,
-                           const float t_h, const int bins, const float offset, const float lower) {
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++)
-            dstp[x] = (srcp[x] >= t_h) ? getBin<T>(dimg[x], bins) : 0;
+static void discretizeDM_T(const float * blur, const float * direction, T * VS_RESTRICT dstp, const unsigned width, const unsigned height,
+                           const unsigned stride, const unsigned blurStride, const unsigned bins, const float offset, const float lower) noexcept {
+    for (unsigned y = 0; y < height; y++) {
+        for (unsigned x = 0; x < width; x++) {
+            if (!std::is_same<T, float>::value)
+                dstp[x] = (blur[x] == std::numeric_limits<float>::max()) ? getBin<T>(direction[x], bins) : 0;
+            else
+                dstp[x] = (blur[x] == std::numeric_limits<float>::max()) ? getBin<float>(direction[x], bins) - offset : lower;
+        }
 
-        srcp += stride;
-        dimg += stride;
-        dstp += stride;
-    }
-}
-
-template<>
-void discretizeDM_T<float>(const float * srcp, const float * dimg, float * VS_RESTRICT dstp, const int width, const int height, const int stride,
-                           const float t_h, const int bins, const float offset, const float lower) {
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++)
-            dstp[x] = (srcp[x] >= t_h) ? getBin<float>(dimg[x], bins) - offset : lower;
-
-        srcp += stride;
-        dimg += stride;
+        blur += blurStride;
+        direction += stride;
         dstp += stride;
     }
 }
 
 template<typename T>
-static void discretizeDM(const float * dimg, T * VS_RESTRICT dstp, const int width, const int height, const int stride, const int bins, const float offset) {
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++)
-            dstp[x] = getBin<T>(dimg[x], bins);
+static void discretizeDM(const float * direction, T * VS_RESTRICT dstp, const unsigned width, const unsigned height, const unsigned stride,
+                         const unsigned bins, const float offset) noexcept {
+    for (unsigned y = 0; y < height; y++) {
+        for (unsigned x = 0; x < width; x++) {
+            if (!std::is_same<T, float>::value)
+                dstp[x] = getBin<T>(direction[x], bins);
+            else
+                dstp[x] = getBin<float>(direction[x], bins) - offset;
+        }
 
-        dimg += stride;
-        dstp += stride;
-    }
-}
-
-template<>
-void discretizeDM<float>(const float * dimg, float * VS_RESTRICT dstp, const int width, const int height, const int stride, const int bins, const float offset) {
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++)
-            dstp[x] = getBin<float>(dimg[x], bins) - offset;
-
-        dimg += stride;
+        direction += stride;
         dstp += stride;
     }
 }
 
 template<typename T>
-static void process(const VSFrameRef * src, VSFrameRef * dst, float * VS_RESTRICT fa[3], Stack & VS_RESTRICT stack, const TCannyData * d, const VSAPI * vsapi) {
+static void process(const VSFrameRef * src, VSFrameRef * dst, const TCannyData * d, const VSAPI * vsapi) noexcept {
     for (int plane = 0; plane < d->vi->format->numPlanes; plane++) {
         if (d->process[plane]) {
-            const int width = vsapi->getFrameWidth(src, plane);
-            const int height = vsapi->getFrameHeight(src, plane);
-            const int stride = vsapi->getStride(src, plane) / sizeof(T);
-            const uint8_t * srcp = vsapi->getReadPtr(src, plane);
-            T * VS_RESTRICT dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
-            const float offset = (d->vi->format->sampleType == stInteger || plane == 0 || d->vi->format->colorFamily == cmRGB) ? 0.f : 0.5f;
+            const unsigned width = vsapi->getFrameWidth(src, plane);
+            const unsigned height = vsapi->getFrameHeight(src, plane);
+            const unsigned stride = vsapi->getStride(src, plane) / sizeof(T);
+            const unsigned blurStride = stride + 16;
+            const T * srcp = reinterpret_cast<const T *>(vsapi->getReadPtr(src, plane));
+            T * dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
 
-            d->genConvV(srcp, fa[1], d->weights, width, height, stride, d->grad, offset);
-            genConvH(fa[1], fa[0], d->weights, width, height, stride, d->grad);
+            const auto threadId = std::this_thread::get_id();
+            float * buffer = d->buffer.at(threadId) + d->radiusAlign;
+            float * blur = d->blur.at(threadId) + 8;
+            float * gradient = d->gradient.at(threadId);
+            float * direction = d->direction.at(threadId);
+            uint8_t * label = d->label.at(threadId);
 
-            if (d->mode != -1) {
-                detectEdge(fa[0], fa[1], fa[2], width, height, stride, d->mode, d->op);
-                if (!((d->mode & 1) || d->nms == 0))
-                    gmDirImages(fa[0], fa[1], fa[2], width, height, stride, d->nms);
+            gaussianBlurVertical<T>(srcp, buffer, blur, d->weightsHorizontal[plane], d->weightsVertical[plane], width, height, stride, blurStride, d->radiusHorizontal[plane], d->radiusVertical[plane], d->offset[plane]);
+
+            if (d->mode != -1)
+                detectEdge(blur, gradient, direction, width, height, stride, blurStride, d->mode, d->op);
+
+            if (!(d->mode & 1)) {
+                nonMaximumSuppression(gradient, direction, blur, width, height, stride, blurStride);
+                hysteresis(blur, label, width, height, blurStride, d->t_h, d->t_l);
             }
 
-            if (!(d->mode & 1))
-                hystersis(fa[0], stack, width, height, stride, d->t_h, d->t_l);
-
             if (d->mode == -1)
-                outputGB<T>(fa[0], dstp, width, height, stride, d->peak, offset, d->lower[plane], d->upper[plane]);
+                outputGB<T>(blur, dstp, width, height, stride, blurStride, d->peak, d->offset[plane], d->upper[plane]);
             else if (d->mode == 0)
-                binarizeCE<T>(fa[0], dstp, width, height, stride, d->t_h, d->peak, d->lower[plane], d->upper[plane]);
+                binarizeCE<T>(blur, dstp, width, height, stride, blurStride, d->peak, d->lower[plane], d->upper[plane]);
             else if (d->mode == 1)
-                discretizeGM<T>(fa[1], dstp, width, height, stride, d->magnitude, d->peak, offset, d->upper[plane]);
+                discretizeGM<T>(gradient, dstp, width, height, stride, d->magnitude, d->peak, d->offset[plane], d->upper[plane]);
             else if (d->mode == 2)
-                discretizeDM_T<T>(fa[0], fa[2], dstp, width, height, stride, d->t_h, d->bins, offset, d->lower[plane]);
+                discretizeDM_T(blur, direction, dstp, width, height, stride, blurStride, d->bins, d->offset[plane], d->lower[plane]);
             else
-                discretizeDM<T>(fa[2], dstp, width, height, stride, d->bins, offset);
+                discretizeDM(direction, dstp, width, height, stride, d->bins, d->offset[plane]);
         }
     }
+}
+
+static void selectFunctions(const unsigned opt) noexcept {
+    gaussianBlurHorizontal = gaussianBlurHorizontal_C;
+
+    gaussianBlurVertical<uint8_t> = gaussianBlurVertical_C;
+    gaussianBlurVertical<uint16_t> = gaussianBlurVertical_C;
+    gaussianBlurVertical<float> = gaussianBlurVertical_C;
+
+    detectEdge = detectEdge_C;
+
+    nonMaximumSuppression = nonMaximumSuppression_C;
+
+    outputGB<uint8_t> = outputGB_C;
+    outputGB<uint16_t> = outputGB_C;
+    outputGB<float> = outputGB_C;
+
+    binarizeCE<uint8_t> = binarizeCE_C;
+    binarizeCE<uint16_t> = binarizeCE_C;
+    binarizeCE<float> = binarizeCE_C;
+
+    discretizeGM<uint8_t> = discretizeGM_C;
+    discretizeGM<uint16_t> = discretizeGM_C;
+    discretizeGM<float> = discretizeGM_C;
+
+#ifdef VS_TARGET_CPU_X86
+    const int iset = instrset_detect();
+    if (opt == 4 || (opt == 0 && iset >= 8)) {
+        gaussianBlurHorizontal = gaussianBlurHorizontal_AVX2;
+
+        gaussianBlurVertical<uint8_t> = gaussianBlurVertical_AVX2;
+        gaussianBlurVertical<uint16_t> = gaussianBlurVertical_AVX2;
+        gaussianBlurVertical<float> = gaussianBlurVertical_AVX2;
+
+        detectEdge = detectEdge_AVX2;
+
+        nonMaximumSuppression = nonMaximumSuppression_AVX2;
+
+        outputGB<uint8_t> = outputGB_AVX2;
+        outputGB<uint16_t> = outputGB_AVX2;
+        outputGB<float> = outputGB_AVX2;
+
+        binarizeCE<uint8_t> = binarizeCE_AVX2;
+        binarizeCE<uint16_t> = binarizeCE_AVX2;
+        binarizeCE<float> = binarizeCE_AVX2;
+
+        discretizeGM<uint8_t> = discretizeGM_AVX2;
+        discretizeGM<uint16_t> = discretizeGM_AVX2;
+        discretizeGM<float> = discretizeGM_AVX2;
+    } else if (opt == 3 || (opt == 0 && iset == 7)) {
+        gaussianBlurHorizontal = gaussianBlurHorizontal_AVX;
+
+        gaussianBlurVertical<uint8_t> = gaussianBlurVertical_AVX;
+        gaussianBlurVertical<uint16_t> = gaussianBlurVertical_AVX;
+        gaussianBlurVertical<float> = gaussianBlurVertical_AVX;
+
+        detectEdge = detectEdge_AVX;
+
+        nonMaximumSuppression = nonMaximumSuppression_AVX;
+
+        outputGB<uint8_t> = outputGB_AVX;
+        outputGB<uint16_t> = outputGB_AVX;
+        outputGB<float> = outputGB_AVX;
+
+        binarizeCE<uint8_t> = binarizeCE_AVX;
+        binarizeCE<uint16_t> = binarizeCE_AVX;
+        binarizeCE<float> = binarizeCE_AVX;
+
+        discretizeGM<uint8_t> = discretizeGM_AVX;
+        discretizeGM<uint16_t> = discretizeGM_AVX;
+        discretizeGM<float> = discretizeGM_AVX;
+    } else if (opt == 2 || (opt == 0 && iset >= 2)) {
+        gaussianBlurHorizontal = gaussianBlurHorizontal_SSE2;
+
+        gaussianBlurVertical<uint8_t> = gaussianBlurVertical_SSE2;
+        gaussianBlurVertical<uint16_t> = gaussianBlurVertical_SSE2;
+        gaussianBlurVertical<float> = gaussianBlurVertical_SSE2;
+
+        detectEdge = detectEdge_SSE2;
+
+        nonMaximumSuppression = nonMaximumSuppression_SSE2;
+
+        outputGB<uint8_t> = outputGB_SSE2;
+        outputGB<uint16_t> = outputGB_SSE2;
+        outputGB<float> = outputGB_SSE2;
+
+        binarizeCE<uint8_t> = binarizeCE_SSE2;
+        binarizeCE<uint16_t> = binarizeCE_SSE2;
+        binarizeCE<float> = binarizeCE_SSE2;
+
+        discretizeGM<uint8_t> = discretizeGM_SSE2;
+        discretizeGM<uint16_t> = discretizeGM_SSE2;
+        discretizeGM<float> = discretizeGM_SSE2;
+    }
+#endif
 }
 
 static void VS_CC tcannyInit(VSMap *in, VSMap *out, void **instanceData, VSNode *node, VSCore *core, const VSAPI *vsapi) {
@@ -690,7 +509,7 @@ static void VS_CC tcannyInit(VSMap *in, VSMap *out, void **instanceData, VSNode 
 }
 
 static const VSFrameRef *VS_CC tcannyGetFrame(int n, int activationReason, void **instanceData, void **frameData, VSFrameContext *frameCtx, VSCore *core, const VSAPI *vsapi) {
-    const TCannyData * d = static_cast<const TCannyData *>(*instanceData);
+    TCannyData * d = static_cast<TCannyData *>(*instanceData);
 
     if (activationReason == arInitial) {
         vsapi->requestFrameFilter(n, d->node, frameCtx);
@@ -700,47 +519,74 @@ static const VSFrameRef *VS_CC tcannyGetFrame(int n, int activationReason, void 
 #endif
 
         const VSFrameRef * src = vsapi->getFrameFilter(n, d->node, frameCtx);
-        const VSFrameRef * fr[] = { d->process[0] ? nullptr : src, d->process[1] ? nullptr : src, d->process[2] ? nullptr : src };
-        const int pl[] = { 0, 1, 2 };
+        const VSFrameRef * fr[] { d->process[0] ? nullptr : src, d->process[1] ? nullptr : src, d->process[2] ? nullptr : src };
+        const int pl[] { 0, 1, 2 };
         VSFrameRef * dst = vsapi->newVideoFrame2(d->vi->format, d->vi->width, d->vi->height, fr, pl, src, core);
 
-        float * fa[3];
-        for (int i = 0; i < 3; i++) {
-            fa[i] = vs_aligned_malloc<float>(vsapi->getStride(src, 0) / d->vi->format->bytesPerSample * d->vi->height * sizeof(float), 32);
-            if (!fa[i]) {
-                vsapi->setFilterError("TCanny: malloc failure (fa)", frameCtx);
-                vsapi->freeFrame(src);
-                vsapi->freeFrame(dst);
-                return nullptr;
+        try {
+            auto threadId = std::this_thread::get_id();
+
+            if (!d->buffer.count(threadId)) {
+                float * buffer = vs_aligned_malloc<float>((d->vi->width + d->radiusAlign * 2) * sizeof(float), 32);
+                if (!buffer)
+                    throw std::string { "malloc failure (buffer)" };
+                d->buffer.emplace(threadId, buffer);
             }
+
+            if (!d->blur.count(threadId)) {
+                float * blur = vs_aligned_malloc<float>((vsapi->getStride(src, 0) / d->vi->format->bytesPerSample + 16) * d->vi->height * sizeof(float), 32);
+                if (!blur)
+                    throw std::string { "malloc failure (blur)" };
+                d->blur.emplace(threadId, blur);
+            }
+
+            if (!d->gradient.count(threadId)) {
+                if (d->mode != -1) {
+                    float * gradient = vs_aligned_malloc<float>(vsapi->getStride(src, 0) / d->vi->format->bytesPerSample * (d->vi->height + 1) * sizeof(float), 32);
+                    if (!gradient)
+                        throw std::string { "malloc failure (gradient)" };
+                    d->gradient.emplace(threadId, gradient);
+                } else {
+                    d->gradient.emplace(threadId, nullptr);
+                }
+
+                if (!d->direction.count(threadId)) {
+                    if (d->mode != 1) {
+                        float * direction = vs_aligned_malloc<float>(vsapi->getStride(src, 0) / d->vi->format->bytesPerSample * (d->vi->height + 1) * sizeof(float), 32);
+                        if (!direction)
+                            throw std::string { "malloc failure (direction)" };
+                        d->direction.emplace(threadId, direction);
+                    } else {
+                        d->direction.emplace(threadId, nullptr);
+                    }
+                }
+            }
+
+            if (!d->label.count(threadId)) {
+                if (!(d->mode & 1)) {
+                    uint8_t * label = new (std::nothrow) uint8_t[d->vi->width * d->vi->height];
+                    if (!label)
+                        throw std::string { "malloc failure (label)" };
+                    d->label.emplace(threadId, label);
+                } else {
+                    d->label.emplace(threadId, nullptr);
+                }
+            }
+        } catch (std::string & error) {
+            vsapi->setFilterError(("TCanny: " + error).c_str(), frameCtx);
+            vsapi->freeFrame(src);
+            vsapi->freeFrame(dst);
+            return nullptr;
         }
 
-        Stack stack = {};
-        if (!(d->mode & 1)) {
-            stack.map = vs_aligned_malloc<uint8_t>(d->vi->width * d->vi->height, 32);
-            stack.pos = vs_aligned_malloc<std::pair<int, int>>(d->vi->width * d->vi->height * sizeof(std::pair<int, int>), 32);
-            if (!stack.map || !stack.pos) {
-                vsapi->setFilterError("TCanny: malloc failure (stack)", frameCtx);
-                vsapi->freeFrame(src);
-                vsapi->freeFrame(dst);
-                return nullptr;
-            }
-        }
-
-        if (d->vi->format->sampleType == stInteger) {
-            if (d->vi->format->bitsPerSample == 8)
-                process<uint8_t>(src, dst, fa, stack, d, vsapi);
-            else
-                process<uint16_t>(src, dst, fa, stack, d, vsapi);
-        } else {
-            process<float>(src, dst, fa, stack, d, vsapi);
-        }
+        if (d->vi->format->bytesPerSample == 1)
+            process<uint8_t>(src, dst, d, vsapi);
+        else if (d->vi->format->bytesPerSample == 2)
+            process<uint16_t>(src, dst, d, vsapi);
+        else
+            process<float>(src, dst, d, vsapi);
 
         vsapi->freeFrame(src);
-        for (int i = 0; i < 3; i++)
-            vs_aligned_free(fa[i]);
-        vs_aligned_free(stack.map);
-        vs_aligned_free(stack.pos);
         return dst;
     }
 
@@ -749,139 +595,176 @@ static const VSFrameRef *VS_CC tcannyGetFrame(int n, int activationReason, void 
 
 static void VS_CC tcannyFree(void *instanceData, VSCore *core, const VSAPI *vsapi) {
     TCannyData * d = static_cast<TCannyData *>(instanceData);
+
     vsapi->freeNode(d->node);
-    delete[] d->weights;
+
+    for (int i = 0; i < 3; i++) {
+        delete[] d->weightsHorizontal[i];
+        delete[] d->weightsVertical[i];
+    }
+
+    for (auto & element : d->buffer)
+        vs_aligned_free(element.second);
+
+    for (auto & element : d->blur)
+        vs_aligned_free(element.second);
+
+    for (auto & element : d->gradient)
+        vs_aligned_free(element.second);
+
+    for (auto & element : d->direction)
+        vs_aligned_free(element.second);
+
+    for (auto & element : d->label)
+        delete[] element.second;
+
     delete d;
 }
 
 static void VS_CC tcannyCreate(const VSMap *in, VSMap *out, void *userData, VSCore *core, const VSAPI *vsapi) {
-    TCannyData d;
+    TCannyData d {};
     int err;
-
-    d.sigma = static_cast<float>(vsapi->propGetFloat(in, "sigma", 0, &err));
-    if (err)
-        d.sigma = 1.5f;
-
-    d.t_h = static_cast<float>(vsapi->propGetFloat(in, "t_h", 0, &err));
-    if (err)
-        d.t_h = 8.f;
-
-    d.t_l = static_cast<float>(vsapi->propGetFloat(in, "t_l", 0, &err));
-    if (err)
-        d.t_l = 1.f;
-
-    d.nms = int64ToIntS(vsapi->propGetInt(in, "nms", 0, &err));
-    if (err)
-        d.nms = 3;
-
-    d.mode = int64ToIntS(vsapi->propGetInt(in, "mode", 0, &err));
-
-    d.op = int64ToIntS(vsapi->propGetInt(in, "op", 0, &err));
-    if (err)
-        d.op = 1;
-
-    d.gmmax = static_cast<float>(vsapi->propGetFloat(in, "gmmax", 0, &err));
-    if (err)
-        d.gmmax = 50.f;
-
-    if (d.sigma <= 0.f) {
-        vsapi->setError(out, "TCanny: sigma must be greater than 0.0");
-        return;
-    }
-
-    if (d.nms < 0 || d.nms > 3) {
-        vsapi->setError(out, "TCanny: nms must be 0, 1, 2 or 3");
-        return;
-    }
-
-    if (d.mode < -1 || d.mode > 3) {
-        vsapi->setError(out, "TCanny: mode must be -1, 0, 1, 2 or 3");
-        return;
-    }
-
-    if (d.op < 0 || d.op > 2) {
-        vsapi->setError(out, "TCanny: op must be 0, 1 or 2");
-        return;
-    }
-
-    if (d.gmmax < 1.f) {
-        vsapi->setError(out, "TCanny: gmmax must be greater than or equal to 1.0");
-        return;
-    }
 
     d.node = vsapi->propGetNode(in, "clip", 0, nullptr);
     d.vi = vsapi->getVideoInfo(d.node);
 
-    if (!isConstantFormat(d.vi) || (d.vi->format->sampleType == stInteger && d.vi->format->bitsPerSample > 16) ||
-        (d.vi->format->sampleType == stFloat && d.vi->format->bitsPerSample != 32)) {
-        vsapi->setError(out, "TCanny: only constant format 8-16 bits integer and 32 bits float input supported");
-        vsapi->freeNode(d.node);
-        return;
-    }
+    try {
+        if (!isConstantFormat(d.vi) || (d.vi->format->sampleType == stInteger && d.vi->format->bitsPerSample > 16) ||
+            (d.vi->format->sampleType == stFloat && d.vi->format->bitsPerSample != 32))
+            throw std::string { "only constant format 8-16 bits integer and 32 bits float input supported" };
 
-    const int m = vsapi->propNumElements(in, "planes");
+        if (d.vi->height < 2)
+            throw std::string { "the clip's height must be greater than or equal to 2" };
 
-    for (int i = 0; i < 3; i++)
-        d.process[i] = m <= 0;
+        const int numSigma = vsapi->propNumElements(in, "sigma");
+        if (numSigma > d.vi->format->numPlanes)
+            throw std::string { "more sigma given than the number of planes" };
 
-    for (int i = 0; i < m; i++) {
-        const int n = int64ToIntS(vsapi->propGetInt(in, "planes", i, nullptr));
+        float sigmaHorizontal[3], sigmaVertical[3];
 
-        if (n < 0 || n >= d.vi->format->numPlanes) {
-            vsapi->setError(out, "TCanny: plane index out of range");
-            vsapi->freeNode(d.node);
-            return;
+        for (int i = 0; i < 3; i++) {
+            if (i < numSigma) {
+                sigmaHorizontal[i] = sigmaVertical[i] = static_cast<float>(vsapi->propGetFloat(in, "sigma", i, nullptr));
+            } else if (i == 0) {
+                sigmaHorizontal[0] = sigmaVertical[0] = 1.5f;
+            } else if (i == 1) {
+                sigmaHorizontal[1] = sigmaHorizontal[0] / (1 << d.vi->format->subSamplingW);
+                sigmaVertical[1] = sigmaVertical[0] / (1 << d.vi->format->subSamplingH);
+            } else {
+                sigmaHorizontal[2] = sigmaHorizontal[1];
+                sigmaVertical[2] = sigmaVertical[1];
+            }
         }
 
-        if (d.process[n]) {
-            vsapi->setError(out, "TCanny: plane specified twice");
-            vsapi->freeNode(d.node);
-            return;
+        d.t_h = static_cast<float>(vsapi->propGetFloat(in, "t_h", 0, &err));
+        if (err)
+            d.t_h = 8.f;
+
+        d.t_l = static_cast<float>(vsapi->propGetFloat(in, "t_l", 0, &err));
+        if (err)
+            d.t_l = 1.f;
+
+        d.mode = int64ToIntS(vsapi->propGetInt(in, "mode", 0, &err));
+
+        d.op = int64ToIntS(vsapi->propGetInt(in, "op", 0, &err));
+        if (err)
+            d.op = 1;
+
+        float gmmax = static_cast<float>(vsapi->propGetFloat(in, "gmmax", 0, &err));
+        if (err)
+            gmmax = 50.f;
+
+        const int opt = int64ToIntS(vsapi->propGetInt(in, "opt", 0, &err));
+
+        for (int i = 0; i < 3; i++) {
+            if (sigmaHorizontal[i] <= 0.f)
+                throw std::string { "sigma must be greater than 0.0" };
         }
 
-        d.process[n] = true;
-    }
+        if (d.t_l >= d.t_h)
+            throw std::string { "t_h must be greater than t_l" };
 
-    if (d.vi->format->sampleType == stInteger) {
-        d.t_h = scale(d.t_h, d.vi->format->bitsPerSample);
-        d.t_l = scale(d.t_l, d.vi->format->bitsPerSample);
-        d.bins = 1 << d.vi->format->bitsPerSample;
-        d.peak = d.bins - 1;
+        if (d.mode < -1 || d.mode > 3)
+            throw std::string { "mode must be -1, 0, 1, 2 or 3" };
 
-        if (d.vi->format->bitsPerSample == 8)
-            d.genConvV = genConvV_uint8;
-        else
-            d.genConvV = genConvV_uint16;
-    } else {
-        d.t_h /= 255.f;
-        d.t_l /= 255.f;
-        d.bins = 1;
+        if (d.op < 0 || d.op > 3)
+            throw std::string { "op must be 0, 1, 2 or 3" };
 
-        for (int plane = 0; plane < d.vi->format->numPlanes; plane++) {
-            if (d.process[plane]) {
+        if (gmmax < 1.f)
+            throw std::string { "gmmax must be greater than or equal to 1.0" };
+
+        if (opt < 0 || opt > 4)
+            throw std::string { "opt must be 0, 1, 2, 3 or 4" };
+
+        const int m = vsapi->propNumElements(in, "planes");
+
+        for (int i = 0; i < 3; i++)
+            d.process[i] = m <= 0;
+
+        for (int i = 0; i < m; i++) {
+            const int n = int64ToIntS(vsapi->propGetInt(in, "planes", i, nullptr));
+
+            if (n < 0 || n >= d.vi->format->numPlanes)
+                throw std::string { "plane index out of range" };
+
+            if (d.process[n])
+                throw std::string { "plane specified twice" };
+
+            d.process[n] = true;
+        }
+
+        if (d.vi->format->sampleType == stInteger) {
+            d.bins = 1 << d.vi->format->bitsPerSample;
+            d.peak = d.bins - 1;
+            const float scale = d.peak / 255.f;
+            d.t_h *= scale;
+            d.t_l *= scale;
+        } else {
+            d.t_h /= 255.f;
+            d.t_l /= 255.f;
+            d.bins = 1;
+
+            for (int plane = 0; plane < d.vi->format->numPlanes; plane++) {
                 if (plane == 0 || d.vi->format->colorFamily == cmRGB) {
+                    d.offset[plane] = 0.f;
                     d.lower[plane] = 0.f;
                     d.upper[plane] = 1.f;
                 } else {
+                    d.offset[plane] = 0.5f;
                     d.lower[plane] = -0.5f;
                     d.upper[plane] = 0.5f;
                 }
             }
         }
 
-        d.genConvV = genConvV_float;
-    }
+        for (int plane = 0; plane < d.vi->format->numPlanes; plane++) {
+            if (d.process[plane]) {
+                d.weightsHorizontal[plane] = gaussianWeights(sigmaHorizontal[plane], &d.radiusHorizontal[plane]);
+                d.weightsVertical[plane] = gaussianWeights(sigmaVertical[plane], &d.radiusVertical[plane]);
+                if (!d.weightsHorizontal[plane] || !d.weightsVertical[plane])
+                    throw std::string { "malloc failure (weights)" };
+            }
+        }
 
-    d.weights = gaussianWeights(d.sigma, d.grad);
-    if (!d.weights) {
-        vsapi->setError(out, "TCanny: malloc failure (weights)");
+        d.radiusAlign = (std::max({ d.radiusHorizontal[0], d.radiusHorizontal[1], d.radiusHorizontal[2] }) + 7) & -8;
+
+        d.magnitude = 255.f / gmmax;
+
+        const int numThreads = vsapi->getCoreInfo(core)->numThreads;
+        d.buffer.reserve(numThreads);
+        d.blur.reserve(numThreads);
+        d.gradient.reserve(numThreads);
+        d.direction.reserve(numThreads);
+        d.label.reserve(numThreads);
+
+        selectFunctions(opt);
+    } catch (std::string & error) {
+        vsapi->setError(out, ("TCanny: " + error).c_str());
         vsapi->freeNode(d.node);
         return;
     }
 
-    d.magnitude = 255.f / d.gmmax;
-
-    TCannyData * data = new TCannyData(d);
+    TCannyData * data = new TCannyData { std::move(d) };
 
     vsapi->createFilter(in, out, "TCanny", tcannyInit, tcannyGetFrame, tcannyFree, fmParallel, 0, data, core);
 }
@@ -893,13 +776,13 @@ VS_EXTERNAL_API(void) VapourSynthPluginInit(VSConfigPlugin configFunc, VSRegiste
     configFunc("com.holywu.tcanny", "tcanny", "Build an edge map using canny edge detection", VAPOURSYNTH_API_VERSION, 1, plugin);
     registerFunc("TCanny",
                  "clip:clip;"
-                 "sigma:float:opt;"
+                 "sigma:float[]:opt;"
                  "t_h:float:opt;"
                  "t_l:float:opt;"
-                 "nms:int:opt;"
                  "mode:int:opt;"
                  "op:int:opt;"
                  "gmmax:float:opt;"
+                 "opt:int:opt;"
                  "planes:int[]:opt;",
                  tcannyCreate, nullptr, plugin);
 }
