@@ -8,8 +8,11 @@ by Marc FD and later adopted by tritical.
 According to the original author, this filter is suited for stationary
 rainbows or noisy analog captures.
 
-Due to the way it works, this filter is forced to run in a single
-thread.
+Due to the way it works, Cnr2 is forced to run in a single thread.
+Cnr2 will also bottleneck the entire script, preventing it from using
+all the available CPU cores. One way to work around this issue is
+splitting the video into two or three chunks at scene changes, and
+filtering them in parallel with two or three instances of vspipe.
 
 
 Usage
