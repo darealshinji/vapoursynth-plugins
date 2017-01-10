@@ -84,7 +84,7 @@ sudo apt-get install vapoursynth-extra-plugins
 [temporalsoften2 0.1.1](http://forum.doom9.org/showthread.php?t=166769)<br>
 [tnlmeans git20150225](https://github.com/VFR-maniac/VapourSynth-TNLMeans)<br>
 [vaguedenoiser r2](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-VagueDenoiser)<br>
-[vautodeint git20130608](https://github.com/gnaggnoyil/VAutoDeint)<br>
+[vautodeint 0.0.1](https://github.com/gnaggnoyil/VAutoDeint)<br>
 [videoscope 1.0](https://github.com/dubhater/vapoursynth-videoscope)<br>
 [w3dif r1](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-W3FDIF)<br>
 [waifu2x-opt r1+20160218](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-waifu2x-opt)<br>
