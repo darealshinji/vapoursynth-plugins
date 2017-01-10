@@ -11,6 +11,8 @@ Usage
 
     yadifmod.Yadifmod(clip clip, clip edeint, int order[, int field=-1, int mode=0])
 
+* clip: Clip to process. Any planar format with either integer sample type of 8-16 bit depth or float sample type of 32 bit depth is supported.
+
 * edeint: Clip from which to take spatial predictions. This clip must be the same width, height, and colorspace as the input clip. If using same rate output, this clip should have the same number of frames as the input. If using double rate output, this clip should have twice as many frames as the input.
 
 * order: Sets the field order. The filter will use the field order specified in the source frames and will only fall back to the specified order if not present.
