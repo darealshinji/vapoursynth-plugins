@@ -47,15 +47,19 @@ const VSFrameRef *VS_CC rffGetFrame(int n, int activationReason, void **instance
     const VSFrameRef *st, *sb;
     VSFrameRef *f;
     VSMap *props;
-    string msg;
     int top, bottom;
     int fieldbased;
     int i;
     bool samefields;
 
     /* What frames to use for fields. */
-    top    = d->frames[n].top;
-    bottom = d->frames[n].bottom;
+    const rffField *top_field = &d->fields[n * 2];
+    const rffField *bottom_field = &d->fields[n * 2 + 1];
+    if (top_field->type == Bottom)
+        std::swap(top_field, bottom_field);
+
+    top    = top_field->frame;
+    bottom = bottom_field->frame;
 
     samefields = top == bottom;
 
@@ -107,16 +111,18 @@ const VSFrameRef *VS_CC rffGetFrame(int n, int activationReason, void **instance
         }
     }
 
-    /* Set field order. */
-    props      = vsapi->getFramePropsRW(f);
-    fieldbased = 1;
-    if (samefields) {
-        frame top_f  = d->d2v->frames[top];
-        fieldbased  += !!(d->d2v->gops[top_f.gop].flags[top_f.offset] & FRAME_FLAG_TFF);
-    } else {
-        fieldbased += (top < bottom);
+    if (!samefields) {
+        /* Set field order. */
+        props = vsapi->getFramePropsRW(f);
+
+        // They point to elements of an array, so pointer comparison is fine.
+        if (bottom_field < top_field)
+            fieldbased = 1; // bff
+        else
+            fieldbased = 2; // tff
+
+        vsapi->propSetInt(props, "_FieldBased", fieldbased, paReplace);
     }
-    vsapi->propSetInt(props, "_FieldBased", fieldbased, paReplace);
 
     vsapi->freeFrame(st);
     if (!samefields)
@@ -130,14 +136,13 @@ void VS_CC rffFree(void *instanceData, VSCore *core, const VSAPI *vsapi)
     rffData *d = (rffData *) instanceData;
     vsapi->freeNode(d->node);
     d2vfreep(&d->d2v);
-    d->frames.clear();
+    d->fields.clear();
     delete d;
 }
 
 void VS_CC rffCreate(const VSMap *in, VSMap *out, void *userData, VSCore *core, const VSAPI *vsapi)
 {
     rffData *data;
-    fieldFrame ff = { -1, -1 };
     string msg;
     int i;
 
@@ -165,12 +170,10 @@ void VS_CC rffCreate(const VSMap *in, VSMap *out, void *userData, VSCore *core, 
      * with which frames, and out total number of frames after
      * apply the RFF flags.
      */
-    data->frames.push_back(ff);
     for(i = 0; i < data->vi.numFrames; i++) {
         frame f  = data->d2v->frames[i];
         bool rff = !!(data->d2v->gops[f.gop].flags[f.offset] & FRAME_FLAG_RFF);
         bool tff = !!(data->d2v->gops[f.gop].flags[f.offset] & FRAME_FLAG_TFF);
-        int pos  = data->frames.size() - 1;
 
         int progressive_sequence = !!(data->d2v->gops[f.gop].info & GOP_FLAG_PROGRESSIVE_SEQUENCE);
 
@@ -180,77 +183,30 @@ void VS_CC rffCreate(const VSMap *in, VSMap *out, void *userData, VSCore *core, 
              * coded progressive frame into either two or three
              * identical progressive frames.
              */
-            ff.top = ff.bottom = i;
-
-            if (pos == 0)
-                data->frames[0] = ff;
-            else
-                data->frames.push_back(ff);
+            data->fields.push_back({ i, Progressive });
+            data->fields.push_back({ i, Progressive });
 
             if (rff) {
-                data->frames.push_back(ff);
+                data->fields.push_back({ i, Progressive });
+                data->fields.push_back({ i, Progressive });
 
-                if (tff)
-                    data->frames.push_back(ff);
+                if (tff) {
+                    data->fields.push_back({ i, Progressive });
+                    data->fields.push_back({ i, Progressive });
+                }
             }
         } else {
             /* Sequence is not progressive. Repeat fields. */
 
-            int *pos_first, *pos_second, *ff_first, *ff_second;
-            if (tff) {
-                pos_first = &data->frames[pos].top;
-                pos_second = &data->frames[pos].bottom;
-                ff_first = &ff.top;
-                ff_second = &ff.bottom;
-            } else {
-                pos_first = &data->frames[pos].bottom;
-                pos_second = &data->frames[pos].top;
-                ff_first = &ff.bottom;
-                ff_second = &ff.top;
-            }
+            data->fields.push_back({ i, tff ? Top : Bottom });
+            data->fields.push_back({ i, tff ? Bottom : Top });
 
-            if (rff) {
-                if (*pos_first == -1) {
-                    *pos_first  = i;
-                    *pos_second = i;
-
-                    *ff_first  = i;
-                    *ff_second = -1;
-                } else if (*pos_second == -1) {
-                    *pos_second = i;
-
-                    *ff_first  = i;
-                    *ff_second = i;
-                } else {
-                    *ff_first  = i;
-                    *ff_second = i;
-
-                    data->frames.push_back(ff);
-
-                    *ff_second = -1;
-                }
-            } else {
-                if (*pos_first == -1) {
-                    *pos_first  = i;
-                    *pos_second = i;
-
-                    *ff_first  = -1;
-                    *ff_second = -1;
-                } else if (*pos_second == -1) {
-                    *pos_second = i;
-
-                    *ff_first  = i;
-                    *ff_second = -1;
-                } else {
-                    *ff_first  = i;
-                    *ff_second = i;
-                }
-            }
-            data->frames.push_back(ff);
+            if (rff)
+                data->fields.push_back({ i, tff ? Top : Bottom });
         }
     }
 
-    data->vi.numFrames = (int)data->frames.size() - 1;
+    data->vi.numFrames = (int)data->fields.size() / 2;
 
     vsapi->createFilter(in, out, "applyrff", rffInit, rffGetFrame, rffFree, fmParallel, 0, data, core);
 }

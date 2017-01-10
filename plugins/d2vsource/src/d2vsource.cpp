@@ -99,10 +99,14 @@ const VSFrameRef *VS_CC d2vGetFrame(int n, int activationReason, void **instance
     vsapi->propSetFloat(props, "_AbsoluteTime",
                         (static_cast<double>(d->d2v->fps_den) * n) / static_cast<double>(d->d2v->fps_num), paReplace);
 
+    /*
+     * YUVRGB_Scale describes the output range.
+     * _ColorRange describes the input range.
+     */
     if (d->d2v->yuvrgb_scale == PC)
-        vsapi->propSetInt(props, "_ColorRange", 0, paReplace);
-    else if (d->d2v->yuvrgb_scale == TV)
         vsapi->propSetInt(props, "_ColorRange", 1, paReplace);
+    else if (d->d2v->yuvrgb_scale == TV)
+        vsapi->propSetInt(props, "_ColorRange", 0, paReplace);
 
     switch (d->frame->pict_type) {
     case AV_PICTURE_TYPE_I:
@@ -188,7 +192,6 @@ void VS_CC d2vCreate(const VSMap *in, VSMap *out, void *userData, VSCore *core, 
     data->dec->avctx->opaque         = (void *) data;
     data->dec->avctx->get_buffer2    = VSGetBuffer;
 
-    /* Last frame is crashy right now. */
     data->vi.numFrames = data->d2v->frames.size();
     data->vi.width     = data->d2v->width;
     data->vi.height    = data->d2v->height;
@@ -278,11 +281,6 @@ void VS_CC d2vCreate(const VSMap *in, VSMap *out, void *userData, VSCore *core, 
         if (error) {
             vsapi->setError(out, error);
             vsapi->freeMap(ret);
-            d2vfreep(&data->d2v);
-            decodefreep(&data->dec);
-            av_frame_unref(data->frame);
-            av_freep(&data->frame);
-            free(data);
             return;
         }
 

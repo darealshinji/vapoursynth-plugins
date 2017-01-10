@@ -28,14 +28,20 @@
 
 #include "d2v.hpp"
 
-typedef struct fieldFrame {
-    int top;
-    int bottom;
-} fieldFrame;
+typedef enum rffFieldType {
+    Top,
+    Bottom,
+    Progressive
+} rffFieldType;
+
+typedef struct rffField {
+    int frame; // Source frame for this field.
+    rffFieldType type;
+} rffField;
 
 typedef struct rffData {
     d2vcontext *d2v;
-    vector<fieldFrame> frames;
+    vector<rffField> fields; // Output fields, in the order they are to be displayed.
 
     VSVideoInfo vi;
     VSNodeRef *node;
