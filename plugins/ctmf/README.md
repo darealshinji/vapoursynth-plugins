@@ -10,7 +10,9 @@ Usage
 
     ctmf.CTMF(clip clip[, int radius=2, int memsize=1048576, int[] planes])
 
-- radius: Median filter radius. The kernel will be a 2*radius+1 by 2*radius+1 square. The maximum value is 127.
+* clip: Clip to process. Any planar format with integer sample type of 8-16 bit depth is supported.
+
+- radius: Median filter radius. The kernel will be a 2\*radius+1 by 2\*radius+1 square. The maximum value is 127.
 
 - memsize: Maximum amount of memory to use, in bytes. Set this to the size of the L2 or L3 cache, then vary it slightly and measure the processing time to find the optimal value. For example, a 512 KB L2 cache would have memsize=512*1024 initially.
 
