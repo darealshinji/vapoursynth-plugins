@@ -32,13 +32,13 @@ VSCXXFLAGS = $(commonflags) $(local_CXXFLAGS) $(CXXFLAGS) $(local_CPPFLAGS) $(CP
 VSLDFLAGS = -shared -Wl,-soname,$(LIB) -Wl,-Bsymbolic -Wl,-z,relro -Wl,-z,noexecstack -Wl,--as-needed $(local_LDFLAGS) $(LDFLAGS)
 #VSLDFLAGS += -Wl,-z,defs
 
-CXXSRCS = $(shell find src -name \*.cpp)
+CXXSRCS ?= $(shell find src -name \*.cpp)
 CXXOBJS = $(CXXSRCS:%.cpp=%.o)
 
-CSRCS = $(shell find src -name \*.c)
+CSRCS ?= $(shell find src -name \*.c)
 COBJS = $(CSRCS:%.c=%.o)
 
-ASMSRCS = $(shell find src -name \*.asm)
+ASMSRCS ?= $(shell find src -name \*.asm)
 ASMOBJS = $(ASMSRCS:%.asm=%.o)
 
 
