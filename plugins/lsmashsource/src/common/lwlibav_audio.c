@@ -582,13 +582,14 @@ retry_seek:
         else if( frame_number > adhp->frame_count )
         {
             av_packet_unref( pkt );
-            if( adhp->exh.delay_count )
+            if( adhp->exh.delay_count || !(output_flags & AUDIO_OUTPUT_ENOUGH) )
             {
                 /* Null packet */
                 av_init_packet( pkt );
                 make_null_packet( pkt );
                 *alter_pkt = *pkt;
-                -- adhp->exh.delay_count;
+                if( adhp->exh.delay_count )
+                    adhp->exh.delay_count -= 1;
             }
             else
                 goto audio_out;
@@ -628,7 +629,8 @@ retry_seek:
         }
         if( output_flags & AUDIO_OUTPUT_ENOUGH )
             goto audio_out;
-        ++frame_number;
+        if( output_flags & (AUDIO_DECODER_ERROR | AUDIO_DECODER_RECEIVED_PACKET) )
+            ++frame_number;
     } while( 1 );
 audio_out:
     adhp->next_pcm_sample_number = start + output_length;
