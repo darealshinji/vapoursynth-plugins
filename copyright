@@ -72,7 +72,7 @@ License: GPL-2+
 
 Files: plugins/eedi2/*
 Copyright: 2005-2006 Kevin Eliot Stone <kes25c@mail.missouri.edu>
-           2014-2015 HolyWu
+           2014-2017 HolyWu
 License: GPL-2+
 
 Files: plugins/ffms2/*

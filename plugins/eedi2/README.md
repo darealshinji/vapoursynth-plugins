@@ -11,6 +11,8 @@ Usage
 
     eedi2.EEDI2(clip clip, int field[, int mthresh=10, int lthresh=20, int vthresh=20, int estr=2, int dstr=4, int maxd=24, int map=0, int nt=50, int pp=1])
 
+* clip: Clip to process. Any planar format with integer sample type of 8-16 bit depth is supported.
+
 * field: Controls which field in the resized image the original image will be copied to.
   * 0 = bottom field
   * 1 = top field
