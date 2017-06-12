@@ -155,9 +155,9 @@ Comment:
  The plugin will be linked against static FFmpeg libraries, so the resulting
  binary will be LGPL-2.1.
 
-Files: plugins/nnedi3/src/nnedi3.c
+Files: plugins/nnedi3/src/nnedi3.cpp
 Copyright: 2010-2011 Kevin Eliot Stone <kes25c@mail.missouri.edu>
-           2014 dubhater
+           2014-2017 dubhater
 License: GPL-2+
 
 Files: plugins/reduceflicker/*

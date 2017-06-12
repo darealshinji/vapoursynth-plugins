@@ -1,7 +1,7 @@
 ;*****************************************************************************
 ;* x86inc.asm: x264asm abstraction layer
 ;*****************************************************************************
-;* Copyright (C) 2005-2015 x264 project
+;* Copyright (C) 2005-2014 x264 project
 ;*
 ;* Authors: Loren Merritt <lorenm@u.washington.edu>
 ;*          Anton Mitrofanov <BugMaster@narod.ru>
@@ -64,15 +64,6 @@
     %endif
 %endif
 
-%define FORMAT_ELF 0
-%ifidn __OUTPUT_FORMAT__,elf
-    %define FORMAT_ELF 1
-%elifidn __OUTPUT_FORMAT__,elf32
-    %define FORMAT_ELF 1
-%elifidn __OUTPUT_FORMAT__,elf64
-    %define FORMAT_ELF 1
-%endif
-
 %ifdef PREFIX
     %define mangle(x) _ %+ x
 %else
@@ -81,6 +72,10 @@
 
 %macro SECTION_RODATA 0-1 16
     SECTION .rodata align=%1
+%endmacro
+
+%macro SECTION_TEXT 0-1 16
+    SECTION .text align=%1
 %endmacro
 
 %if WIN64
@@ -93,10 +88,6 @@
 %endif
 %ifdef PIC
     default rel
-%endif
-
-%ifdef __NASM_VER__
-    %use smartalign
 %endif
 
 ; Macros to eliminate most code duplication between x86_32 and x86_64:
@@ -146,7 +137,6 @@
     %define r%1w %2w
     %define r%1b %2b
     %define r%1h %2h
-    %define %2q %2
     %if %0 == 2
         %define r%1m  %2d
         %define r%1mp %2
@@ -685,7 +675,7 @@ BRANCH_INSTR jz, je, jnz, jne, jl, jle, jnl, jnle, jg, jge, jng, jnge, ja, jae, 
         CAT_XDEFINE cglobaled_, %2, 1
     %endif
     %xdefine current_function %2
-    %if FORMAT_ELF
+    %ifidn __OUTPUT_FORMAT__,elf
         global %2:function %%VISIBILITY
     %else
         global %2
@@ -711,16 +701,14 @@ BRANCH_INSTR jz, je, jnz, jne, jl, jle, jnl, jnle, jg, jge, jng, jnge, ja, jae, 
 
 ; like cextern, but without the prefix
 %macro cextern_naked 1
-    %ifdef PREFIX
-        %xdefine %1 mangle(%1)
-    %endif
+    %xdefine %1 mangle(%1)
     CAT_XDEFINE cglobaled_, %1, 1
     extern %1
 %endmacro
 
 %macro const 1-2+
     %xdefine %1 mangle(private_prefix %+ _ %+ %1)
-    %if FORMAT_ELF
+    %ifidn __OUTPUT_FORMAT__,elf
         global %1:data hidden
     %else
         global %1
@@ -728,9 +716,10 @@ BRANCH_INSTR jz, je, jnz, jne, jl, jle, jnl, jnle, jg, jge, jng, jnge, ja, jae, 
     %1: %2
 %endmacro
 
-; This is needed for ELF, otherwise the GNU linker assumes the stack is executable by default.
-%if FORMAT_ELF
-    [SECTION .note.GNU-stack noalloc noexec nowrite progbits]
+; This is needed for ELF, otherwise the GNU linker assumes the stack is
+; executable by default.
+%ifidn __OUTPUT_FORMAT__,elf
+SECTION .note.GNU-stack noalloc noexec nowrite progbits
 %endif
 
 ; cpuflags
@@ -800,17 +789,9 @@ BRANCH_INSTR jz, je, jnz, jne, jl, jle, jnl, jnle, jg, jge, jng, jnge, ja, jae, 
     %endif
 
     %if ARCH_X86_64 || cpuflag(sse2)
-        %ifdef __NASM_VER__
-            ALIGNMODE k8
-        %else
-            CPU amdnop
-        %endif
+        CPU amdnop
     %else
-        %ifdef __NASM_VER__
-            ALIGNMODE nop
-        %else
-            CPU basicnop
-        %endif
+        CPU basicnop
     %endif
 %endmacro
 
@@ -887,7 +868,7 @@ BRANCH_INSTR jz, je, jnz, jne, jl, jle, jnl, jnle, jg, jge, jng, jnge, ja, jae, 
     %assign %%i 0
     %rep num_mmregs
     CAT_XDEFINE m, %%i, ymm %+ %%i
-    CAT_XDEFINE nnymm, %%i, %%i
+    CAT_XDEFINE nymm, %%i, %%i
     %assign %%i %%i+1
     %endrep
     INIT_CPUFLAGS %1
@@ -998,13 +979,13 @@ INIT_XMM
 
 ; Append cpuflags to the callee's name iff the appended name is known and the plain name isn't
 %macro call 1
-    call_internal %1 %+ SUFFIX, %1
+    call_internal %1, %1 %+ SUFFIX
 %endmacro
 %macro call_internal 2
-    %xdefine %%i %2
-    %ifndef cglobaled_%2
-        %ifdef cglobaled_%1
-            %xdefine %%i %1
+    %xdefine %%i %1
+    %ifndef cglobaled_%1
+        %ifdef cglobaled_%2
+            %xdefine %%i %2
         %endif
     %endif
     call %%i
@@ -1089,8 +1070,6 @@ INIT_XMM
         %ifdef cpuname
             %if notcpuflag(%2)
                 %error use of ``%1'' %2 instruction in cpuname function: current_function
-            %elif cpuflags_%2 < cpuflags_sse && notcpuflag(sse2) && __sizeofreg > 8
-                %error use of ``%1'' sse2 instruction in cpuname function: current_function
             %endif
         %endif
     %endif
@@ -1227,7 +1206,7 @@ AVX_INSTR minsd, sse2, 1, 0, 1
 AVX_INSTR minss, sse, 1, 0, 1
 AVX_INSTR movapd, sse2
 AVX_INSTR movaps, sse
-AVX_INSTR movd, mmx
+AVX_INSTR movd
 AVX_INSTR movddup, sse3
 AVX_INSTR movdqa, sse2
 AVX_INSTR movdqu, sse2
@@ -1243,7 +1222,7 @@ AVX_INSTR movntdq, sse2
 AVX_INSTR movntdqa, sse4
 AVX_INSTR movntpd, sse2
 AVX_INSTR movntps, sse
-AVX_INSTR movq, mmx
+AVX_INSTR movq
 AVX_INSTR movsd, sse2, 1, 0, 0
 AVX_INSTR movshdup, sse3
 AVX_INSTR movsldup, sse3
@@ -1489,15 +1468,13 @@ FMA4_INSTR fnmsubps, fnmsub132ps, fnmsub213ps, fnmsub231ps
 FMA4_INSTR fnmsubsd, fnmsub132sd, fnmsub213sd, fnmsub231sd
 FMA4_INSTR fnmsubss, fnmsub132ss, fnmsub213ss, fnmsub231ss
 
-; workaround: vpbroadcastq is broken in x86_32 due to a yasm bug (fixed in 1.3.0)
-%ifdef __YASM_VER__
-    %if __YASM_VERSION_ID__ < 0x01030000 && ARCH_X86_64 == 0
-        %macro vpbroadcastq 2
-            %if sizeof%1 == 16
-                movddup %1, %2
-            %else
-                vbroadcastsd %1, %2
-            %endif
-        %endmacro
-    %endif
+; workaround: vpbroadcastq is broken in x86_32 due to a yasm bug
+%if ARCH_X86_64 == 0
+%macro vpbroadcastq 2
+%if sizeof%1 == 16
+    movddup %1, %2
+%else
+    vbroadcastsd %1, %2
+%endif
+%endmacro
 %endif

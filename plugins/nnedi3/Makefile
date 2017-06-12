@@ -2,7 +2,7 @@ include ../../config.mak
 
 LIBNAME = nnedi3
 LIBADD = -lm
-local_CXXFLAGS = -Wno-unused-variable -DPACKAGE_VERSION='"$(shell cat VERSION)"' -DNNEDI3_X86 -DNNEDI3_DATADIR='"$(datarootdir)/nnedi3"'
+local_CXXFLAGS = -DPACKAGE_VERSION='"$(shell cat VERSION)"' -DNNEDI3_X86 -DNNEDI3_DATADIR='"$(datarootdir)/nnedi3"'
 
 ifeq ($(HAVE_YASM),yes)
 VSASFLAGS = -f elf -Dprivate_prefix=nnedi3
@@ -16,5 +16,11 @@ endif
 	$(asmcompile)
 endif #HAVE_YASM
 
-include ../../cxx.inc
+%_fma3.o: %_fma3.c
+	$(CC_silent)$(CC) $(VSCFLAGS) -mfma -o $@ $^
+
+%_fma4.o: %_fma4.c
+	$(CC_silent)$(CC) $(VSCFLAGS) -mfma4 -o $@ $^
+
+include ../../cxx_cc.inc
 
