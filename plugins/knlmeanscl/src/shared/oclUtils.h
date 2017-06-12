@@ -1,6 +1,6 @@
 /*
 *    This file is part of KNLMeansCL,
-*    Copyright(C) 2015-2016  Edoardo Brunetti.
+*    Copyright(C) 2015-2017  Edoardo Brunetti.
 *
 *    KNLMeansCL is free software: you can redistribute it and/or modify
 *    it under the terms of the GNU General Public License as published by
@@ -32,19 +32,56 @@
 #define OCL_UTILS_OPENCL_1_1                  11
 #define OCL_UTILS_OPENCL_1_2                  12
 
+#define STR(code) case code: return #code
+
 //////////////////////////////////////////
 // Common
 inline size_t mrounds(const size_t number, const size_t multiple) {
     return ((number + multiple - 1) / multiple) * multiple;
 }
 
-template<class T> const T& min(const T& a, const T& b) {
+template<class T> inline const T& min(const T& a, const T& b) {
     return (b < a) ? b : a;
 }
 
 //////////////////////////////////////////
+// Kernel specific
+inline const char* oclUtilsNlmClipTypeToString(cl_uint clip) {
+    if (clip & NLM_CLIP_TYPE_UNORM)
+        return "NLM_CLIP_TYPE_UNORM";
+    else if (clip & NLM_CLIP_TYPE_UNSIGNED)
+        return "NLM_CLIP_TYPE_UNSIGNED";
+    else if (clip & NLM_CLIP_TYPE_STACKED)
+        return "NLM_CLIP_TYPE_STACKED";
+    else
+        return "OCL_UTILS_CLIP_TYPE_ERROR";
+}
+
+inline const char* oclUtilsNlmClipRefToString(cl_uint clip) {
+    if (clip & NLM_CLIP_REF_LUMA)
+        return "NLM_CLIP_REF_LUMA";
+    else if (clip & NLM_CLIP_REF_CHROMA)
+        return "NLM_CLIP_REF_CHROMA";
+    else if (clip & NLM_CLIP_REF_YUV)
+        return "NLM_CLIP_REF_YUV";
+    else if (clip & NLM_CLIP_REF_RGB)
+        return "NLM_CLIP_REF_RGB";
+    else
+        return "OCL_UTILS_CLIP_REF_ERROR";
+}
+
+inline const char* oclUtilsNlmWmodeToString(cl_int wmode) {
+    switch (wmode) {
+        STR(NLM_WMODE_WELSCH);
+        STR(NLM_WMODE_BISQUARE_A);
+        STR(NLM_WMODE_BISQUARE_B);
+        STR(NLM_WMODE_BISQUARE_C);
+        default: return "OCL_UTILS_WMODE_ERROR";
+    }
+}
+
+//////////////////////////////////////////
 // Functions
-#define STR(code) case code: return #code
 const char* oclUtilsErrorToString(cl_int err) {
     switch (err) {
         STR(OCL_UTILS_INVALID_VALUE);
@@ -259,7 +296,7 @@ cl_int oclUtilsGetPlaformDeviceIDs(cl_uint device_type, cl_uint shf_device, cl_p
     }
 }
 
-void oclUtilsDebugInfo(cl_platform_id platform, cl_device_id device, cl_program program) {
+void oclUtilsDebugInfo(cl_platform_id platform, cl_device_id device, cl_program program, cl_int errcode) {
     cl_int ret = CL_SUCCESS;
     std::ofstream outfile("Log-KNLMeansCL.txt", std::ofstream::out);
 
@@ -346,6 +383,7 @@ void oclUtilsDebugInfo(cl_platform_id platform, cl_device_id device, cl_program 
         str_options.replace(pos, search.length(), format);
         pos += format.length();
     }
+    outfile << " CL_PROGRAM_BUILD_ERROR:            " << oclUtilsErrorToString(errcode) << std::endl;
     outfile << " CL_PROGRAM_BUILD_OPTIONS:          " << str_options.c_str() << std::endl;
     outfile << " CL_PROGRAM_BUILD_LOG:              " << std::endl << bld_log_txt << std::endl << std::endl;
     free(bld_options_txt);

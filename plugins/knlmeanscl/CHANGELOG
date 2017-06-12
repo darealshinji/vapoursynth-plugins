@@ -1,3 +1,30 @@
+v1.1.0
+   - Added AviSynth MT support (MT_MULTI_INSTANCE).
+   - Added AviSynth+'s high bit depth support.
+   - Replaced 'lsb_inout' with 'stacked'.
+   - Info now display 'Bits per sample'.
+
+v1.0.2
+   - Tuned 'h' strength for backward compatibility.
+   - Fixed VapourSynth OSX version.
+
+v1.0.1
+   - Fixed wrong output with 'wmode' different to 0 some circumstances.
+   - Fixed second clip 'rclip' in VapourSynth.
+
+v1.0.0
+   - Improved performance with CPU.
+   - Improved performance with AMD GCN Architecture.
+   - Reduced CPU overhead in some system.
+   - Reduced memory usage in some system.
+   - Advanced OpenCL parameters for fine tuning.
+   - Replaced 'cmode' with 'channels' and added the options to only process the chroma.
+   - Two new modified bisquare weighting functions.
+   - Increased the maximum 's' value to 8.
+   - Updated to VapourSynth R36.
+   - Removed Cauchy weighting function.
+   - Fixed second clip 'rclip' in some circumstances.
+
 v0.7.7
    - Improved debugging information.
    - Improved the overall stability.
