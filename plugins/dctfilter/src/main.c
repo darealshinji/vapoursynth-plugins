@@ -80,11 +80,11 @@ static void VS_CC PluginCreate(const VSMap * a_pInMap, VSMap * a_pOutMap,
 	}
 
 	double factors[8] = {0.0};
-	ptrdiff_t i;
+	int i;
 	int error = 0;
 	for(i = 0; i < 8; ++i)
 	{
-		factors[i] = a_cpVSAPI->propGetFloat(a_pInMap, "factors", (int)i, &error);
+		factors[i] = a_cpVSAPI->propGetFloat(a_pInMap, "factors", i, &error);
 		if(error)
 		{
 			char errorString[51] = {0};
