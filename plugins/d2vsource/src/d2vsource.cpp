@@ -236,6 +236,16 @@ void VS_CC d2vCreate(const VSMap *in, VSMap *out, void *userData, VSCore *core, 
         return;
     }
 
+    if (!data->format_set) {
+        vsapi->setError(out, "Source: video has unsupported pixel format.");
+        d2vfreep(&data->d2v);
+        decodefreep(&data->dec);
+        av_frame_unref(data->frame);
+        av_freep(&data->frame);
+        free(data);
+        return;
+    }
+
     /* See if nocrop is enabled, and set the width/height accordingly. */
     no_crop = !!vsapi->propGetInt(in, "nocrop", 0, &err);
     if (err)
