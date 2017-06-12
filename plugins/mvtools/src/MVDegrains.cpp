@@ -38,10 +38,10 @@ struct MVDegrainData {
     VSNodeRef *super;
     VSNodeRef *vectors[6];
 
-    int thSAD[3];
+    int64_t thSAD[3];
     int YUVplanes;
     int nLimit[3];
-    int nSCD1;
+    int64_t nSCD1;
     int nSCD2;
     int opt;
 
@@ -163,7 +163,7 @@ static const VSFrameRef *VS_CC mvdegrainGetFrame(int n, int activationReason, vo
             const VSFrameRef *frame = vsapi->getFrameFilter(n, d->vectors[r], frameCtx);
             fgopInit(&fgops[r], &d->vectors_data[r]);
             const VSMap *mvprops = vsapi->getFramePropsRO(frame);
-            fgopUpdate(&fgops[r], (const int *)vsapi->propGetData(mvprops, prop_MVTools_vectors, 0, NULL));
+            fgopUpdate(&fgops[r], (const uint8_t *)vsapi->propGetData(mvprops, prop_MVTools_vectors, 0, NULL));
             isUsable[r] = fgopIsUsable(&fgops[r], d->nSCD1, d->nSCD2);
             vsapi->freeFrame(frame);
 
@@ -203,7 +203,7 @@ static const VSFrameRef *VS_CC mvdegrainGetFrame(int n, int activationReason, vo
         const int *nBlkSizeY = d->nBlkSizeY;
         const int *nWidth_B = d->nWidth_B;
         const int *nHeight_B = d->nHeight_B;
-        const int *thSAD = d->thSAD;
+        const int64_t *thSAD = d->thSAD;
         const int *nLimit = d->nLimit;
 
 
@@ -529,7 +529,7 @@ static void selectFunctions(MVDegrainData *d) {
 
         if (d->opt) {
 #if defined(MVTOOLS_X86)
-            d->LimitChanges = mvtools_LimitChanges_sse2;
+            d->LimitChanges = LimitChanges_sse2;
 #endif
         }
     } else {
@@ -558,11 +558,11 @@ static void VS_CC mvdegrainCreate(const VSMap *in, VSMap *out, void *userData, V
 
     int err;
 
-    d.thSAD[0] = int64ToIntS(vsapi->propGetInt(in, "thsad", 0, &err));
+    d.thSAD[0] = vsapi->propGetInt(in, "thsad", 0, &err);
     if (err)
         d.thSAD[0] = 400;
 
-    d.thSAD[1] = d.thSAD[2] = int64ToIntS(vsapi->propGetInt(in, "thsadc", 0, &err));
+    d.thSAD[1] = d.thSAD[2] = vsapi->propGetInt(in, "thsadc", 0, &err);
     if (err)
         d.thSAD[1] = d.thSAD[2] = d.thSAD[0];
 
@@ -570,7 +570,7 @@ static void VS_CC mvdegrainCreate(const VSMap *in, VSMap *out, void *userData, V
     if (err)
         plane = 4;
 
-    d.nSCD1 = int64ToIntS(vsapi->propGetInt(in, "thscd1", 0, &err));
+    d.nSCD1 = vsapi->propGetInt(in, "thscd1", 0, &err);
     if (err)
         d.nSCD1 = MV_DEFAULT_SCD1;
 
@@ -631,7 +631,7 @@ static void VS_CC mvdegrainCreate(const VSMap *in, VSMap *out, void *userData, V
         adataFromVectorClip(&d.vectors_data[r], d.vectors[r], filter.c_str(), vector_names[r], vsapi, error, ERROR_SIZE);
     }
 
-    int nSCD1_old = d.nSCD1;
+    int64_t nSCD1_old = d.nSCD1;
     scaleThSCD(&d.nSCD1, &d.nSCD2, &d.vectors_data[0], filter.c_str(), error, ERROR_SIZE);
 
     for (int r = 1; r < radius * 2; r++)
@@ -696,8 +696,22 @@ static void VS_CC mvdegrainCreate(const VSMap *in, VSMap *out, void *userData, V
     }
 
 
-    d.thSAD[0] = (int64_t)d.thSAD[0] * d.nSCD1 / nSCD1_old;              // normalize to block SAD
-    d.thSAD[1] = d.thSAD[2] = (int64_t)d.thSAD[1] * d.nSCD1 / nSCD1_old; // chroma threshold, normalized to block SAD
+    d.thSAD[0] = d.thSAD[0] * d.nSCD1 / nSCD1_old;              // normalize to block SAD
+    d.thSAD[1] = d.thSAD[2] = d.thSAD[1] * d.nSCD1 / nSCD1_old; // chroma threshold, normalized to block SAD
+
+    if (d.thSAD[0] >= INT_MAX || d.thSAD[1] >= INT_MAX) {
+        int64_t maximum = INT_MAX * nSCD1_old / d.nSCD1;
+
+        bool c = d.thSAD[0] < INT_MAX;
+
+        vsapi->setError(out, (filter + ": with this block size and video format, thsad" + (c ? "c" : "") + " must not exceed " + std::to_string(maximum) + " or some calculations would overflow.").c_str());
+        vsapi->freeNode(d.super);
+
+        for (int r = 0; r < radius * 2; r++)
+            vsapi->freeNode(d.vectors[r]);
+
+        return;
+    }
 
 
     d.node = vsapi->propGetNode(in, "clip", 0, 0);

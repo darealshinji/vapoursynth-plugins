@@ -56,7 +56,7 @@ typedef struct MVRecalculateData {
     int chroma;
     int truemotion;
     int smooth;
-    int thSAD;
+    int64_t thSAD;
     VSNodeRef *vectors;
 
     int fields;
@@ -152,11 +152,11 @@ static const VSFrameRef *VS_CC mvrecalculateGetFrame(int n, int activationReason
         const VSFrameRef *mvn = vsapi->getFrameFilter(n, d->vectors, frameCtx);
         const VSMap *mvprops = vsapi->getFramePropsRO(mvn);
 
-        fgopUpdate(&fgop, (const int *)vsapi->propGetData(mvprops, prop_MVTools_vectors, 0, NULL));
+        fgopUpdate(&fgop, (const uint8_t *)vsapi->propGetData(mvprops, prop_MVTools_vectors, 0, NULL));
         vsapi->freeFrame(mvn);
 
-        int vectors_size = gopGetArraySize(&vectorFields) * sizeof(int);
-        int *vectors = (int *)malloc(vectors_size);
+        MVArraySizeType vectors_size = gopGetArraySize(&vectorFields);
+        uint8_t *vectors = (uint8_t *)malloc(vectors_size);
 
         if (fgopIsValid(&fgop) && nref >= 0 && nref < d->vi->numFrames) {
             const VSFrameRef *ref = vsapi->getFrameFilter(nref, d->node, frameCtx);
@@ -279,7 +279,7 @@ static void VS_CC mvrecalculateCreate(const VSMap *in, VSMap *out, void *userDat
 
     int err;
 
-    d.thSAD = int64ToIntS(vsapi->propGetInt(in, "thsad", 0, &err));
+    d.thSAD = vsapi->propGetInt(in, "thsad", 0, &err);
     if (err)
         d.thSAD = 200;
 
@@ -494,7 +494,7 @@ static void VS_CC mvrecalculateCreate(const VSMap *in, VSMap *out, void *userDat
     d.analysisData.bitsPerSample = d.vi->format->bitsPerSample;
 
     int pixelMax = (1 << d.vi->format->bitsPerSample) - 1;
-    d.thSAD = (int)((double)d.thSAD * pixelMax / 255.0 + 0.5);
+    d.thSAD = (int64_t)((double)d.thSAD * pixelMax / 255.0 + 0.5);
     d.nLambda = (int)((double)d.nLambda * pixelMax / 255.0 + 0.5);
 
     // normalize threshold to block size

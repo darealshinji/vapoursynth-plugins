@@ -3,7 +3,7 @@ include ../../config.mak
 ifeq ($(HAVE_YASM),yes)
 ifeq ($(HAVE_FFTW3F),yes)
 
-mvtools_VER = 17
+mvtools_VER = 19
 
 LIBNAME = mvtools
 LIBADD = -lfftw3f

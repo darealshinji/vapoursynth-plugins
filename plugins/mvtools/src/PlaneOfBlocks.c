@@ -88,33 +88,33 @@ static inline int pobMotionDistorsion(PlaneOfBlocks *pob, int vx, int vy) {
 }
 
 
-static int pobLumaSAD(PlaneOfBlocks *pob, const uint8_t *pRef0) {
-    int sad = 0;
+static int64_t pobLumaSAD(PlaneOfBlocks *pob, const uint8_t *pRef0) {
+    int64_t sad = 0;
 
     if (pob->dctmode == 0) {
         sad = pob->SAD(pob->pSrc[0], pob->nSrcPitch[0], pRef0, pob->nRefPitch[0]);
     } else if (pob->dctmode == 1) { // dct SAD
         dctBytes2D(pob->DCT, pRef0, pob->nRefPitch[0], pob->dctRef, pob->dctpitch);
         if (pob->bytesPerSample == 1)
-            sad = (pob->SAD(pob->dctSrc, pob->dctpitch, pob->dctRef, pob->dctpitch) + abs(pob->dctSrc[0] - pob->dctRef[0]) * 3) * pob->nBlkSizeX / 2; //correct reduced DC component
+            sad = (pob->SAD(pob->dctSrc, pob->dctpitch, pob->dctRef, pob->dctpitch) + abs(pob->dctSrc[0] - pob->dctRef[0]) * 3) * (int64_t)pob->nBlkSizeX / 2; //correct reduced DC component
         else {
             uint16_t *dctSrc16 = (uint16_t *)pob->dctSrc;
             uint16_t *dctRef16 = (uint16_t *)pob->dctRef;
 
-            sad = (pob->SAD(pob->dctSrc, pob->dctpitch, pob->dctRef, pob->dctpitch) + abs(dctSrc16[0] - dctRef16[0]) * 3) * pob->nBlkSizeX / 2; //correct reduced DC component
+            sad = (pob->SAD(pob->dctSrc, pob->dctpitch, pob->dctRef, pob->dctpitch) + abs(dctSrc16[0] - dctRef16[0]) * 3) * (int64_t)pob->nBlkSizeX / 2; //correct reduced DC component
         }
     } else if (pob->dctmode == 2) { //  globally (lumaChange) weighted spatial and DCT
         sad = pob->SAD(pob->pSrc[0], pob->nSrcPitch[0], pRef0, pob->nRefPitch[0]);
         if (pob->dctweight16 > 0) {
             dctBytes2D(pob->DCT, pRef0, pob->nRefPitch[0], pob->dctRef, pob->dctpitch);
-            int dctsad;
+            int64_t dctsad;
             if (pob->bytesPerSample == 1)
-                dctsad = (pob->SAD(pob->dctSrc, pob->dctpitch, pob->dctRef, pob->dctpitch) + abs(pob->dctSrc[0] - pob->dctRef[0]) * 3) * pob->nBlkSizeX / 2;
+                dctsad = (pob->SAD(pob->dctSrc, pob->dctpitch, pob->dctRef, pob->dctpitch) + abs(pob->dctSrc[0] - pob->dctRef[0]) * 3) * (int64_t)pob->nBlkSizeX / 2;
             else {
                 uint16_t *dctSrc16 = (uint16_t *)pob->dctSrc;
                 uint16_t *dctRef16 = (uint16_t *)pob->dctRef;
 
-                dctsad = (pob->SAD(pob->dctSrc, pob->dctpitch, pob->dctRef, pob->dctpitch) + abs(dctSrc16[0] - dctRef16[0]) * 3) * pob->nBlkSizeX / 2;
+                dctsad = (pob->SAD(pob->dctSrc, pob->dctpitch, pob->dctRef, pob->dctpitch) + abs(dctSrc16[0] - dctRef16[0]) * 3) * (int64_t)pob->nBlkSizeX / 2;
             }
             sad = (sad * (16 - pob->dctweight16) + dctsad * pob->dctweight16) / 16;
         }
@@ -123,7 +123,7 @@ static int pobLumaSAD(PlaneOfBlocks *pob, const uint8_t *pRef0) {
         sad = pob->SAD(pob->pSrc[0], pob->nSrcPitch[0], pRef0, pob->nRefPitch[0]);
         if (abs(pob->srcLuma - pob->refLuma) > (pob->srcLuma + pob->refLuma) >> 5) {
             dctBytes2D(pob->DCT, pRef0, pob->nRefPitch[0], pob->dctRef, pob->dctpitch);
-            int dctsad = pob->SAD(pob->dctSrc, pob->dctpitch, pob->dctRef, pob->dctpitch) * pob->nBlkSizeX / 2;
+            int64_t dctsad = pob->SAD(pob->dctSrc, pob->dctpitch, pob->dctRef, pob->dctpitch) * (int64_t)pob->nBlkSizeX / 2;
             sad = sad / 2 + dctsad / 2;
         }
     } else if (pob->dctmode == 4) { //  per block adaptive switched from spatial to mixed SAD with more weight of DCT (best?)
@@ -131,7 +131,7 @@ static int pobLumaSAD(PlaneOfBlocks *pob, const uint8_t *pRef0) {
         sad = pob->SAD(pob->pSrc[0], pob->nSrcPitch[0], pRef0, pob->nRefPitch[0]);
         if (abs(pob->srcLuma - pob->refLuma) > (pob->srcLuma + pob->refLuma) >> 5) {
             dctBytes2D(pob->DCT, pRef0, pob->nRefPitch[0], pob->dctRef, pob->dctpitch);
-            int dctsad = pob->SAD(pob->dctSrc, pob->dctpitch, pob->dctRef, pob->dctpitch) * pob->nBlkSizeX / 2;
+            int64_t dctsad = pob->SAD(pob->dctSrc, pob->dctpitch, pob->dctRef, pob->dctpitch) * (int64_t)pob->nBlkSizeX / 2;
             sad = sad / 4 + dctsad / 2 + dctsad / 4;
         }
     } else if (pob->dctmode == 5) { // dct SAD (SATD)
@@ -139,35 +139,35 @@ static int pobLumaSAD(PlaneOfBlocks *pob, const uint8_t *pRef0) {
     } else if (pob->dctmode == 6) { //  globally (lumaChange) weighted spatial and DCT (better estimate)
         sad = pob->SAD(pob->pSrc[0], pob->nSrcPitch[0], pRef0, pob->nRefPitch[0]);
         if (pob->dctweight16 > 0) {
-            int dctsad = pob->SATD(pob->pSrc[0], pob->nSrcPitch[0], pRef0, pob->nRefPitch[0]);
+            int64_t dctsad = pob->SATD(pob->pSrc[0], pob->nSrcPitch[0], pRef0, pob->nRefPitch[0]);
             sad = (sad * (16 - pob->dctweight16) + dctsad * pob->dctweight16) / 16;
         }
     } else if (pob->dctmode == 7) { // per block adaptive switched from spatial to equal mixed SAD (faster?)
         pob->refLuma = pob->LUMA(pRef0, pob->nRefPitch[0]);
         sad = pob->SAD(pob->pSrc[0], pob->nSrcPitch[0], pRef0, pob->nRefPitch[0]);
         if (abs(pob->srcLuma - pob->refLuma) > (pob->srcLuma + pob->refLuma) >> 5) {
-            int dctsad = pob->SATD(pob->pSrc[0], pob->nSrcPitch[0], pRef0, pob->nRefPitch[0]);
+            int64_t dctsad = pob->SATD(pob->pSrc[0], pob->nSrcPitch[0], pRef0, pob->nRefPitch[0]);
             sad = sad / 2 + dctsad / 2;
         }
     } else if (pob->dctmode == 8) { //  per block adaptive switched from spatial to mixed SAD with more weight of DCT (faster?)
         pob->refLuma = pob->LUMA(pRef0, pob->nRefPitch[0]);
         sad = pob->SAD(pob->pSrc[0], pob->nSrcPitch[0], pRef0, pob->nRefPitch[0]);
         if (abs(pob->srcLuma - pob->refLuma) > (pob->srcLuma + pob->refLuma) >> 5) {
-            int dctsad = pob->SATD(pob->pSrc[0], pob->nSrcPitch[0], pRef0, pob->nRefPitch[0]);
+            int64_t dctsad = pob->SATD(pob->pSrc[0], pob->nSrcPitch[0], pRef0, pob->nRefPitch[0]);
             sad = sad / 4 + dctsad / 2 + dctsad / 4;
         }
     } else if (pob->dctmode == 9) { //  globally (lumaChange) weighted spatial and DCT (better estimate, only half weight on SATD)
         sad = pob->SAD(pob->pSrc[0], pob->nSrcPitch[0], pRef0, pob->nRefPitch[0]);
         if (pob->dctweight16 > 1) {
             int dctweighthalf = pob->dctweight16 / 2;
-            int dctsad = pob->SATD(pob->pSrc[0], pob->nSrcPitch[0], pRef0, pob->nRefPitch[0]);
+            int64_t dctsad = pob->SATD(pob->pSrc[0], pob->nSrcPitch[0], pRef0, pob->nRefPitch[0]);
             sad = (sad * (16 - dctweighthalf) + dctsad * dctweighthalf) / 16;
         }
     } else if (pob->dctmode == 10) { // per block adaptive switched from spatial to mixed SAD, weighted to SAD (faster)
         pob->refLuma = pob->LUMA(pRef0, pob->nRefPitch[0]);
         sad = pob->SAD(pob->pSrc[0], pob->nSrcPitch[0], pRef0, pob->nRefPitch[0]);
         if (abs(pob->srcLuma - pob->refLuma) > (pob->srcLuma + pob->refLuma) >> 4) {
-            int dctsad = pob->SATD(pob->pSrc[0], pob->nSrcPitch[0], pRef0, pob->nRefPitch[0]);
+            int64_t dctsad = pob->SATD(pob->pSrc[0], pob->nSrcPitch[0], pRef0, pob->nRefPitch[0]);
             sad = sad / 2 + dctsad / 4 + sad / 4;
         }
     }
@@ -194,16 +194,16 @@ static inline void pobCheckMV0(PlaneOfBlocks *pob, int vx, int vy) { //here the 
             ((vx != globalMVPredictor.x) || (vy != globalMVPredictor.y)) &&
         #endif
             pobIsVectorOK(pob, vx, vy)) {
-        int cost = pobMotionDistorsion(pob, vx, vy);
+        int64_t cost = pobMotionDistorsion(pob, vx, vy);
         if (cost >= pob->nMinCost)
             return;
 
-        int sad = pobLumaSAD(pob, pobGetRefBlock(pob, vx, vy));
+        int64_t sad = pobLumaSAD(pob, pobGetRefBlock(pob, vx, vy));
         cost += sad;
         if (cost >= pob->nMinCost)
             return;
 
-        int saduv = 0;
+        int64_t saduv = 0;
         if (pob->chroma) {
             saduv += pob->SADCHROMA(pob->pSrc[1], pob->nSrcPitch[1], pobGetRefBlockU(pob, vx, vy), pob->nRefPitch[1]);
             saduv += pob->SADCHROMA(pob->pSrc[2], pob->nSrcPitch[2], pobGetRefBlockV(pob, vx, vy), pob->nRefPitch[2]);
@@ -230,21 +230,21 @@ static inline void pobCheckMV(PlaneOfBlocks *pob, int vx, int vy) { //here the c
             ((vx != globalMVPredictor.x) || (vy != globalMVPredictor.y)) &&
         #endif
             pobIsVectorOK(pob, vx, vy)) {
-        int cost = pobMotionDistorsion(pob, vx, vy);
+        int64_t cost = pobMotionDistorsion(pob, vx, vy);
         if (cost >= pob->nMinCost)
             return;
 
-        int sad = pobLumaSAD(pob, pobGetRefBlock(pob, vx, vy));
-        cost += sad + (int)(((int64_t)pob->penaltyNew * sad) >> 8);
+        int64_t sad = pobLumaSAD(pob, pobGetRefBlock(pob, vx, vy));
+        cost += sad + ((pob->penaltyNew * sad) >> 8);
         if (cost >= pob->nMinCost)
             return;
 
-        int saduv = 0;
+        int64_t saduv = 0;
         if (pob->chroma) {
             saduv += pob->SADCHROMA(pob->pSrc[1], pob->nSrcPitch[1], pobGetRefBlockU(pob, vx, vy), pob->nRefPitch[1]);
             saduv += pob->SADCHROMA(pob->pSrc[2], pob->nSrcPitch[2], pobGetRefBlockV(pob, vx, vy), pob->nRefPitch[2]);
 
-            cost += saduv + (int)(((int64_t)pob->penaltyNew * saduv) >> 8);
+            cost += saduv + ((pob->penaltyNew * saduv) >> 8);
             if (cost >= pob->nMinCost)
                 return;
         }
@@ -266,21 +266,21 @@ static inline void pobCheckMV2(PlaneOfBlocks *pob, int vx, int vy, int *dir, int
             ((vx != globalMVPredictor.x) || (vy != globalMVPredictor.y)) &&
         #endif
             pobIsVectorOK(pob, vx, vy)) {
-        int cost = pobMotionDistorsion(pob, vx, vy);
+        int64_t cost = pobMotionDistorsion(pob, vx, vy);
         if (cost >= pob->nMinCost)
             return;
 
-        int sad = pobLumaSAD(pob, pobGetRefBlock(pob, vx, vy));
-        cost += sad + (int)(((int64_t)pob->penaltyNew * sad) >> 8);
+        int64_t sad = pobLumaSAD(pob, pobGetRefBlock(pob, vx, vy));
+        cost += sad + ((pob->penaltyNew * sad) >> 8);
         if (cost >= pob->nMinCost)
             return;
 
-        int saduv = 0;
+        int64_t saduv = 0;
         if (pob->chroma) {
             saduv += pob->SADCHROMA(pob->pSrc[1], pob->nSrcPitch[1], pobGetRefBlockU(pob, vx, vy), pob->nRefPitch[1]);
             saduv += pob->SADCHROMA(pob->pSrc[2], pob->nSrcPitch[2], pobGetRefBlockV(pob, vx, vy), pob->nRefPitch[2]);
 
-            cost += saduv + (int)(((int64_t)pob->penaltyNew * saduv) >> 8);
+            cost += saduv + ((pob->penaltyNew * saduv) >> 8);
             if (cost >= pob->nMinCost)
                 return;
         }
@@ -303,21 +303,21 @@ static inline void pobCheckMVdir(PlaneOfBlocks *pob, int vx, int vy, int *dir, i
             ((vx != globalMVPredictor.x) || (vy != globalMVPredictor.y)) &&
         #endif
             pobIsVectorOK(pob, vx, vy)) {
-        int cost = pobMotionDistorsion(pob, vx, vy);
+        int64_t cost = pobMotionDistorsion(pob, vx, vy);
         if (cost >= pob->nMinCost)
             return;
 
-        int sad = pobLumaSAD(pob, pobGetRefBlock(pob, vx, vy));
-        cost += sad + (int)(((int64_t)pob->penaltyNew * sad) >> 8);
+        int64_t sad = pobLumaSAD(pob, pobGetRefBlock(pob, vx, vy));
+        cost += sad + ((pob->penaltyNew * sad) >> 8);
         if (cost >= pob->nMinCost)
             return;
 
-        int saduv = 0;
+        int64_t saduv = 0;
         if (pob->chroma) {
             saduv += pob->SADCHROMA(pob->pSrc[1], pob->nSrcPitch[1], pobGetRefBlockU(pob, vx, vy), pob->nRefPitch[1]);
             saduv += pob->SADCHROMA(pob->pSrc[2], pob->nSrcPitch[2], pobGetRefBlockV(pob, vx, vy), pob->nRefPitch[2]);
 
-            cost += saduv + (int)(((int64_t)pob->penaltyNew * saduv) >> 8);
+            cost += saduv + ((pob->penaltyNew * saduv) >> 8);
             if (cost >= pob->nMinCost)
                 return;
         }
@@ -411,9 +411,7 @@ void pobInit(PlaneOfBlocks *pob, int _nBlkX, int _nBlkY, int _nBlkSizeX, int _nB
     int opt = !!(nMotionFlags & MOTION_USE_SIMD);
     pob->chroma = !!(nMotionFlags & MOTION_USE_CHROMA_MOTION);
 
-    pob->globalMVPredictor.x = zeroMV.x;
-    pob->globalMVPredictor.y = zeroMV.y;
-    pob->globalMVPredictor.sad = zeroMV.sad;
+    pob->globalMVPredictor = zeroMV;
 
     /* arrays memory allocation */
 
@@ -476,12 +474,13 @@ void pobDeinit(PlaneOfBlocks *pob) {
 }
 
 
-void pobWriteHeaderToArray(PlaneOfBlocks *pob, int *array) {
-    array[0] = pob->nBlkCount * N_PER_BLOCK + 1;
+static void pobWriteHeaderToArray(PlaneOfBlocks *pob, uint8_t *array) {
+    MVArraySizeType size = sizeof(size) + pob->nBlkCount * sizeof(VECTOR);
+    memcpy(array, &size, sizeof(size));
 }
 
 
-void pobFetchPredictors(PlaneOfBlocks *pob) {
+static void pobFetchPredictors(PlaneOfBlocks *pob) {
     // Left (or right) predictor
     if ((pob->blkScanDir == 1 && pob->blkx > 0) || (pob->blkScanDir == -1 && pob->blkx < pob->nBlkX - 1))
         pob->predictors[1] = pobClipMV(pob, pob->vectors[pob->blkIdx - pob->blkScanDir]);
@@ -517,9 +516,7 @@ void pobFetchPredictors(PlaneOfBlocks *pob) {
         //		predictors[0].y = (predictors[1].y + predictors[2].y + predictors[3].y);
         //      predictors[0].sad = (predictors[1].sad + predictors[2].sad + predictors[3].sad);
         // but for top line we have only left predictor[1] - v1.6.0
-        pob->predictors[0].x = pob->predictors[1].x;
-        pob->predictors[0].y = pob->predictors[1].y;
-        pob->predictors[0].sad = pob->predictors[1].sad;
+        pob->predictors[0] = pob->predictors[1];
     }
 
     // if there are no other planes, predictor is the median
@@ -529,7 +526,7 @@ void pobFetchPredictors(PlaneOfBlocks *pob) {
 }
 
 
-void pobNStepSearch(PlaneOfBlocks *pob, int stp) {
+static void pobNStepSearch(PlaneOfBlocks *pob, int stp) {
     int dx, dy;
     int length = stp;
     while (length > 0) {
@@ -550,7 +547,7 @@ void pobNStepSearch(PlaneOfBlocks *pob, int stp) {
 }
 
 
-void pobOneTimeSearch(PlaneOfBlocks *pob, int length) {
+static void pobOneTimeSearch(PlaneOfBlocks *pob, int length) {
     int direction = 0;
     int dx = pob->bestMV.x;
     int dy = pob->bestMV.y;
@@ -591,13 +588,13 @@ void pobOneTimeSearch(PlaneOfBlocks *pob, int length) {
 }
 
 
-void pobDiamondSearch(PlaneOfBlocks *pob, int length) {
-    // The meaning of the directions are the following :
-    //		* 1 means right
-    //		* 2 means left
-    //		* 4 means down
-    //		* 8 means up
-    // So 1 + 4 means down right, and so on...
+static void pobDiamondSearch(PlaneOfBlocks *pob, int length) {
+    enum Direction {
+        Right = 1,
+        Left = 2,
+        Down = 4,
+        Up = 8,
+    };
 
     int dx;
     int dy;
@@ -616,14 +613,14 @@ void pobDiamondSearch(PlaneOfBlocks *pob, int length) {
         // First, we look the directions that were hinted by the previous step
         // of the algorithm. If we find one, we add it to the set of directions
         // we'll test next
-        if (lastDirection & 1)
-            pobCheckMV2(pob, dx + length, dy, &direction, 1);
-        if (lastDirection & 2)
-            pobCheckMV2(pob, dx - length, dy, &direction, 2);
-        if (lastDirection & 4)
-            pobCheckMV2(pob, dx, dy + length, &direction, 4);
-        if (lastDirection & 8)
-            pobCheckMV2(pob, dx, dy - length, &direction, 8);
+        if (lastDirection & Right)
+            pobCheckMV2(pob, dx + length, dy, &direction, Right);
+        if (lastDirection & Left)
+            pobCheckMV2(pob, dx - length, dy, &direction, Left);
+        if (lastDirection & Down)
+            pobCheckMV2(pob, dx, dy + length, &direction, Down);
+        if (lastDirection & Up)
+            pobCheckMV2(pob, dx, dy - length, &direction, Up);
 
         // If one of the directions improves the SAD, we make further tests
         // on the diagonals
@@ -632,12 +629,12 @@ void pobDiamondSearch(PlaneOfBlocks *pob, int length) {
             dx = pob->bestMV.x;
             dy = pob->bestMV.y;
 
-            if (lastDirection & 3) {
-                pobCheckMV2(pob, dx, dy + length, &direction, 4);
-                pobCheckMV2(pob, dx, dy - length, &direction, 8);
+            if (lastDirection & (Right + Left)) {
+                pobCheckMV2(pob, dx, dy + length, &direction, Down);
+                pobCheckMV2(pob, dx, dy - length, &direction, Up);
             } else {
-                pobCheckMV2(pob, dx + length, dy, &direction, 1);
-                pobCheckMV2(pob, dx - length, dy, &direction, 2);
+                pobCheckMV2(pob, dx + length, dy, &direction, Right);
+                pobCheckMV2(pob, dx - length, dy, &direction, Left);
             }
         }
 
@@ -645,49 +642,49 @@ void pobDiamondSearch(PlaneOfBlocks *pob, int length) {
         // diagonals to be checked, because we might be lucky.
         else {
             switch (lastDirection) {
-                case 1:
-                    pobCheckMV2(pob, dx + length, dy + length, &direction, 1 + 4);
-                    pobCheckMV2(pob, dx + length, dy - length, &direction, 1 + 8);
+                case Right:
+                    pobCheckMV2(pob, dx + length, dy + length, &direction, Right + Down);
+                    pobCheckMV2(pob, dx + length, dy - length, &direction, Right + Up);
                     break;
-                case 2:
-                    pobCheckMV2(pob, dx - length, dy + length, &direction, 2 + 4);
-                    pobCheckMV2(pob, dx - length, dy - length, &direction, 2 + 8);
+                case Left:
+                    pobCheckMV2(pob, dx - length, dy + length, &direction, Left + Down);
+                    pobCheckMV2(pob, dx - length, dy - length, &direction, Left + Up);
                     break;
-                case 4:
-                    pobCheckMV2(pob, dx + length, dy + length, &direction, 1 + 4);
-                    pobCheckMV2(pob, dx - length, dy + length, &direction, 2 + 4);
+                case Down:
+                    pobCheckMV2(pob, dx + length, dy + length, &direction, Right + Down);
+                    pobCheckMV2(pob, dx - length, dy + length, &direction, Left + Down);
                     break;
-                case 8:
-                    pobCheckMV2(pob, dx + length, dy - length, &direction, 1 + 8);
-                    pobCheckMV2(pob, dx - length, dy - length, &direction, 2 + 8);
+                case Up:
+                    pobCheckMV2(pob, dx + length, dy - length, &direction, Right + Up);
+                    pobCheckMV2(pob, dx - length, dy - length, &direction, Left + Up);
                     break;
-                case 1 + 4:
-                    pobCheckMV2(pob, dx + length, dy + length, &direction, 1 + 4);
-                    pobCheckMV2(pob, dx - length, dy + length, &direction, 2 + 4);
-                    pobCheckMV2(pob, dx + length, dy - length, &direction, 1 + 8);
+                case Right + Down:
+                    pobCheckMV2(pob, dx + length, dy + length, &direction, Right + Down);
+                    pobCheckMV2(pob, dx - length, dy + length, &direction, Left + Down);
+                    pobCheckMV2(pob, dx + length, dy - length, &direction, Right + Up);
                     break;
-                case 2 + 4:
-                    pobCheckMV2(pob, dx + length, dy + length, &direction, 1 + 4);
-                    pobCheckMV2(pob, dx - length, dy + length, &direction, 2 + 4);
-                    pobCheckMV2(pob, dx - length, dy - length, &direction, 2 + 8);
+                case Left + Down:
+                    pobCheckMV2(pob, dx + length, dy + length, &direction, Right + Down);
+                    pobCheckMV2(pob, dx - length, dy + length, &direction, Left + Down);
+                    pobCheckMV2(pob, dx - length, dy - length, &direction, Left + Up);
                     break;
-                case 1 + 8:
-                    pobCheckMV2(pob, dx + length, dy + length, &direction, 1 + 4);
-                    pobCheckMV2(pob, dx - length, dy - length, &direction, 2 + 8);
-                    pobCheckMV2(pob, dx + length, dy - length, &direction, 1 + 8);
+                case Right + Up:
+                    pobCheckMV2(pob, dx + length, dy + length, &direction, Right + Down);
+                    pobCheckMV2(pob, dx - length, dy - length, &direction, Left + Up);
+                    pobCheckMV2(pob, dx + length, dy - length, &direction, Right + Up);
                     break;
-                case 2 + 8:
-                    pobCheckMV2(pob, dx - length, dy - length, &direction, 2 + 8);
-                    pobCheckMV2(pob, dx - length, dy + length, &direction, 2 + 4);
-                    pobCheckMV2(pob, dx + length, dy - length, &direction, 1 + 8);
+                case Left + Up:
+                    pobCheckMV2(pob, dx - length, dy - length, &direction, Left + Up);
+                    pobCheckMV2(pob, dx - length, dy + length, &direction, Left + Down);
+                    pobCheckMV2(pob, dx + length, dy - length, &direction, Right + Up);
                     break;
                 default:
                     // Even the default case may happen, in the first step of the
                     // algorithm for example.
-                    pobCheckMV2(pob, dx + length, dy + length, &direction, 1 + 4);
-                    pobCheckMV2(pob, dx - length, dy + length, &direction, 2 + 4);
-                    pobCheckMV2(pob, dx + length, dy - length, &direction, 1 + 8);
-                    pobCheckMV2(pob, dx - length, dy - length, &direction, 2 + 8);
+                    pobCheckMV2(pob, dx + length, dy + length, &direction, Right + Down);
+                    pobCheckMV2(pob, dx - length, dy + length, &direction, Left + Down);
+                    pobCheckMV2(pob, dx + length, dy - length, &direction, Right + Up);
+                    pobCheckMV2(pob, dx - length, dy - length, &direction, Left + Up);
                     break;
             }
         }
@@ -695,7 +692,7 @@ void pobDiamondSearch(PlaneOfBlocks *pob, int length) {
 }
 
 
-void pobExpandingSearch(PlaneOfBlocks *pob, int r, int s, int mvx, int mvy) {
+static void pobExpandingSearch(PlaneOfBlocks *pob, int r, int s, int mvx, int mvy) {
     // diameter = 2*r + 1, step=s
     // part of true enhaustive search (thin expanding square) around mvx, mvy
     int i, j;
@@ -725,7 +722,7 @@ static const int mod6m1[8] = { 5, 0, 1, 2, 3, 4, 5, 0 };
 /* radius 2 hexagon. repeated entries are to avoid having to compute mod6 every time. */
 static const int hex2[8][2] = { { -1, -2 }, { -2, 0 }, { -1, 2 }, { 1, 2 }, { 2, 0 }, { 1, -2 }, { -1, -2 }, { -2, 0 } };
 
-void pobHex2Search(PlaneOfBlocks *pob, int i_me_range) { //adopted from x264
+static void pobHex2Search(PlaneOfBlocks *pob, int i_me_range) { //adopted from x264
     int dir = -2;
     int bmx = pob->bestMV.x;
     int bmy = pob->bestMV.y;
@@ -785,7 +782,7 @@ void pobHex2Search(PlaneOfBlocks *pob, int i_me_range) { //adopted from x264
 }
 
 
-void pobCrossSearch(PlaneOfBlocks *pob, int start, int x_max, int y_max, int mvx, int mvy) { // part of umh  search
+static void pobCrossSearch(PlaneOfBlocks *pob, int start, int x_max, int y_max, int mvx, int mvy) { // part of umh  search
 
     for (int i = start; i < x_max; i += 2) {
         pobCheckMV(pob, mvx - i, mvy);
@@ -799,7 +796,7 @@ void pobCrossSearch(PlaneOfBlocks *pob, int start, int x_max, int y_max, int mvx
 }
 
 
-void pobUMHSearch(PlaneOfBlocks *pob, int i_me_range, int omx, int omy) { // radius
+static void pobUMHSearch(PlaneOfBlocks *pob, int i_me_range, int omx, int omy) { // radius
     // Uneven-cross Multi-Hexagon-grid Search (see x264)
     /* hexagon grid */
 
@@ -828,7 +825,7 @@ void pobUMHSearch(PlaneOfBlocks *pob, int i_me_range, int omx, int omy) { // rad
 }
 
 
-void pobRefine(PlaneOfBlocks *pob) {
+static void pobRefine(PlaneOfBlocks *pob) {
     // then, we refine, according to the search type
     if (pob->searchType == SearchOnetime)
         for (int i = pob->nSearchParam; i > 0; i /= 2)
@@ -874,11 +871,9 @@ void pobRefine(PlaneOfBlocks *pob) {
 }
 
 
-void pobPseudoEPZSearch(PlaneOfBlocks *pob) {
+static void pobPseudoEPZSearch(PlaneOfBlocks *pob) {
 
     pobFetchPredictors(pob);
-
-    int sad;
 
     if (pob->dctmode != 0) { // DCT method (luma only - currently use normal spatial SAD chroma)
         // make dct of source block
@@ -892,16 +887,16 @@ void pobPseudoEPZSearch(PlaneOfBlocks *pob) {
     // Do we bias zero with not taking into account distorsion ?
     pob->bestMV.x = pob->zeroMVfieldShifted.x;
     pob->bestMV.y = pob->zeroMVfieldShifted.y;
-    sad = pobLumaSAD(pob, pobGetRefBlock(pob, 0, pob->zeroMVfieldShifted.y));
+    int64_t sad = pobLumaSAD(pob, pobGetRefBlock(pob, 0, pob->zeroMVfieldShifted.y));
     if (pob->chroma) {
         sad += pob->SADCHROMA(pob->pSrc[1], pob->nSrcPitch[1], pobGetRefBlockU(pob, 0, 0), pob->nRefPitch[1]);
         sad += pob->SADCHROMA(pob->pSrc[2], pob->nSrcPitch[2], pobGetRefBlockV(pob, 0, 0), pob->nRefPitch[2]);
     }
     pob->bestMV.sad = sad;
-    pob->nMinCost = sad + (int)(((int64_t)pob->penaltyZero * sad) >> 8); // v.1.11.0.2
+    pob->nMinCost = sad + ((pob->penaltyZero * sad) >> 8); // v.1.11.0.2
 
     VECTOR bestMVMany[8];
-    int nMinCostMany[8];
+    int64_t nMinCostMany[8];
 
     if (pob->tryMany) {
         //  refine around zero
@@ -917,7 +912,7 @@ void pobPseudoEPZSearch(PlaneOfBlocks *pob) {
         sad += pob->SADCHROMA(pob->pSrc[1], pob->nSrcPitch[1], pobGetRefBlockU(pob, pob->globalMVPredictor.x, pob->globalMVPredictor.y), pob->nRefPitch[1]);
         sad += pob->SADCHROMA(pob->pSrc[2], pob->nSrcPitch[2], pobGetRefBlockV(pob, pob->globalMVPredictor.x, pob->globalMVPredictor.y), pob->nRefPitch[2]);
     }
-    int cost = sad + (int)(((int64_t)pob->pglobal * sad) >> 8);
+    int64_t cost = sad + ((pob->pglobal * sad) >> 8);
 
     if (cost < pob->nMinCost || pob->tryMany) {
         pob->bestMV.x = pob->globalMVPredictor.x;
@@ -980,7 +975,7 @@ void pobPseudoEPZSearch(PlaneOfBlocks *pob) {
         pobRefine(pob);
     }
 
-    int foundSAD = pob->bestMV.sad;
+    int64_t foundSAD = pob->bestMV.sad;
 
 #define BADCOUNT_LIMIT 16
 
@@ -1009,24 +1004,17 @@ void pobPseudoEPZSearch(PlaneOfBlocks *pob) {
 
 
     // we store the result
-    pob->vectors[pob->blkIdx].x = pob->bestMV.x;
-    pob->vectors[pob->blkIdx].y = pob->bestMV.y;
-    pob->vectors[pob->blkIdx].sad = pob->bestMV.sad;
-
-    pob->planeSAD += pob->bestMV.sad;
+    pob->vectors[pob->blkIdx] = pob->bestMV;
 }
 
 
 void pobSearchMVs(PlaneOfBlocks *pob, MVFrame *pSrcFrame, MVFrame *pRefFrame,
                   SearchType st, int stp, int lambda, int lsad, int pnew,
-                  int plevel, int *out, VECTOR *globalMVec,
+                  int plevel, uint8_t *out, VECTOR *globalMVec,
                   int fieldShift, DCTFFTW *DCT, int dctmode, int *pmeanLumaChange,
                   int pzero, int pglobal, int64_t badSAD, int badrange, int meander, int tryMany) {
     pob->DCT = DCT;
-    if (pob->DCT == 0)
-        pob->dctmode = 0;
-    else
-        pob->dctmode = dctmode;
+    pob->dctmode = dctmode;
     pob->dctweight16 = VSMIN(16, abs(*pmeanLumaChange) / (pob->nBlkSizeX * pob->nBlkSizeY)); //equal dct and spatial weights for meanLumaChange=8 (empirical)
     pob->badSAD = badSAD;
     pob->badrange = badrange;
@@ -1040,7 +1028,7 @@ void pobSearchMVs(PlaneOfBlocks *pob, MVFrame *pSrcFrame, MVFrame *pRefFrame,
     // write the plane's header
     pobWriteHeaderToArray(pob, out);
 
-    int *pBlkData = out + 1;
+    VECTOR *pBlkData = (VECTOR *)(out + sizeof(MVArraySizeType));
 
     pob->pSrcFrame = pSrcFrame;
     pob->pRefFrame = pRefFrame;
@@ -1078,7 +1066,6 @@ void pobSearchMVs(PlaneOfBlocks *pob, MVFrame *pSrcFrame, MVFrame *pRefFrame,
 
     pob->penaltyZero = pzero;
     pob->pglobal = pglobal;
-    pob->planeSAD = 0;
     pob->badcount = 0;
     pob->tryMany = tryMany;
     // Functions using float must not be used here
@@ -1103,7 +1090,6 @@ void pobSearchMVs(PlaneOfBlocks *pob, MVFrame *pSrcFrame, MVFrame *pRefFrame,
         for (int iblkx = 0; iblkx < pob->nBlkX; iblkx++) {
             pob->blkx = blkxStart + iblkx * pob->blkScanDir;
             pob->blkIdx = pob->blky * pob->nBlkX + pob->blkx;
-            pob->iter = 0;
 
             pob->pSrc[0] = mvpGetAbsolutePelPointer(pob->pSrcFrame->planes[0], pob->x[0], pob->y[0]);
             if (pob->chroma) {
@@ -1153,9 +1139,7 @@ void pobSearchMVs(PlaneOfBlocks *pob, MVFrame *pSrcFrame, MVFrame *pRefFrame,
             pobPseudoEPZSearch(pob);
 
             /* write the results */
-            pBlkData[pob->blkx * N_PER_BLOCK + 0] = pob->bestMV.x;
-            pBlkData[pob->blkx * N_PER_BLOCK + 1] = pob->bestMV.y;
-            pBlkData[pob->blkx * N_PER_BLOCK + 2] = pob->bestMV.sad;
+            pBlkData[pob->blkx] = pob->bestMV;
 
 
             if (pob->smallestPlane)
@@ -1170,7 +1154,7 @@ void pobSearchMVs(PlaneOfBlocks *pob, MVFrame *pSrcFrame, MVFrame *pRefFrame,
                     pob->x[2] += ((pob->nBlkSizeX - pob->nOverlapX) >> pob->nLogxRatioUV) * pob->blkScanDir;
             }
         }
-        pBlkData += pob->nBlkX * N_PER_BLOCK;
+        pBlkData += pob->nBlkX;
 
         pob->y[0] += (pob->nBlkSizeY - pob->nOverlapY);
         if (pob->pSrcFrame->nMode & UPLANE)
@@ -1184,13 +1168,10 @@ void pobSearchMVs(PlaneOfBlocks *pob, MVFrame *pSrcFrame, MVFrame *pRefFrame,
 
 
 void pobRecalculateMVs(PlaneOfBlocks *pob, const FakeGroupOfPlanes *fgop, MVFrame *pSrcFrame, MVFrame *pRefFrame,
-                       SearchType st, int stp, int lambda, int pnew, int *out,
-                       int fieldShift, int thSAD, DCTFFTW *DCT, int dctmode, int smooth, int meander) {
+                       SearchType st, int stp, int lambda, int pnew, uint8_t *out,
+                       int fieldShift, int64_t thSAD, DCTFFTW *DCT, int dctmode, int smooth, int meander) {
     pob->DCT = DCT;
-    if (pob->DCT == 0)
-        pob->dctmode = 0;
-    else
-        pob->dctmode = dctmode;
+    pob->dctmode = dctmode;
     pob->dctweight16 = 8; //min(16,abs(*pmeanLumaChange)/(nBlkSizeX*nBlkSizeY)); //equal dct and spatial weights for meanLumaChange=8 (empirical)
     pob->zeroMVfieldShifted.x = 0;
     pob->zeroMVfieldShifted.y = fieldShift;
@@ -1201,7 +1182,7 @@ void pobRecalculateMVs(PlaneOfBlocks *pob, const FakeGroupOfPlanes *fgop, MVFram
     // write the plane's header
     pobWriteHeaderToArray(pob, out);
 
-    int *pBlkData = out + 1;
+    VECTOR *pBlkData = (VECTOR *)(out + sizeof(MVArraySizeType));
 
     pob->pSrcFrame = pSrcFrame;
     pob->pRefFrame = pRefFrame;
@@ -1337,7 +1318,7 @@ void pobRecalculateMVs(PlaneOfBlocks *pob, const FakeGroupOfPlanes *fgop, MVFram
 
                 vectorOld.x = (vector1_x + deltaY * (vector2_x - vector1_x) / nStepYold) / nStepXold;
                 vectorOld.y = (vector1_y + deltaY * (vector2_y - vector1_y) / nStepYold) / nStepXold;
-                vectorOld.sad = (int)((vector1_sad + deltaY * (vector2_sad - vector1_sad) / nStepYold) / nStepXold);
+                vectorOld.sad = (vector1_sad + deltaY * (vector2_sad - vector1_sad) / nStepYold) / nStepXold;
 
             } else { // nearest
                 if (deltaX * 2 < nStepXold && deltaY * 2 < nStepYold)
@@ -1355,11 +1336,9 @@ void pobRecalculateMVs(PlaneOfBlocks *pob, const FakeGroupOfPlanes *fgop, MVFram
             vectorOld.y = (vectorOld.y * pob->nPel) >> nLogPelold;
 
             pob->predictor = pobClipMV(pob, vectorOld);                                                                    // predictor
-            pob->predictor.sad = (int64_t)vectorOld.sad * (pob->nBlkSizeX * pob->nBlkSizeY) / (nBlkSizeXold * nBlkSizeYold); // normalized to new block size
+            pob->predictor.sad = vectorOld.sad * (pob->nBlkSizeX * pob->nBlkSizeY) / (nBlkSizeXold * nBlkSizeYold); // normalized to new block size
 
-            pob->bestMV.x = pob->predictor.x;
-            pob->bestMV.y = pob->predictor.y;
-            pob->bestMV.sad = pob->predictor.sad;
+            pob->bestMV = pob->predictor;
 
             // update SAD
             if (pob->dctmode != 0) { // DCT method (luma only - currently use normal spatial SAD chroma)
@@ -1370,7 +1349,7 @@ void pobRecalculateMVs(PlaneOfBlocks *pob, const FakeGroupOfPlanes *fgop, MVFram
             if (pob->dctmode >= 3) // most use it and it should be fast anyway //if (dctmode == 3 || dctmode == 4) // check it
                 pob->srcLuma = pob->LUMA(pob->pSrc[0], pob->nSrcPitch[0]);
 
-            int sad = pobLumaSAD(pob, pobGetRefBlock(pob, pob->predictor.x, pob->predictor.y));
+            int64_t sad = pobLumaSAD(pob, pobGetRefBlock(pob, pob->predictor.x, pob->predictor.y));
             if (pob->chroma) {
                 sad += pob->SADCHROMA(pob->pSrc[1], pob->nSrcPitch[1], pobGetRefBlockU(pob, pob->predictor.x, pob->predictor.y), pob->nRefPitch[1]);
                 sad += pob->SADCHROMA(pob->pSrc[2], pob->nSrcPitch[2], pobGetRefBlockV(pob, pob->predictor.x, pob->predictor.y), pob->nRefPitch[2]);
@@ -1424,15 +1403,11 @@ void pobRecalculateMVs(PlaneOfBlocks *pob, const FakeGroupOfPlanes *fgop, MVFram
             }
 
             // we store the result
-            pob->vectors[pob->blkIdx].x = pob->bestMV.x;
-            pob->vectors[pob->blkIdx].y = pob->bestMV.y;
-            pob->vectors[pob->blkIdx].sad = pob->bestMV.sad;
+            pob->vectors[pob->blkIdx] = pob->bestMV;
 
 
             /* write the results */
-            pBlkData[pob->blkx * N_PER_BLOCK + 0] = pob->bestMV.x;
-            pBlkData[pob->blkx * N_PER_BLOCK + 1] = pob->bestMV.y;
-            pBlkData[pob->blkx * N_PER_BLOCK + 2] = pob->bestMV.sad;
+            pBlkData[pob->blkx] = pob->bestMV;
 
 
             if (pob->smallestPlane)
@@ -1446,7 +1421,7 @@ void pobRecalculateMVs(PlaneOfBlocks *pob, const FakeGroupOfPlanes *fgop, MVFram
                     pob->x[2] += ((pob->nBlkSizeX - pob->nOverlapX) >> pob->nLogxRatioUV) * pob->blkScanDir;
             }
         }
-        pBlkData += pob->nBlkX * N_PER_BLOCK;
+        pBlkData += pob->nBlkX;
 
         pob->y[0] += (pob->nBlkSizeY - pob->nOverlapY);
         if (pob->pSrcFrame->nMode & UPLANE)
@@ -1500,7 +1475,7 @@ void pobInterpolatePrediction(PlaneOfBlocks *pob, const PlaneOfBlocks *pob2) {
             if (pob->nOverlapX == 0 && pob->nOverlapY == 0) {
                 pob->vectors[index].x = 9 * v1.x + 3 * v2.x + 3 * v3.x + v4.x;
                 pob->vectors[index].y = 9 * v1.y + 3 * v2.y + 3 * v3.y + v4.y;
-                temp_sad = (int64_t)(9 * v1.sad) + 3 * v2.sad + 3 * v3.sad + v4.sad + 8;
+                temp_sad = 9 * v1.sad + 3 * v2.sad + 3 * v3.sad + v4.sad + 8;
             } else if (pob->nOverlapX <= (pob->nBlkSizeX >> 1) && pob->nOverlapY <= (pob->nBlkSizeY >> 1)) { // corrected in v1.4.11
                 int ax1 = (offx > 0) ? aoddx : aevenx;
                 int ax2 = (pob->nBlkSizeX - pob->nOverlapX) * 4 - ax1;
@@ -1515,48 +1490,52 @@ void pobInterpolatePrediction(PlaneOfBlocks *pob, const PlaneOfBlocks *pob2) {
                 // Dead branch. The overlap is no longer allowed to be more than half the block size.
                 pob->vectors[index].x = (v1.x + v2.x + v3.x + v4.x) << 2;
                 pob->vectors[index].y = (v1.y + v2.y + v3.y + v4.y) << 2;
-                temp_sad = (int64_t)(v1.sad + v2.sad + v3.sad + v4.sad + 2) << 2;
+                temp_sad = (v1.sad + v2.sad + v3.sad + v4.sad + 2) << 2;
             }
             pob->vectors[index].x = (pob->vectors[index].x >> normFactor) * (1 << mulFactor);
             pob->vectors[index].y = (pob->vectors[index].y >> normFactor) * (1 << mulFactor);
-            pob->vectors[index].sad = (int)(temp_sad >> 4);
+            pob->vectors[index].sad = temp_sad >> 4;
         }
     }
 }
 
 
-int pobGetArraySize(PlaneOfBlocks *pob, int divideMode) {
-    int size = 0;
-    size += 1;                       // mb data size storage
-    size += pob->nBlkCount * N_PER_BLOCK; // vectors, sad, luma src, luma ref, var
+MVArraySizeType pobGetArraySize(const PlaneOfBlocks *pob, int divideMode) {
+    MVArraySizeType size = sizeof(size) + pob->nBlkCount * sizeof(VECTOR);
 
     if (pob->nLogScale == 0) {
         if (divideMode)
-            size += 1 + pob->nBlkCount * N_PER_BLOCK * 4; // reserve space for divided subblocks extra level
+            size += sizeof(MVArraySizeType) + pob->nBlkCount * sizeof(VECTOR) * 4; // reserve space for divided subblocks extra level
     }
 
     return size;
 }
 
 
-int pobWriteDefaultToArray(PlaneOfBlocks *pob, int *array, int divideMode) {
-    array[0] = pob->nBlkCount * N_PER_BLOCK + 1;
-    for (int i = 0; i < pob->nBlkCount * N_PER_BLOCK; i += N_PER_BLOCK) {
-        array[i + 1] = 0;
-        array[i + 2] = 0;
-        array[i + 3] = pob->verybigSAD;
-    }
+MVArraySizeType pobWriteDefaultToArray(const PlaneOfBlocks *pob, uint8_t *array, int divideMode) {
+    MVArraySizeType size = sizeof(size) + pob->nBlkCount * sizeof(VECTOR);
+
+    memcpy(array, &size, sizeof(size));
+
+    VECTOR def = { 0, 0, pob->verybigSAD };
+
+    VECTOR *blocks = (VECTOR *)(array + sizeof(size));
+
+    for (int i = 0; i < pob->nBlkCount; i++)
+        blocks[i] = def;
 
     if (pob->nLogScale == 0) {
-        array += array[0];
-        if (divideMode) {                               // reserve space for divided subblocks extra level
-            array[0] = pob->nBlkCount * N_PER_BLOCK * 4 + 1; // 4 subblocks
-            for (int i = 0; i < pob->nBlkCount * 4 * N_PER_BLOCK; i += N_PER_BLOCK) {
-                array[i + 1] = 0;
-                array[i + 2] = 0;
-                array[i + 3] = pob->verybigSAD;
-            }
-            array += array[0];
+        if (divideMode) { // reserve space for divided subblocks extra level
+            array += size;
+
+            size = sizeof(size) + pob->nBlkCount * sizeof(VECTOR) * 4; // 4 subblocks
+
+            memcpy(array, &size, sizeof(size));
+
+            blocks = (VECTOR *)(array + sizeof(size));
+
+            for (int i = 0; i < pob->nBlkCount * 4; i++)
+                blocks[i] = def;
         }
     }
     return pobGetArraySize(pob, divideMode);

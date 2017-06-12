@@ -38,7 +38,7 @@ typedef struct MVMaskData {
     int kind;
     int time256;
     int nSceneChangeValue;
-    int thscd1;
+    int64_t thscd1;
     int thscd2;
     int opt;
 
@@ -107,7 +107,7 @@ static const VSFrameRef *VS_CC mvmaskGetFrame(int n, int activationReason, void 
         const VSFrameRef *mvn = vsapi->getFrameFilter(n, d->vectors, frameCtx);
         fgopInit(&fgop, &d->vectors_data);
         const VSMap *mvprops = vsapi->getFramePropsRO(mvn);
-        fgopUpdate(&fgop, (const int *)vsapi->propGetData(mvprops, prop_MVTools_vectors, 0, NULL));
+        fgopUpdate(&fgop, (const uint8_t *)vsapi->propGetData(mvprops, prop_MVTools_vectors, 0, NULL));
         vsapi->freeFrame(mvn);
 
         const int kind = d->kind;
@@ -254,7 +254,7 @@ static void VS_CC mvmaskCreate(const VSMap *in, VSMap *out, void *userData, VSCo
 
     d.nSceneChangeValue = int64ToIntS(vsapi->propGetInt(in, "ysc", 0, &err));
 
-    d.thscd1 = int64ToIntS(vsapi->propGetInt(in, "thscd1", 0, &err));
+    d.thscd1 = vsapi->propGetInt(in, "thscd1", 0, &err);
     if (err)
         d.thscd1 = MV_DEFAULT_SCD1;
 

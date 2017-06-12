@@ -44,7 +44,7 @@ typedef struct MVFlowInterData {
     float time;
     float ml;
     int blend;
-    int thscd1;
+    int64_t thscd1;
     int thscd2;
     int opt;
 
@@ -127,13 +127,13 @@ static const VSFrameRef *VS_CC mvflowinterGetFrame(int n, int activationReason, 
         if (n + off < d->vi->numFrames) {
             const VSFrameRef *mvF = vsapi->getFrameFilter(n + off, d->mvfw, frameCtx);
             const VSMap *mvprops = vsapi->getFramePropsRO(mvF);
-            fgopUpdate(&fgopF, (const int *)vsapi->propGetData(mvprops, prop_MVTools_vectors, 0, NULL));
+            fgopUpdate(&fgopF, (const uint8_t *)vsapi->propGetData(mvprops, prop_MVTools_vectors, 0, NULL));
             vsapi->freeFrame(mvF);
             isUsableF = fgopIsUsable(&fgopF, d->thscd1, d->thscd2);
 
             const VSFrameRef *mvB = vsapi->getFrameFilter(n, d->mvbw, frameCtx);
             mvprops = vsapi->getFramePropsRO(mvB);
-            fgopUpdate(&fgopB, (const int *)vsapi->propGetData(mvprops, prop_MVTools_vectors, 0, NULL));
+            fgopUpdate(&fgopB, (const uint8_t *)vsapi->propGetData(mvprops, prop_MVTools_vectors, 0, NULL));
             vsapi->freeFrame(mvB);
             isUsableB = fgopIsUsable(&fgopB, d->thscd1, d->thscd2);
         }
@@ -292,13 +292,13 @@ static const VSFrameRef *VS_CC mvflowinterGetFrame(int n, int activationReason, 
             {
                 const VSFrameRef *mvFF = vsapi->getFrameFilter(n, d->mvfw, frameCtx);
                 const VSMap *mvprops = vsapi->getFramePropsRO(mvFF);
-                fgopUpdate(&fgopF, (const int *)vsapi->propGetData(mvprops, prop_MVTools_vectors, 0, NULL));
+                fgopUpdate(&fgopF, (const uint8_t *)vsapi->propGetData(mvprops, prop_MVTools_vectors, 0, NULL));
                 isUsableF = fgopIsUsable(&fgopF, d->thscd1, d->thscd2);
                 vsapi->freeFrame(mvFF);
 
                 const VSFrameRef *mvBB = vsapi->getFrameFilter(n + off, d->mvbw, frameCtx);
                 mvprops = vsapi->getFramePropsRO(mvBB);
-                fgopUpdate(&fgopB, (const int *)vsapi->propGetData(mvprops, prop_MVTools_vectors, 0, NULL));
+                fgopUpdate(&fgopB, (const uint8_t *)vsapi->propGetData(mvprops, prop_MVTools_vectors, 0, NULL));
                 isUsableB = fgopIsUsable(&fgopB, d->thscd1, d->thscd2);
                 vsapi->freeFrame(mvBB);
             }
@@ -536,7 +536,7 @@ static void VS_CC mvflowinterCreate(const VSMap *in, VSMap *out, void *userData,
     if (err)
         d.blend = 1;
 
-    d.thscd1 = int64ToIntS(vsapi->propGetInt(in, "thscd1", 0, &err));
+    d.thscd1 = vsapi->propGetInt(in, "thscd1", 0, &err);
     if (err)
         d.thscd1 = MV_DEFAULT_SCD1;
 

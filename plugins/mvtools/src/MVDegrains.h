@@ -23,7 +23,7 @@ typedef void (*DenoiseFunction)(uint8_t *pDst, int nDstPitch, const uint8_t *pSr
 // XXX Moves the pointers passed in pRefs. This is okay because they are not
 // used after this function is done with them.
 template <int radius, int blockWidth, int blockHeight, typename PixelType>
-void Degrain_C(uint8_t *pDst8, int nDstPitch, const uint8_t *pSrc8, int nSrcPitch, const uint8_t **pRefs8, const int *nRefPitches, int WSrc, const int *WRefs) {
+static void Degrain_C(uint8_t *pDst8, int nDstPitch, const uint8_t *pSrc8, int nSrcPitch, const uint8_t **pRefs8, const int *nRefPitches, int WSrc, const int *WRefs) {
     for (int y = 0; y < blockHeight; y++) {
         for (int x = 0; x < blockWidth; x++) {
             const PixelType *pSrc = (const PixelType *)pSrc8;
@@ -54,7 +54,7 @@ void Degrain_C(uint8_t *pDst8, int nDstPitch, const uint8_t *pSrc8, int nSrcPitc
 // XXX Moves the pointers passed in pRefs. This is okay because they are not
 // used after this function is done with them.
 template <int radius, int blockWidth, int blockHeight>
-void Degrain_sse2(uint8_t *pDst, int nDstPitch, const uint8_t *pSrc, int nSrcPitch, const uint8_t **pRefs, const int *nRefPitches, int WSrc, const int *WRefs) {
+static void Degrain_sse2(uint8_t *pDst, int nDstPitch, const uint8_t *pSrc, int nSrcPitch, const uint8_t **pRefs, const int *nRefPitches, int WSrc, const int *WRefs) {
     __m128i zero = _mm_setzero_si128();
     __m128i wsrc = _mm_set1_epi16(WSrc);
     __m128i wrefs[6];
@@ -163,7 +163,26 @@ void Degrain_sse2(uint8_t *pDst, int nDstPitch, const uint8_t *pSrc, int nSrcPit
 }
 
 
-extern "C" void mvtools_LimitChanges_sse2(uint8_t *pDst, intptr_t nDstPitch, const uint8_t *pSrc, intptr_t nSrcPitch, intptr_t nWidth, intptr_t nHeight, intptr_t nLimit);
+static void LimitChanges_sse2(uint8_t *pDst, intptr_t nDstPitch, const uint8_t *pSrc, intptr_t nSrcPitch, intptr_t nWidth, intptr_t nHeight, intptr_t nLimit) {
+    __m128i bytes_limit = _mm_set1_epi8(nLimit);
+
+    for (int y = 0; y < nHeight; y++) {
+        for (int x = 0; x < nWidth; x += 16) {
+            __m128i m0 = _mm_load_si128((const __m128i *)&pSrc[x]);
+            __m128i m1 = _mm_load_si128((const __m128i *)&pDst[x]);
+
+            __m128i lower = _mm_subs_epu8(m0, bytes_limit);
+            __m128i upper = _mm_adds_epu8(m0, bytes_limit);
+
+            m0 = _mm_min_epu8(_mm_max_epu8(lower, m1), upper);
+
+            _mm_store_si128((__m128i *)&pDst[x], m0);
+        }
+
+        pSrc += nSrcPitch;
+        pDst += nDstPitch;
+    }
+}
 
 #endif // MVTOOLS_X86
 
@@ -186,7 +205,7 @@ static void LimitChanges_C(uint8_t *pDst8, intptr_t nDstPitch, const uint8_t *pS
 }
 
 
-inline int DegrainWeight(int64_t thSAD, int64_t blockSAD) {
+static inline int DegrainWeight(int64_t thSAD, int64_t blockSAD) {
     if (blockSAD >= thSAD)
         return 0;
 
@@ -194,14 +213,14 @@ inline int DegrainWeight(int64_t thSAD, int64_t blockSAD) {
 }
 
 
-inline void useBlock(const uint8_t *&p, int &np, int &WRef, int isUsable, const FakeGroupOfPlanes *fgop, int i, MVPlane * const *pPlane, const uint8_t **pSrcCur, int xx, const int *nSrcPitch, int nLogPel, int plane, int xSubUV, int ySubUV, const int *thSAD) {
+static inline void useBlock(const uint8_t *&p, int &np, int &WRef, int isUsable, const FakeGroupOfPlanes *fgop, int i, MVPlane * const *pPlane, const uint8_t **pSrcCur, int xx, const int *nSrcPitch, int nLogPel, int plane, int xSubUV, int ySubUV, const int64_t *thSAD) {
     if (isUsable) {
         const FakeBlockData *block = fgopGetBlock(fgop, 0, i);
         int blx = (block->x << nLogPel) + block->vector.x;
         int bly = (block->y << nLogPel) + block->vector.y;
         p = mvpGetPointer(pPlane[plane], plane ? blx >> xSubUV : blx, plane ? bly >> ySubUV : bly);
         np = pPlane[plane]->nPitch;
-        int blockSAD = block->vector.sad;
+        int64_t blockSAD = block->vector.sad;
         WRef = DegrainWeight(thSAD[plane], blockSAD);
     } else {
         p = pSrcCur[plane] + xx;

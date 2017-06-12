@@ -55,7 +55,7 @@ typedef struct MVFlowData {
     int time256;
     int mode;
     int fields;
-    int thscd1;
+    int64_t thscd1;
     int thscd2;
     int opt;
     int tff;
@@ -217,7 +217,7 @@ static const VSFrameRef *VS_CC mvflowGetFrame(int n, int activationReason, void 
 
         const VSFrameRef *mvn = vsapi->getFrameFilter(n, d->vectors, frameCtx);
         const VSMap *mvprops = vsapi->getFramePropsRO(mvn);
-        fgopUpdate(&fgop, (const int *)vsapi->propGetData(mvprops, prop_MVTools_vectors, 0, NULL));
+        fgopUpdate(&fgop, (const uint8_t *)vsapi->propGetData(mvprops, prop_MVTools_vectors, 0, NULL));
         vsapi->freeFrame(mvn);
 
 
@@ -422,7 +422,7 @@ static void VS_CC mvflowCreate(const VSMap *in, VSMap *out, void *userData, VSCo
 
     d.fields = !!vsapi->propGetInt(in, "fields", 0, &err);
 
-    d.thscd1 = int64ToIntS(vsapi->propGetInt(in, "thscd1", 0, &err));
+    d.thscd1 = vsapi->propGetInt(in, "thscd1", 0, &err);
     if (err)
         d.thscd1 = MV_DEFAULT_SCD1;
 

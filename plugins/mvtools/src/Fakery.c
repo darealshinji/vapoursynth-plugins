@@ -1,5 +1,6 @@
 
 #include <stdlib.h>
+#include <string.h>
 
 #include "CommonFunctions.h"
 #include "Fakery.h"
@@ -7,10 +8,8 @@
 
 // FakeBlockData
 
-void fbdUpdate(FakeBlockData *fbd, const int *array) {
-    fbd->vector.x = array[0];
-    fbd->vector.y = array[1];
-    fbd->vector.sad = array[2];
+void fbdUpdate(FakeBlockData *fbd, const VECTOR *array) {
+    fbd->vector = *array;
 }
 
 
@@ -42,16 +41,15 @@ void fpobDeinit(FakePlaneOfBlocks *fpob) {
 }
 
 
-void fpobUpdate(FakePlaneOfBlocks *fpob, const int *array) {
-    array += 0;
-    for (int i = 0; i < fpob->nBlkCount; i++) {
-        fbdUpdate(&fpob->blocks[i], array);
-        array += N_PER_BLOCK;
-    }
+void fpobUpdate(FakePlaneOfBlocks *fpob, const uint8_t *array) {
+    const VECTOR *blocks = (const VECTOR *)array;
+
+    for (int i = 0; i < fpob->nBlkCount; i++)
+        fbdUpdate(&fpob->blocks[i], &blocks[i]);
 }
 
 
-int fpobIsSceneChange(const FakePlaneOfBlocks *fpob, int nTh1, int nTh2) {
+int fpobIsSceneChange(const FakePlaneOfBlocks *fpob, int64_t nTh1, int nTh2) {
     int sum = 0;
     for (int i = 0; i < fpob->nBlkCount; i++)
         sum += (fpob->blocks[i].vector.sad > nTh1) ? 1 : 0;
@@ -102,31 +100,28 @@ void fgopDeinit(FakeGroupOfPlanes *fgop) {
 }
 
 
-static inline int fgopGetValidity(const int *array) {
-    return (array[1] == 1);
+static inline int fgopGetValidity(const uint8_t *array) {
+    MVArraySizeType validity;
+    memcpy(&validity, array + sizeof(MVArraySizeType), sizeof(validity));
+    return (validity == 1);
 }
 
 
-void fgopUpdate(FakeGroupOfPlanes *fgop, const int *array) {
-    const int *pA = array;
+void fgopUpdate(FakeGroupOfPlanes *fgop, const uint8_t *array) {
     fgop->validity = fgopGetValidity(array);
 
-    pA += 2;
-    for (int i = fgop->nLvCount - 1; i >= 0; i--)
-        pA += pA[0];
-
-    pA++;
-
-    pA = array;
-    pA += 2;
+    const uint8_t *pA = array + 2 * sizeof(MVArraySizeType);
     for (int i = fgop->nLvCount - 1; i >= 0; i--) {
-        fpobUpdate(fgop->planes[i], pA + 1);
-        pA += pA[0];
+        fpobUpdate(fgop->planes[i], pA + sizeof(MVArraySizeType));
+
+        MVArraySizeType size;
+        memcpy(&size, pA, sizeof(size));
+        pA += size;
     }
 }
 
 
-int fgopIsSceneChange(const FakeGroupOfPlanes *fgop, int nThSCD1, int nThSCD2) {
+int fgopIsSceneChange(const FakeGroupOfPlanes *fgop, int64_t nThSCD1, int nThSCD2) {
     return fpobIsSceneChange(fgop->planes[0], nThSCD1, nThSCD2);
 }
 
@@ -146,6 +141,6 @@ const FakeBlockData *fgopGetBlock(const FakeGroupOfPlanes *fgop, int nLevel, int
 }
 
 
-int fgopIsUsable(const FakeGroupOfPlanes *fgop, int thscd1, int thscd2) {
+int fgopIsUsable(const FakeGroupOfPlanes *fgop, int64_t thscd1, int thscd2) {
     return !fgopIsSceneChange(fgop, thscd1, thscd2) && fgopIsValid(fgop);
 }
