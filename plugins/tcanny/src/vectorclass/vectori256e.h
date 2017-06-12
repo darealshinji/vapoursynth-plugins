@@ -1,8 +1,8 @@
 /****************************  vectori256e.h   *******************************
 * Author:        Agner Fog
 * Date created:  2012-05-30
-* Last modified: 2016-04-26
-* Version:       1.22
+* Last modified: 2017-02-19
+* Version:       1.27
 * Project:       vector classes
 * Description:
 * Header file defining 256-bit integer point vector classes as interface
@@ -25,7 +25,7 @@
 *
 * For detailed instructions, see VectorClass.pdf
 *
-* (c) Copyright 2012 - 2016 GNU General Public License http://www.gnu.org/licenses
+* (c) Copyright 2012-2017 GNU General Public License http://www.gnu.org/licenses
 *****************************************************************************/
 
 // check combination of header files
@@ -217,7 +217,7 @@ static inline Vec256b & operator ^= (Vec256b & a, Vec256b const & b) {
 
 // Define functions for this class
 
-static inline Vec256b setzero_256b() {
+static inline Vec256b zero_256b() {
     return Vec256b(_mm_setzero_si128(), _mm_setzero_si128());
 }
 
@@ -234,13 +234,18 @@ static inline Vec256b andnot (Vec256b const & a, Vec256b const & b) {
 *****************************************************************************/
 // Generate a constant vector of 8 integers stored in memory.
 // Can be converted to any integer vector type
-template <int i0, int i1, int i2, int i3, int i4, int i5, int i6, int i7>
+template <int32_t i0, int32_t i1, int32_t i2, int32_t i3, int32_t i4, int32_t i5, int32_t i6, int32_t i7>
 static inline Vec256ie constant8i() {
     static const union {
         int32_t i[8];
         __m128i y[2];
     } u = {{i0,i1,i2,i3,i4,i5,i6,i7}};
     return Vec256ie(u.y[0], u.y[1]);
+}
+
+template <uint32_t i0, uint32_t i1, uint32_t i2, uint32_t i3, uint32_t i4, uint32_t i5, uint32_t i6, uint32_t i7>
+static inline Vec256ie constant8ui() {
+    return constant8i<int32_t(i0), int32_t(i1), int32_t(i2), int32_t(i3), int32_t(i4), int32_t(i5), int32_t(i6), int32_t(i7)>();
 }
 
 
@@ -1043,6 +1048,12 @@ public:
         y1 = _mm_load_si128((__m128i const*)p + 1);
         return *this;
     }
+    // Member function to load 16 8-bit unsigned integers from array
+    Vec16s & load_16uc(void const * p) {
+        y0 = Vec8s().load_8uc(p);
+        y1 = Vec8s().load_8uc((uint8_t const*)p + 8);
+        return *this;
+    }
     // Partial load. Load n elements and set the rest to 0
     Vec16s & load_partial(int n, void const * p) {
         if (n <= 0) {
@@ -1743,6 +1754,18 @@ public:
     Vec8i & load_a(void const * p) {
         y0 = _mm_load_si128((__m128i const*)p);
         y1 = _mm_load_si128((__m128i const*)p + 1);
+        return *this;
+    }
+    // Member function to load 8 8-bit unsigned integers from array
+    Vec8i & load_8uc(void const * p) {
+        y0 = Vec4i().load_4uc(p);
+        y1 = Vec4i().load_4uc((uint8_t const*)p + 4);
+        return *this;
+    }
+    // Member function to load 8 16-bit unsigned integers from array
+    Vec8i & load_8us(void const * p) {
+        y0 = Vec4i().load_4us(p);
+        y1 = Vec4i().load_4us((uint16_t const*)p + 4);
         return *this;
     }
     // Partial load. Load n elements and set the rest to 0
@@ -3896,8 +3919,70 @@ static inline Vec4q gather4q(void const * a) {
     return lookup<imax+1>(Vec4q(i0,i1,i2,i3), a);
 }
 
+/*****************************************************************************
+*
+*          Vector scatter functions
+*
+******************************************************************************
+*
+* These functions write the elements of a vector to arbitrary positions in an
+* array in memory. Each vector element is written to an array position 
+* determined by an index. An element is not written if the corresponding
+* index is out of range.
+* The indexes can be specified as constant template parameters or as an
+* integer vector.
+* 
+* The scatter functions are useful if the data are distributed in a sparce
+* manner into the array. If the array is dense then it is more efficient
+* to permute the data into the right positions and then write the whole
+* permuted vector into the array.
+*
+* Example:
+* Vec8q a(10,11,12,13,14,15,16,17);
+* int64_t b[16] = {0};
+* scatter<0,2,14,10,1,-1,5,9>(a,b); 
+* // Now, b = {10,14,11,0,0,16,0,0,0,17,13,0,0,0,12,0}
+*
+*****************************************************************************/
 
+template <int i0, int i1, int i2, int i3, int i4, int i5, int i6, int i7>
+static inline void scatter(Vec8i const & data, void * array) {
+    int32_t* arr = (int32_t*)array;
+    const int index[8] = {i0,i1,i2,i3,i4,i5,i6,i7};
+    for (int i = 0; i < 8; i++) {
+        if (index[i] >= 0) arr[index[i]] = data[i];
+    }
+}
 
+template <int i0, int i1, int i2, int i3>
+static inline void scatter(Vec4q const & data, void * array) {
+    int64_t* arr = (int64_t*)array;
+    const int index[4] = {i0,i1,i2,i3};
+    for (int i = 0; i < 4; i++) {
+        if (index[i] >= 0) arr[index[i]] = data[i];
+    }
+}
+
+static inline void scatter(Vec8i const & index, uint32_t limit, Vec8i const & data, void * array) {
+    int32_t* arr = (int32_t*)array;
+    for (int i = 0; i < 8; i++) {
+        if (uint32_t(index[i]) < limit) arr[index[i]] = data[i];
+    }
+}
+
+static inline void scatter(Vec4q const & index, uint32_t limit, Vec4q const & data, void * array) {
+    int64_t* arr = (int64_t*)array;
+    for (int i = 0; i < 4; i++) {
+        if (uint64_t(index[i]) < uint64_t(limit)) arr[index[i]] = data[i];
+    }
+} 
+
+static inline void scatter(Vec4i const & index, uint32_t limit, Vec4q const & data, void * array) {
+    int64_t* arr = (int64_t*)array;
+    for (int i = 0; i < 4; i++) {
+        if (uint32_t(index[i]) < limit) arr[index[i]] = data[i];
+    }
+} 
 
 /*****************************************************************************
 *
@@ -3985,10 +4070,6 @@ static inline Vec32c compress_saturated (Vec16s const & low, Vec16s const & high
     return Vec32c(compress_saturated(low.get_low(),low.get_high()), compress_saturated(high.get_low(),high.get_high()));
 }
 
-static inline Vec32uc compress_saturated_s2u (Vec16s const & low, Vec16s const & high) {
-    return Vec32uc(compress_saturated_s2u(low.get_low(),low.get_high()), compress_saturated_s2u(high.get_low(),high.get_high()));
-}
-
 // Function compress : packs two vectors of 16-bit integers to one vector of 8-bit integers
 // Unsigned, overflow wraps around
 static inline Vec32uc compress (Vec16us const & low, Vec16us const & high) {
@@ -3999,6 +4080,12 @@ static inline Vec32uc compress (Vec16us const & low, Vec16us const & high) {
 // Unsigned, with saturation
 static inline Vec32uc compress_saturated (Vec16us const & low, Vec16us const & high) {
     return Vec32uc(compress_saturated(low.get_low(),low.get_high()), compress_saturated(high.get_low(),high.get_high()));
+}
+
+// Function compress : packs two vectors of 16-bit integers into one vector of 8-bit integers
+// Signed to unsigned, with saturation
+static inline Vec32uc compress_saturated_s2u (Vec16s const & low, Vec16s const & high) {
+    return Vec32uc(compress_saturated_s2u(low.get_low(),low.get_high()), compress_saturated_s2u(high.get_low(),high.get_high()));
 }
 
 // Compress 32-bit integers to 16-bit integers, signed and unsigned, with and without saturation
@@ -4015,10 +4102,6 @@ static inline Vec16s compress_saturated (Vec8i const & low, Vec8i const & high) 
     return Vec16s(compress_saturated(low.get_low(),low.get_high()), compress_saturated(high.get_low(),high.get_high()));
 }
 
-static inline Vec16us compress_saturated_s2u (Vec8i const & low, Vec8i const & high) {
-    return Vec16us(compress_saturated_s2u(low.get_low(),low.get_high()), compress_saturated_s2u(high.get_low(),high.get_high()));
-}
-
 // Function compress : packs two vectors of 32-bit integers into one vector of 16-bit integers
 // Overflow wraps around
 static inline Vec16us compress (Vec8ui const & low, Vec8ui const & high) {
@@ -4029,6 +4112,12 @@ static inline Vec16us compress (Vec8ui const & low, Vec8ui const & high) {
 // Unsigned, with saturation
 static inline Vec16us compress_saturated (Vec8ui const & low, Vec8ui const & high) {
     return Vec16us(compress_saturated(low.get_low(),low.get_high()), compress_saturated(high.get_low(),high.get_high()));
+}
+
+// Function compress : packs two vectors of 32-bit integers into one vector of 16-bit integers
+// Signed to unsigned, with saturation
+static inline Vec16us compress_saturated_s2u (Vec8i const & low, Vec8i const & high) {
+    return Vec16us(compress_saturated_s2u(low.get_low(),low.get_high()), compress_saturated_s2u(high.get_low(),high.get_high()));
 }
 
 // Compress 64-bit integers to 32-bit integers, signed and unsigned, with and without saturation

@@ -10,6 +10,41 @@
 static constexpr float M_PIF = 3.14159265358979323846f;
 static constexpr float M_1_PIF = 0.318309886183790671538f;
 
+template<typename T> void copyData_AVX(const T *, float *, const unsigned, const unsigned, const unsigned, const unsigned, const float) noexcept;
+
+template<>
+void copyData_AVX(const uint8_t * srcp, float * blur, const unsigned width, const unsigned height, const unsigned stride, const unsigned blurStride, const float offset) noexcept {
+    for (unsigned y = 0; y < height; y++) {
+        for (unsigned x = 0; x < width; x += 8)
+            to_float(Vec8i().load_8uc(srcp + x)).stream(blur + x);
+
+        srcp += stride;
+        blur += blurStride;
+    }
+}
+
+template<>
+void copyData_AVX(const uint16_t * srcp, float * blur, const unsigned width, const unsigned height, const unsigned stride, const unsigned blurStride, const float offset) noexcept {
+    for (unsigned y = 0; y < height; y++) {
+        for (unsigned x = 0; x < width; x += 8)
+            to_float(Vec8i().load_8us(srcp + x)).stream(blur + x);
+
+        srcp += stride;
+        blur += blurStride;
+    }
+}
+
+template<>
+void copyData_AVX(const float * srcp, float * blur, const unsigned width, const unsigned height, const unsigned stride, const unsigned blurStride, const float offset) noexcept {
+    for (unsigned y = 0; y < height; y++) {
+        for (unsigned x = 0; x < width; x += 8)
+            (Vec8f().load_a(srcp + x) + offset).stream(blur + x);
+
+        srcp += stride;
+        blur += blurStride;
+    }
+}
+
 void gaussianBlurHorizontal_AVX(float * buffer, float * blur, const float * weights, const int width, const int radius) noexcept {
     for (int i = 1; i <= radius; i++) {
         buffer[-i] = buffer[i - 1];
@@ -17,7 +52,7 @@ void gaussianBlurHorizontal_AVX(float * buffer, float * blur, const float * weig
     }
 
     for (int x = 0; x < width; x += 8) {
-        Vec8f sum = setzero_8f();
+        Vec8f sum = zero_8f();
 
         for (int i = -radius; i <= radius; i++) {
             const Vec8f srcp = Vec8f().load(buffer + x + i);
@@ -45,12 +80,10 @@ void gaussianBlurVertical_AVX(const uint8_t * __srcp, float * buffer, float * bl
 
     for (int y = 0; y < height; y++) {
         for (unsigned x = 0; x < width; x += 8) {
-            Vec8f sum = setzero_8f();
+            Vec8f sum = zero_8f();
 
             for (unsigned i = 0; i < diameter; i++) {
-                const Vec8i srcp_8i { _mm_cvtepu8_epi32(_mm_cvtsi32_si128(reinterpret_cast<const int *>(_srcp[i] + x)[0])),
-                                      _mm_cvtepu8_epi32(_mm_cvtsi32_si128(reinterpret_cast<const int *>(_srcp[i] + x + 4)[0])) };
-                const Vec8f srcp = to_float(srcp_8i);
+                const Vec8f srcp = to_float(Vec8i().load_8uc(_srcp[i] + x));
                 sum = mul_add(srcp, weightsVertical[i], sum);
             }
 
@@ -86,12 +119,10 @@ void gaussianBlurVertical_AVX(const uint16_t * __srcp, float * buffer, float * b
 
     for (int y = 0; y < height; y++) {
         for (unsigned x = 0; x < width; x += 8) {
-            Vec8f sum = setzero_8f();
+            Vec8f sum = zero_8f();
 
             for (unsigned i = 0; i < diameter; i++) {
-                const Vec8i srcp_8i { _mm_cvtepu16_epi32(_mm_loadl_epi64(reinterpret_cast<const __m128i *>(_srcp[i] + x))),
-                                      _mm_cvtepu16_epi32(_mm_loadl_epi64(reinterpret_cast<const __m128i *>(_srcp[i] + x + 4))) };
-                const Vec8f srcp = to_float(srcp_8i);
+                const Vec8f srcp = to_float(Vec8i().load_8us(_srcp[i] + x));
                 sum = mul_add(srcp, weightsVertical[i], sum);
             }
 
@@ -127,7 +158,7 @@ void gaussianBlurVertical_AVX(const float * __srcp, float * buffer, float * blur
 
     for (int y = 0; y < height; y++) {
         for (unsigned x = 0; x < width; x += 8) {
-            Vec8f sum = setzero_8f();
+            Vec8f sum = zero_8f();
 
             for (unsigned i = 0; i < diameter; i++) {
                 const Vec8f srcp = Vec8f().load_a(_srcp[i] + x);

@@ -198,7 +198,7 @@ License: BSD-2-clause
 
 Files: plugins/tcanny/*
 Copyright: 2009 Kevin Eliot Stone <kes25c@mail.missouri.edu>
-           2015-2016 HolyWu
+           2015-2017 HolyWu
 License: GPL-2+
 
 Files: plugins/tdeintmod/*
@@ -354,7 +354,7 @@ Copyright: 2012-2015 Fredrik Mellbin
 License: WTFPL
 
 Files: include/vectorclass/*
-       plugins/ctmf/src/vectorclass/*
+       plugins/*/vectorclass/*
 Copyright: 2012-2017 Agner Fog
 License: GPL-3+
 

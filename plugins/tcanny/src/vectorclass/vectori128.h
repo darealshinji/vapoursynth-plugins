@@ -1,8 +1,8 @@
 /****************************  vectori128.h   *******************************
 * Author:        Agner Fog
 * Date created:  2012-05-30
-* Last modified: 2016-04-26
-* Version:       1.22
+* Last modified: 2017-02-19
+* Version:       1.27
 * Project:       vector classes
 * Description:
 * Header file defining integer vector classes as interface to intrinsic 
@@ -39,7 +39,7 @@
 *
 * For detailed instructions, see VectorClass.pdf
 *
-* (c) Copyright 2012 - 2016 GNU General Public License http://www.gnu.org/licenses
+* (c) Copyright 2012-2017 GNU General Public License http://www.gnu.org/licenses
 *****************************************************************************/
 #ifndef VECTORI128_H
 #define VECTORI128_H
@@ -94,8 +94,13 @@ public:
     // Merom, Wolfdale) and Atom, but not on other processors from Intel, AMD or VIA.
     // You may use load_a instead of load if you are certain that p points to an address
     // divisible by 16.
-    void load_a(void const * p) {
+    Vec128b & load_a(void const * p) {
         xmm = _mm_load_si128((__m128i const*)p);
+        return *this;
+    }
+    // Member function to store 64-bit integer into array
+    void storel(void * p) const {
+        _mm_storel_epi64((__m128i*)p, xmm);
     }
     // Member function to store into array (unaligned)
     void store(void * p) const {
@@ -203,7 +208,7 @@ static inline Vec128b & operator ^= (Vec128b & a, Vec128b const & b) {
 
 // Define functions for this class
 
-static inline Vec128b setzero_128b() {
+static inline __m128i zero_128b() {
     return _mm_setzero_si128();
 }
 
@@ -220,7 +225,7 @@ static inline Vec128b andnot (Vec128b const & a, Vec128b const & b) {
 *****************************************************************************/
 // Generate a constant vector of 4 integers stored in memory.
 // Can be converted to any integer vector type
-template <int i0, int i1, int i2, int i3>
+template <int32_t i0, int32_t i1, int32_t i2, int32_t i3>
 static inline __m128i constant4i() {
     static const union {
         int     i[4];
@@ -229,6 +234,10 @@ static inline __m128i constant4i() {
     return u.xmm;
 }
 
+template <uint32_t i0, uint32_t i1, uint32_t i2, uint32_t i3>
+static inline __m128i constant4ui() {
+    return constant4i<int32_t(i0), int32_t(i1), int32_t(i2), int32_t(i3)>();
+}
 
 /*****************************************************************************
 *
@@ -332,6 +341,11 @@ public:
     // Type cast operator to convert to __m128i used in intrinsics
     operator __m128i() const {
         return xmm;
+    }
+    // Member function to load 64-bit integer from array
+    Vec16c & loadl(void const * p) {
+        xmm = _mm_loadl_epi64((__m128i const*)p);
+        return *this;
     }
     // Member function to load from array (unaligned)
     Vec16c & load(void const * p) {
@@ -909,6 +923,11 @@ public:
         xmm = x;
         return *this;
     }
+    // Member function to load 64-bit integer from array
+    Vec16uc & loadl(void const * p) {
+        xmm = _mm_loadl_epi64((__m128i const*)p);
+        return *this;
+    }
     // Member function to load from array (unaligned)
     Vec16uc & load(void const * p) {
         xmm = _mm_loadu_si128((__m128i const*)p);
@@ -1128,6 +1147,11 @@ public:
     operator __m128i() const {
         return xmm;
     }
+    // Member function to load 64-bit integer from array
+    Vec8s & loadl(void const * p) {
+        xmm = _mm_loadl_epi64((__m128i const*)p);
+        return *this;
+    }
     // Member function to load from array (unaligned)
     Vec8s & load(void const * p) {
         xmm = _mm_loadu_si128((__m128i const*)p);
@@ -1136,6 +1160,15 @@ public:
     // Member function to load from array (aligned)
     Vec8s & load_a(void const * p) {
         xmm = _mm_load_si128((__m128i const*)p);
+        return *this;
+    }
+    // Member function to load 8 8-bit unsigned integers from array
+    Vec8s & load_8uc(void const * p) {
+#if INSTRSET >= 5   // SSE4.1
+        xmm = _mm_cvtepu8_epi16(Vec16uc().loadl(p));
+#else
+        xmm = _mm_unpacklo_epi8(Vec16uc().loadl(p),_mm_setzero_si128());
+#endif
         return *this;
     }
     // Partial load. Load n elements and set the rest to 0
@@ -1557,7 +1590,7 @@ static inline Vec8s operator ! (Vec8s const & a) {
 // for (int i = 0; i < 8; i++) result[i] = s[i] ? a[i] : b[i];
 // Each byte in s must be either 0 (false) or -1 (true). No other values are allowed.
 // (s is signed)
-static inline Vec8s select (Vec8s const & s, Vec8s const & a, Vec8s const & b) {
+static inline Vec8s select (Vec8sb const & s, Vec8s const & a, Vec8s const & b) {
     return selectb(s,a,b);
 }
 
@@ -1701,6 +1734,11 @@ public:
         xmm = x;
         return *this;
     }
+    // Member function to load 64-bit integer from array
+    Vec8us & loadl(void const * p) {
+        xmm = _mm_loadl_epi64((__m128i const*)p);
+        return *this;
+    }
     // Member function to load from array (unaligned)
     Vec8us & load(void const * p) {
         xmm = _mm_loadu_si128((__m128i const*)p);
@@ -1838,7 +1876,7 @@ static inline Vec8us operator ~ (Vec8us const & a) {
 // for (int i = 0; i < 8; i++) result[i] = s[i] ? a[i] : b[i];
 // Each word in s must be either 0 (false) or -1 (true). No other values are allowed.
 // (s is signed)
-static inline Vec8us select (Vec8s const & s, Vec8us const & a, Vec8us const & b) {
+static inline Vec8us select (Vec8sb const & s, Vec8us const & a, Vec8us const & b) {
     return selectb(s,a,b);
 }
 
@@ -1981,6 +2019,25 @@ public:
     // Member function to load from array (aligned)
     Vec4i & load_a(void const * p) {
         xmm = _mm_load_si128((__m128i const*)p);
+        return *this;
+    }
+    // Member function to load 4 8-bit unsigned integers from array
+    Vec4i & load_4uc(void const * p) {
+#if INSTRSET >= 5   // SSE4.1
+        xmm          = _mm_cvtepu8_epi32(_mm_cvtsi32_si128(*(int const*)p));
+#else
+        __m128i zero = _mm_setzero_si128();
+        xmm          = _mm_unpacklo_epi16(_mm_unpacklo_epi8(Vec16uc().loadl(p),zero),zero);
+#endif
+        return *this;
+    }
+    // Member function to load 4 16-bit unsigned integers from array
+    Vec4i & load_4us(void const * p) {
+#if INSTRSET >= 5   // SSE4.1
+        xmm = _mm_cvtepu16_epi32(Vec8us().loadl(p));
+#else
+        xmm = _mm_unpacklo_epi16(Vec8us().loadl(p),_mm_setzero_si128());
+#endif
         return *this;
     }
     // Partial load. Load n elements and set the rest to 0
@@ -2499,7 +2556,9 @@ static inline Vec4i abs_saturated(Vec4i const & a) {
 // function rotate_left all elements
 // Use negative count to rotate right
 static inline Vec4i rotate_left(Vec4i const & a, int b) {
-#ifdef __XOP__  // AMD XOP instruction set
+#ifdef __AVX512VL__
+    return _mm_rolv_epi32(a, _mm_set1_epi32(b));
+#elif defined __XOP__  // AMD XOP instruction set
     return _mm_rot_epi32(a,_mm_set1_epi32(b));
 #else  // SSE2 instruction set
     __m128i left  = _mm_sll_epi32(a,_mm_cvtsi32_si128(b & 0x1F));      // a << b 
@@ -3110,7 +3169,9 @@ static inline Vec2q & operator -- (Vec2q & a) {
 
 // vector operator * : multiply element by element
 static inline Vec2q operator * (Vec2q const & a, Vec2q const & b) {
-#if INSTRSET >= 5   // SSE4.1 supported
+#if defined (__AVX512DQ__) && defined (__AVX512VL__)
+    return _mm_mullo_epi64(a, b);
+#elif INSTRSET >= 5   // SSE4.1 supported
     // instruction does not exist. Split into 32-bit multiplies
     __m128i bswap   = _mm_shuffle_epi32(b,0xB1);           // b0H,b0L,b1H,b1L (swap H<->L)
     __m128i prodlh  = _mm_mullo_epi32(a,bswap);            // a0Lb0H,a0Hb0L,a1Lb1H,a1Hb1L, 32 bit L*H products
@@ -3348,7 +3409,9 @@ static inline Vec2q abs_saturated(Vec2q const & a) {
 // function rotate_left all elements
 // Use negative count to rotate right
 static inline Vec2q rotate_left(Vec2q const & a, int b) {
-#ifdef __XOP__  // AMD XOP instruction set
+#ifdef __AVX512VL__
+    return _mm_rolv_epi64(a, _mm_set1_epi64x(int64_t(b)));
+#elif defined __XOP__  // AMD XOP instruction set
     return (Vec2q)_mm_rot_epi64(a,Vec2q(b));
 #else  // SSE2 instruction set
     __m128i left  = _mm_sll_epi64(a,_mm_cvtsi32_si128(b & 0x3F));      // a << b 
@@ -3462,15 +3525,15 @@ static inline Vec2qb operator > (Vec2uq const & a, Vec2uq const & b) {
 #if defined ( __XOP__ ) // AMD XOP instruction set
     return Vec2qb(_mm_comgt_epu64(a,b));
 #elif INSTRSET >= 6 // SSE4.2
-    __m128i sign64 = constant4i<0,(int32_t)0x80000000,0,(int32_t)0x80000000>();
-    __m128i aflip  = _mm_xor_si128(a, sign64);
+    __m128i sign64 = constant4ui<0,0x80000000,0,0x80000000>();
+    __m128i aflip  = _mm_xor_si128(a, sign64);             // flip sign bits to use signed compare
     __m128i bflip  = _mm_xor_si128(b, sign64);
     Vec2q   cmp    = _mm_cmpgt_epi64(aflip,bflip);
     return Vec2qb(cmp);
 #else  // SSE2 instruction set
     __m128i sign32  = _mm_set1_epi32(0x80000000);          // sign bit of each dword
-    __m128i aflip   = _mm_xor_si128(a,sign32);             // a with sign bits flipped
-    __m128i bflip   = _mm_xor_si128(b,sign32);             // b with sign bits flipped
+    __m128i aflip   = _mm_xor_si128(a,sign32);             // a with sign bits flipped to use signed compare
+    __m128i bflip   = _mm_xor_si128(b,sign32);             // b with sign bits flipped to use signed compare
     __m128i equal   = _mm_cmpeq_epi32(a,b);                // a == b, dwords
     __m128i bigger  = _mm_cmpgt_epi32(aflip,bflip);        // a > b, dwords
     __m128i biggerl = _mm_shuffle_epi32(bigger,0xA0);      // a > b, low dwords copied to high dwords
@@ -5024,6 +5087,78 @@ static inline Vec2q gather2q(void const * a) {
 
 /*****************************************************************************
 *
+*          Vector scatter functions
+*
+******************************************************************************
+*
+* These functions write the elements of a vector to arbitrary positions in an
+* array in memory. Each vector element is written to an array position 
+* determined by an index. An element is not written if the corresponding
+* index is out of range.
+* The indexes can be specified as constant template parameters or as an
+* integer vector.
+* 
+* The scatter functions are useful if the data are distributed in a sparce
+* manner into the array. If the array is dense then it is more efficient
+* to permute the data into the right positions and then write the whole
+* permuted vector into the array.
+*
+* Example:
+* Vec8q a(10,11,12,13,14,15,16,17);
+* int64_t b[16] = {0};
+* scatter<0,2,14,10,1,-1,5,9>(a,b); 
+* // Now, b = {10,14,11,0,0,16,0,0,0,17,13,0,0,0,12,0}
+*
+*****************************************************************************/
+
+template <int i0, int i1, int i2, int i3>
+static inline void scatter(Vec4i const & data, void * array) {
+#if defined (__AVX512VL__)
+    __m128i indx = constant4i<i0,i1,i2,i3>();
+    __mmask16 mask = uint16_t(i0>=0 | (i1>=0)<<1 | (i2>=0)<<2 | (i3>=0)<<3);
+    _mm_mask_i32scatter_epi32((int*)array, mask, indx, data, 4);
+#else
+    int32_t* arr = (int32_t*)array;
+    const int index[4] = {i0,i1,i2,i3};
+    for (int i = 0; i < 4; i++) {
+        if (index[i] >= 0) arr[index[i]] = data[i];
+    }
+#endif
+}
+
+template <int i0, int i1>
+static inline void scatter(Vec2q const & data, void * array) {
+    int64_t* arr = (int64_t*)array;
+    if (i0 >= 0) arr[i0] = data[0];
+    if (i1 >= 0) arr[i1] = data[1];
+}
+
+static inline void scatter(Vec4i const & index, uint32_t limit, Vec4i const & data, void * array) {
+#if defined (__AVX512VL__)
+    __mmask16 mask = _mm_cmplt_epu32_mask(index, Vec4ui(limit));
+    _mm_mask_i32scatter_epi32((int*)array, mask, index, data, 4);
+#else
+    int32_t* arr = (int32_t*)array;
+    for (int i = 0; i < 4; i++) {
+        if (uint32_t(index[i]) < limit) arr[index[i]] = data[i];
+    }
+#endif
+}
+
+static inline void scatter(Vec2q const & index, uint32_t limit, Vec2q const & data, void * array) {
+    int64_t* arr = (int64_t*)array;
+    if (uint64_t(index[0]) < uint64_t(limit)) arr[index[0]] = data[0];
+    if (uint64_t(index[1]) < uint64_t(limit)) arr[index[1]] = data[1];
+} 
+
+static inline void scatter(Vec4i const & index, uint32_t limit, Vec2q const & data, void * array) {
+    int64_t* arr = (int64_t*)array;
+    if (uint32_t(index[0]) < limit) arr[index[0]] = data[0];
+    if (uint32_t(index[1]) < limit) arr[index[1]] = data[1];
+} 
+
+/*****************************************************************************
+*
 *          Functions for conversion between integer sizes
 *
 *****************************************************************************/
@@ -5117,10 +5252,6 @@ static inline Vec16c compress_saturated (Vec8s const & low, Vec8s const & high) 
     return  _mm_packs_epi16(low,high);
 }
 
-static inline Vec16uc compress_saturated_s2u (Vec8s const & low, Vec8s const & high) {
-    return  _mm_packus_epi16(low,high);
-}
-
 // Function compress : packs two vectors of 16-bit integers to one vector of 8-bit integers
 // Unsigned, overflow wraps around
 static inline Vec16uc compress (Vec8us const & low, Vec8us const & high) {
@@ -5153,6 +5284,12 @@ static inline Vec16uc compress_saturated (Vec8us const & low, Vec8us const & hig
 #endif
 }
 
+// Function compress : packs two vectors of 16-bit integers into one vector of 8-bit integers
+// Signed to unsigned, with saturation
+static inline Vec16uc compress_saturated_s2u (Vec8s const & low, Vec8s const & high) {
+    return  _mm_packus_epi16(low,high);
+}
+
 // Compress 32-bit integers to 16-bit integers, signed and unsigned, with and without saturation
 
 // Function compress : packs two vectors of 32-bit integers into one vector of 16-bit integers
@@ -5178,17 +5315,6 @@ static inline Vec8s compress (Vec4i const & low, Vec4i const & high) {
 // Signed with saturation
 static inline Vec8s compress_saturated (Vec4i const & low, Vec4i const & high) {
     return  _mm_packs_epi32(low,high);                     // pack with signed saturation
-}
-
-static inline Vec8us compress_saturated_s2u (Vec4i const & low, Vec4i const & high) {
-#if INSTRSET >= 5   // SSE4.1 supported
-    return  _mm_packus_epi32(low,high);                    // pack with unsigned saturation
-#else
-    __m128i signbit = _mm_set1_epi32(0x8000);
-    __m128i low1    = _mm_sub_epi32(low,signbit);
-    __m128i high1   = _mm_sub_epi32(high,signbit);
-    return  _mm_xor_si128(_mm_packs_epi32(low1,high1),_mm_set1_epi16(-0x8000));
-#endif
 }
 
 // Function compress : packs two vectors of 32-bit integers into one vector of 16-bit integers
@@ -5220,6 +5346,19 @@ static inline Vec8us compress_saturated (Vec4ui const & low, Vec4ui const & high
     __m128i lowsatur = _mm_or_si128(low,lownz2);           // low, saturated
     __m128i hisatur  = _mm_or_si128(high,highnz2);         // high, saturated
     return  Vec8us (compress(Vec4i(lowsatur), Vec4i(hisatur)));
+#endif
+}
+
+// Function compress : packs two vectors of 32-bit integers into one vector of 16-bit integers
+// Signed to unsigned, with saturation
+static inline Vec8us compress_saturated_s2u (Vec4i const & low, Vec4i const & high) {
+#if INSTRSET >= 5   // SSE4.1 supported
+    return  _mm_packus_epi32(low,high);                    // pack with unsigned saturation
+#else
+    __m128i signbit = _mm_set1_epi32(0x8000);
+    __m128i low1    = _mm_sub_epi32(low,signbit);
+    __m128i high1   = _mm_sub_epi32(high,signbit);
+    return  _mm_xor_si128(_mm_packs_epi32(low1,high1),_mm_set1_epi16(-0x8000));
 #endif
 }
 
@@ -6002,7 +6141,7 @@ static inline Vec8us divide_by_ui(Vec8us const & x) {
     __m128i xm = _mm_mulhi_epu16(x1, multv);                         // high part of 16x16->32 bit unsigned multiplication
     Vec8us q    = _mm_srli_epi16(xm, b);                             // shift right by b
     if (round_down) {
-        Vec8s overfl = (x1 == (Vec8us)_mm_setzero_si128());                  // check for overflow of x+1
+        Vec8sb overfl = (x1 == (Vec8us)_mm_setzero_si128());         // check for overflow of x+1
         return select(overfl, Vec8us(mult >> b), q);                 // deal with overflow (rarely needed)
     }
     else {
