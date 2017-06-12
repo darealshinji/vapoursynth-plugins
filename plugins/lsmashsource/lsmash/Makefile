@@ -1,10 +1,6 @@
 ifneq ($(V),1)
-GEN_silent    = @ echo '  GEN      '$@;
-CXXLD_silent  = @ echo '  CXXLD    '$@;
-CXX_silent    = @ echo '  CXX      '$@;
 CCLD_silent   = @ echo '  CCLD     '$@;
 CC_silent     = @ echo '  CC       '$@;
-YASM_silent   = @ echo '  YASM     '$@;
 AR_silent     = @ echo '  AR       '$@;
 RANLIB_silent = @ echo '  RANLIB   '$@;
 endif
@@ -21,19 +17,18 @@ vpath %.h $(SRCDIR)
 
 OBJS = $(SRCS:%.c=%.o)
 
-SRC_ALL = $(SRCS) $(SRC_TOOLS)
+SRC_ALL = $(SRCS)
 
 #### main rules ####
 
-.PHONY: all lib install install-lib clean distclean dep depend
-
-all: $(STATICLIB) $(SHAREDLIB) $(TOOLS)
+all: $(STATICLIB) $(SHAREDLIB)
 
 lib: $(STATICLIB) $(SHAREDLIB)
 
 $(STATICLIBNAME): $(OBJS)
 	$(AR_silent)$(AR) rc $@ $^
 	$(RANLIB_silent)$(RANLIB) $@
+	-@ $(if $(STRIP), $(STRIP) -x $@)
 
 $(SHAREDLIBNAME): $(OBJS)
 	$(CCLD_silent)$(CCLD) $(SO_LDFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
@@ -49,8 +44,6 @@ include config.mak2
 	$(CC_silent)$(CC) -c $(CFLAGS) -o $@ $<
 
 install: all install-lib
-	install -d $(DESTDIR)$(bindir)
-	install -m 755 $(TOOLS) $(DESTDIR)$(bindir)
 
 install-lib: liblsmash.pc lib
 	install -d $(DESTDIR)$(includedir)

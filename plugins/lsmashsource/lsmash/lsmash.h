@@ -1,7 +1,7 @@
 /*****************************************************************************
- * lsmash.h:
+ * lsmash.h
  *****************************************************************************
- * Copyright (C) 2010-2015 L-SMASH project
+ * Copyright (C) 2010-2017 L-SMASH project
  *
  * Authors: Yusuke Nakamura <muken.the.vfrmaniac@gmail.com>
  *
@@ -47,7 +47,7 @@ extern "C" {
  * Version
  ****************************************************************************/
 #define LSMASH_VERSION_MAJOR  2
-#define LSMASH_VERSION_MINOR 12
+#define LSMASH_VERSION_MINOR 14
 #define LSMASH_VERSION_MICRO  4
 
 #define LSMASH_VERSION_INT( a, b, c ) (((a) << 16) | ((b) << 8) | (c))
@@ -1535,18 +1535,24 @@ typedef struct
     uint8_t                   independent;
     uint8_t                   disposable;
     uint8_t                   redundant;
-    uint8_t                   reserved[3];      /* non-output
-                                                 * broken link
+    uint8_t                   reserved[3];      /* broken link
                                                  * ??? */
 } lsmash_sample_property_t;
 
 typedef struct
 {
+#define LSMASH_TIMESTAMP_UNDEFINED UINT64_MAX
     uint32_t                 length;    /* size of sample data
                                          * Note: this is NOT always an allocated size. */
     uint8_t                 *data;      /* sample data */
-    uint64_t                 dts;       /* Decoding TimeStamp in units of media timescale */
-    uint64_t                 cts;       /* Composition TimeStamp in units of media timescale */
+    uint64_t                 dts;       /* Decoding TimeStamp in units of media timescale
+                                         * No two samples in the same track have the same Decoding TimeStamp.
+                                         * Any user must not set Decoding TimeStamp of any sample to LSMASH_TIMESTAMP_UNDEFINED. */
+    uint64_t                 cts;       /* Composition TimeStamp in units of media timescale
+                                         * No two samples in the same track have the same Composition TimeStamp.
+                                         * If sample is a non-output sample i.e. decoded but not used, set its Composition TimeStamp to LSMASH_TIMESTAMP_UNDEFINED.
+                                         * Composition TimeStamp of any non-output sample makes no sense. Note that explicit timeline maps shall be used to exclude
+                                         * non-output samples from presentation timeline. */
     uint64_t                 pos;       /* absolute file offset of sample data (read-only) */
     uint32_t                 index;     /* index of sample description */
     lsmash_sample_property_t prop;
@@ -2281,6 +2287,20 @@ int lsmash_get_movie_parameters
 uint32_t lsmash_get_movie_timescale
 (
     lsmash_root_t *root
+);
+
+/* Reserve the size of the media data region for a non-fragmented movie.
+ * This enables to get rid of requirement of seekability for rewriting the actual size of the media data region when finishing
+ * a non-fragmented movie. Note that the specified size is excluding the type and the size fields of the enclosing box and
+ * this function must be called before any lsmash_append_sample(). If the actual size is greater than the reserved size when
+ * finishing a non-fragmented movie, seek and rewrite the size of the box enclosing the media data region.
+ *
+ * Return 0 if successful.
+ * Return a negative value otherwise. */
+int lsmash_reserve_media_data_size
+(
+    lsmash_root_t *root,
+    uint64_t       media_data_size
 );
 
 /****************************************************************************

@@ -340,17 +340,19 @@ SRC_IMPORTER="  \
     vc1_imp.c   \
     wave_imp.c"
 
-SRC_CORE="     \
-    box.c      \
-    chapter.c  \
-    file.c     \
-    fragment.c \
-    isom.c     \
-    meta.c     \
-    print.c    \
-    read.c     \
-    summary.c  \
-    timeline.c \
+SRC_CORE="        \
+    box.c         \
+    box_default.c \
+    box_type.c    \
+    chapter.c     \
+    file.c        \
+    fragment.c    \
+    isom.c        \
+    meta.c        \
+    print.c       \
+    read.c        \
+    summary.c     \
+    timeline.c    \
     write.c"
 
 SRCS=""
@@ -419,7 +421,7 @@ EOF
 sed "s/\\\$MAJOR/$MAJVER/" $SRCDIR/liblsmash.v > liblsmash.ver
 # Add non-public symbols which have lsmash_* prefix to local.
 find $SRCDIR/common/ $SRCDIR/importer/ -name "*.h" | xargs sed -e 's/^[ ]*//g' | \
-    grep "^\(void\|lsmash_bits_t\|uint64_t\|int\|int64_t\|lsmash_bs_t\|uint8_t\|uint16_t\|uint32_t\|lsmash_entry_list_t\|lsmash_entry_t\|lsmash_multiple_buffers_t\|double\|float\|FILE\).*lsmash_" | \
+    grep "^\(void\|lsmash_bits_t\|uint64_t\|int\|int64_t\|lsmash_bs_t\|uint8_t\|uint16_t\|uint32_t\|lsmash_entry_list_t\|lsmash_entry_t\|lsmash_multiple_buffers_t\|double\|float\|FILE\) \+\*\{0,1\}lsmash_" | \
     sed -e "s/.*\(lsmash_.*\)(.*/\1/g" -e "s/.*\(lsmash_.*\)/\1;/g" | xargs -I% sed -i "/^};$/i \           %" liblsmash.ver
 # Get rid of non-public symbols for the cli tools from local.
 sed -i -e '/lsmash_win32_fopen/d' \
@@ -491,7 +493,8 @@ EOF
 for tool in $TOOLS; do
     cat >> config.mak2 << EOF
 cli/${tool}${EXT}: cli/${tool}.o $OBJ_TOOLS $STATICLIB $SHAREDLIB
-	\$(CCLD_silent)\$(CC) \$(CFLAGS) \$(LDFLAGS) -o \$@ \$< $OBJ_TOOLS -llsmash \$(LIBS)
+	\$(CC) \$(CFLAGS) \$(LDFLAGS) -o \$@ \$< $OBJ_TOOLS -llsmash \$(LIBS)
+	-@ \$(if \$(STRIP), \$(STRIP) \$@)
 
 EOF
 done

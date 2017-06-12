@@ -1,7 +1,7 @@
 /*****************************************************************************
- * mp4sys.c:
+ * mp4sys.c
  *****************************************************************************
- * Copyright (C) 2010-2015 L-SMASH project
+ * Copyright (C) 2010-2017 L-SMASH project
  *
  * Authors: Takashi Hirata <silverfilain@gmail.com>
  *          Yusuke Nakamura <muken.the.vfrmaniac@gmail.com>
@@ -1017,7 +1017,7 @@ void mp4sys_print_descriptor( FILE *fp, mp4sys_descriptor_t *descriptor, int ind
 
 int mp4sys_print_codec_specific( FILE *fp, lsmash_file_t *file, isom_box_t *box, int level )
 {
-    assert( fp && file && box && !(box->manager & LSMASH_BINARY_CODED_BOX) );
+    assert( !(box->manager & LSMASH_BINARY_CODED_BOX) );
     isom_esds_t *esds = (isom_esds_t *)box;
     int indent = level;
     lsmash_ifprintf( fp, indent++, "[%s: Elemental Stream Descriptor Box]\n", isom_4cc2str( esds->type.fourcc ) );

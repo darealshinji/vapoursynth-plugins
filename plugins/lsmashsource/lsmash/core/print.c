@@ -1,7 +1,7 @@
 /*****************************************************************************
- * print.c:
+ * print.c
  *****************************************************************************
- * Copyright (C) 2010-2015 L-SMASH project
+ * Copyright (C) 2010-2017 L-SMASH project
  *
  * Authors: Yusuke Nakamura <muken.the.vfrmaniac@gmail.com>
  *
@@ -198,7 +198,7 @@ static void isom_print_fullbox_common( FILE *fp, int indent, isom_box_t *box, ch
 static void isom_print_box_common( FILE *fp, int indent, isom_box_t *box, char *name )
 {
     isom_box_t *parent = box->parent;
-    if( parent && lsmash_check_box_type_identical( parent->type, ISOM_BOX_TYPE_STSD ) )
+    if( lsmash_check_box_type_identical( parent->type, ISOM_BOX_TYPE_STSD ) )
     {
         isom_print_basebox_common( fp, indent, box, name );
         return;
@@ -1380,7 +1380,10 @@ static int isom_print_ctts( FILE *fp, lsmash_file_t *file, isom_box_t *box, int 
             isom_ctts_entry_t *data = (isom_ctts_entry_t *)entry->data;
             lsmash_ifprintf( fp, indent++, "entry[%"PRIu32"]\n", i++ );
             lsmash_ifprintf( fp, indent, "sample_count = %"PRIu32"\n", data->sample_count );
-            lsmash_ifprintf( fp, indent--, "sample_offset = %"PRId32"\n", (union {uint32_t ui; int32_t si;}){ data->sample_offset }.si );
+            if( data->sample_offset != ISOM_NON_OUTPUT_SAMPLE_OFFSET )
+                lsmash_ifprintf( fp, indent--, "sample_offset = %"PRId32"\n", (union {uint32_t ui; int32_t si;}){ data->sample_offset }.si );
+            else
+                lsmash_ifprintf( fp, indent--, "sample_offset = -2^31 (non-output sample)\n" );
         }
     else
         for( lsmash_entry_t *entry = ctts->list->head; entry; entry = entry->next )
@@ -1623,7 +1626,7 @@ static int isom_print_sbgp( FILE *fp, lsmash_file_t *file, isom_box_t *box, int 
         return LSMASH_ERR_INVALID_DATA;
     isom_sbgp_t *sbgp = (isom_sbgp_t *)box;
     int indent = level;
-    int is_fragment = sbgp->parent && lsmash_check_box_type_identical( sbgp->parent->type, ISOM_BOX_TYPE_TRAF );
+    int is_fragment = lsmash_check_box_type_identical( sbgp->parent->type, ISOM_BOX_TYPE_TRAF );
     uint32_t i = 0;
     isom_print_box_common( fp, indent++, box, "Sample to Group Box" );
     lsmash_ifprintf( fp, indent, "grouping_type = %s\n", isom_4cc2str( sbgp->grouping_type ) );
@@ -1743,7 +1746,7 @@ static int isom_print_ilst( FILE *fp, lsmash_file_t *file, isom_box_t *box, int 
 static int isom_print_metaitem( FILE *fp, lsmash_file_t *file, isom_box_t *box, int level )
 {
     isom_metaitem_t *metaitem = (isom_metaitem_t *)box;
-    if( box->parent && box->parent->parent && (box->parent->parent->manager & LSMASH_QTFF_BASE) )
+    if( box->parent->parent->manager & LSMASH_QTFF_BASE )
     {
         int indent = level;
         lsmash_ifprintf( fp, indent++, "[key_index %"PRIu32": Metadata Item Box]\n", box->type.fourcc );
@@ -1870,8 +1873,7 @@ static int isom_print_data( FILE *fp, lsmash_file_t *file, isom_box_t *box, int 
     isom_data_t *data = (isom_data_t *)box;
     int indent = level;
     isom_print_box_common( fp, indent++, box, "Data Box" );
-    if( box->parent && box->parent->parent && box->parent->parent->parent
-     && (box->parent->parent->parent->manager & LSMASH_QTFF_BASE) )
+    if( box->parent->parent->parent->manager & LSMASH_QTFF_BASE )
     {
         uint32_t type_set_indicator = data->reserved >> 8;
         uint32_t well_known_type = ((data->reserved << 16) | (data->type_set_identifier << 8) | data->type_code) & 0xffffff;
@@ -2334,12 +2336,10 @@ static int isom_print_mfro( FILE *fp, lsmash_file_t *file, isom_box_t *box, int 
 
 int lsmash_print_movie( lsmash_root_t *root, const char *filename )
 {
-    if( !root )
+    if( LSMASH_IS_NON_EXISTING_BOX( root ) )
         return LSMASH_ERR_FUNCTION_PARAM;
     lsmash_file_t *file = root->file;
-    if( !file
-     || !file->print
-     || !(file->flags & LSMASH_FILE_MODE_DUMP) )
+    if( !file->print || !(file->flags & LSMASH_FILE_MODE_DUMP) )
         return LSMASH_ERR_FUNCTION_PARAM;
     FILE *destination;
     if( !strcmp( filename, "-" ) )
@@ -2375,7 +2375,7 @@ static isom_print_box_t isom_select_print_func( isom_box_t *box )
 {
     if( box->manager & LSMASH_UNKNOWN_BOX )
         return isom_print_unknown;
-    if( box->parent )
+    if( LSMASH_IS_EXISTING_BOX( box->parent ) )
     {
         isom_box_t *parent = box->parent;
         if( lsmash_check_box_type_identical( parent->type, ISOM_BOX_TYPE_STSD ) )
@@ -2414,7 +2414,7 @@ static isom_print_box_t isom_select_print_func( isom_box_t *box )
         }
         if( lsmash_check_box_type_identical( parent->type, ISOM_BOX_TYPE_TREF ) )
             return isom_print_track_reference_type;
-        if( parent->parent )
+        if( LSMASH_IS_EXISTING_BOX( parent->parent ) )
         {
             if( lsmash_check_box_type_identical( parent->parent->type, ISOM_BOX_TYPE_STSD ) )
                 return isom_print_sample_description_extesion;

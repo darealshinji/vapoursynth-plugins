@@ -1,7 +1,7 @@
 /*****************************************************************************
- * cli.h:
+ * box_type.c
  *****************************************************************************
- * Copyright (C) 2013-2015 L-SMASH project
+ * Copyright (C) 2017 L-SMASH project
  *
  * Authors: Yusuke Nakamura <muken.the.vfrmaniac@gmail.com>
  *
@@ -20,25 +20,8 @@
 
 /* This file is available under an ISC license. */
 
-#ifndef CLI_H
-#define CLI_H
+#include "common/internal.h" /* must be placed first */
 
-#include "config.h"
-#include "common/osdep.h"
-#include "lsmash.h"
-
-#ifdef _MSC_VER
-#define strcasecmp _stricmp
-#else
-#include <strings.h>
-#endif
-
-#ifdef _WIN32
-   void lsmash_get_mainargs( int *argc, char ***argv );
-#else
-#  define lsmash_get_mainargs( argc, argv ) (void)0
-#endif
-
-int lsmash_write_lsmash_indicator( lsmash_root_t *root );
-
-#endif
+/* Box types */
+#define LSMASH_INITIALIZE_BOX_TYPE_HERE
+#include "box_type.h"

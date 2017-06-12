@@ -1,13 +1,9 @@
---- Makefile.orig	2016-10-12 20:44:51.000000000 +0200
-+++ Makefile	2016-11-01 16:28:23.597142268 +0100
-@@ -1,3 +1,14 @@
+--- Makefile.orig	2017-03-05 19:11:49.000000000 +0100
++++ Makefile	2017-06-12 17:01:12.853141517 +0200
+@@ -1,3 +1,10 @@
 +ifneq ($(V),1)
-+GEN_silent    = @ echo '  GEN      '$@;
-+CXXLD_silent  = @ echo '  CXXLD    '$@;
-+CXX_silent    = @ echo '  CXX      '$@;
 +CCLD_silent   = @ echo '  CCLD     '$@;
 +CC_silent     = @ echo '  CC       '$@;
-+YASM_silent   = @ echo '  YASM     '$@;
 +AR_silent     = @ echo '  AR       '$@;
 +RANLIB_silent = @ echo '  RANLIB   '$@;
 +endif
@@ -15,15 +11,28 @@
  # Makefile for L-SMASH
  
  # note:
-@@ -21,16 +32,11 @@
+@@ -10,27 +17,21 @@
+ 
+ OBJS = $(SRCS:%.c=%.o)
+ 
+-SRC_ALL = $(SRCS) $(SRC_TOOLS)
++SRC_ALL = $(SRCS)
+ 
+ #### main rules ####
+ 
+-.PHONY: all lib install install-lib clean distclean dep depend
+-
+-all: $(STATICLIB) $(SHAREDLIB) $(TOOLS)
++all: $(STATICLIB) $(SHAREDLIB)
+ 
  lib: $(STATICLIB) $(SHAREDLIB)
  
  $(STATICLIBNAME): $(OBJS)
 -	$(AR) rc $@ $^
 -	$(RANLIB) $@
--	-@ $(if $(STRIP), $(STRIP) -x $@)
 +	$(AR_silent)$(AR) rc $@ $^
 +	$(RANLIB_silent)$(RANLIB) $@
+ 	-@ $(if $(STRIP), $(STRIP) -x $@)
  
  $(SHAREDLIBNAME): $(OBJS)
 -	$(LD) $(SO_LDFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
@@ -35,7 +44,7 @@
  ifeq ($(SHAREDLIBNAME), liblsmash.so.$(MAJVER))
  	ln -sf $(SHAREDLIBNAME) liblsmash.so
  endif
-@@ -40,7 +46,7 @@
+@@ -40,11 +41,9 @@
  include config.mak2
  
  %.o: %.c .depend config.h
@@ -43,4 +52,8 @@
 +	$(CC_silent)$(CC) -c $(CFLAGS) -o $@ $<
  
  install: all install-lib
- 	install -d $(DESTDIR)$(bindir)
+-	install -d $(DESTDIR)$(bindir)
+-	install -m 755 $(TOOLS) $(DESTDIR)$(bindir)
+ 
+ install-lib: liblsmash.pc lib
+ 	install -d $(DESTDIR)$(includedir)

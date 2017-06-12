@@ -1,7 +1,7 @@
 /*****************************************************************************
  * bytes.c
  *****************************************************************************
- * Copyright (C) 2010-2015 L-SMASH project
+ * Copyright (C) 2010-2017 L-SMASH project
  *
  * Authors: Yusuke Nakamura <muken.the.vfrmaniac@gmail.com>
  *
@@ -321,7 +321,7 @@ int lsmash_bs_flush_buffer( lsmash_bs_t *bs )
     return 0;
 }
 
-int lsmash_bs_write_data( lsmash_bs_t *bs, uint8_t *buf, size_t size )
+int lsmash_bs_write_data( lsmash_bs_t *bs, const uint8_t *buf, size_t size )
 {
     if( !bs || size > INT_MAX )
         return LSMASH_ERR_FUNCTION_PARAM;
@@ -333,7 +333,7 @@ int lsmash_bs_write_data( lsmash_bs_t *bs, uint8_t *buf, size_t size )
         bs->error = 1;
         return LSMASH_ERR_NAMELESS;
     }
-    int write_size = bs->write( bs->stream, buf, size );
+    int write_size = bs->write( bs->stream, (uint8_t *)buf, size );
     bs->written += write_size;
     bs->offset  += write_size;
     return write_size != size ? LSMASH_ERR_NAMELESS : 0;
@@ -704,24 +704,4 @@ int lsmash_bs_import_data( lsmash_bs_t *bs, void *data, uint32_t length )
     memcpy( lsmash_bs_get_buffer_data_end( bs ), data, length );
     bs->buffer.store += length;
     return 0;
-}
-/*---- ----*/
-
-/*---- basic I/O ----*/
-int lsmash_fread_wrapper( void *opaque, uint8_t *buf, int size )
-{
-    int read_size = fread( buf, 1, size, (FILE *)opaque );
-    return ferror( (FILE *)opaque ) ? LSMASH_ERR_NAMELESS : read_size;
-}
-
-int lsmash_fwrite_wrapper( void *opaque, uint8_t *buf, int size )
-{
-    return fwrite( buf, 1, size, (FILE *)opaque );
-}
-
-int64_t lsmash_fseek_wrapper( void *opaque, int64_t offset, int whence )
-{
-    if( lsmash_fseek( (FILE *)opaque, offset, whence ) != 0 )
-        return LSMASH_ERR_NAMELESS;
-    return lsmash_ftell( (FILE *)opaque );
 }

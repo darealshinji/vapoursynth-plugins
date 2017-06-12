@@ -46,12 +46,9 @@ tjbenchtest
 
 liblsmash.pc
 /plugins/lsmashsource/libs/
-/plugins/lsmashsource/lsmash/cli/boxdumper
-/plugins/lsmashsource/lsmash/cli/muxer
-/plugins/lsmashsource/lsmash/cli/remuxer
-/plugins/lsmashsource/lsmash/cli/timelineeditor
 /plugins/lsmashsource/lsmash/config.h
 /plugins/lsmashsource/lsmash/config.mak2
+/plugins/lsmashsource/lsmash/liblsmash.ver
 
 /plugins/waifu2x-w2xc/libw2xc/conv
 /plugins/waifu2x-w2xc/libw2xc/modelHandler_OpenCL.cl.h

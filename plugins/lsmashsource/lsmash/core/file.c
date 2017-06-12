@@ -1,7 +1,7 @@
 /*****************************************************************************
  * file.c
  *****************************************************************************
- * Copyright (C) 2010-2015 L-SMASH project
+ * Copyright (C) 2010-2017 L-SMASH project
  *
  * Authors: Yusuke Nakamura <muken.the.vfrmaniac@gmail.com>
  *
@@ -51,17 +51,18 @@ int isom_check_compatibility
     lsmash_file_t *file
 )
 {
-    if( !file )
+    if( LSMASH_IS_NON_EXISTING_BOX( file ) )
         return LSMASH_ERR_FUNCTION_PARAM;
     isom_clear_compat_flags( file );
     /* Get the brand container. */
-    isom_ftyp_t *ftyp = file->ftyp ? file->ftyp : (isom_ftyp_t *)lsmash_get_entry_data( &file->styp_list, 1 );
+    isom_ftyp_t *ftyp = LSMASH_IS_EXISTING_BOX( file->ftyp )
+                      ? file->ftyp
+                      : (isom_ftyp_t *)lsmash_get_entry_data( &file->styp_list, 1 );
     /* Check brand to decide mandatory boxes. */
-    if( !ftyp )
+    if( LSMASH_IS_NON_EXISTING_BOX( ftyp ) )
     {
         /* No brand declaration means this file is a MP4 version 1 or QuickTime file format. */
-        if( file->moov
-         && file->moov->iods )
+        if( LSMASH_IS_EXISTING_BOX( file->moov->iods ) )
         {
             file->mp4_version1    = 1;
             file->isom_compatible = 1;
@@ -210,32 +211,26 @@ int isom_check_mandatory_boxes
     lsmash_file_t *file
 )
 {
-    if( !file
-     || !file->moov
-     || !file->moov->mvhd )
-        return LSMASH_ERR_INVALID_DATA;
+    assert( LSMASH_IS_EXISTING_BOX( file ) );
     /* A movie requires at least one track. */
     if( !file->moov->trak_list.head )
         return LSMASH_ERR_INVALID_DATA;
     for( lsmash_entry_t *entry = file->moov->trak_list.head; entry; entry = entry->next )
     {
         isom_trak_t *trak = (isom_trak_t *)entry->data;
-        if( !trak
-         || !trak->tkhd
-         || !trak->mdia
-         || !trak->mdia->mdhd
-         || !trak->mdia->hdlr
-         || !trak->mdia->minf
-         || !trak->mdia->minf->dinf
-         || !trak->mdia->minf->dinf->dref
-         || !trak->mdia->minf->stbl
-         || !trak->mdia->minf->stbl->stsd
-         || (!trak->mdia->minf->stbl->stsz && !trak->mdia->minf->stbl->stz2)
-         || !trak->mdia->minf->stbl->stts
-         || !trak->mdia->minf->stbl->stsc
-         || !trak->mdia->minf->stbl->stco )
+        if( LSMASH_IS_NON_EXISTING_BOX( trak )
+         || LSMASH_IS_NON_EXISTING_BOX( trak->tkhd )
+         || LSMASH_IS_NON_EXISTING_BOX( trak->mdia->mdhd )
+         || LSMASH_IS_NON_EXISTING_BOX( trak->mdia->hdlr )
+         || LSMASH_IS_NON_EXISTING_BOX( trak->mdia->minf->dinf->dref )
+         || LSMASH_IS_NON_EXISTING_BOX( trak->mdia->minf->stbl->stsd )
+         || (LSMASH_IS_NON_EXISTING_BOX( trak->mdia->minf->stbl->stsz )
+          && LSMASH_IS_NON_EXISTING_BOX( trak->mdia->minf->stbl->stz2 ))
+         || LSMASH_IS_NON_EXISTING_BOX( trak->mdia->minf->stbl->stts )
+         || LSMASH_IS_NON_EXISTING_BOX( trak->mdia->minf->stbl->stsc )
+         || LSMASH_IS_NON_EXISTING_BOX( trak->mdia->minf->stbl->stco ) )
             return LSMASH_ERR_INVALID_DATA;
-        if( file->qt_compatible && !trak->mdia->minf->hdlr )
+        if( file->qt_compatible && LSMASH_IS_NON_EXISTING_BOX( trak->mdia->minf->hdlr ) )
             return LSMASH_ERR_INVALID_DATA;
         isom_stbl_t *stbl = trak->mdia->minf->stbl;
         if( !stbl->stsd->list.head )
@@ -249,10 +244,10 @@ int isom_check_mandatory_boxes
     }
     if( !file->fragment )
         return 0;
-    if( !file->moov->mvex )
+    if( LSMASH_IS_NON_EXISTING_BOX( file->moov->mvex ) )
         return LSMASH_ERR_INVALID_DATA;
     for( lsmash_entry_t *entry = file->moov->mvex->trex_list.head; entry; entry = entry->next )
-        if( !entry->data )  /* trex */
+        if( LSMASH_IS_NON_EXISTING_BOX( (isom_trex_t *)entry->data ) )
             return LSMASH_ERR_INVALID_DATA;
     return 0;
 }
@@ -330,7 +325,7 @@ static int isom_set_brands
              * We set brands from the initialization segment after switching to this segment. */
             for( lsmash_entry_t *entry = file->styp_list.head; entry; entry = entry->next )
                 isom_remove_box_by_itself( entry->data );
-            if( file->initializer )
+            if( LSMASH_IS_EXISTING_BOX( file->initializer ) )
             {
                 /* Copy flags for compatibility. */
                 memcpy( (int8_t *)file + COMPAT_FLAGS_OFFSET, file->initializer, sizeof(lsmash_file_t) - COMPAT_FLAGS_OFFSET );
@@ -357,17 +352,17 @@ static int isom_set_brands
     if( file->flags & LSMASH_FILE_MODE_INITIALIZATION )
     {
         /* Add File Type Box if absent yet. */
-        if( !file->ftyp && !isom_add_ftyp( file ) )
+        if( LSMASH_IS_NON_EXISTING_BOX( file->ftyp ) && LSMASH_IS_BOX_ADDITION_FAILURE( isom_add_ftyp( file ) ) )
             return LSMASH_ERR_NAMELESS;
         ftyp = file->ftyp;
     }
     else
     {
         /* Add Segment Type Box if absent yet. */
-        ftyp = file->styp_list.head && file->styp_list.head->data
+        ftyp = file->styp_list.head && LSMASH_IS_EXISTING_BOX( (isom_styp_t *)file->styp_list.head->data )
              ? (isom_styp_t *)file->styp_list.head->data
              : isom_add_styp( file );
-        if( !ftyp )
+        if( LSMASH_IS_NON_EXISTING_BOX( ftyp ) )
             return LSMASH_ERR_NAMELESS;
     }
     /* Allocate an array of compatible brands.
@@ -408,6 +403,89 @@ static int isom_set_brands
     return isom_check_compatibility( file );
 }
 
+/*---- default I/O ----*/
+typedef struct
+{
+    FILE *file_ptr;
+    int   is_standard_stream;   /* If set to 1, 'file_ptr' points to standard stream (i.e. stdin, stdout or stderr).
+                                 * This flag prevents from accidentally closing standard streams. */
+    lsmash_file_mode file_mode;
+} default_io_stream_t;
+
+static default_io_stream_t *default_io_stream_open( const char *filename, int open_mode )
+{
+#ifdef _WIN32
+    _setmode( _fileno( stdin ),  _O_BINARY );
+    _setmode( _fileno( stdout ), _O_BINARY );
+    _setmode( _fileno( stderr ), _O_BINARY );
+#endif
+    default_io_stream_t *stream = (default_io_stream_t *)lsmash_malloc_zero( sizeof(default_io_stream_t) );
+    if( !stream )
+        return NULL;
+    char mode[4] = { 0 };
+    if( open_mode == 0 )
+    {
+        memcpy( mode, "w+b", 4 );
+        stream->file_mode = LSMASH_FILE_MODE_WRITE
+                          | LSMASH_FILE_MODE_BOX
+                          | LSMASH_FILE_MODE_INITIALIZATION
+                          | LSMASH_FILE_MODE_MEDIA;
+    }
+    else if( open_mode == 1 )
+    {
+        memcpy( mode, "rb", 3 );
+        stream->file_mode = LSMASH_FILE_MODE_READ;
+    }
+    else
+        assert( 0 );
+    if( !strcmp( filename, "-" ) )
+    {
+        if( stream->file_mode & LSMASH_FILE_MODE_READ )
+        {
+            stream->file_ptr           = stdin;
+            stream->is_standard_stream = 1;
+        }
+        else if( stream->file_mode & LSMASH_FILE_MODE_WRITE )
+        {
+            stream->file_ptr           = stdout;
+            stream->is_standard_stream = 1;
+            stream->file_mode         |= LSMASH_FILE_MODE_FRAGMENTED;
+        }
+    }
+    else
+        stream->file_ptr = lsmash_fopen( filename, mode );
+    if( stream->file_ptr == NULL )
+        lsmash_freep( &stream );
+    return stream;
+}
+
+static int default_io_stream_close( default_io_stream_t *stream )
+{
+    if( !stream )
+        return 0;
+    int ret = stream->is_standard_stream ? 0 : fclose( stream->file_ptr );
+    lsmash_free( stream );
+    return ret;
+}
+
+static int default_io_stream_read( void *opaque, uint8_t *buf, int size )
+{
+    int read_size = fread( buf, 1, size, ((default_io_stream_t *)opaque)->file_ptr );
+    return ferror( ((default_io_stream_t *)opaque)->file_ptr ) ? LSMASH_ERR_NAMELESS : read_size;
+}
+
+static int default_io_stream_write( void *opaque, uint8_t *buf, int size )
+{
+    return fwrite( buf, 1, size, ((default_io_stream_t *)opaque)->file_ptr );
+}
+
+static int64_t default_io_stream_seek( void *opaque, int64_t offset, int whence )
+{
+    if( lsmash_fseek( ((default_io_stream_t *)opaque)->file_ptr, offset, whence ) != 0 )
+        return LSMASH_ERR_NAMELESS;
+    return lsmash_ftell( ((default_io_stream_t *)opaque)->file_ptr );
+}
+
 /*******************************
     public interfaces
 *******************************/
@@ -417,7 +495,8 @@ void lsmash_discard_boxes
     lsmash_root_t *root
 )
 {
-    if( !root || !root->file )
+    if( LSMASH_IS_NON_EXISTING_BOX( root )
+     || LSMASH_IS_NON_EXISTING_BOX( root->file ) )
         return;
     isom_remove_all_extension_boxes( &root->file->extensions );
 }
@@ -429,56 +508,17 @@ int lsmash_open_file
     lsmash_file_parameters_t *param
 )
 {
-    if( !filename || !param )
+    if( !filename || !param || (open_mode != 0 && open_mode != 1) )
         return LSMASH_ERR_FUNCTION_PARAM;
-    char mode[4] = { 0 };
-    lsmash_file_mode file_mode = 0;
-    if( open_mode == 0 )
-    {
-        memcpy( mode, "w+b", 4 );
-        file_mode = LSMASH_FILE_MODE_WRITE
-                  | LSMASH_FILE_MODE_BOX
-                  | LSMASH_FILE_MODE_INITIALIZATION
-                  | LSMASH_FILE_MODE_MEDIA;
-    }
-    else if( open_mode == 1 )
-    {
-        memcpy( mode, "rb", 3 );
-        file_mode = LSMASH_FILE_MODE_READ;
-    }
-    if( file_mode == 0 )
-        return LSMASH_ERR_FUNCTION_PARAM;
-#ifdef _WIN32
-    _setmode( _fileno( stdin ),  _O_BINARY );
-    _setmode( _fileno( stdout ), _O_BINARY );
-    _setmode( _fileno( stderr ), _O_BINARY );
-#endif
-    FILE *stream   = NULL;
-    int   seekable = 1;
-    if( !strcmp( filename, "-" ) )
-    {
-        if( file_mode & LSMASH_FILE_MODE_READ )
-        {
-            stream   = stdin;
-            seekable = 0;
-        }
-        else if( file_mode & LSMASH_FILE_MODE_WRITE )
-        {
-            stream     = stdout;
-            seekable   = 0;
-            file_mode |= LSMASH_FILE_MODE_FRAGMENTED;
-        }
-    }
-    else
-        stream = lsmash_fopen( filename, mode );
+    default_io_stream_t *stream = default_io_stream_open( filename, open_mode );
     if( !stream )
         return LSMASH_ERR_NAMELESS;
     memset( param, 0, sizeof(lsmash_file_parameters_t) );
-    param->mode                = file_mode;
+    param->mode                = stream->file_mode;
     param->opaque              = (void *)stream;
-    param->read                = lsmash_fread_wrapper;
-    param->write               = lsmash_fwrite_wrapper;
-    param->seek                = seekable ? lsmash_fseek_wrapper : NULL;
+    param->read                = default_io_stream_read;
+    param->write               = default_io_stream_write;
+    param->seek                = stream->is_standard_stream ? NULL : default_io_stream_seek;
     param->major_brand         = 0;
     param->brands              = NULL;
     param->brand_count         = 0;
@@ -497,9 +537,7 @@ int lsmash_close_file
 {
     if( !param )
         return LSMASH_ERR_NAMELESS;
-    if( !param->opaque )
-        return 0;
-    int ret = fclose( (FILE *)param->opaque );
+    int ret = default_io_stream_close( (default_io_stream_t *)param->opaque );
     param->opaque = NULL;
     return ret == 0 ? 0 : LSMASH_ERR_UNKNOWN;
 }
@@ -510,10 +548,10 @@ lsmash_file_t *lsmash_set_file
     lsmash_file_parameters_t *param
 )
 {
-    if( !root || !param )
+    if( LSMASH_IS_NON_EXISTING_BOX( root ) || !param )
         return NULL;
-    lsmash_file_t *file = isom_add_file( root );
-    if( !file )
+    lsmash_file_t *file = isom_add_file_abstract( root );
+    if( LSMASH_IS_NON_EXISTING_BOX( file ) )
         return NULL;
     lsmash_bs_t *bs = lsmash_bs_create();
     if( !bs )
@@ -561,7 +599,7 @@ lsmash_file_t *lsmash_set_file
         if( (file->flags & LSMASH_FILE_MODE_INITIALIZATION) && !isom_movie_create( file ) )
             goto fail;
     }
-    if( !root->file )
+    if( LSMASH_IS_NON_EXISTING_BOX( root->file ) )
         root->file = file;
     return file;
 fail:
@@ -575,24 +613,23 @@ int64_t lsmash_read_file
     lsmash_file_parameters_t *param
 )
 {
-    if( !file )
+    if( LSMASH_IS_NON_EXISTING_BOX( file ) )
         return (int64_t)LSMASH_ERR_FUNCTION_PARAM;
     if( !file->bs )
         return (int64_t)LSMASH_ERR_NAMELESS;
     int64_t ret = LSMASH_ERR_NAMELESS;
     if( file->flags & (LSMASH_FILE_MODE_READ | LSMASH_FILE_MODE_DUMP) )
     {
-        importer_t *importer = lsmash_importer_alloc();
+        importer_t *importer = lsmash_importer_alloc( file->root );
         if( !importer )
             return (int64_t)LSMASH_ERR_MEMORY_ALLOC;
-        file->importer = importer;
         lsmash_importer_set_file( importer, file );
         ret = lsmash_importer_find( importer, "ISOBMFF/QTFF", !file->bs->unseekable );
         if( ret < 0 )
             return ret;
         if( param )
         {
-            if( file->ftyp )
+            if( LSMASH_IS_EXISTING_BOX( file->ftyp ) )
             {
                 /* file types */
                 isom_ftyp_t *ftyp = file->ftyp;
@@ -601,7 +638,7 @@ int64_t lsmash_read_file
                 param->brands        = file->compatible_brands;
                 param->brand_count   = file->brand_count;
             }
-            else if( file->styp_list.head && file->styp_list.head->data )
+            else if( file->styp_list.head && LSMASH_IS_EXISTING_BOX( (isom_styp_t *)file->styp_list.head->data ) )
             {
                 /* segment types */
                 isom_styp_t *styp = (isom_styp_t *)file->styp_list.head->data;
@@ -641,13 +678,13 @@ int lsmash_switch_media_segment
     lsmash_adhoc_remux_t *remux
 )
 {
-    if( !root || !remux )
+    if( LSMASH_IS_NON_EXISTING_BOX( root ) || !remux )
         return LSMASH_ERR_FUNCTION_PARAM;
     lsmash_file_t *predecessor = root->file;
-    if( !predecessor || !successor
+    if( LSMASH_IS_NON_EXISTING_BOX( predecessor ) || LSMASH_IS_NON_EXISTING_BOX( successor )
      || predecessor == successor
      || predecessor->root != successor->root
-     || !predecessor->root || !successor->root
+     || LSMASH_IS_NON_EXISTING_BOX( predecessor->root ) || LSMASH_IS_NON_EXISTING_BOX( successor->root )
      || predecessor->root != root || successor->root != root
      ||  (successor->flags & LSMASH_FILE_MODE_INITIALIZATION)
      || !(successor->flags & LSMASH_FILE_MODE_MEDIA)
@@ -668,7 +705,8 @@ int lsmash_switch_media_segment
     }
     else
         successor->initializer = predecessor->initializer;
-    if( !lsmash_get_entry_data( &successor->styp_list, 1 ) )
+    isom_styp_t *styp = (isom_styp_t *)lsmash_get_entry_data( &successor->styp_list, 1 );
+    if( LSMASH_IS_NON_EXISTING_BOX( styp ) )
     {
         ret = isom_set_brands( successor, 0, 0, NULL, 0 );
         if( ret < 0 )

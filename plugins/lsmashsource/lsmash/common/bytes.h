@@ -1,7 +1,7 @@
 /*****************************************************************************
  * bytes.h
  *****************************************************************************
- * Copyright (C) 2010-2015 L-SMASH project
+ * Copyright (C) 2010-2017 L-SMASH project
  *
  * Authors: Yusuke Nakamura <muken.the.vfrmaniac@gmail.com>
  *
@@ -120,7 +120,7 @@ void lsmash_bs_put_be32_from_64( lsmash_bs_t *bs, uint64_t value );
 void lsmash_bs_put_le16( lsmash_bs_t *bs, uint16_t value );
 void lsmash_bs_put_le32( lsmash_bs_t *bs, uint32_t value );
 int lsmash_bs_flush_buffer( lsmash_bs_t *bs );
-int lsmash_bs_write_data( lsmash_bs_t *bs, uint8_t *buf, size_t size );
+int lsmash_bs_write_data( lsmash_bs_t *bs, const uint8_t *buf, size_t size );
 void *lsmash_bs_export_data( lsmash_bs_t *bs, uint32_t *length );
 
 /*---- bytestream reader ----*/
@@ -160,8 +160,3 @@ static inline int lsmash_bs_is_error( lsmash_bs_t *bs )
 {
     return bs->error;
 }
-
-/*---- basic I/O ----*/
-int lsmash_fread_wrapper( void *opaque, uint8_t *buf, int size );
-int lsmash_fwrite_wrapper( void *opaque, uint8_t *buf, int size );
-int64_t lsmash_fseek_wrapper( void *opaque, int64_t offset, int whence );
