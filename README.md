@@ -41,7 +41,7 @@ sudo apt-get install vapoursynth-extra-plugins
 [combmask 1.1.1](https://github.com/chikuzen/CombMask)<br>
 [convo2d 0.2.0](https://github.com/chikuzen/convo2d)<br>
 [cnr2 1](https://github.com/dubhater/vapoursynth-cnr2)<br>
-[ctmf r2](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-CTMF)<br>
+[ctmf r4](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-CTMF)<br>
 [d2vsource 1.1+git20170408](https://github.com/dwbuiten/d2vsource)<br>
 [damb r3](https://github.com/dubhater/vapoursynth-damb)<br>
 [dctfilter r3](https://bitbucket.org/mystery_keeper/vapoursynth-dctfilter)<br>

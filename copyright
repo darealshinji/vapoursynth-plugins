@@ -34,7 +34,7 @@ License: MIT
 
 Files: plugins/ctmf/*
 Copyright: 2006 Simon Perreault
-           2014 HolyWu
+           2014-2017 HolyWu
 License: GPL-2+
 
 Files: plugins/combmask/*
@@ -354,7 +354,8 @@ Copyright: 2012-2015 Fredrik Mellbin
 License: WTFPL
 
 Files: include/vectorclass/*
-Copyright: 2012-2016 Agner Fog
+       plugins/ctmf/src/vectorclass/*
+Copyright: 2012-2017 Agner Fog
 License: GPL-3+
 
 Files: ffmpeg/*
