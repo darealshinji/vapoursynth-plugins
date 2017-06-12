@@ -3,11 +3,9 @@ include ../../config.mak
 ifeq ($(HAVE_YASM),yes)
 ifeq ($(HAVE_FFTW3F),yes)
 
-mvtools_VER = 19
-
 LIBNAME = mvtools
 LIBADD = -lfftw3f
-local_CPPFLAGS = -DMVTOOLS_X86 -DPACKAGE_VERSION=\"$(mvtools_VER)\"
+local_CPPFLAGS = -DMVTOOLS_X86 -DPACKAGE_VERSION='"$(shell cat VERSION)"'
 
 VSASFLAGS = -Dprivate_prefix=mvtools -DHIGH_BIT_DEPTH=0 -DBIT_DEPTH=8 -f elf
 ifeq ($(HAVE_X86_64),yes)
