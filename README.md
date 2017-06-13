@@ -7,7 +7,7 @@ So don't expect this build system to work on anything else than Linux on x86 arc
 **Build dependencies**:<br>
 ```
 git nasm yasm libtool pkg-config
-libfftw3-dev libpng-dev libsndfile1-dev libxvidcore-dev zlib1g-dev
+libfftw3-dev libpng-dev libsndfile1-dev libxvidcore-dev libbluray-dev zlib1g-dev
 libopencv-dev ocl-icd-libopencl1 opencl-headers
 ```
 
@@ -68,6 +68,7 @@ sudo apt-get install vapoursynth-extra-plugins
 [mvtools 19](https://github.com/dubhater/vapoursynth-mvtools)<br>
 [nnedi3 11](https://github.com/dubhater/vapoursynth-nnedi3)<br>
 [rawsource git20160426](https://github.com/chikuzen/vsrawsource)<br>
+[readmpls r3](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-ReadMpls)<br>
 [reduceflicker git20150225](https://github.com/VFR-maniac/VapourSynth-ReduceFlicker)<br>
 [retinex r3](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Retinex)<br>
 [sangnommod 0.1+git20150109](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-SangNomMod)<br>

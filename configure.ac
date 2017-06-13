@@ -89,6 +89,7 @@ AX_CHECK_LIB_LINK([z])
 AX_CHECK_LIB_LINK([png])
 AX_CHECK_LIB_LINK([sndfile])
 AX_CHECK_LIB_LINK([xvidcore])
+AX_CHECK_LIB_LINK([bluray])
 
 # FFTW3
 AX_CHECK_LIB_LINK([fftw3f])
@@ -114,6 +115,7 @@ AS_IF([test "x$have_zlib" != "xno"],        [AC_SUBST([HAVE_ZLIB], [yes])])
 AS_IF([test "x$have_sndfile" != "xno"],     [AC_SUBST([HAVE_SNDFILE], [yes])])
 AS_IF([test "x$have_opencv" != "xno"],      [AC_SUBST([HAVE_OPENCV], [yes])])
 AS_IF([test "x$have_xvidcore" != "xno"],    [AC_SUBST([HAVE_XVIDCORE], [yes])])
+AS_IF([test "x$have_bluray" != "xno"],      [AC_SUBST([HAVE_BLURAY], [yes])])
 AS_IF([test "x$have_fftw3f" != "xno"],      [AC_SUBST([HAVE_FFTW3F], [yes])])
 AS_IF([test "x$have_fftw3_newer" != "xno"], [AC_SUBST([HAVE_FFTW3F_NEWER], [yes])])
 
