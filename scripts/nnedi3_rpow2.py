@@ -2,8 +2,8 @@ import vapoursynth as vs
 
 
 def nnedi3_rpow2(clip, rfactor=2, width=None, height=None, correct_shift=True,
-                 kernel="spline36", nsize=0, nns=3, qual=None, etype=None,
-                 pscrn=None, opt=True, fapprox=None):
+                 kernel="spline36", nsize=0, nns=3, qual=None, etype=None, pscrn=None,
+                 opt=True, int16_prescreener=None, int16_predictor=None, exp=None):
     """nnedi3_rpow2 is for enlarging images by powers of 2.
 
     Args:
@@ -34,8 +34,9 @@ def nnedi3_rpow2(clip, rfactor=2, width=None, height=None, correct_shift=True,
         height = clip.height*rfactor
     hshift = 0.0
     vshift = -0.5
-    pkdnnedi = dict(dh=True, nsize=nsize, nns=nns, qual=qual,
-                    etype=etype, pscrn=pscrn, opt=opt, fapprox=fapprox)
+    pkdnnedi = dict(dh=True, nsize=nsize, nns=nns, qual=qual, etype=etype,
+                    pscrn=pscrn, opt=opt, int16_prescreener=int16_prescreener,
+                    int16_predictor=int16_predictor, exp=exp)
     pkdchroma = dict(kernel=kernel, sy=-0.5, planes=[2, 3, 3])
 
     tmp = 1

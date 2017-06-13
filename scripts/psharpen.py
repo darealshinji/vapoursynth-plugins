@@ -48,10 +48,7 @@ def psharpen(clip, strength=25, threshold=75, ss_x=1.0, ss_y=1.0,
         ss_y = 1.0
 
     if ss_x != 1.0 or ss_y != 1.0:
-        clip = core.fmtc.resample(clip, _m4(ox*ss_x), _m4(oy*ss_y),
-                                  kernel="lanczos")
-        if bd != clip.format.bits_per_sample:
-            clip = core.fmtc.bitdepth(clip, bits=bd, dmode=1)
+        clip = core.resize.Lanczos(clip, width=_m4(ox*ss_x), height=_m4(oy*ss_y))
 
     orig = clip
 
@@ -84,8 +81,6 @@ def psharpen(clip, strength=25, threshold=75, ss_x=1.0, ss_y=1.0,
                                       colorfamily=orig.format.color_family)
 
     if ss_x != 1.0 or ss_y != 1.0 or dest_x != ox or dest_y != oy:
-        clip = core.fmtc.resample(clip, dest_x, dest_y, kernel="lanczos")
-        if bd != clip.format.bits_per_sample:
-            clip = core.fmtc.bitdepth(clip, bits=bd)
+        clip = core.resize.Lanczos(clip, width=dest_x, height=dest_y)
 
     return clip
