@@ -1,6 +1,6 @@
 ################################################################################################################################
 ## mvsfunc - mawen1250's VapourSynth functions
-## 2016.04
+## 2016.10
 ################################################################################################################################
 ## Requirments:
 ##     fmtconv
@@ -11,6 +11,7 @@
 ##     ToRGB
 ##     ToYUV
 ##     BM3D
+##     VFRSplice
 ################################################################################################################################
 ## Runtime functions:
 ##     PlaneStatistics
@@ -57,7 +58,7 @@ import math
 ################################################################################################################################
 
 
-MvsFuncVersion = 8
+MvsFuncVersion = 9
 VSMaxPlaneNum = 3
 
 
@@ -174,6 +175,10 @@ dither=None, useZ=None, prefer_props=None, ampo=None, ampn=None, dyn=None, stati
         raise ValueError(funcName + ': \"sample\" must be either 0(vs.INTEGER) or 1(vs.FLOAT)!')
     else:
         dSType = sample
+    if depth is None and sSType != vs.FLOAT and sample == vs.FLOAT:
+        dbitPS = 32
+    elif depth is None and sSType != vs.INTEGER and sample == vs.INTEGER:
+        dbitPS = 16
     if dSType == vs.INTEGER and (dbitPS < 1 or dbitPS > 16):
         raise ValueError(funcName + ': {0}-bit integer output is not supported!'.format(dbitPS))
     if dSType == vs.FLOAT and (dbitPS != 16 and dbitPS != 32):
@@ -377,6 +382,7 @@ compat=None):
         raise TypeError(funcName + ': \"compat\" must be an int!')
     if compat:
         depth = 8
+        sample = vs.INTEGER
     if depth is None:
         dbitPS = sbitPS
     elif not isinstance(depth, int):
@@ -394,6 +400,10 @@ compat=None):
         raise ValueError(funcName + ': \"sample\" must be either 0(vs.INTEGER) or 1(vs.FLOAT)!')
     else:
         dSType = sample
+    if depth is None and sSType != vs.FLOAT and sample == vs.FLOAT:
+        dbitPS = 32
+    elif depth is None and sSType != vs.INTEGER and sample == vs.INTEGER:
+        dbitPS = 16
     if dSType == vs.INTEGER and (dbitPS < 1 or dbitPS > 16):
         raise ValueError(funcName + ': {0}-bit integer output is not supported!'.format(dbitPS))
     if dSType == vs.FLOAT and (dbitPS != 16 and dbitPS != 32):
@@ -575,6 +585,10 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
         raise ValueError(funcName + ': \"sample\" must be either 0(vs.INTEGER) or 1(vs.FLOAT)!')
     else:
         dSType = sample
+    if depth is None and sSType != vs.FLOAT and sample == vs.FLOAT:
+        dbitPS = 32
+    elif depth is None and sSType != vs.INTEGER and sample == vs.INTEGER:
+        dbitPS = 16
     if dSType == vs.INTEGER and (dbitPS < 1 or dbitPS > 16):
         raise ValueError(funcName + ': {0}-bit integer output is not supported!'.format(dbitPS))
     if dSType == vs.FLOAT and (dbitPS != 16 and dbitPS != 32):
@@ -949,6 +963,10 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
         raise ValueError(funcName + ': \"sample\" must be either 0(vs.INTEGER) or 1(vs.FLOAT)!')
     else:
         dSType = sample
+    if depth is None and sSType != vs.FLOAT and sample == vs.FLOAT:
+        dbitPS = 32
+    elif depth is None and sSType != vs.INTEGER and sample == vs.INTEGER:
+        dbitPS = 16
     if dSType == vs.INTEGER and (dbitPS < 1 or dbitPS > 16):
         raise ValueError(funcName + ': {0}-bit integer output is not supported!'.format(dbitPS))
     if dSType == vs.FLOAT and (dbitPS != 16 and dbitPS != 32):
@@ -1070,6 +1088,100 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
     
     # Output
     return clip
+################################################################################################################################
+
+
+################################################################################################################################
+## Main function: VFRSplice()
+################################################################################################################################
+## Splice multiple clips with different frame rate, and output timecode file.
+## Each input clip is CFR(constant frame rate).
+## The output clip is VFR(variational frame rate).
+################################################################################################################################
+## Basic parameters
+##     clips {clip}: any number of clips to splice
+##         each clip should be CFR
+##     tcfile {str}: timecode file output
+##         default: None
+##     v2 {bool}: timecode format
+##         True for v2 output and False for v1 output
+##         default: True
+##     precision {int}: precision of time and frame rate
+##         a decimal number indicating how many digits should be displayed after the decimal point for a fixed-point value
+##         default: 6
+################################################################################################################################
+def VFRSplice(clips, tcfile=None, v2=None, precision=None):
+    # Set VS core and function name
+    core = vs.get_core()
+    funcName = 'VFRSplice'
+    
+    # Arguments
+    if isinstance(clips, vs.VideoNode):
+        clips = [clips]
+    elif isinstance(clips, list):
+        for clip in clips:
+            if not isinstance(clip, vs.VideoNode):
+                raise TypeError(funcName + ': each element in \"clips\" must be a clip!')
+            if clip.fps_num == 0 or clip.fps_den == 0:
+                raise ValueError(funcName + ': each clip in \"clips\" must be CFR!')
+    else:
+        raise TypeError(funcName + ': \"clips\" must be a clip or a list of clips!')
+    
+    if tcfile is not None and not isinstance(tcfile, str):
+        raise TypeError(funcName + ': \"tcfile\" must be a str!')
+    
+    if v2 is None:
+        v2 = True
+    elif not isinstance(v2, int):
+        raise TypeError(funcName + ': \"v2\" must be a bool!')
+    
+    if precision is None:
+        precision = 6
+    elif not isinstance(precision, int):
+        raise TypeError(funcName + ': \"precision\" must be an int!')
+    
+    # Fraction to str function
+    def frac2str(num, den, precision=6):
+        return '{:<.{precision}F}'.format(num / den, precision=precision)
+    
+    # Timecode file
+    if tcfile is None:
+        pass
+    else:
+        # Get timecode v1 list
+        cur_frame = 0
+        tc_list = []
+        index = 0
+        for clip in clips:
+            if index > 0 and clip.fps_num == tc_list[index - 1][2] and clip.fps_den == tc_list[index - 1][3]:
+                tc_list[index - 1] = (tc_list[index - 1][0], cur_frame + clip.num_frames - 1, clip.fps_num, clip.fps_den)
+            else:
+                tc_list.append((cur_frame, cur_frame + clip.num_frames - 1, clip.fps_num, clip.fps_den))
+            cur_frame += clip.num_frames
+            index += 1
+        
+        # Write to timecode file
+        ofile = open(tcfile, 'w')
+        if v2: # timecode v2
+            olines = ['# timecode format v2\n']
+            frames = tc_list[len(tc_list) - 1][1] + 1
+            time = 0 # ms
+            for tc in tc_list:
+                frame_duration = 1000 * tc[3] / tc[2] # ms
+                for frame in range(tc[0], tc[1] + 1):
+                    olines.append('{:<.{precision}F}\n'.format(time, precision=precision))
+                    time += frame_duration
+        else: # timecode v1
+            olines = ['# timecode format v1\n', 'Assume {}\n'.format(frac2str(tc_list[0][2], tc_list[0][3], precision))]
+            for tc in tc_list:
+                olines.append('{},{},{}\n'.format(tc[0], tc[1], frac2str(tc[2], tc[3], precision)))
+        try:
+            ofile.writelines(olines)
+        finally:
+            ofile.close()
+    
+    # Output spliced clip
+    return core.std.Splice(clips, mismatch=True)
 ################################################################################################################################
 
 
@@ -1471,7 +1583,9 @@ def FilterIf(src, flt, prop_name, props=None):
 ##         default: None (use "src")
 ################################################################################################################################
 def FilterCombed(src, flt, props=None):
-    return FilterIf(src, flt, '_Combed', props)
+    clip = FilterIf(src, flt, '_Combed', props)
+    clip = clip.std.SetFrameProp('_Combed', delete=True)
+    return AssumeFrame(clip)
 ################################################################################################################################
 
 
@@ -2605,6 +2719,7 @@ def GrayScale(clip, matrix=None):
 ## matrix, full, dither, kernel, a1, a2, prefer_props correspond to matrix_in, range_in, dither_type,
 ## resample_filter_uv, filter_param_a_uv, filter_param_b_uv, prefer_props in resize.Bicubic.
 ## "matrix" is passed to GetMatrix(id=True) first.
+## default dither: random
 ## default chroma resampler: kernel="bicubic", a1=0, a2=0.5, also known as "Catmull-Rom"
 ################################################################################################################################
 def Preview(clips, plane=None, compat=None, matrix=None, full=None, depth=None,\
@@ -2638,6 +2753,8 @@ dither=None, kernel=None, a1=None, a2=None, prefer_props=None):
         dFormat = core.register_format(vs.RGB, sample, depth, 0, 0).id
     
     # Parameters
+    if dither is None:
+        dither = "random"
     if kernel is None:
         kernel = "bicubic"
         if a1 is None and a2 is None:
