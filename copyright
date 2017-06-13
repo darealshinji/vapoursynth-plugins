@@ -270,7 +270,7 @@ Files: plugins/yadifmod/*
 Copyright: 2007 Kevin Eliot Stone <kes25c@mail.missouri.edu>
            2007 Alexander G. Balakhnin
            2006 Michael Niedermayer <michaelni@gmx.at>
-           2014-2016 HolyWu
+           2014-2017 HolyWu
 License: GPL-2+
 
 Files: plugins/waifu2x-opt/libzimg/*
