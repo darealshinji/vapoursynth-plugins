@@ -3,6 +3,7 @@
 [havsfunc r26](https://github.com/HomeOfVapourSynthEvolution/havsfunc)<br>
 [maskdetail git20151220](https://github.com/MonoS/VS-MaskDetail)<br>
 [mvsfunc r8](https://github.com/HomeOfVapourSynthEvolution/mvsfunc)<br>
+[nnedi3_resample](https://github.com/mawen1250/VapourSynth-script)<br>
 [vapoursynth-modules git20131225](https://github.com/4re/vapoursynth-modules)<br>
 [vsTAAmbk 0.6.2](https://github.com/HomeOfVapourSynthEvolution/vsTAAmbk)<br>
 
