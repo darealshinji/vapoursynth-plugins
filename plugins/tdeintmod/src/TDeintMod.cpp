@@ -34,1390 +34,527 @@
 **   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-#include <algorithm>
 #include <cmath>
 #include <cstdlib>
-#include <vector>
-#include <vapoursynth/VapourSynth.h>
-#include <vapoursynth/VSHelper.h>
-#ifdef VS_TARGET_CPU_X86
-#include "vectorclass/vectorclass.h"
-#endif
+#include <memory>
+#include <string>
+#include <thread>
+#include <type_traits>
+#include <unordered_map>
 
-//////////////////////////////////////////
-// Shared
-
-static inline int scale(const int64_t val, const int64_t bits) {
-    return int64ToIntS(val * ((1 << bits) - 1) / 255);
-}
+#include "TDeintMod.hpp"
 
 //////////////////////////////////////////
 // TDeintMod
 
-struct TDeintModData {
-    VSNodeRef * node, * node2, * propNode, * mask, * edeint;
-    VSVideoInfo vi;
-    const VSVideoInfo * viSaved;
-    int order, field, mode, length, mtype, ttype, mtqL, mthL, mtqC, mthC, nt, minthresh, maxthresh, cstr;
-    bool show;
-    uint8_t * gvlut;
-    std::vector<uint8_t> vlut;
-    std::vector<int16_t> tmmlut16;
-    int16_t ten, twenty, thirty, forty, fifty, sixty, seventy;
-};
-
-static inline void memset16(void * ptr, const int value, size_t num) {
-    uint16_t * tptr = static_cast<uint16_t *>(ptr);
-    while (num-- > 0)
-        *tptr++ = value;
-}
-
 #ifdef VS_TARGET_CPU_X86
-template<typename T>
-static inline T abs_dif(const T & a, const T & b) {
-    return sub_saturated(a, b) | sub_saturated(b, a);
-}
+template<typename T1, typename T2, int step> extern void threshMask_sse2(const VSFrameRef *, VSFrameRef *, const int, const TDeintModData *, const VSAPI *) noexcept;
+template<typename T1, typename T2, int step> extern void threshMask_avx2(const VSFrameRef *, VSFrameRef *, const int, const TDeintModData *, const VSAPI *) noexcept;
 
-template<typename T1, typename T2>
-static void threshMask(const VSFrameRef * src, VSFrameRef * dst, const TDeintModData * d, const VSAPI * vsapi) {
-    const T1 peak = (1 << d->vi.format->bitsPerSample) - 1;
+template<typename T1, typename T2, int step> extern void motionMask_sse2(const VSFrameRef *, const VSFrameRef *, const VSFrameRef *, const VSFrameRef *, VSFrameRef *, const int, const TDeintModData *, const VSAPI *) noexcept;
+template<typename T1, typename T2, int step> extern void motionMask_avx2(const VSFrameRef *, const VSFrameRef *, const VSFrameRef *, const VSFrameRef *, VSFrameRef *, const int, const TDeintModData *, const VSAPI *) noexcept;
 
-    for (int plane = 0; plane < d->vi.format->numPlanes; plane++) {
-        const int width = vsapi->getFrameWidth(src, plane);
-        const int height = vsapi->getFrameHeight(src, plane);
-        const int stride = vsapi->getStride(src, plane) / sizeof(T1);
-        const int firstPart = (width < 16) ? width : 16;
-        const int regularPart = (width % 16 ? width : width - 1) & -16;
-        const T1 * _srcp = reinterpret_cast<const T1 *>(vsapi->getReadPtr(src, plane));
-        T1 * dstp0 = reinterpret_cast<T1 *>(vsapi->getWritePtr(dst, plane));
-        T1 * dstp1 = dstp0 + stride * height;
+template<typename T1, typename T2, int step> extern void andMasks_sse2(const VSFrameRef *, const VSFrameRef *, VSFrameRef *, const int, const TDeintModData *, const VSAPI *) noexcept;
+template<typename T1, typename T2, int step> extern void andMasks_avx2(const VSFrameRef *, const VSFrameRef *, VSFrameRef *, const int, const TDeintModData *, const VSAPI *) noexcept;
 
-        if (sizeof(T1) == sizeof(uint8_t)) {
-            if (plane == 0 && d->mtqL > -1 && d->mthL > -1) {
-                memset(dstp0, d->mtqL, stride * height);
-                memset(dstp1, d->mthL, stride * height);
-                continue;
-            } else if (plane > 0 && d->mtqC > -1 && d->mthC > -1) {
-                memset(dstp0, d->mtqC, stride * height);
-                memset(dstp1, d->mthC, stride * height);
-                continue;
-            }
-        } else {
-            if (plane == 0 && d->mtqL > -1 && d->mthL > -1) {
-                memset16(dstp0, d->mtqL, stride * height);
-                memset16(dstp1, d->mthL, stride * height);
-                continue;
-            } else if (plane > 0 && d->mtqC > -1 && d->mthC > -1) {
-                memset16(dstp0, d->mtqC, stride * height);
-                memset16(dstp1, d->mthC, stride * height);
-                continue;
-            }
-        }
-
-        const T1 hs = plane ? d->vi.format->subSamplingW : 0;
-        const T1 vs = plane ? 1 << d->vi.format->subSamplingH : 1;
-        const T1 vss = 1 << (vs - 1);
-
-        if (d->ttype == 0) { // 4 neighbors - compensated
-            for (int y = 0; y < height; y++) {
-                const T1 * _srcpp = _srcp - (y == 0 ? -stride : stride);
-                const T1 * _srcpn = _srcp + (y == height - 1 ? -stride : stride);
-                int x;
-                for (x = 0; x < firstPart; x++) {
-                    const int offp = (x == 0) ? -1 : 1;
-                    const int offn = (x == width - 1) ? -1 : 1;
-                    T1 min0 = peak, max0 = 0;
-                    T1 min1 = peak, max1 = 0;
-                    if (_srcpp[x] < min0)
-                        min0 = _srcpp[x];
-                    if (_srcpp[x] > max0)
-                        max0 = _srcpp[x];
-                    if (_srcp[x - offp] < min1)
-                        min1 = _srcp[x - offp];
-                    if (_srcp[x - offp] > max1)
-                        max1 = _srcp[x - offp];
-                    if (_srcp[x + offn] < min1)
-                        min1 = _srcp[x + offn];
-                    if (_srcp[x + offn] > max1)
-                        max1 = _srcp[x + offn];
-                    if (_srcpn[x] < min0)
-                        min0 = _srcpn[x];
-                    if (_srcpn[x] > max0)
-                        max0 = _srcpn[x];
-                    const T1 atv = std::max((std::abs(_srcp[x] - min0) + vss) >> vs, (std::abs(_srcp[x] - max0) + vss) >> vs);
-                    const T1 ath = std::max((std::abs(_srcp[x] - min1) + hs) >> hs, (std::abs(_srcp[x] - max1) + hs) >> hs);
-                    const T1 atmax = std::max(atv, ath);
-                    dstp0[x] = (atmax + 2) >> 2;
-                    dstp1[x] = (atmax + 1) >> 1;
-                }
-                for (; x < regularPart; x += 16) {
-                    T2 min0(peak), max0(0);
-                    T2 min1(peak), max1(0);
-                    const T2 srcp = T2().load_a(_srcp + x);
-                    const T2 srcpmp = T2().load(_srcp + x - 1);
-                    const T2 srcppn = T2().load(_srcp + x + 1);
-                    const T2 srcpp = T2().load_a(_srcpp + x);
-                    const T2 srcpn = T2().load_a(_srcpn + x);
-                    min0 = min(srcpp, min0);
-                    max0 = max(srcpp, max0);
-                    min1 = min(srcpmp, min1);
-                    max1 = max(srcpmp, max1);
-                    min1 = min(srcppn, min1);
-                    max1 = max(srcppn, max1);
-                    min0 = min(srcpn, min0);
-                    max0 = max(srcpn, max0);
-                    const T2 atv = max((abs_dif<T2>(srcp, min0) + vss) >> vs, (abs_dif<T2>(srcp, max0) + vss) >> vs);
-                    const T2 ath = max((abs_dif<T2>(srcp, min1) + hs) >> hs, (abs_dif<T2>(srcp, max1) + hs) >> hs);
-                    const T2 atmax = max(atv, ath);
-                    ((atmax + 2) >> 2).store_a(dstp0 + x);
-                    ((atmax + 1) >> 1).store_a(dstp1 + x);
-                }
-                for (; x < width; x++) {
-                    const int offp = (x == 0) ? -1 : 1;
-                    const int offn = (x == width - 1) ? -1 : 1;
-                    T1 min0 = peak, max0 = 0;
-                    T1 min1 = peak, max1 = 0;
-                    if (_srcpp[x] < min0)
-                        min0 = _srcpp[x];
-                    if (_srcpp[x] > max0)
-                        max0 = _srcpp[x];
-                    if (_srcp[x - offp] < min1)
-                        min1 = _srcp[x - offp];
-                    if (_srcp[x - offp] > max1)
-                        max1 = _srcp[x - offp];
-                    if (_srcp[x + offn] < min1)
-                        min1 = _srcp[x + offn];
-                    if (_srcp[x + offn] > max1)
-                        max1 = _srcp[x + offn];
-                    if (_srcpn[x] < min0)
-                        min0 = _srcpn[x];
-                    if (_srcpn[x] > max0)
-                        max0 = _srcpn[x];
-                    const T1 atv = std::max((std::abs(_srcp[x] - min0) + vss) >> vs, (std::abs(_srcp[x] - max0) + vss) >> vs);
-                    const T1 ath = std::max((std::abs(_srcp[x] - min1) + hs) >> hs, (std::abs(_srcp[x] - max1) + hs) >> hs);
-                    const T1 atmax = std::max(atv, ath);
-                    dstp0[x] = (atmax + 2) >> 2;
-                    dstp1[x] = (atmax + 1) >> 1;
-                }
-                _srcp += stride;
-                dstp0 += stride;
-                dstp1 += stride;
-            }
-        } else if (d->ttype == 1) { // 8 neighbors - compensated
-            for (int y = 0; y < height; y++) {
-                const T1 * _srcpp = _srcp - (y == 0 ? -stride : stride);
-                const T1 * _srcpn = _srcp + (y == height - 1 ? -stride : stride);
-                int x;
-                for (x = 0; x < firstPart; x++) {
-                    const int offp = (x == 0) ? -1 : 1;
-                    const int offn = (x == width - 1) ? -1 : 1;
-                    T1 min0 = peak, max0 = 0;
-                    T1 min1 = peak, max1 = 0;
-                    if (_srcpp[x - offp] < min0)
-                        min0 = _srcpp[x - offp];
-                    if (_srcpp[x - offp] > max0)
-                        max0 = _srcpp[x - offp];
-                    if (_srcpp[x] < min0)
-                        min0 = _srcpp[x];
-                    if (_srcpp[x] > max0)
-                        max0 = _srcpp[x];
-                    if (_srcpp[x + offn] < min0)
-                        min0 = _srcpp[x + offn];
-                    if (_srcpp[x + offn] > max0)
-                        max0 = _srcpp[x + offn];
-                    if (_srcp[x - offp] < min1)
-                        min1 = _srcp[x - offp];
-                    if (_srcp[x - offp] > max1)
-                        max1 = _srcp[x - offp];
-                    if (_srcp[x + offn] < min1)
-                        min1 = _srcp[x + offn];
-                    if (_srcp[x + offn] > max1)
-                        max1 = _srcp[x + offn];
-                    if (_srcpn[x - offp] < min0)
-                        min0 = _srcpn[x - offp];
-                    if (_srcpn[x - offp] > max0)
-                        max0 = _srcpn[x - offp];
-                    if (_srcpn[x] < min0)
-                        min0 = _srcpn[x];
-                    if (_srcpn[x] > max0)
-                        max0 = _srcpn[x];
-                    if (_srcpn[x + offn] < min0)
-                        min0 = _srcpn[x + offn];
-                    if (_srcpn[x + offn] > max0)
-                        max0 = _srcpn[x + offn];
-                    const T1 atv = std::max((std::abs(_srcp[x] - min0) + vss) >> vs, (std::abs(_srcp[x] - max0) + vss) >> vs);
-                    const T1 ath = std::max((std::abs(_srcp[x] - min1) + hs) >> hs, (std::abs(_srcp[x] - max1) + hs) >> hs);
-                    const T1 atmax = std::max(atv, ath);
-                    dstp0[x] = (atmax + 2) >> 2;
-                    dstp1[x] = (atmax + 1) >> 1;
-                }
-                for (; x < regularPart; x += 16) {
-                    T2 min0(peak), max0(0);
-                    T2 min1(peak), max1(0);
-                    const T2 srcp = T2().load_a(_srcp + x);
-                    const T2 srcpmp = T2().load(_srcp + x - 1);
-                    const T2 srcppn = T2().load(_srcp + x + 1);
-                    const T2 srcpp = T2().load_a(_srcpp + x);
-                    const T2 srcppmp = T2().load(_srcpp + x - 1);
-                    const T2 srcpppn = T2().load(_srcpp + x + 1);
-                    const T2 srcpn = T2().load_a(_srcpn + x);
-                    const T2 srcpnmp = T2().load(_srcpn + x - 1);
-                    const T2 srcpnpn = T2().load(_srcpn + x + 1);
-                    min0 = min(srcppmp, min0);
-                    max0 = max(srcppmp, max0);
-                    min0 = min(srcpp, min0);
-                    max0 = max(srcpp, max0);
-                    min0 = min(srcpppn, min0);
-                    max0 = max(srcpppn, max0);
-                    min1 = min(srcpmp, min1);
-                    max1 = max(srcpmp, max1);
-                    min1 = min(srcppn, min1);
-                    max1 = max(srcppn, max1);
-                    min0 = min(srcpnmp, min0);
-                    max0 = max(srcpnmp, max0);
-                    min0 = min(srcpn, min0);
-                    max0 = max(srcpn, max0);
-                    min0 = min(srcpnpn, min0);
-                    max0 = max(srcpnpn, max0);
-                    const T2 atv = max((abs_dif<T2>(srcp, min0) + vss) >> vs, (abs_dif<T2>(srcp, max0) + vss) >> vs);
-                    const T2 ath = max((abs_dif<T2>(srcp, min1) + hs) >> hs, (abs_dif<T2>(srcp, max1) + hs) >> hs);
-                    const T2 atmax = max(atv, ath);
-                    ((atmax + 2) >> 2).store_a(dstp0 + x);
-                    ((atmax + 1) >> 1).store_a(dstp1 + x);
-                }
-                for (; x < width; x++) {
-                    const int offp = (x == 0) ? -1 : 1;
-                    const int offn = (x == width - 1) ? -1 : 1;
-                    T1 min0 = peak, max0 = 0;
-                    T1 min1 = peak, max1 = 0;
-                    if (_srcpp[x - offp] < min0)
-                        min0 = _srcpp[x - offp];
-                    if (_srcpp[x - offp] > max0)
-                        max0 = _srcpp[x - offp];
-                    if (_srcpp[x] < min0)
-                        min0 = _srcpp[x];
-                    if (_srcpp[x] > max0)
-                        max0 = _srcpp[x];
-                    if (_srcpp[x + offn] < min0)
-                        min0 = _srcpp[x + offn];
-                    if (_srcpp[x + offn] > max0)
-                        max0 = _srcpp[x + offn];
-                    if (_srcp[x - offp] < min1)
-                        min1 = _srcp[x - offp];
-                    if (_srcp[x - offp] > max1)
-                        max1 = _srcp[x - offp];
-                    if (_srcp[x + offn] < min1)
-                        min1 = _srcp[x + offn];
-                    if (_srcp[x + offn] > max1)
-                        max1 = _srcp[x + offn];
-                    if (_srcpn[x - offp] < min0)
-                        min0 = _srcpn[x - offp];
-                    if (_srcpn[x - offp] > max0)
-                        max0 = _srcpn[x - offp];
-                    if (_srcpn[x] < min0)
-                        min0 = _srcpn[x];
-                    if (_srcpn[x] > max0)
-                        max0 = _srcpn[x];
-                    if (_srcpn[x + offn] < min0)
-                        min0 = _srcpn[x + offn];
-                    if (_srcpn[x + offn] > max0)
-                        max0 = _srcpn[x + offn];
-                    const T1 atv = std::max((std::abs(_srcp[x] - min0) + vss) >> vs, (std::abs(_srcp[x] - max0) + vss) >> vs);
-                    const T1 ath = std::max((std::abs(_srcp[x] - min1) + hs) >> hs, (std::abs(_srcp[x] - max1) + hs) >> hs);
-                    const T1 atmax = std::max(atv, ath);
-                    dstp0[x] = (atmax + 2) >> 2;
-                    dstp1[x] = (atmax + 1) >> 1;
-                }
-                _srcp += stride;
-                dstp0 += stride;
-                dstp1 += stride;
-            }
-        } else if (d->ttype == 2) { // 4 neighbors - not compensated
-            for (int y = 0; y < height; y++) {
-                const T1 * _srcpp = _srcp - (y == 0 ? -stride : stride);
-                const T1 * _srcpn = _srcp + (y == height - 1 ? -stride : stride);
-                int x;
-                for (x = 0; x < firstPart; x++) {
-                    const int offp = (x == 0) ? -1 : 1;
-                    const int offn = (x == width - 1) ? -1 : 1;
-                    T1 min0 = peak, max0 = 0;
-                    if (_srcpp[x] < min0)
-                        min0 = _srcpp[x];
-                    if (_srcpp[x] > max0)
-                        max0 = _srcpp[x];
-                    if (_srcp[x - offp] < min0)
-                        min0 = _srcp[x - offp];
-                    if (_srcp[x - offp] > max0)
-                        max0 = _srcp[x - offp];
-                    if (_srcp[x + offn] < min0)
-                        min0 = _srcp[x + offn];
-                    if (_srcp[x + offn] > max0)
-                        max0 = _srcp[x + offn];
-                    if (_srcpn[x] < min0)
-                        min0 = _srcpn[x];
-                    if (_srcpn[x] > max0)
-                        max0 = _srcpn[x];
-                    const T1 at = std::max(std::abs(_srcp[x] - min0), std::abs(_srcp[x] - max0));
-                    dstp0[x] = (at + 2) >> 2;
-                    dstp1[x] = (at + 1) >> 1;
-                }
-                for (; x < regularPart; x += 16) {
-                    T2 min0(peak), max0(0);
-                    const T2 srcp = T2().load_a(_srcp + x);
-                    const T2 srcpmp = T2().load(_srcp + x - 1);
-                    const T2 srcppn = T2().load(_srcp + x + 1);
-                    const T2 srcpp = T2().load_a(_srcpp + x);
-                    const T2 srcpn = T2().load_a(_srcpn + x);
-                    min0 = min(srcpp, min0);
-                    max0 = max(srcpp, max0);
-                    min0 = min(srcpmp, min0);
-                    max0 = max(srcpmp, max0);
-                    min0 = min(srcppn, min0);
-                    max0 = max(srcppn, max0);
-                    min0 = min(srcpn, min0);
-                    max0 = max(srcpn, max0);
-                    const T2 at = max(abs_dif<T2>(srcp, min0), abs_dif<T2>(srcp, max0));
-                    ((at + 2) >> 2).store_a(dstp0 + x);
-                    ((at + 1) >> 1).store_a(dstp1 + x);
-                }
-                for (; x < width; x++) {
-                    const int offp = (x == 0) ? -1 : 1;
-                    const int offn = (x == width - 1) ? -1 : 1;
-                    T1 min0 = peak, max0 = 0;
-                    if (_srcpp[x] < min0)
-                        min0 = _srcpp[x];
-                    if (_srcpp[x] > max0)
-                        max0 = _srcpp[x];
-                    if (_srcp[x - offp] < min0)
-                        min0 = _srcp[x - offp];
-                    if (_srcp[x - offp] > max0)
-                        max0 = _srcp[x - offp];
-                    if (_srcp[x + offn] < min0)
-                        min0 = _srcp[x + offn];
-                    if (_srcp[x + offn] > max0)
-                        max0 = _srcp[x + offn];
-                    if (_srcpn[x] < min0)
-                        min0 = _srcpn[x];
-                    if (_srcpn[x] > max0)
-                        max0 = _srcpn[x];
-                    const T1 at = std::max(std::abs(_srcp[x] - min0), std::abs(_srcp[x] - max0));
-                    dstp0[x] = (at + 2) >> 2;
-                    dstp1[x] = (at + 1) >> 1;
-                }
-                _srcp += stride;
-                dstp0 += stride;
-                dstp1 += stride;
-            }
-        } else if (d->ttype == 3) { // 8 neighbors - not compensated
-            for (int y = 0; y < height; y++) {
-                const T1 * _srcpp = _srcp - (y == 0 ? -stride : stride);
-                const T1 * _srcpn = _srcp + (y == height - 1 ? -stride : stride);
-                int x;
-                for (x = 0; x < firstPart; x++) {
-                    const int offp = (x == 0) ? -1 : 1;
-                    const int offn = (x == width - 1) ? -1 : 1;
-                    T1 min0 = peak, max0 = 0;
-                    if (_srcpp[x - offp] < min0)
-                        min0 = _srcpp[x - offp];
-                    if (_srcpp[x - offp] > max0)
-                        max0 = _srcpp[x - offp];
-                    if (_srcpp[x] < min0)
-                        min0 = _srcpp[x];
-                    if (_srcpp[x] > max0)
-                        max0 = _srcpp[x];
-                    if (_srcpp[x + offn] < min0)
-                        min0 = _srcpp[x + offn];
-                    if (_srcpp[x + offn] > max0)
-                        max0 = _srcpp[x + offn];
-                    if (_srcp[x - offp] < min0)
-                        min0 = _srcp[x - offp];
-                    if (_srcp[x - offp] > max0)
-                        max0 = _srcp[x - offp];
-                    if (_srcp[x + offn] < min0)
-                        min0 = _srcp[x + offn];
-                    if (_srcp[x + offn] > max0)
-                        max0 = _srcp[x + offn];
-                    if (_srcpn[x - offp] < min0)
-                        min0 = _srcpn[x - offp];
-                    if (_srcpn[x - offp] > max0)
-                        max0 = _srcpn[x - offp];
-                    if (_srcpn[x] < min0)
-                        min0 = _srcpn[x];
-                    if (_srcpn[x] > max0)
-                        max0 = _srcpn[x];
-                    if (_srcpn[x + offn] < min0)
-                        min0 = _srcpn[x + offn];
-                    if (_srcpn[x + offn] > max0)
-                        max0 = _srcpn[x + offn];
-                    const T1 at = std::max(std::abs(_srcp[x] - min0), std::abs(_srcp[x] - max0));
-                    dstp0[x] = (at + 2) >> 2;
-                    dstp1[x] = (at + 1) >> 1;
-                }
-                for (; x < regularPart; x += 16) {
-                    T2 min0(peak), max0(0);
-                    const T2 srcp = T2().load_a(_srcp + x);
-                    const T2 srcpmp = T2().load(_srcp + x - 1);
-                    const T2 srcppn = T2().load(_srcp + x + 1);
-                    const T2 srcpp = T2().load_a(_srcpp + x);
-                    const T2 srcppmp = T2().load(_srcpp + x - 1);
-                    const T2 srcpppn = T2().load(_srcpp + x + 1);
-                    const T2 srcpn = T2().load_a(_srcpn + x);
-                    const T2 srcpnmp = T2().load(_srcpn + x - 1);
-                    const T2 srcpnpn = T2().load(_srcpn + x + 1);
-                    min0 = min(srcppmp, min0);
-                    max0 = max(srcppmp, max0);
-                    min0 = min(srcpp, min0);
-                    max0 = max(srcpp, max0);
-                    min0 = min(srcpppn, min0);
-                    max0 = max(srcpppn, max0);
-                    min0 = min(srcpmp, min0);
-                    max0 = max(srcpmp, max0);
-                    min0 = min(srcppn, min0);
-                    max0 = max(srcppn, max0);
-                    min0 = min(srcpnmp, min0);
-                    max0 = max(srcpnmp, max0);
-                    min0 = min(srcpn, min0);
-                    max0 = max(srcpn, max0);
-                    min0 = min(srcpnpn, min0);
-                    max0 = max(srcpnpn, max0);
-                    const T2 at = max(abs_dif<T2>(srcp, min0), abs_dif<T2>(srcp, max0));
-                    ((at + 2) >> 2).store_a(dstp0 + x);
-                    ((at + 1) >> 1).store_a(dstp1 + x);
-                }
-                for (; x < width; x++) {
-                    const int offp = (x == 0) ? -1 : 1;
-                    const int offn = (x == width - 1) ? -1 : 1;
-                    T1 min0 = peak, max0 = 0;
-                    if (_srcpp[x - offp] < min0)
-                        min0 = _srcpp[x - offp];
-                    if (_srcpp[x - offp] > max0)
-                        max0 = _srcpp[x - offp];
-                    if (_srcpp[x] < min0)
-                        min0 = _srcpp[x];
-                    if (_srcpp[x] > max0)
-                        max0 = _srcpp[x];
-                    if (_srcpp[x + offn] < min0)
-                        min0 = _srcpp[x + offn];
-                    if (_srcpp[x + offn] > max0)
-                        max0 = _srcpp[x + offn];
-                    if (_srcp[x - offp] < min0)
-                        min0 = _srcp[x - offp];
-                    if (_srcp[x - offp] > max0)
-                        max0 = _srcp[x - offp];
-                    if (_srcp[x + offn] < min0)
-                        min0 = _srcp[x + offn];
-                    if (_srcp[x + offn] > max0)
-                        max0 = _srcp[x + offn];
-                    if (_srcpn[x - offp] < min0)
-                        min0 = _srcpn[x - offp];
-                    if (_srcpn[x - offp] > max0)
-                        max0 = _srcpn[x - offp];
-                    if (_srcpn[x] < min0)
-                        min0 = _srcpn[x];
-                    if (_srcpn[x] > max0)
-                        max0 = _srcpn[x];
-                    if (_srcpn[x + offn] < min0)
-                        min0 = _srcpn[x + offn];
-                    if (_srcpn[x + offn] > max0)
-                        max0 = _srcpn[x + offn];
-                    const T1 at = std::max(std::abs(_srcp[x] - min0), std::abs(_srcp[x] - max0));
-                    dstp0[x] = (at + 2) >> 2;
-                    dstp1[x] = (at + 1) >> 1;
-                }
-                _srcp += stride;
-                dstp0 += stride;
-                dstp1 += stride;
-            }
-        } else if (d->ttype == 4) { // 4 neighbors - not compensated (range)
-            for (int y = 0; y < height; y++) {
-                const T1 * _srcpp = _srcp - (y == 0 ? -stride : stride);
-                const T1 * _srcpn = _srcp + (y == height - 1 ? -stride : stride);
-                int x;
-                for (x = 0; x < firstPart; x++) {
-                    const int offp = (x == 0) ? -1 : 1;
-                    const int offn = (x == width - 1) ? -1 : 1;
-                    T1 min0 = peak, max0 = 0;
-                    if (_srcpp[x] < min0)
-                        min0 = _srcpp[x];
-                    if (_srcpp[x] > max0)
-                        max0 = _srcpp[x];
-                    if (_srcp[x - offp] < min0)
-                        min0 = _srcp[x - offp];
-                    if (_srcp[x - offp] > max0)
-                        max0 = _srcp[x - offp];
-                    if (_srcp[x] < min0)
-                        min0 = _srcp[x];
-                    if (_srcp[x] > max0)
-                        max0 = _srcp[x];
-                    if (_srcp[x + offn] < min0)
-                        min0 = _srcp[x + offn];
-                    if (_srcp[x + offn] > max0)
-                        max0 = _srcp[x + offn];
-                    if (_srcpn[x] < min0)
-                        min0 = _srcpn[x];
-                    if (_srcpn[x] > max0)
-                        max0 = _srcpn[x];
-                    const T1 at = max0 - min0;
-                    dstp0[x] = (at + 2) >> 2;
-                    dstp1[x] = (at + 1) >> 1;
-                }
-                for (; x < regularPart; x += 16) {
-                    T2 min0(peak), max0(0);
-                    const T2 srcp = T2().load_a(_srcp + x);
-                    const T2 srcpmp = T2().load(_srcp + x - 1);
-                    const T2 srcppn = T2().load(_srcp + x + 1);
-                    const T2 srcpp = T2().load_a(_srcpp + x);
-                    const T2 srcpn = T2().load_a(_srcpn + x);
-                    min0 = min(srcpp, min0);
-                    max0 = max(srcpp, max0);
-                    min0 = min(srcpmp, min0);
-                    max0 = max(srcpmp, max0);
-                    min0 = min(srcp, min0);
-                    max0 = max(srcp, max0);
-                    min0 = min(srcppn, min0);
-                    max0 = max(srcppn, max0);
-                    min0 = min(srcpn, min0);
-                    max0 = max(srcpn, max0);
-                    const T2 at = max0 - min0;
-                    ((at + 2) >> 2).store_a(dstp0 + x);
-                    ((at + 1) >> 1).store_a(dstp1 + x);
-                }
-                for (; x < width; x++) {
-                    const int offp = (x == 0) ? -1 : 1;
-                    const int offn = (x == width - 1) ? -1 : 1;
-                    T1 min0 = peak, max0 = 0;
-                    if (_srcpp[x] < min0)
-                        min0 = _srcpp[x];
-                    if (_srcpp[x] > max0)
-                        max0 = _srcpp[x];
-                    if (_srcp[x - offp] < min0)
-                        min0 = _srcp[x - offp];
-                    if (_srcp[x - offp] > max0)
-                        max0 = _srcp[x - offp];
-                    if (_srcp[x] < min0)
-                        min0 = _srcp[x];
-                    if (_srcp[x] > max0)
-                        max0 = _srcp[x];
-                    if (_srcp[x + offn] < min0)
-                        min0 = _srcp[x + offn];
-                    if (_srcp[x + offn] > max0)
-                        max0 = _srcp[x + offn];
-                    if (_srcpn[x] < min0)
-                        min0 = _srcpn[x];
-                    if (_srcpn[x] > max0)
-                        max0 = _srcpn[x];
-                    const T1 at = max0 - min0;
-                    dstp0[x] = (at + 2) >> 2;
-                    dstp1[x] = (at + 1) >> 1;
-                }
-                _srcp += stride;
-                dstp0 += stride;
-                dstp1 += stride;
-            }
-        } else if (d->ttype == 5) { // 8 neighbors - not compensated (range)
-            for (int y = 0; y < height; y++) {
-                const T1 * _srcpp = _srcp - (y == 0 ? -stride : stride);
-                const T1 * _srcpn = _srcp + (y == height - 1 ? -stride : stride);
-                int x;
-                for (x = 0; x < firstPart; x++) {
-                    const int offp = (x == 0) ? -1 : 1;
-                    const int offn = (x == width - 1) ? -1 : 1;
-                    T1 min0 = peak, max0 = 0;
-                    if (_srcpp[x - offp] < min0)
-                        min0 = _srcpp[x - offp];
-                    if (_srcpp[x - offp] > max0)
-                        max0 = _srcpp[x - offp];
-                    if (_srcpp[x] < min0)
-                        min0 = _srcpp[x];
-                    if (_srcpp[x] > max0)
-                        max0 = _srcpp[x];
-                    if (_srcpp[x + offn] < min0)
-                        min0 = _srcpp[x + offn];
-                    if (_srcpp[x + offn] > max0)
-                        max0 = _srcpp[x + offn];
-                    if (_srcp[x - offp] < min0)
-                        min0 = _srcp[x - offp];
-                    if (_srcp[x - offp] > max0)
-                        max0 = _srcp[x - offp];
-                    if (_srcp[x] < min0)
-                        min0 = _srcp[x];
-                    if (_srcp[x] > max0)
-                        max0 = _srcp[x];
-                    if (_srcp[x + offn] < min0)
-                        min0 = _srcp[x + offn];
-                    if (_srcp[x + offn] > max0)
-                        max0 = _srcp[x + offn];
-                    if (_srcpn[x - offp] < min0)
-                        min0 = _srcpn[x - offp];
-                    if (_srcpn[x - offp] > max0)
-                        max0 = _srcpn[x - offp];
-                    if (_srcpn[x] < min0)
-                        min0 = _srcpn[x];
-                    if (_srcpn[x] > max0)
-                        max0 = _srcpn[x];
-                    if (_srcpn[x + offn] < min0)
-                        min0 = _srcpn[x + offn];
-                    if (_srcpn[x + offn] > max0)
-                        max0 = _srcpn[x + offn];
-                    const T1 at = max0 - min0;
-                    dstp0[x] = (at + 2) >> 2;
-                    dstp1[x] = (at + 1) >> 1;
-                }
-                for (; x < regularPart; x += 16) {
-                    T2 min0(peak), max0(0);
-                    const T2 srcp = T2().load_a(_srcp + x);
-                    const T2 srcpmp = T2().load(_srcp + x - 1);
-                    const T2 srcppn = T2().load(_srcp + x + 1);
-                    const T2 srcpp = T2().load_a(_srcpp + x);
-                    const T2 srcppmp = T2().load(_srcpp + x - 1);
-                    const T2 srcpppn = T2().load(_srcpp + x + 1);
-                    const T2 srcpn = T2().load_a(_srcpn + x);
-                    const T2 srcpnmp = T2().load(_srcpn + x - 1);
-                    const T2 srcpnpn = T2().load(_srcpn + x + 1);
-                    min0 = min(srcppmp, min0);
-                    max0 = max(srcppmp, max0);
-                    min0 = min(srcpp, min0);
-                    max0 = max(srcpp, max0);
-                    min0 = min(srcpppn, min0);
-                    max0 = max(srcpppn, max0);
-                    min0 = min(srcpmp, min0);
-                    max0 = max(srcpmp, max0);
-                    min0 = min(srcp, min0);
-                    max0 = max(srcp, max0);
-                    min0 = min(srcppn, min0);
-                    max0 = max(srcppn, max0);
-                    min0 = min(srcpnmp, min0);
-                    max0 = max(srcpnmp, max0);
-                    min0 = min(srcpn, min0);
-                    max0 = max(srcpn, max0);
-                    min0 = min(srcpnpn, min0);
-                    max0 = max(srcpnpn, max0);
-                    const T2 at = max0 - min0;
-                    ((at + 2) >> 2).store_a(dstp0 + x);
-                    ((at + 1) >> 1).store_a(dstp1 + x);
-                }
-                for (; x < width; x++) {
-                    const int offp = (x == 0) ? -1 : 1;
-                    const int offn = (x == width - 1) ? -1 : 1;
-                    T1 min0 = peak, max0 = 0;
-                    if (_srcpp[x - offp] < min0)
-                        min0 = _srcpp[x - offp];
-                    if (_srcpp[x - offp] > max0)
-                        max0 = _srcpp[x - offp];
-                    if (_srcpp[x] < min0)
-                        min0 = _srcpp[x];
-                    if (_srcpp[x] > max0)
-                        max0 = _srcpp[x];
-                    if (_srcpp[x + offn] < min0)
-                        min0 = _srcpp[x + offn];
-                    if (_srcpp[x + offn] > max0)
-                        max0 = _srcpp[x + offn];
-                    if (_srcp[x - offp] < min0)
-                        min0 = _srcp[x - offp];
-                    if (_srcp[x - offp] > max0)
-                        max0 = _srcp[x - offp];
-                    if (_srcp[x] < min0)
-                        min0 = _srcp[x];
-                    if (_srcp[x] > max0)
-                        max0 = _srcp[x];
-                    if (_srcp[x + offn] < min0)
-                        min0 = _srcp[x + offn];
-                    if (_srcp[x + offn] > max0)
-                        max0 = _srcp[x + offn];
-                    if (_srcpn[x - offp] < min0)
-                        min0 = _srcpn[x - offp];
-                    if (_srcpn[x - offp] > max0)
-                        max0 = _srcpn[x - offp];
-                    if (_srcpn[x] < min0)
-                        min0 = _srcpn[x];
-                    if (_srcpn[x] > max0)
-                        max0 = _srcpn[x];
-                    if (_srcpn[x + offn] < min0)
-                        min0 = _srcpn[x + offn];
-                    if (_srcpn[x + offn] > max0)
-                        max0 = _srcpn[x + offn];
-                    const T1 at = max0 - min0;
-                    dstp0[x] = (at + 2) >> 2;
-                    dstp1[x] = (at + 1) >> 1;
-                }
-                _srcp += stride;
-                dstp0 += stride;
-                dstp1 += stride;
-            }
-        }
-
-        if (sizeof(T1) == sizeof(uint8_t)) {
-            if (plane == 0 && d->mtqL > -1)
-                memset(vsapi->getWritePtr(dst, plane), d->mtqL, stride * height);
-            else if (plane == 0 && d->mthL > -1)
-                memset(vsapi->getWritePtr(dst, plane) + stride * height, d->mthL, stride * height);
-            else if (plane > 0 && d->mtqC > -1)
-                memset(vsapi->getWritePtr(dst, plane), d->mtqC, stride * height);
-            else if (plane > 0 && d->mthC > -1)
-                memset(vsapi->getWritePtr(dst, plane) + stride * height, d->mthC, stride * height);
-        } else {
-            if (plane == 0 && d->mtqL > -1)
-                memset16(reinterpret_cast<T1 *>(vsapi->getWritePtr(dst, plane)), d->mtqL, stride * height);
-            else if (plane == 0 && d->mthL > -1)
-                memset16(reinterpret_cast<T1 *>(vsapi->getWritePtr(dst, plane)) + stride * height, d->mthL, stride * height);
-            else if (plane > 0 && d->mtqC > -1)
-                memset16(reinterpret_cast<T1 *>(vsapi->getWritePtr(dst, plane)), d->mtqC, stride * height);
-            else if (plane > 0 && d->mthC > -1)
-                memset16(reinterpret_cast<T1 *>(vsapi->getWritePtr(dst, plane)) + stride * height, d->mthC, stride * height);
-        }
-    }
-}
-#else
-template<typename T>
-static void threshMask(const VSFrameRef * src, VSFrameRef * dst, const TDeintModData * d, const VSAPI * vsapi) {
-    const T peak = (1 << d->vi.format->bitsPerSample) - 1;
-
-    for (int plane = 0; plane < d->vi.format->numPlanes; plane++) {
-        const int width = vsapi->getFrameWidth(src, plane);
-        const int height = vsapi->getFrameHeight(src, plane);
-        const int stride = vsapi->getStride(src, plane) / sizeof(T);
-        const T * srcp = reinterpret_cast<const T *>(vsapi->getReadPtr(src, plane));
-        T * VS_RESTRICT dstp0 = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
-        T * VS_RESTRICT dstp1 = dstp0 + stride * height;
-
-        if (sizeof(T) == sizeof(uint8_t)) {
-            if (plane == 0 && d->mtqL > -1 && d->mthL > -1) {
-                memset(dstp0, d->mtqL, stride * height);
-                memset(dstp1, d->mthL, stride * height);
-                continue;
-            } else if (plane > 0 && d->mtqC > -1 && d->mthC > -1) {
-                memset(dstp0, d->mtqC, stride * height);
-                memset(dstp1, d->mthC, stride * height);
-                continue;
-            }
-        } else {
-            if (plane == 0 && d->mtqL > -1 && d->mthL > -1) {
-                memset16(dstp0, d->mtqL, stride * height);
-                memset16(dstp1, d->mthL, stride * height);
-                continue;
-            } else if (plane > 0 && d->mtqC > -1 && d->mthC > -1) {
-                memset16(dstp0, d->mtqC, stride * height);
-                memset16(dstp1, d->mthC, stride * height);
-                continue;
-            }
-        }
-
-        const T hs = plane ? d->vi.format->subSamplingW : 0;
-        const T vs = plane ? 1 << d->vi.format->subSamplingH : 1;
-        const T vss = 1 << (vs - 1);
-
-        if (d->ttype == 0) { // 4 neighbors - compensated
-            for (int y = 0; y < height; y++) {
-                const T * srcpp = srcp - (y == 0 ? -stride : stride);
-                const T * srcpn = srcp + (y == height - 1 ? -stride : stride);
-                for (int x = 0; x < width; x++) {
-                    const int offp = (x == 0) ? -1 : 1;
-                    const int offn = (x == width - 1) ? -1 : 1;
-                    T min0 = peak, max0 = 0;
-                    T min1 = peak, max1 = 0;
-                    if (srcpp[x] < min0)
-                        min0 = srcpp[x];
-                    if (srcpp[x] > max0)
-                        max0 = srcpp[x];
-                    if (srcp[x - offp] < min1)
-                        min1 = srcp[x - offp];
-                    if (srcp[x - offp] > max1)
-                        max1 = srcp[x - offp];
-                    if (srcp[x + offn] < min1)
-                        min1 = srcp[x + offn];
-                    if (srcp[x + offn] > max1)
-                        max1 = srcp[x + offn];
-                    if (srcpn[x] < min0)
-                        min0 = srcpn[x];
-                    if (srcpn[x] > max0)
-                        max0 = srcpn[x];
-                    const T atv = std::max((std::abs(srcp[x] - min0) + vss) >> vs, (std::abs(srcp[x] - max0) + vss) >> vs);
-                    const T ath = std::max((std::abs(srcp[x] - min1) + hs) >> hs, (std::abs(srcp[x] - max1) + hs) >> hs);
-                    const T atmax = std::max(atv, ath);
-                    dstp0[x] = (atmax + 2) >> 2;
-                    dstp1[x] = (atmax + 1) >> 1;
-                }
-                srcp += stride;
-                dstp0 += stride;
-                dstp1 += stride;
-            }
-        } else if (d->ttype == 1) { // 8 neighbors - compensated
-            for (int y = 0; y < height; y++) {
-                const T * srcpp = srcp - (y == 0 ? -stride : stride);
-                const T * srcpn = srcp + (y == height - 1 ? -stride : stride);
-                for (int x = 0; x < width; x++) {
-                    const int offp = (x == 0) ? -1 : 1;
-                    const int offn = (x == width - 1) ? -1 : 1;
-                    T min0 = peak, max0 = 0;
-                    T min1 = peak, max1 = 0;
-                    if (srcpp[x - offp] < min0)
-                        min0 = srcpp[x - offp];
-                    if (srcpp[x - offp] > max0)
-                        max0 = srcpp[x - offp];
-                    if (srcpp[x] < min0)
-                        min0 = srcpp[x];
-                    if (srcpp[x] > max0)
-                        max0 = srcpp[x];
-                    if (srcpp[x + offn] < min0)
-                        min0 = srcpp[x + offn];
-                    if (srcpp[x + offn] > max0)
-                        max0 = srcpp[x + offn];
-                    if (srcp[x - offp] < min1)
-                        min1 = srcp[x - offp];
-                    if (srcp[x - offp] > max1)
-                        max1 = srcp[x - offp];
-                    if (srcp[x + offn] < min1)
-                        min1 = srcp[x + offn];
-                    if (srcp[x + offn] > max1)
-                        max1 = srcp[x + offn];
-                    if (srcpn[x - offp] < min0)
-                        min0 = srcpn[x - offp];
-                    if (srcpn[x - offp] > max0)
-                        max0 = srcpn[x - offp];
-                    if (srcpn[x] < min0)
-                        min0 = srcpn[x];
-                    if (srcpn[x] > max0)
-                        max0 = srcpn[x];
-                    if (srcpn[x + offn] < min0)
-                        min0 = srcpn[x + offn];
-                    if (srcpn[x + offn] > max0)
-                        max0 = srcpn[x + offn];
-                    const T atv = std::max((std::abs(srcp[x] - min0) + vss) >> vs, (std::abs(srcp[x] - max0) + vss) >> vs);
-                    const T ath = std::max((std::abs(srcp[x] - min1) + hs) >> hs, (std::abs(srcp[x] - max1) + hs) >> hs);
-                    const T atmax = std::max(atv, ath);
-                    dstp0[x] = (atmax + 2) >> 2;
-                    dstp1[x] = (atmax + 1) >> 1;
-                }
-                srcp += stride;
-                dstp0 += stride;
-                dstp1 += stride;
-            }
-        } else if (d->ttype == 2) { // 4 neighbors - not compensated
-            for (int y = 0; y < height; y++) {
-                const T * srcpp = srcp - (y == 0 ? -stride : stride);
-                const T * srcpn = srcp + (y == height - 1 ? -stride : stride);
-                for (int x = 0; x < width; x++) {
-                    const int offp = (x == 0) ? -1 : 1;
-                    const int offn = (x == width - 1) ? -1 : 1;
-                    T min0 = peak, max0 = 0;
-                    if (srcpp[x] < min0)
-                        min0 = srcpp[x];
-                    if (srcpp[x] > max0)
-                        max0 = srcpp[x];
-                    if (srcp[x - offp] < min0)
-                        min0 = srcp[x - offp];
-                    if (srcp[x - offp] > max0)
-                        max0 = srcp[x - offp];
-                    if (srcp[x + offn] < min0)
-                        min0 = srcp[x + offn];
-                    if (srcp[x + offn] > max0)
-                        max0 = srcp[x + offn];
-                    if (srcpn[x] < min0)
-                        min0 = srcpn[x];
-                    if (srcpn[x] > max0)
-                        max0 = srcpn[x];
-                    const T at = std::max(std::abs(srcp[x] - min0), std::abs(srcp[x] - max0));
-                    dstp0[x] = (at + 2) >> 2;
-                    dstp1[x] = (at + 1) >> 1;
-                }
-                srcp += stride;
-                dstp0 += stride;
-                dstp1 += stride;
-            }
-        } else if (d->ttype == 3) { // 8 neighbors - not compensated
-            for (int y = 0; y < height; y++) {
-                const T * srcpp = srcp - (y == 0 ? -stride : stride);
-                const T * srcpn = srcp + (y == height - 1 ? -stride : stride);
-                for (int x = 0; x < width; x++) {
-                    const int offp = (x == 0) ? -1 : 1;
-                    const int offn = (x == width - 1) ? -1 : 1;
-                    T min0 = peak, max0 = 0;
-                    if (srcpp[x - offp] < min0)
-                        min0 = srcpp[x - offp];
-                    if (srcpp[x - offp] > max0)
-                        max0 = srcpp[x - offp];
-                    if (srcpp[x] < min0)
-                        min0 = srcpp[x];
-                    if (srcpp[x] > max0)
-                        max0 = srcpp[x];
-                    if (srcpp[x + offn] < min0)
-                        min0 = srcpp[x + offn];
-                    if (srcpp[x + offn] > max0)
-                        max0 = srcpp[x + offn];
-                    if (srcp[x - offp] < min0)
-                        min0 = srcp[x - offp];
-                    if (srcp[x - offp] > max0)
-                        max0 = srcp[x - offp];
-                    if (srcp[x + offn] < min0)
-                        min0 = srcp[x + offn];
-                    if (srcp[x + offn] > max0)
-                        max0 = srcp[x + offn];
-                    if (srcpn[x - offp] < min0)
-                        min0 = srcpn[x - offp];
-                    if (srcpn[x - offp] > max0)
-                        max0 = srcpn[x - offp];
-                    if (srcpn[x] < min0)
-                        min0 = srcpn[x];
-                    if (srcpn[x] > max0)
-                        max0 = srcpn[x];
-                    if (srcpn[x + offn] < min0)
-                        min0 = srcpn[x + offn];
-                    if (srcpn[x + offn] > max0)
-                        max0 = srcpn[x + offn];
-                    const T at = std::max(std::abs(srcp[x] - min0), std::abs(srcp[x] - max0));
-                    dstp0[x] = (at + 2) >> 2;
-                    dstp1[x] = (at + 1) >> 1;
-                }
-                srcp += stride;
-                dstp0 += stride;
-                dstp1 += stride;
-            }
-        } else if (d->ttype == 4) { // 4 neighbors - not compensated (range)
-            for (int y = 0; y < height; y++) {
-                const T * srcpp = srcp - (y == 0 ? -stride : stride);
-                const T * srcpn = srcp + (y == height - 1 ? -stride : stride);
-                for (int x = 0; x < width; x++) {
-                    const int offp = (x == 0) ? -1 : 1;
-                    const int offn = (x == width - 1) ? -1 : 1;
-                    T min0 = peak, max0 = 0;
-                    if (srcpp[x] < min0)
-                        min0 = srcpp[x];
-                    if (srcpp[x] > max0)
-                        max0 = srcpp[x];
-                    if (srcp[x - offp] < min0)
-                        min0 = srcp[x - offp];
-                    if (srcp[x - offp] > max0)
-                        max0 = srcp[x - offp];
-                    if (srcp[x] < min0)
-                        min0 = srcp[x];
-                    if (srcp[x] > max0)
-                        max0 = srcp[x];
-                    if (srcp[x + offn] < min0)
-                        min0 = srcp[x + offn];
-                    if (srcp[x + offn] > max0)
-                        max0 = srcp[x + offn];
-                    if (srcpn[x] < min0)
-                        min0 = srcpn[x];
-                    if (srcpn[x] > max0)
-                        max0 = srcpn[x];
-                    const T at = max0 - min0;
-                    dstp0[x] = (at + 2) >> 2;
-                    dstp1[x] = (at + 1) >> 1;
-                }
-                srcp += stride;
-                dstp0 += stride;
-                dstp1 += stride;
-            }
-        } else if (d->ttype == 5) { // 8 neighbors - not compensated (range)
-            for (int y = 0; y < height; y++) {
-                const T * srcpp = srcp - (y == 0 ? -stride : stride);
-                const T * srcpn = srcp + (y == height - 1 ? -stride : stride);
-                for (int x = 0; x < width; x++) {
-                    const int offp = (x == 0) ? -1 : 1;
-                    const int offn = (x == width - 1) ? -1 : 1;
-                    T min0 = peak, max0 = 0;
-                    if (srcpp[x - offp] < min0)
-                        min0 = srcpp[x - offp];
-                    if (srcpp[x - offp] > max0)
-                        max0 = srcpp[x - offp];
-                    if (srcpp[x] < min0)
-                        min0 = srcpp[x];
-                    if (srcpp[x] > max0)
-                        max0 = srcpp[x];
-                    if (srcpp[x + offn] < min0)
-                        min0 = srcpp[x + offn];
-                    if (srcpp[x + offn] > max0)
-                        max0 = srcpp[x + offn];
-                    if (srcp[x - offp] < min0)
-                        min0 = srcp[x - offp];
-                    if (srcp[x - offp] > max0)
-                        max0 = srcp[x - offp];
-                    if (srcp[x] < min0)
-                        min0 = srcp[x];
-                    if (srcp[x] > max0)
-                        max0 = srcp[x];
-                    if (srcp[x + offn] < min0)
-                        min0 = srcp[x + offn];
-                    if (srcp[x + offn] > max0)
-                        max0 = srcp[x + offn];
-                    if (srcpn[x - offp] < min0)
-                        min0 = srcpn[x - offp];
-                    if (srcpn[x - offp] > max0)
-                        max0 = srcpn[x - offp];
-                    if (srcpn[x] < min0)
-                        min0 = srcpn[x];
-                    if (srcpn[x] > max0)
-                        max0 = srcpn[x];
-                    if (srcpn[x + offn] < min0)
-                        min0 = srcpn[x + offn];
-                    if (srcpn[x + offn] > max0)
-                        max0 = srcpn[x + offn];
-                    const T at = max0 - min0;
-                    dstp0[x] = (at + 2) >> 2;
-                    dstp1[x] = (at + 1) >> 1;
-                }
-                srcp += stride;
-                dstp0 += stride;
-                dstp1 += stride;
-            }
-        }
-
-        if (sizeof(T) == sizeof(uint8_t)) {
-            if (plane == 0 && d->mtqL > -1)
-                memset(vsapi->getWritePtr(dst, plane), d->mtqL, stride * height);
-            else if (plane == 0 && d->mthL > -1)
-                memset(vsapi->getWritePtr(dst, plane) + stride * height, d->mthL, stride * height);
-            else if (plane > 0 && d->mtqC > -1)
-                memset(vsapi->getWritePtr(dst, plane), d->mtqC, stride * height);
-            else if (plane > 0 && d->mthC > -1)
-                memset(vsapi->getWritePtr(dst, plane) + stride * height, d->mthC, stride * height);
-        } else {
-            if (plane == 0 && d->mtqL > -1)
-                memset16(reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane)), d->mtqL, stride * height);
-            else if (plane == 0 && d->mthL > -1)
-                memset16(reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane)) + stride * height, d->mthL, stride * height);
-            else if (plane > 0 && d->mtqC > -1)
-                memset16(reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane)), d->mtqC, stride * height);
-            else if (plane > 0 && d->mthC > -1)
-                memset16(reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane)) + stride * height, d->mthC, stride * height);
-        }
-    }
-}
+template<typename T1, typename T2, int step> extern void combineMasks_sse2(VSFrameRef *, VSFrameRef *, const int, const TDeintModData *, const VSAPI *) noexcept;
+template<typename T1, typename T2, int step> extern void combineMasks_avx2(VSFrameRef *, VSFrameRef *, const int, const TDeintModData *, const VSAPI *) noexcept;
 #endif
 
-#ifdef VS_TARGET_CPU_X86
-template<typename T1, typename T2>
-static void motionMask(const VSFrameRef * src1, const VSFrameRef * msk1, const VSFrameRef * src2, const VSFrameRef * msk2, VSFrameRef * dst, const TDeintModData * d, const VSAPI * vsapi) {
-    const T2 peak(sizeof(T1) == sizeof(uint8_t) ? UINT8_MAX : UINT16_MAX), zero(0);
-    const T2 nt(d->nt), minthresh(d->minthresh), maxthresh(d->maxthresh);
-
-    for (int plane = 0; plane < d->vi.format->numPlanes; plane++) {
-        const int width = vsapi->getFrameWidth(src1, plane);
-        const int height = vsapi->getFrameHeight(src1, plane);
-        const int stride = vsapi->getStride(src1, plane) / sizeof(T1);
-        const T1 * _srcp1 = reinterpret_cast<const T1 *>(vsapi->getReadPtr(src1, plane));
-        const T1 * _srcp2 = reinterpret_cast<const T1 *>(vsapi->getReadPtr(src2, plane));
-        const T1 * _mskp1q = reinterpret_cast<const T1 *>(vsapi->getReadPtr(msk1, plane));
-        const T1 * _mskp1h = _mskp1q + stride * height;
-        const T1 * _mskp2q = reinterpret_cast<const T1 *>(vsapi->getReadPtr(msk2, plane));
-        const T1 * _mskp2h = _mskp2q + stride * height;
-        T1 * dstpq = reinterpret_cast<T1 *>(vsapi->getWritePtr(dst, plane));
-        T1 * dstph = dstpq + stride * height;
-
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x += 16) {
-                const T2 srcp1 = T2().load_a(_srcp1 + x);
-                const T2 srcp2 = T2().load_a(_srcp2 + x);
-                const T2 mskp1q = T2().load_a(_mskp1q + x);
-                const T2 mskp1h = T2().load_a(_mskp1h + x);
-                const T2 mskp2q = T2().load_a(_mskp2q + x);
-                const T2 mskp2h = T2().load_a(_mskp2h + x);
-                const T2 diff = abs_dif<T2>(srcp1, srcp2);
-                const T2 threshq = min(mskp1q, mskp2q);
-                select(diff <= min(max(add_saturated(threshq, nt), minthresh), maxthresh), peak, zero).store_a(dstpq + x);
-                const T2 threshh = min(mskp1h, mskp2h);
-                select(diff <= min(max(add_saturated(threshh, nt), minthresh), maxthresh), peak, zero).store_a(dstph + x);
-            }
-            _srcp1 += stride;
-            _srcp2 += stride;
-            _mskp1q += stride;
-            _mskp1h += stride;
-            _mskp2q += stride;
-            _mskp2h += stride;
-            dstpq += stride;
-            dstph += stride;
-        }
-    }
-}
-#else
-template<typename T>
-static void motionMask(const VSFrameRef * src1, const VSFrameRef * msk1, const VSFrameRef * src2, const VSFrameRef * msk2, VSFrameRef * dst, const TDeintModData * d, const VSAPI * vsapi) {
-    const T peak = (sizeof(T) == sizeof(uint8_t)) ? UINT8_MAX : UINT16_MAX;
-
-    for (int plane = 0; plane < d->vi.format->numPlanes; plane++) {
-        const int width = vsapi->getFrameWidth(src1, plane);
-        const int height = vsapi->getFrameHeight(src1, plane);
-        const int stride = vsapi->getStride(src1, plane) / sizeof(T);
-        const T * srcp1 = reinterpret_cast<const T *>(vsapi->getReadPtr(src1, plane));
-        const T * srcp2 = reinterpret_cast<const T *>(vsapi->getReadPtr(src2, plane));
-        const T * mskp1q = reinterpret_cast<const T *>(vsapi->getReadPtr(msk1, plane));
-        const T * mskp1h = mskp1q + stride * height;
-        const T * mskp2q = reinterpret_cast<const T *>(vsapi->getReadPtr(msk2, plane));
-        const T * mskp2h = mskp2q + stride * height;
-        T * VS_RESTRICT dstpq = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
-        T * VS_RESTRICT dstph = dstpq + stride * height;
-
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                const int diff = std::abs(srcp1[x] - srcp2[x]);
-                const int threshq = std::min(mskp1q[x], mskp2q[x]);
-                dstpq[x] = (diff <= std::min(std::max(threshq + d->nt, d->minthresh), d->maxthresh)) ? peak : 0;
-                const int threshh = std::min(mskp1h[x], mskp2h[x]);
-                dstph[x] = (diff <= std::min(std::max(threshh + d->nt, d->minthresh), d->maxthresh)) ? peak : 0;
-            }
-            srcp1 += stride;
-            srcp2 += stride;
-            mskp1q += stride;
-            mskp1h += stride;
-            mskp2q += stride;
-            mskp2h += stride;
-            dstpq += stride;
-            dstph += stride;
-        }
-    }
-}
-#endif
-
-#ifdef VS_TARGET_CPU_X86
-template<typename T1, typename T2>
-static void andMasks(const VSFrameRef * src1, const VSFrameRef * src2, VSFrameRef * dst, const TDeintModData * d, const VSAPI * vsapi) {
-    for (int plane = 0; plane < d->vi.format->numPlanes; plane++) {
-        const int width = vsapi->getFrameWidth(src1, plane);
-        const int height = vsapi->getFrameHeight(src1, plane);
-        const int stride = vsapi->getStride(src1, plane) / sizeof(T1);
-        const T1 * _srcp1 = reinterpret_cast<const T1 *>(vsapi->getReadPtr(src1, plane));
-        const T1 * _srcp2 = reinterpret_cast<const T1 *>(vsapi->getReadPtr(src2, plane));
-        T1 * _dstp = reinterpret_cast<T1 *>(vsapi->getWritePtr(dst, plane));
-
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x += 16) {
-                const T2 srcp1 = T2().load_a(_srcp1 + x);
-                const T2 srcp2 = T2().load_a(_srcp2 + x);
-                const T2 dstp = T2().load_a(_dstp + x);
-                (dstp & (srcp1 & srcp2)).store_a(_dstp + x);
-            }
-            _srcp1 += stride;
-            _srcp2 += stride;
-            _dstp += stride;
-        }
-    }
-}
-#else
-template<typename T>
-static void andMasks(const VSFrameRef * src1, const VSFrameRef * src2, VSFrameRef * dst, const TDeintModData * d, const VSAPI * vsapi) {
-    for (int plane = 0; plane < d->vi.format->numPlanes; plane++) {
-        const int width = vsapi->getFrameWidth(src1, plane);
-        const int height = vsapi->getFrameHeight(src1, plane);
-        const int stride = vsapi->getStride(src1, plane) / sizeof(T);
-        const T * srcp1 = reinterpret_cast<const T *>(vsapi->getReadPtr(src1, plane));
-        const T * srcp2 = reinterpret_cast<const T *>(vsapi->getReadPtr(src2, plane));
-        T * VS_RESTRICT dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
-
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++)
-                dstp[x] &= (srcp1[x] & srcp2[x]);
-            srcp1 += stride;
-            srcp2 += stride;
-            dstp += stride;
-        }
-    }
-}
-#endif
+template<typename T1, typename T2 = void, int step = 0> static void (*threshMask)(const VSFrameRef *, VSFrameRef *, const int, const TDeintModData *, const VSAPI *) = nullptr;
+template<typename T1, typename T2 = void, int step = 0> static void (*motionMask)(const VSFrameRef *, const VSFrameRef *, const VSFrameRef *, const VSFrameRef *, VSFrameRef *, const int, const TDeintModData *, const VSAPI *) = nullptr;
+template<typename T1, typename T2 = void, int step = 0> static void (*andMasks)(const VSFrameRef *, const VSFrameRef *, VSFrameRef *, const int, const TDeintModData *, const VSAPI *) = nullptr;
+template<typename T1, typename T2 = void, int step = 0> static void (*combineMasks)(VSFrameRef *, VSFrameRef *, const int, const TDeintModData *, const VSAPI *) = nullptr;
 
 template<typename T>
-static void combineMasks(const VSFrameRef * src, VSFrameRef * dst, const TDeintModData * d, const VSAPI * vsapi) {
-    const T peak = (sizeof(T) == sizeof(uint8_t)) ? UINT8_MAX : UINT16_MAX;
+static void copyPad(const VSFrameRef * src, VSFrameRef * dst, const int plane, const uint8_t widthPad, const VSAPI * vsapi) noexcept {
+    const unsigned width = vsapi->getFrameWidth(src, plane);
+    const unsigned height = vsapi->getFrameHeight(src, plane);
+    const unsigned stride = vsapi->getStride(dst, 0) / sizeof(T);
+    const T * srcp = reinterpret_cast<const T *>(vsapi->getReadPtr(src, plane));
+    T * VS_RESTRICT dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, 0)) + widthPad;
 
-    for (int plane = 0; plane < d->vi.format->numPlanes; plane++) {
-        const int width = vsapi->getFrameWidth(src, plane);
-        const int height = vsapi->getFrameHeight(dst, plane);
-        const int stride = vsapi->getStride(src, plane) / sizeof(T);
-        const T * srcp0 = reinterpret_cast<const T *>(vsapi->getReadPtr(src, plane));
-        const T * srcp1 = srcp0 + stride * height;
-        T * VS_RESTRICT dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
+    vs_bitblt(dstp, vsapi->getStride(dst, 0), srcp, vsapi->getStride(src, plane), width * sizeof(T), height);
 
-        vs_bitblt(dstp, vsapi->getStride(src, plane), srcp0, vsapi->getStride(src, plane), width * sizeof(T), height);
+    for (unsigned y = 0; y < height; y++) {
+        dstp[-1] = dstp[0];
+        dstp[width] = dstp[width - 1];
 
-        for (int y = 0; y < height; y++) {
-            const T * srcpp0 = srcp0 - (y == 0 ? -stride : stride);
-            const T * srcpn0 = srcp0 + (y == height - 1 ? -stride : stride);
-            for (int x = 0; x < width; x++) {
-                if (srcp0[x] || !srcp1[x])
-                    continue;
-                const int offp = (x == 0) ? -1 : 1;
-                const int offn = (x == width - 1) ? -1 : 1;
-                int count = 0;
-                if (srcpp0[x - offp])
-                    count++;
-                if (srcpp0[x])
-                    count++;
-                if (srcpp0[x + offn])
-                    count++;
-                if (srcp0[x - offp])
-                    count++;
-                if (srcp0[x + offn])
-                    count++;
-                if (srcpn0[x - offp])
-                    count++;
-                if (srcpn0[x])
-                    count++;
-                if (srcpn0[x + offn])
-                    count++;
-                if (count >= d->cstr)
-                    dstp[x] = peak;
+        dstp += stride;
+    }
+}
+
+template<typename T1, typename T2 = void, int step = 0>
+static void threshMask_c(const VSFrameRef * src, VSFrameRef * dst, const int plane, const TDeintModData * d, const VSAPI * vsapi) noexcept {
+    constexpr T1 peak = std::numeric_limits<T1>::max();
+
+    const int width = d->vi.width >> (plane ? d->vi.format->subSamplingW : 0);
+    const unsigned height = d->vi.height >> (plane ? d->vi.format->subSamplingH : 0);
+    const unsigned stride = vsapi->getStride(src, 0) / sizeof(T1);
+    const T1 * srcp = reinterpret_cast<const T1 *>(vsapi->getReadPtr(src, 0)) + d->widthPad;
+    T1 * VS_RESTRICT dstp0 = reinterpret_cast<T1 *>(vsapi->getWritePtr(dst, 0)) + d->widthPad;
+    T1 * VS_RESTRICT dstp1 = dstp0 + stride * height;
+
+    if (plane == 0 && d->mtqL > -1 && d->mthL > -1) {
+        std::fill_n(dstp0 - d->widthPad, stride * height, static_cast<T1>(d->mtqL));
+        std::fill_n(dstp1 - d->widthPad, stride * height, static_cast<T1>(d->mthL));
+        return;
+    } else if (plane > 0 && d->mtqC > -1 && d->mthC > -1) {
+        std::fill_n(dstp0 - d->widthPad, stride * height, static_cast<T1>(d->mtqC));
+        std::fill_n(dstp1 - d->widthPad, stride * height, static_cast<T1>(d->mthC));
+        return;
+    }
+
+    const T1 * srcpp = srcp;
+    const T1 * srcpn = srcp + stride;
+
+    for (unsigned y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            int min0 = peak, max0 = 0;
+            int min1 = peak, max1 = 0;
+
+            if (d->ttype == 0) { // 4 neighbors - compensated
+                if (srcpp[x] < min0)
+                    min0 = srcpp[x];
+                if (srcpp[x] > max0)
+                    max0 = srcpp[x];
+                if (srcp[x - 1] < min1)
+                    min1 = srcp[x - 1];
+                if (srcp[x - 1] > max1)
+                    max1 = srcp[x - 1];
+                if (srcp[x + 1] < min1)
+                    min1 = srcp[x + 1];
+                if (srcp[x + 1] > max1)
+                    max1 = srcp[x + 1];
+                if (srcpn[x] < min0)
+                    min0 = srcpn[x];
+                if (srcpn[x] > max0)
+                    max0 = srcpn[x];
+
+                const int atv = std::max((std::abs(srcp[x] - min0) + d->vHalf[plane]) >> d->vShift[plane], (std::abs(srcp[x] - max0) + d->vHalf[plane]) >> d->vShift[plane]);
+                const int ath = std::max((std::abs(srcp[x] - min1) + d->hHalf[plane]) >> d->hShift[plane], (std::abs(srcp[x] - max1) + d->hHalf[plane]) >> d->hShift[plane]);
+                const int atmax = std::max(atv, ath);
+                dstp0[x] = (atmax + 2) / 4;
+                dstp1[x] = (atmax + 1) / 2;
+            } else if (d->ttype == 1) { // 8 neighbors - compensated
+                if (srcpp[x - 1] < min0)
+                    min0 = srcpp[x - 1];
+                if (srcpp[x - 1] > max0)
+                    max0 = srcpp[x - 1];
+                if (srcpp[x] < min0)
+                    min0 = srcpp[x];
+                if (srcpp[x] > max0)
+                    max0 = srcpp[x];
+                if (srcpp[x + 1] < min0)
+                    min0 = srcpp[x + 1];
+                if (srcpp[x + 1] > max0)
+                    max0 = srcpp[x + 1];
+                if (srcp[x - 1] < min1)
+                    min1 = srcp[x - 1];
+                if (srcp[x - 1] > max1)
+                    max1 = srcp[x - 1];
+                if (srcp[x + 1] < min1)
+                    min1 = srcp[x + 1];
+                if (srcp[x + 1] > max1)
+                    max1 = srcp[x + 1];
+                if (srcpn[x - 1] < min0)
+                    min0 = srcpn[x - 1];
+                if (srcpn[x - 1] > max0)
+                    max0 = srcpn[x - 1];
+                if (srcpn[x] < min0)
+                    min0 = srcpn[x];
+                if (srcpn[x] > max0)
+                    max0 = srcpn[x];
+                if (srcpn[x + 1] < min0)
+                    min0 = srcpn[x + 1];
+                if (srcpn[x + 1] > max0)
+                    max0 = srcpn[x + 1];
+
+                const int atv = std::max((std::abs(srcp[x] - min0) + d->vHalf[plane]) >> d->vShift[plane], (std::abs(srcp[x] - max0) + d->vHalf[plane]) >> d->vShift[plane]);
+                const int ath = std::max((std::abs(srcp[x] - min1) + d->hHalf[plane]) >> d->hShift[plane], (std::abs(srcp[x] - max1) + d->hHalf[plane]) >> d->hShift[plane]);
+                const int atmax = std::max(atv, ath);
+                dstp0[x] = (atmax + 2) / 4;
+                dstp1[x] = (atmax + 1) / 2;
+            } else if (d->ttype == 2) { // 4 neighbors - not compensated
+                if (srcpp[x] < min0)
+                    min0 = srcpp[x];
+                if (srcpp[x] > max0)
+                    max0 = srcpp[x];
+                if (srcp[x - 1] < min0)
+                    min0 = srcp[x - 1];
+                if (srcp[x - 1] > max0)
+                    max0 = srcp[x - 1];
+                if (srcp[x + 1] < min0)
+                    min0 = srcp[x + 1];
+                if (srcp[x + 1] > max0)
+                    max0 = srcp[x + 1];
+                if (srcpn[x] < min0)
+                    min0 = srcpn[x];
+                if (srcpn[x] > max0)
+                    max0 = srcpn[x];
+
+                const int at = std::max(std::abs(srcp[x] - min0), std::abs(srcp[x] - max0));
+                dstp0[x] = (at + 2) / 4;
+                dstp1[x] = (at + 1) / 2;
+            } else if (d->ttype == 3) { // 8 neighbors - not compensated
+                if (srcpp[x - 1] < min0)
+                    min0 = srcpp[x - 1];
+                if (srcpp[x - 1] > max0)
+                    max0 = srcpp[x - 1];
+                if (srcpp[x] < min0)
+                    min0 = srcpp[x];
+                if (srcpp[x] > max0)
+                    max0 = srcpp[x];
+                if (srcpp[x + 1] < min0)
+                    min0 = srcpp[x + 1];
+                if (srcpp[x + 1] > max0)
+                    max0 = srcpp[x + 1];
+                if (srcp[x - 1] < min0)
+                    min0 = srcp[x - 1];
+                if (srcp[x - 1] > max0)
+                    max0 = srcp[x - 1];
+                if (srcp[x + 1] < min0)
+                    min0 = srcp[x + 1];
+                if (srcp[x + 1] > max0)
+                    max0 = srcp[x + 1];
+                if (srcpn[x - 1] < min0)
+                    min0 = srcpn[x - 1];
+                if (srcpn[x - 1] > max0)
+                    max0 = srcpn[x - 1];
+                if (srcpn[x] < min0)
+                    min0 = srcpn[x];
+                if (srcpn[x] > max0)
+                    max0 = srcpn[x];
+                if (srcpn[x + 1] < min0)
+                    min0 = srcpn[x + 1];
+                if (srcpn[x + 1] > max0)
+                    max0 = srcpn[x + 1];
+
+                const int at = std::max(std::abs(srcp[x] - min0), std::abs(srcp[x] - max0));
+                dstp0[x] = (at + 2) / 4;
+                dstp1[x] = (at + 1) / 2;
+            } else if (d->ttype == 4) { // 4 neighbors - not compensated (range)
+                if (srcpp[x] < min0)
+                    min0 = srcpp[x];
+                if (srcpp[x] > max0)
+                    max0 = srcpp[x];
+                if (srcp[x - 1] < min0)
+                    min0 = srcp[x - 1];
+                if (srcp[x - 1] > max0)
+                    max0 = srcp[x - 1];
+                if (srcp[x] < min0)
+                    min0 = srcp[x];
+                if (srcp[x] > max0)
+                    max0 = srcp[x];
+                if (srcp[x + 1] < min0)
+                    min0 = srcp[x + 1];
+                if (srcp[x + 1] > max0)
+                    max0 = srcp[x + 1];
+                if (srcpn[x] < min0)
+                    min0 = srcpn[x];
+                if (srcpn[x] > max0)
+                    max0 = srcpn[x];
+
+                const int at = max0 - min0;
+                dstp0[x] = (at + 2) / 4;
+                dstp1[x] = (at + 1) / 2;
+            } else { // 8 neighbors - not compensated (range)
+                if (srcpp[x - 1] < min0)
+                    min0 = srcpp[x - 1];
+                if (srcpp[x - 1] > max0)
+                    max0 = srcpp[x - 1];
+                if (srcpp[x] < min0)
+                    min0 = srcpp[x];
+                if (srcpp[x] > max0)
+                    max0 = srcpp[x];
+                if (srcpp[x + 1] < min0)
+                    min0 = srcpp[x + 1];
+                if (srcpp[x + 1] > max0)
+                    max0 = srcpp[x + 1];
+                if (srcp[x - 1] < min0)
+                    min0 = srcp[x - 1];
+                if (srcp[x - 1] > max0)
+                    max0 = srcp[x - 1];
+                if (srcp[x] < min0)
+                    min0 = srcp[x];
+                if (srcp[x] > max0)
+                    max0 = srcp[x];
+                if (srcp[x + 1] < min0)
+                    min0 = srcp[x + 1];
+                if (srcp[x + 1] > max0)
+                    max0 = srcp[x + 1];
+                if (srcpn[x - 1] < min0)
+                    min0 = srcpn[x - 1];
+                if (srcpn[x - 1] > max0)
+                    max0 = srcpn[x - 1];
+                if (srcpn[x] < min0)
+                    min0 = srcpn[x];
+                if (srcpn[x] > max0)
+                    max0 = srcpn[x];
+                if (srcpn[x + 1] < min0)
+                    min0 = srcpn[x + 1];
+                if (srcpn[x + 1] > max0)
+                    max0 = srcpn[x + 1];
+
+                const int at = max0 - min0;
+                dstp0[x] = (at + 2) / 4;
+                dstp1[x] = (at + 1) / 2;
             }
-            srcp0 += stride;
-            srcp1 += stride;
-            dstp += stride;
         }
+
+        srcpp = srcp;
+        srcp = srcpn;
+        if (y < height - 2)
+            srcpn += stride;
+        dstp0 += stride;
+        dstp1 += stride;
+    }
+
+    T1 * dstp = reinterpret_cast<T1 *>(vsapi->getWritePtr(dst, 0));
+    if (plane == 0 && d->mtqL > -1)
+        std::fill_n(dstp, stride * height, static_cast<T1>(d->mtqL));
+    else if (plane == 0 && d->mthL > -1)
+        std::fill_n(dstp + stride * height, stride * height, static_cast<T1>(d->mthL));
+    else if (plane > 0 && d->mtqC > -1)
+        std::fill_n(dstp, stride * height, static_cast<T1>(d->mtqC));
+    else if (plane > 0 && d->mthC > -1)
+        std::fill_n(dstp + stride * height, stride * height, static_cast<T1>(d->mthC));
+}
+
+template<typename T1, typename T2 = void, int step = 0>
+static void motionMask_c(const VSFrameRef * src1, const VSFrameRef * msk1, const VSFrameRef * src2, const VSFrameRef * msk2, VSFrameRef * dst,
+                         const int plane, const TDeintModData * d, const VSAPI * vsapi) noexcept {
+    const unsigned width = d->vi.width >> (plane ? d->vi.format->subSamplingW : 0);
+    const unsigned height = d->vi.height >> (plane ? d->vi.format->subSamplingH : 0);
+    const unsigned stride = vsapi->getStride(src1, 0) / sizeof(T1);
+    const T1 * srcp1 = reinterpret_cast<const T1 *>(vsapi->getReadPtr(src1, 0)) + d->widthPad;
+    const T1 * srcp2 = reinterpret_cast<const T1 *>(vsapi->getReadPtr(src2, 0)) + d->widthPad;
+    const T1 * mskp1q = reinterpret_cast<const T1 *>(vsapi->getReadPtr(msk1, 0)) + d->widthPad;
+    const T1 * mskp2q = reinterpret_cast<const T1 *>(vsapi->getReadPtr(msk2, 0)) + d->widthPad;
+    T1 * VS_RESTRICT dstpq = reinterpret_cast<T1 *>(vsapi->getWritePtr(dst, 0)) + d->widthPad;
+
+    const T1 * mskp1h = mskp1q + stride * height;
+    const T1 * mskp2h = mskp2q + stride * height;
+    T1 * VS_RESTRICT dstph = dstpq + stride * height;
+
+    for (unsigned y = 0; y < height; y++) {
+        for (unsigned x = 0; x < width; x++) {
+            const int diff = std::abs(srcp1[x] - srcp2[x]);
+            dstpq[x] = (diff <= std::min(std::max(std::min(mskp1q[x], mskp2q[x]) + d->nt, d->minthresh), d->maxthresh)) ? std::numeric_limits<T1>::max() : 0;
+            dstph[x] = (diff <= std::min(std::max(std::min(mskp1h[x], mskp2h[x]) + d->nt, d->minthresh), d->maxthresh)) ? std::numeric_limits<T1>::max() : 0;
+        }
+
+        srcp1 += stride;
+        srcp2 += stride;
+        mskp1q += stride;
+        mskp1h += stride;
+        mskp2q += stride;
+        mskp2h += stride;
+        dstpq += stride;
+        dstph += stride;
+    }
+}
+
+template<typename T1, typename T2 = void, int step = 0>
+static void andMasks_c(const VSFrameRef * src1, const VSFrameRef * src2, VSFrameRef * dst, const int plane, const TDeintModData * d, const VSAPI * vsapi) noexcept {
+    const unsigned width = d->vi.width >> (plane ? d->vi.format->subSamplingW : 0);
+    const unsigned height = (d->vi.height * 2) >> (plane ? d->vi.format->subSamplingH : 0);
+    const unsigned stride = vsapi->getStride(src1, 0) / sizeof(T1);
+    const T1 * srcp1 = reinterpret_cast<const T1 *>(vsapi->getReadPtr(src1, 0)) + d->widthPad;
+    const T1 * srcp2 = reinterpret_cast<const T1 *>(vsapi->getReadPtr(src2, 0)) + d->widthPad;
+    T1 * VS_RESTRICT dstp = reinterpret_cast<T1 *>(vsapi->getWritePtr(dst, 0)) + d->widthPad;
+
+    for (unsigned y = 0; y < height; y++) {
+        for (unsigned x = 0; x < width; x++)
+            dstp[x] &= srcp1[x] & srcp2[x];
+
+        dstp[-1] = dstp[0];
+        dstp[width] = dstp[width - 1];
+
+        srcp1 += stride;
+        srcp2 += stride;
+        dstp += stride;
+    }
+}
+
+template<typename T1, typename T2 = void, int step = 0>
+static void combineMasks_c(VSFrameRef * src, VSFrameRef * dst, const int plane, const TDeintModData * d, const VSAPI * vsapi) noexcept {
+    const int width = vsapi->getFrameWidth(dst, plane);
+    const unsigned height = vsapi->getFrameHeight(dst, plane);
+    const unsigned srcStride = vsapi->getStride(src, 0) / sizeof(T1);
+    const unsigned dstStride = vsapi->getStride(dst, plane) / sizeof(T1);
+    const T1 * srcp0 = reinterpret_cast<const T1 *>(vsapi->getReadPtr(src, 0)) + d->widthPad;
+    T1 * VS_RESTRICT dstp = reinterpret_cast<T1 *>(vsapi->getWritePtr(dst, plane));
+
+    const T1 * srcpp0 = srcp0;
+    const T1 * srcpn0 = srcp0 + srcStride;
+    const T1 * srcp1 = srcp0 + srcStride * height;
+
+    vs_bitblt(dstp, vsapi->getStride(dst, plane), srcp0, vsapi->getStride(src, 0), width * sizeof(T1), height);
+
+    for (unsigned y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            if (srcp0[x] || !srcp1[x])
+                continue;
+
+            int count = 0;
+
+            if (srcpp0[x - 1])
+                count++;
+            if (srcpp0[x])
+                count++;
+            if (srcpp0[x + 1])
+                count++;
+            if (srcp0[x - 1])
+                count++;
+            if (srcp0[x + 1])
+                count++;
+            if (srcpn0[x - 1])
+                count++;
+            if (srcpn0[x])
+                count++;
+            if (srcpn0[x + 1])
+                count++;
+
+            if (count >= d->cstr)
+                dstp[x] = std::numeric_limits<T1>::max();
+        }
+
+        srcpp0 = srcp0;
+        srcp0 = srcpn0;
+        if (y < height - 2)
+            srcpn0 += srcStride;
+        srcp1 += srcStride;
+        dstp += dstStride;
     }
 }
 
 template<typename T>
-static void buildMask(VSFrameRef ** csrc, VSFrameRef ** osrc, VSFrameRef * dst, const int ccount, const int ocount, const int order, const int field,
-                      const TDeintModData * d, const VSAPI * vsapi) {
-    const int16_t * tmmlut = d->tmmlut16.data() + order * 8 + field * 4;
-    int16_t tmmlutf[64];
-    for (int i = 0; i < 64; i++)
+static void buildMask(VSFrameRef ** cSrc, VSFrameRef ** oSrc, VSFrameRef * dst, const unsigned cCount, const unsigned oCount, const unsigned order, const unsigned field,
+                      const TDeintModData * d, const VSAPI * vsapi) noexcept {
+    const uint16_t * tmmlut = d->tmmlut16.data() + order * 8 + field * 4;
+    uint16_t tmmlutf[64];
+    for (unsigned i = 0; i < 64; i++)
         tmmlutf[i] = tmmlut[d->vlut[i]];
 
     T * VS_RESTRICT plut[2];
-    for (int i = 0; i < 2; i++)
+    for (unsigned i = 0; i < 2; i++)
         plut[i] = new T[2 * d->length - 1];
 
     T * VS_RESTRICT * VS_RESTRICT ptlut[3];
-    for (int i = 0; i < 3; i++)
-        ptlut[i] = new T *[i & 1 ? ccount : ocount];
+    for (unsigned i = 0; i < 3; i++)
+        ptlut[i] = new T *[i & 1 ? cCount : oCount];
 
-    const int offo = (d->length & 1) ? 0 : 1;
-    const int offc = (d->length & 1) ? 1 : 0;
-    const int ct = ccount / 2;
+    const unsigned offo = (d->length & 1) ? 0 : 1;
+    const unsigned offc = (d->length & 1) ? 1 : 0;
+    const unsigned ct = cCount / 2;
 
     for (int plane = 0; plane < d->vi.format->numPlanes; plane++) {
-        const int width = vsapi->getFrameWidth(dst, plane);
-        const int height = vsapi->getFrameHeight(dst, plane);
-        const int stride = vsapi->getStride(dst, plane) / sizeof(T);
-        for (int i = 0; i < ccount; i++)
-            ptlut[1][i] = reinterpret_cast<T *>(vsapi->getWritePtr(csrc[i], plane));
-        for (int i = 0; i < ocount; i++) {
-            if (field == 1) {
-                ptlut[0][i] = reinterpret_cast<T *>(vsapi->getWritePtr(osrc[i], plane));
-                ptlut[2][i] = ptlut[0][i] + stride;
-            } else {
-                ptlut[0][i] = ptlut[2][i] = reinterpret_cast<T *>(vsapi->getWritePtr(osrc[i], plane));
+        if (d->process[plane]) {
+            const unsigned width = vsapi->getFrameWidth(dst, plane);
+            const unsigned height = vsapi->getFrameHeight(dst, plane);
+            const unsigned stride = vsapi->getStride(dst, plane) / sizeof(T);
+            for (unsigned i = 0; i < cCount; i++)
+                ptlut[1][i] = reinterpret_cast<T *>(vsapi->getWritePtr(cSrc[i], plane));
+            for (unsigned i = 0; i < oCount; i++) {
+                if (field == 1) {
+                    ptlut[0][i] = reinterpret_cast<T *>(vsapi->getWritePtr(oSrc[i], plane));
+                    ptlut[2][i] = ptlut[0][i] + stride;
+                } else {
+                    ptlut[0][i] = ptlut[2][i] = reinterpret_cast<T *>(vsapi->getWritePtr(oSrc[i], plane));
+                }
             }
-        }
-        T * VS_RESTRICT dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
+            T * VS_RESTRICT dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
 
-        if (sizeof(T) == sizeof(uint8_t)) {
             if (field == 1) {
-                for (int j = 0; j < height; j += 2)
-                    memset(dstp + stride * j, d->ten, width);
+                for (unsigned j = 0; j < height; j += 2)
+                    std::fill_n(dstp + stride * j, width, static_cast<T>(d->ten));
                 dstp += stride;
             } else {
-                for (int j = 1; j < height; j += 2)
-                    memset(dstp + stride * j, d->ten, width);
+                for (unsigned j = 1; j < height; j += 2)
+                    std::fill_n(dstp + stride * j, width, static_cast<T>(d->ten));
             }
-        } else {
-            if (field == 1) {
-                for (int j = 0; j < height; j += 2)
-                    memset16(dstp + stride * j, d->ten, width);
-                dstp += stride;
-            } else {
-                for (int j = 1; j < height; j += 2)
-                    memset16(dstp + stride * j, d->ten, width);
-            }
-        }
 
-        for (int y = field; y < height; y += 2) {
-            for (int x = 0; x < width; x++) {
-                if (!ptlut[1][ct - 2][x] && !ptlut[1][ct][x] && !ptlut[1][ct + 1][x]) {
-                    dstp[x] = d->sixty;
-                    continue;
-                }
-
-                for (int j = 0; j < ccount; j++)
-                    plut[0][j * 2 + offc] = plut[1][j * 2 + offc] = ptlut[1][j][x];
-                for (int j = 0; j < ocount; j++) {
-                    plut[0][j * 2 + offo] = ptlut[0][j][x];
-                    plut[1][j * 2 + offo] = ptlut[2][j][x];
-                }
-
-                uint8_t val = 0;
-                for (int i = 0; i < d->length; i++) {
-                    for (int j = 0; j < d->length - 4; j++) {
-                        if (!plut[0][i + j])
-                            goto j1;
+            for (unsigned y = field; y < height; y += 2) {
+                for (unsigned x = 0; x < width; x++) {
+                    if (!ptlut[1][ct - 2][x] && !ptlut[1][ct][x] && !ptlut[1][ct + 1][x]) {
+                        dstp[x] = static_cast<T>(d->sixty);
+                        continue;
                     }
-                    val |= d->gvlut[i] * 8;
-                j1:
-                    for (int j = 0; j < d->length - 4; j++) {
-                        if (!plut[1][i + j])
-                            goto j2;
-                    }
-                    val |= d->gvlut[i];
-                j2:
-                    if (d->vlut[val] == 2)
-                        break;
-                }
-                dstp[x] = tmmlutf[val];
-            }
 
-            for (int i = 0; i < ccount; i++)
-                ptlut[1][i] += stride;
-            for (int i = 0; i < ocount; i++) {
-                if (y != 0)
-                    ptlut[0][i] += stride;
-                if (y != height - 3)
-                    ptlut[2][i] += stride;
+                    for (unsigned j = 0; j < cCount; j++)
+                        plut[0][j * 2 + offc] = plut[1][j * 2 + offc] = ptlut[1][j][x];
+                    for (unsigned j = 0; j < oCount; j++) {
+                        plut[0][j * 2 + offo] = ptlut[0][j][x];
+                        plut[1][j * 2 + offo] = ptlut[2][j][x];
+                    }
+
+                    uint8_t val = 0;
+                    for (int i = 0; i < d->length; i++) {
+                        for (int j = 0; j < d->length - 4; j++) {
+                            if (!plut[0][i + j])
+                                goto j1;
+                        }
+                        val |= d->gvlut[i] * 8;
+                    j1:
+                        for (int j = 0; j < d->length - 4; j++) {
+                            if (!plut[1][i + j])
+                                goto j2;
+                        }
+                        val |= d->gvlut[i];
+                    j2:
+                        if (d->vlut[val] == 2)
+                            break;
+                    }
+                    dstp[x] = static_cast<T>(tmmlutf[val]);
+                }
+
+                for (unsigned i = 0; i < cCount; i++)
+                    ptlut[1][i] += stride;
+                for (unsigned i = 0; i < oCount; i++) {
+                    if (y != 0)
+                        ptlut[0][i] += stride;
+                    if (y != height - 3)
+                        ptlut[2][i] += stride;
+                }
+                dstp += stride * 2;
             }
-            dstp += stride * 2;
         }
     }
 
-    for (int i = 0; i < 2; i++)
+    for (unsigned i = 0; i < 2; i++)
         delete[] plut[i];
-    for (int i = 0; i < 3; i++)
+    for (unsigned i = 0; i < 3; i++)
         delete[] ptlut[i];
 }
 
 template<typename T>
-static void setMaskForUpsize(VSFrameRef * msk, const int field, const TDeintModData * d, const VSAPI * vsapi) {
+static void setMaskForUpsize(VSFrameRef * mask, const unsigned field, const TDeintModData * d, const VSAPI * vsapi) noexcept {
     for (int plane = 0; plane < d->vi.format->numPlanes; plane++) {
-        const int width = vsapi->getFrameWidth(msk, plane);
-        const int height = vsapi->getFrameHeight(msk, plane) / 2;
-        const int stride = vsapi->getStride(msk, plane) / sizeof(T) * 2;
-        T * VS_RESTRICT maskwc = reinterpret_cast<T *>(vsapi->getWritePtr(msk, plane));
-        T * VS_RESTRICT maskwn = maskwc + stride / 2;
+        if (d->process[plane]) {
+            const unsigned width = vsapi->getFrameWidth(mask, plane);
+            const unsigned height = vsapi->getFrameHeight(mask, plane) / 2;
+            const unsigned stride = vsapi->getStride(mask, plane) / sizeof(T) * 2;
+            T * VS_RESTRICT maskwc = reinterpret_cast<T *>(vsapi->getWritePtr(mask, plane));
+            T * VS_RESTRICT maskwn = maskwc + stride / 2;
 
-        if (sizeof(T) == sizeof(uint8_t)) {
             if (field == 1) {
-                for (int y = 0; y < height - 1; y++) {
-                    memset(maskwc, d->ten, width);
-                    memset(maskwn, d->sixty, width);
+                for (unsigned y = 0; y < height - 1; y++) {
+                    std::fill_n(maskwc, width, static_cast<T>(d->ten));
+                    std::fill_n(maskwn, width, static_cast<T>(d->sixty));
                     maskwc += stride;
                     maskwn += stride;
                 }
-                memset(maskwc, d->ten, width);
-                memset(maskwn, d->ten, width);
+                std::fill_n(maskwc, width, static_cast<T>(d->ten));
+                std::fill_n(maskwn, width, static_cast<T>(d->ten));
             } else {
-                memset(maskwc, d->ten, width);
-                memset(maskwn, d->ten, width);
-                for (int y = 0; y < height - 1; y++) {
+                std::fill_n(maskwc, width, static_cast<T>(d->ten));
+                std::fill_n(maskwn, width, static_cast<T>(d->ten));
+                for (unsigned y = 0; y < height - 1; y++) {
                     maskwc += stride;
                     maskwn += stride;
-                    memset(maskwc, d->sixty, width);
-                    memset(maskwn, d->ten, width);
-                }
-            }
-        } else {
-            if (field == 1) {
-                for (int y = 0; y < height - 1; y++) {
-                    memset16(maskwc, d->ten, width);
-                    memset16(maskwn, d->sixty, width);
-                    maskwc += stride;
-                    maskwn += stride;
-                }
-                memset16(maskwc, d->ten, width);
-                memset16(maskwn, d->ten, width);
-            } else {
-                memset16(maskwc, d->ten, width);
-                memset16(maskwn, d->ten, width);
-                for (int y = 0; y < height - 1; y++) {
-                    maskwc += stride;
-                    maskwn += stride;
-                    memset16(maskwc, d->sixty, width);
-                    memset16(maskwn, d->ten, width);
+                    std::fill_n(maskwc, width, static_cast<T>(d->sixty));
+                    std::fill_n(maskwn, width, static_cast<T>(d->ten));
                 }
             }
         }
@@ -1425,119 +562,151 @@ static void setMaskForUpsize(VSFrameRef * msk, const int field, const TDeintModD
 }
 
 template<typename T>
-static void eDeint(VSFrameRef * dst, const VSFrameRef * mask, const VSFrameRef * prv, const VSFrameRef * src, const VSFrameRef * nxt, const VSFrameRef * efrm,
-                   const TDeintModData * d, const VSAPI * vsapi) {
+static void eDeint(VSFrameRef * dst, const VSFrameRef * mask, const VSFrameRef * prv, const VSFrameRef * src, const VSFrameRef * nxt, const VSFrameRef * edeint,
+                   const TDeintModData * d, const VSAPI * vsapi) noexcept {
     for (int plane = 0; plane < d->vi.format->numPlanes; plane++) {
-        const int width = vsapi->getFrameWidth(src, plane);
-        const int height = vsapi->getFrameHeight(src, plane);
-        const int stride = vsapi->getStride(src, plane) / sizeof(T);
-        const T * prvp = reinterpret_cast<const T *>(vsapi->getReadPtr(prv, plane));
-        const T * srcp = reinterpret_cast<const T *>(vsapi->getReadPtr(src, plane));
-        const T * nxtp = reinterpret_cast<const T *>(vsapi->getReadPtr(nxt, plane));
-        const T * maskp = reinterpret_cast<const T *>(vsapi->getReadPtr(mask, plane));
-        const T * efrmp = reinterpret_cast<const T *>(vsapi->getReadPtr(efrm, plane));
-        T * VS_RESTRICT dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
+        if (d->process[plane]) {
+            const unsigned width = vsapi->getFrameWidth(src, plane);
+            const unsigned height = vsapi->getFrameHeight(src, plane);
+            const unsigned stride = vsapi->getStride(src, plane) / sizeof(T);
+            const T * prvp = reinterpret_cast<const T *>(vsapi->getReadPtr(prv, plane));
+            const T * srcp = reinterpret_cast<const T *>(vsapi->getReadPtr(src, plane));
+            const T * nxtp = reinterpret_cast<const T *>(vsapi->getReadPtr(nxt, plane));
+            const T * maskp = reinterpret_cast<const T *>(vsapi->getReadPtr(mask, plane));
+            const T * edeintp = reinterpret_cast<const T *>(vsapi->getReadPtr(edeint, plane));
+            T * VS_RESTRICT dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
 
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                if (maskp[x] == d->ten)
-                    dstp[x] = srcp[x];
-                else if (maskp[x] == d->twenty)
-                    dstp[x] = prvp[x];
-                else if (maskp[x] == d->thirty)
-                    dstp[x] = nxtp[x];
-                else if (maskp[x] == d->forty)
-                    dstp[x] = (srcp[x] + nxtp[x] + 1) >> 1;
-                else if (maskp[x] == d->fifty)
-                    dstp[x] = (srcp[x] + prvp[x] + 1) >> 1;
-                else if (maskp[x] == d->seventy)
-                    dstp[x] = (prvp[x] + (srcp[x] << 1) + nxtp[x] + 2) >> 2;
-                else if (maskp[x] == d->sixty)
-                    dstp[x] = efrmp[x];
+            for (unsigned y = 0; y < height; y++) {
+                for (unsigned x = 0; x < width; x++) {
+                    if (maskp[x] == d->ten)
+                        dstp[x] = srcp[x];
+                    else if (maskp[x] == d->twenty)
+                        dstp[x] = prvp[x];
+                    else if (maskp[x] == d->thirty)
+                        dstp[x] = nxtp[x];
+                    else if (maskp[x] == d->forty)
+                        dstp[x] = (srcp[x] + nxtp[x] + 1) / 2;
+                    else if (maskp[x] == d->fifty)
+                        dstp[x] = (srcp[x] + prvp[x] + 1) / 2;
+                    else if (maskp[x] == d->seventy)
+                        dstp[x] = (prvp[x] + srcp[x] * 2 + nxtp[x] + 2) / 4;
+                    else if (maskp[x] == d->sixty)
+                        dstp[x] = edeintp[x];
+                }
+
+                prvp += stride;
+                srcp += stride;
+                nxtp += stride;
+                maskp += stride;
+                edeintp += stride;
+                dstp += stride;
             }
-            prvp += stride;
-            srcp += stride;
-            nxtp += stride;
-            maskp += stride;
-            efrmp += stride;
-            dstp += stride;
         }
     }
 }
 
 template<typename T>
-static void cubicDeint(VSFrameRef * dst, const VSFrameRef * mask, const VSFrameRef * prv, const VSFrameRef * src, const VSFrameRef * nxt, const TDeintModData * d, const VSAPI * vsapi) {
-    const int peak = (1 << d->vi.format->bitsPerSample) - 1;
-
+static void cubicDeint(VSFrameRef * dst, const VSFrameRef * mask, const VSFrameRef * prv, const VSFrameRef * src, const VSFrameRef * nxt,
+                       const TDeintModData * d, const VSAPI * vsapi) noexcept {
     for (int plane = 0; plane < d->vi.format->numPlanes; plane++) {
-        const int width = vsapi->getFrameWidth(src, plane);
-        const int height = vsapi->getFrameHeight(src, plane);
-        const int stride = vsapi->getStride(src, plane) / sizeof(T);
-        const T * prvp = reinterpret_cast<const T *>(vsapi->getReadPtr(prv, plane));
-        const T * srcp = reinterpret_cast<const T *>(vsapi->getReadPtr(src, plane));
-        const T * nxtp = reinterpret_cast<const T *>(vsapi->getReadPtr(nxt, plane));
-        const T * maskp = reinterpret_cast<const T *>(vsapi->getReadPtr(mask, plane));
-        T * VS_RESTRICT dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
-        const T * srcpp = srcp - stride;
-        const T * srcppp = srcpp - stride * 2;
-        const T * srcpn = srcp + stride;
-        const T * srcpnn = srcpn + stride * 2;
+        if (d->process[plane]) {
+            const unsigned width = vsapi->getFrameWidth(src, plane);
+            const unsigned height = vsapi->getFrameHeight(src, plane);
+            const unsigned stride = vsapi->getStride(src, plane) / sizeof(T);
+            const T * prvp = reinterpret_cast<const T *>(vsapi->getReadPtr(prv, plane));
+            const T * srcp = reinterpret_cast<const T *>(vsapi->getReadPtr(src, plane));
+            const T * nxtp = reinterpret_cast<const T *>(vsapi->getReadPtr(nxt, plane));
+            const T * maskp = reinterpret_cast<const T *>(vsapi->getReadPtr(mask, plane));
+            T * VS_RESTRICT dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
 
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                if (maskp[x] == d->ten)
-                    dstp[x] = srcp[x];
-                else if (maskp[x] == d->twenty)
-                    dstp[x] = prvp[x];
-                else if (maskp[x] == d->thirty)
-                    dstp[x] = nxtp[x];
-                else if (maskp[x] == d->forty)
-                    dstp[x] = (srcp[x] + nxtp[x] + 1) >> 1;
-                else if (maskp[x] == d->fifty)
-                    dstp[x] = (srcp[x] + prvp[x] + 1) >> 1;
-                else if (maskp[x] == d->seventy)
-                    dstp[x] = (prvp[x] + (srcp[x] << 1) + nxtp[x] + 2) >> 2;
-                else if (maskp[x] == d->sixty) {
-                    if (y == 0) {
-                        dstp[x] = srcpn[x];
-                    } else if (y == height - 1) {
-                        dstp[x] = srcpp[x];
-                    } else if (y < 3 || y > height - 4) {
-                        dstp[x] = (srcpn[x] + srcpp[x] + 1) >> 1;
-                    } else {
-                        const int temp = (19 * (srcpp[x] + srcpn[x]) - 3 * (srcppp[x] + srcpnn[x]) + 16) >> 5;
-                        dstp[x] = std::min(std::max(temp, 0), peak);
+            const T * srcpp = srcp - stride;
+            const T * srcppp = srcpp - stride * 2;
+            const T * srcpn = srcp + stride;
+            const T * srcpnn = srcpn + stride * 2;
+
+            for (unsigned y = 0; y < height; y++) {
+                for (unsigned x = 0; x < width; x++) {
+                    if (maskp[x] == d->ten)
+                        dstp[x] = srcp[x];
+                    else if (maskp[x] == d->twenty)
+                        dstp[x] = prvp[x];
+                    else if (maskp[x] == d->thirty)
+                        dstp[x] = nxtp[x];
+                    else if (maskp[x] == d->forty)
+                        dstp[x] = (srcp[x] + nxtp[x] + 1) / 2;
+                    else if (maskp[x] == d->fifty)
+                        dstp[x] = (srcp[x] + prvp[x] + 1) / 2;
+                    else if (maskp[x] == d->seventy)
+                        dstp[x] = (prvp[x] + srcp[x] * 2 + nxtp[x] + 2) / 4;
+                    else if (maskp[x] == d->sixty) {
+                        if (y == 0) {
+                            dstp[x] = srcpn[x];
+                        } else if (y == height - 1) {
+                            dstp[x] = srcpp[x];
+                        } else if (y < 3 || y > height - 4) {
+                            dstp[x] = (srcpn[x] + srcpp[x] + 1) / 2;
+                        } else {
+                            const int temp = (19 * (srcpp[x] + srcpn[x]) - 3 * (srcppp[x] + srcpnn[x]) + 16) / 32;
+                            dstp[x] = std::min<unsigned>(std::max(temp, 0), d->peak);
+                        }
                     }
                 }
+
+                prvp += stride;
+                srcppp += stride;
+                srcpp += stride;
+                srcp += stride;
+                srcpn += stride;
+                srcpnn += stride;
+                nxtp += stride;
+                maskp += stride;
+                dstp += stride;
             }
-            prvp += stride;
-            srcppp += stride;
-            srcpp += stride;
-            srcp += stride;
-            srcpn += stride;
-            srcpnn += stride;
-            nxtp += stride;
-            maskp += stride;
-            dstp += stride;
         }
     }
 }
 
-static bool invokeCache(VSNodeRef ** node, VSMap * out, VSPlugin * stdPlugin, const VSAPI * vsapi) {
-    VSMap * args = vsapi->createMap();
-    vsapi->propSetNode(args, "clip", *node, paReplace);
-    vsapi->freeNode(*node);
-    VSMap * ret = vsapi->invoke(stdPlugin, "Cache", args);
-    vsapi->freeMap(args);
-    if (!vsapi->getError(ret)) {
-        *node = vsapi->propGetNode(ret, "clip", 0, nullptr);
-        vsapi->freeMap(ret);
-        return true;
-    } else {
-        vsapi->setError(out, vsapi->getError(ret));
-        vsapi->freeMap(ret);
-        return false;
+static void selectFunctions(const unsigned opt) noexcept {
+    threshMask<uint8_t> = threshMask_c<uint8_t>;
+    threshMask<uint16_t> = threshMask_c<uint16_t>;
+
+    motionMask<uint8_t> = motionMask_c<uint8_t>;
+    motionMask<uint16_t> = motionMask_c<uint16_t>;
+
+    andMasks<uint8_t> = andMasks_c<uint8_t>;
+    andMasks<uint16_t> = andMasks_c<uint16_t>;
+
+    combineMasks<uint8_t> = combineMasks_c<uint8_t>;
+    combineMasks<uint16_t> = combineMasks_c<uint16_t>;
+
+#ifdef VS_TARGET_CPU_X86
+    const int iset = instrset_detect();
+    if (opt == 3 || (opt == 0 && iset >= 8)) {
+        threshMask<uint8_t> = threshMask_avx2<uint8_t, Vec32uc, 32>;
+        threshMask<uint16_t> = threshMask_avx2<uint16_t, Vec16us, 16>;
+
+        motionMask<uint8_t> = motionMask_avx2<uint8_t, Vec32uc, 32>;
+        motionMask<uint16_t> = motionMask_avx2<uint16_t, Vec16us, 16>;
+
+        andMasks<uint8_t> = andMasks_avx2<uint8_t, Vec32uc, 32>;
+        andMasks<uint16_t> = andMasks_avx2<uint16_t, Vec16us, 16>;
+
+        combineMasks<uint8_t> = combineMasks_avx2<uint8_t, Vec32uc, 32>;
+        combineMasks<uint16_t> = combineMasks_avx2<uint16_t, Vec16us, 16>;
+    } else if (opt == 2 || (opt == 0 && iset >= 2)) {
+        threshMask<uint8_t> = threshMask_sse2<uint8_t, Vec16uc, 16>;
+        threshMask<uint16_t> = threshMask_sse2<uint16_t, Vec8us, 8>;
+
+        motionMask<uint8_t> = motionMask_sse2<uint8_t, Vec16uc, 16>;
+        motionMask<uint16_t> = motionMask_sse2<uint16_t, Vec8us, 8>;
+
+        andMasks<uint8_t> = andMasks_sse2<uint8_t, Vec16uc, 16>;
+        andMasks<uint16_t> = andMasks_sse2<uint16_t, Vec8us, 8>;
+
+        combineMasks<uint8_t> = combineMasks_sse2<uint8_t, Vec16uc, 16>;
+        combineMasks<uint16_t> = combineMasks_sse2<uint16_t, Vec8us, 8>;
     }
+#endif
 }
 
 static void VS_CC tdeintmodInit(VSMap *in, VSMap *out, void **instanceData, VSNode *node, VSCore *core, const VSAPI *vsapi) {
@@ -1553,55 +722,45 @@ static const VSFrameRef *VS_CC tdeintmodCreateMMGetFrame(int n, int activationRe
             vsapi->requestFrameFilter(i, d->node, frameCtx);
     } else if (activationReason == arAllFramesReady) {
         const VSFrameRef * src[3];
-        VSFrameRef * msk[3][2];
+        VSFrameRef * pad[3], * msk[3][2];
         for (int i = 0; i < 3; i++) {
             src[i] = vsapi->getFrameFilter(std::min(n + i, d->vi.numFrames - 1), d->node, frameCtx);
-            msk[i][0] = vsapi->newVideoFrame(d->vi.format, d->vi.width, d->vi.height * 2, nullptr, core);
-            msk[i][1] = vsapi->newVideoFrame(d->vi.format, d->vi.width, d->vi.height * 2, nullptr, core);
+            pad[i] = vsapi->newVideoFrame(d->format, d->vi.width + d->widthPad * 2, d->vi.height, nullptr, core);
+            msk[i][0] = vsapi->newVideoFrame(d->format, d->vi.width + d->widthPad * 2, d->vi.height * 2, nullptr, core);
+            msk[i][1] = vsapi->newVideoFrame(d->format, d->vi.width + d->widthPad * 2, d->vi.height * 2, nullptr, core);
         }
-        VSFrameRef * dst[] = { vsapi->newVideoFrame(d->vi.format, d->vi.width, d->vi.height * 2, nullptr, core),
-                               vsapi->newVideoFrame(d->vi.format, d->vi.width, d->vi.height, nullptr, core) };
+        VSFrameRef * dst[]{ vsapi->newVideoFrame(d->format, d->vi.width + d->widthPad * 2, d->vi.height * 2, nullptr, core),
+                            vsapi->newVideoFrame(d->vi.format, d->vi.width, d->vi.height, nullptr, core) };
 
-#ifdef VS_TARGET_CPU_X86
-        if (d->vi.format->bitsPerSample == 8) {
-            for (int i = 0; i <= 2; i++)
-                threshMask<uint8_t, Vec16uc>(src[i], msk[i][0], d, vsapi);
-            for (int i = 0; i <= 1; i++)
-                motionMask<uint8_t, Vec16uc>(src[i], msk[i][0], src[i + 1], msk[i + 1][0], msk[i][1], d, vsapi);
-            motionMask<uint8_t, Vec16uc>(src[0], msk[0][0], src[2], msk[2][0], dst[0], d, vsapi);
-            andMasks<uint8_t, Vec16uc>(msk[0][1], msk[1][1], dst[0], d, vsapi);
-            combineMasks<uint8_t>(dst[0], dst[1], d, vsapi);
-        } else {
-            for (int i = 0; i <= 2; i++)
-                threshMask<uint16_t, Vec16us>(src[i], msk[i][0], d, vsapi);
-            for (int i = 0; i <= 1; i++)
-                motionMask<uint16_t, Vec16us>(src[i], msk[i][0], src[i + 1], msk[i + 1][0], msk[i][1], d, vsapi);
-            motionMask<uint16_t, Vec16us>(src[0], msk[0][0], src[2], msk[2][0], dst[0], d, vsapi);
-            andMasks<uint16_t, Vec16us>(msk[0][1], msk[1][1], dst[0], d, vsapi);
-            combineMasks<uint16_t>(dst[0], dst[1], d, vsapi);
+        for (int plane = 0; plane < d->vi.format->numPlanes; plane++) {
+            if (d->process[plane]) {
+                if (d->vi.format->bytesPerSample == 1) {
+                    for (unsigned i = 0; i <= 2; i++) {
+                        copyPad<uint8_t>(src[i], pad[i], plane, d->widthPad, vsapi);
+                        threshMask<uint8_t>(pad[i], msk[i][0], plane, d, vsapi);
+                    }
+                    for (unsigned i = 0; i <= 1; i++)
+                        motionMask<uint8_t>(pad[i], msk[i][0], pad[i + 1], msk[i + 1][0], msk[i][1], plane, d, vsapi);
+                    motionMask<uint8_t>(pad[0], msk[0][0], pad[2], msk[2][0], dst[0], plane, d, vsapi);
+                    andMasks<uint8_t>(msk[0][1], msk[1][1], dst[0], plane, d, vsapi);
+                    combineMasks<uint8_t>(dst[0], dst[1], plane, d, vsapi);
+                } else {
+                    for (unsigned i = 0; i <= 2; i++) {
+                        copyPad<uint16_t>(src[i], pad[i], plane, d->widthPad, vsapi);
+                        threshMask<uint16_t>(pad[i], msk[i][0], plane, d, vsapi);
+                    }
+                    for (unsigned i = 0; i <= 1; i++)
+                        motionMask<uint16_t>(pad[i], msk[i][0], pad[i + 1], msk[i + 1][0], msk[i][1], plane, d, vsapi);
+                    motionMask<uint16_t>(pad[0], msk[0][0], pad[2], msk[2][0], dst[0], plane, d, vsapi);
+                    andMasks<uint16_t>(msk[0][1], msk[1][1], dst[0], plane, d, vsapi);
+                    combineMasks<uint16_t>(dst[0], dst[1], plane, d, vsapi);
+                }
+            }
         }
-#else
-        if (d->vi.format->bitsPerSample == 8) {
-            for (int i = 0; i <= 2; i++)
-                threshMask<uint8_t>(src[i], msk[i][0], d, vsapi);
-            for (int i = 0; i <= 1; i++)
-                motionMask<uint8_t>(src[i], msk[i][0], src[i + 1], msk[i + 1][0], msk[i][1], d, vsapi);
-            motionMask<uint8_t>(src[0], msk[0][0], src[2], msk[2][0], dst[0], d, vsapi);
-            andMasks<uint8_t>(msk[0][1], msk[1][1], dst[0], d, vsapi);
-            combineMasks<uint8_t>(dst[0], dst[1], d, vsapi);
-        } else {
-            for (int i = 0; i <= 2; i++)
-                threshMask<uint16_t>(src[i], msk[i][0], d, vsapi);
-            for (int i = 0; i <= 1; i++)
-                motionMask<uint16_t>(src[i], msk[i][0], src[i + 1], msk[i + 1][0], msk[i][1], d, vsapi);
-            motionMask<uint16_t>(src[0], msk[0][0], src[2], msk[2][0], dst[0], d, vsapi);
-            andMasks<uint16_t>(msk[0][1], msk[1][1], dst[0], d, vsapi);
-            combineMasks<uint16_t>(dst[0], dst[1], d, vsapi);
-        }
-#endif
 
-        for (int i = 0; i < 3; i++) {
+        for (unsigned i = 0; i < 3; i++) {
             vsapi->freeFrame(src[i]);
+            vsapi->freeFrame(pad[i]);
             vsapi->freeFrame(msk[i][0]);
             vsapi->freeFrame(msk[i][1]);
         }
@@ -1628,86 +787,87 @@ static const VSFrameRef *VS_CC tdeintmodBuildMMGetFrame(int n, int activationRea
             vsapi->requestFrameFilter(i, d->node2, frameCtx);
         }
     } else if (activationReason == arAllFramesReady) {
-        VSFrameRef ** srct = new VSFrameRef *[d->length - 2];
-        VSFrameRef ** srcb = new VSFrameRef *[d->length - 2];
-        VSFrameRef * dst = vsapi->newVideoFrame(d->vi.format, d->vi.width, d->vi.height, nullptr, core);
-
         const int nSaved = n;
         if (d->mode == 1)
             n /= 2;
 
         int err;
-        const VSFrameRef * src = vsapi->getFrameFilter(n, d->propNode, frameCtx);
-        const int fieldBased = int64ToIntS(vsapi->propGetInt(vsapi->getFramePropsRO(src), "_FieldBased", 0, &err));
-        vsapi->freeFrame(src);
-        int effectiveOrder = d->order;
+        const VSFrameRef * propSrc = vsapi->getFrameFilter(n, d->propNode, frameCtx);
+        const int fieldBased = int64ToIntS(vsapi->propGetInt(vsapi->getFramePropsRO(propSrc), "_FieldBased", 0, &err));
+        vsapi->freeFrame(propSrc);
+        unsigned order = d->order;
         if (fieldBased == 1)
-            effectiveOrder = 0;
+            order = 0;
         else if (fieldBased == 2)
-            effectiveOrder = 1;
+            order = 1;
 
-        int fieldt;
+        unsigned field;
         if (d->mode == 1)
-            fieldt = (nSaved & 1) ? 1 - effectiveOrder : effectiveOrder;
+            field = (nSaved & 1) ? 1 - order : order;
         else
-            fieldt = (d->field == -1) ? effectiveOrder : d->field;
+            field = (d->field == -1) ? order : d->field;
 
-        int tstart, tstop, bstart, bstop, ccount, ocount;
-        VSFrameRef ** csrc, ** osrc;
-        if (fieldt == 1) {
-            tstart = n - (d->length - 1) / 2;
-            tstop = n + (d->length - 1) / 2 - 2;
-            const int bn = (effectiveOrder == 1) ? n - 1 : n;
-            bstart = bn - (d->length - 2) / 2;
-            bstop = bn + 1 + (d->length - 2) / 2 - 2;
-            ocount = tstop - tstart + 1;
-            ccount = bstop - bstart + 1;
-            osrc = srct;
-            csrc = srcb;
+        VSFrameRef ** srct = new VSFrameRef *[d->length - 2];
+        VSFrameRef ** srcb = new VSFrameRef *[d->length - 2];
+        VSFrameRef * dst = vsapi->newVideoFrame(d->vi.format, d->vi.width, d->vi.height, nullptr, core);
+
+        int tStart, tStop, bStart, bStop;
+        unsigned cCount, oCount;
+        VSFrameRef ** cSrc, ** oSrc;
+        if (field == 1) {
+            tStart = n - (d->length - 1) / 2;
+            tStop = n + (d->length - 1) / 2 - 2;
+            const int bn = (order == 1) ? n - 1 : n;
+            bStart = bn - (d->length - 2) / 2;
+            bStop = bn + 1 + (d->length - 2) / 2 - 2;
+            oCount = tStop - tStart + 1;
+            cCount = bStop - bStart + 1;
+            oSrc = srct;
+            cSrc = srcb;
         } else {
-            const int tn = (effectiveOrder == 0) ? n - 1 : n;
-            tstart = tn - (d->length - 2) / 2;
-            tstop = tn + 1 + (d->length - 2) / 2 - 2;
-            bstart = n - (d->length - 1) / 2;
-            bstop = n + (d->length - 1) / 2 - 2;
-            ccount = tstop - tstart + 1;
-            ocount = bstop - bstart + 1;
-            csrc = srct;
-            osrc = srcb;
+            const int tn = (order == 0) ? n - 1 : n;
+            tStart = tn - (d->length - 2) / 2;
+            tStop = tn + 1 + (d->length - 2) / 2 - 2;
+            bStart = n - (d->length - 1) / 2;
+            bStop = n + (d->length - 1) / 2 - 2;
+            cCount = tStop - tStart + 1;
+            oCount = bStop - bStart + 1;
+            cSrc = srct;
+            oSrc = srcb;
         }
 
-        for (int i = tstart; i <= tstop; i++) {
+        for (int i = tStart; i <= tStop; i++) {
             if (i < 0 || i >= d->viSaved->numFrames - 2) {
-                srct[i - tstart] = vsapi->newVideoFrame(d->viSaved->format, d->viSaved->width, d->viSaved->height, nullptr, core);
+                srct[i - tStart] = vsapi->newVideoFrame(d->viSaved->format, d->viSaved->width, d->viSaved->height, nullptr, core);
                 for (int plane = 0; plane < d->viSaved->format->numPlanes; plane++)
-                    memset(vsapi->getWritePtr(srct[i - tstart], plane), 0, vsapi->getStride(srct[i - tstart], plane) * vsapi->getFrameHeight(srct[i - tstart], plane));
+                    memset(vsapi->getWritePtr(srct[i - tStart], plane), 0, vsapi->getStride(srct[i - tStart], plane) * vsapi->getFrameHeight(srct[i - tStart], plane));
             } else {
                 const VSFrameRef * src = vsapi->getFrameFilter(i, d->node, frameCtx);
-                srct[i - tstart] = vsapi->copyFrame(src, core);
+                srct[i - tStart] = vsapi->copyFrame(src, core);
                 vsapi->freeFrame(src);
             }
         }
-        for (int i = bstart; i <= bstop; i++) {
+        for (int i = bStart; i <= bStop; i++) {
             if (i < 0 || i >= d->viSaved->numFrames - 2) {
-                srcb[i - bstart] = vsapi->newVideoFrame(d->viSaved->format, d->viSaved->width, d->viSaved->height, nullptr, core);
+                srcb[i - bStart] = vsapi->newVideoFrame(d->viSaved->format, d->viSaved->width, d->viSaved->height, nullptr, core);
                 for (int plane = 0; plane < d->viSaved->format->numPlanes; plane++)
-                    memset(vsapi->getWritePtr(srcb[i - bstart], plane), 0, vsapi->getStride(srcb[i - bstart], plane) * vsapi->getFrameHeight(srcb[i - bstart], plane));
+                    memset(vsapi->getWritePtr(srcb[i - bStart], plane), 0, vsapi->getStride(srcb[i - bStart], plane) * vsapi->getFrameHeight(srcb[i - bStart], plane));
             } else {
                 const VSFrameRef * src = vsapi->getFrameFilter(i, d->node2, frameCtx);
-                srcb[i - bstart] = vsapi->copyFrame(src, core);
+                srcb[i - bStart] = vsapi->copyFrame(src, core);
                 vsapi->freeFrame(src);
             }
         }
 
-        if (d->vi.format->bitsPerSample == 8)
-            buildMask<uint8_t>(csrc, osrc, dst, ccount, ocount, effectiveOrder, fieldt, d, vsapi);
+        if (d->vi.format->bytesPerSample == 1)
+            buildMask<uint8_t>(cSrc, oSrc, dst, cCount, oCount, order, field, d, vsapi);
         else
-            buildMask<uint16_t>(csrc, osrc, dst, ccount, ocount, effectiveOrder, fieldt, d, vsapi);
+            buildMask<uint16_t>(cSrc, oSrc, dst, cCount, oCount, order, field, d, vsapi);
 
-        for (int i = tstart; i <= tstop; i++)
-            vsapi->freeFrame(srct[i - tstart]);
-        for (int i = bstart; i <= bstop; i++)
-            vsapi->freeFrame(srcb[i - bstart]);
+        for (int i = tStart; i <= tStop; i++)
+            vsapi->freeFrame(srct[i - tStart]);
+        for (int i = bStart; i <= bStop; i++)
+            vsapi->freeFrame(srcb[i - bStart]);
         delete[] srct;
         delete[] srcb;
         return dst;
@@ -1742,32 +902,32 @@ static const VSFrameRef *VS_CC tdeintmodGetFrame(int n, int activationReason, vo
             n /= 2;
 
         const VSFrameRef * src = vsapi->getFrameFilter(n, d->node, frameCtx);
+        const VSFrameRef * fr[]{ d->process[0] ? nullptr : src, d->process[1] ? nullptr : src, d->process[2] ? nullptr : src };
+        const int pl[]{ 0, 1, 2 };
 
         int err;
         const int fieldBased = int64ToIntS(vsapi->propGetInt(vsapi->getFramePropsRO(src), "_FieldBased", 0, &err));
-        int effectiveOrder = d->order;
+        unsigned order = d->order;
         if (fieldBased == 1)
-            effectiveOrder = 0;
+            order = 0;
         else if (fieldBased == 2)
-            effectiveOrder = 1;
+            order = 1;
 
-        int fieldt;
+        unsigned field;
         if (d->mode == 1)
-            fieldt = (nSaved & 1) ? 1 - effectiveOrder : effectiveOrder;
+            field = (nSaved & 1) ? 1 - order : order;
         else
-            fieldt = (d->field == -1) ? effectiveOrder : d->field;
+            field = (d->field == -1) ? order : d->field;
 
         VSFrameRef * mask;
         if (d->mask) {
-            const VSFrameRef * msk = vsapi->getFrameFilter(nSaved, d->mask, frameCtx);
-            mask = vsapi->copyFrame(msk, core);
-            vsapi->freeFrame(msk);
+            mask = const_cast<VSFrameRef *>(vsapi->getFrameFilter(nSaved, d->mask, frameCtx));
         } else {
-            mask = vsapi->newVideoFrame(d->vi.format, d->vi.width, d->vi.height, nullptr, core);
-            if (d->vi.format->bitsPerSample == 8)
-                setMaskForUpsize<uint8_t>(mask, fieldt, d, vsapi);
+            mask = vsapi->newVideoFrame2(d->vi.format, d->vi.width, d->vi.height, fr, pl, nullptr, core);
+            if (d->vi.format->bytesPerSample == 1)
+                setMaskForUpsize<uint8_t>(mask, field, d, vsapi);
             else
-                setMaskForUpsize<uint16_t>(mask, fieldt, d, vsapi);
+                setMaskForUpsize<uint16_t>(mask, field, d, vsapi);
         }
         if (d->show) {
             vsapi->freeFrame(src);
@@ -1776,17 +936,17 @@ static const VSFrameRef *VS_CC tdeintmodGetFrame(int n, int activationReason, vo
 
         const VSFrameRef * prv = vsapi->getFrameFilter(std::max(n - 1, 0), d->node, frameCtx);
         const VSFrameRef * nxt = vsapi->getFrameFilter(std::min(n + 1, d->viSaved->numFrames - 1), d->node, frameCtx);
-        VSFrameRef * dst = vsapi->newVideoFrame(d->vi.format, d->vi.width, d->vi.height, src, core);
+        VSFrameRef * dst = vsapi->newVideoFrame2(d->vi.format, d->vi.width, d->vi.height, fr, pl, src, core);
 
         if (d->edeint) {
-            const VSFrameRef * efrm = vsapi->getFrameFilter(nSaved, d->edeint, frameCtx);
-            if (d->vi.format->bitsPerSample == 8)
-                eDeint<uint8_t>(dst, mask, prv, src, nxt, efrm, d, vsapi);
+            const VSFrameRef * edeint = vsapi->getFrameFilter(nSaved, d->edeint, frameCtx);
+            if (d->vi.format->bytesPerSample == 1)
+                eDeint<uint8_t>(dst, mask, prv, src, nxt, edeint, d, vsapi);
             else
-                eDeint<uint16_t>(dst, mask, prv, src, nxt, efrm, d, vsapi);
-            vsapi->freeFrame(efrm);
+                eDeint<uint16_t>(dst, mask, prv, src, nxt, edeint, d, vsapi);
+            vsapi->freeFrame(edeint);
         } else {
-            if (d->vi.format->bitsPerSample == 8)
+            if (d->vi.format->bytesPerSample == 1)
                 cubicDeint<uint8_t>(dst, mask, prv, src, nxt, d, vsapi);
             else
                 cubicDeint<uint16_t>(dst, mask, prv, src, nxt, d, vsapi);
@@ -1840,7 +1000,7 @@ static void VS_CC tdeintmodFree(void *instanceData, VSCore *core, const VSAPI *v
 }
 
 static void VS_CC tdeintmodCreate(const VSMap *in, VSMap *out, void *userData, VSCore *core, const VSAPI *vsapi) {
-    TDeintModData d = {};
+    TDeintModData d{};
     int err;
 
     d.order = int64ToIntS(vsapi->propGetInt(in, "order", 0, nullptr));
@@ -1896,6 +1056,8 @@ static void VS_CC tdeintmodCreate(const VSMap *in, VSMap *out, void *userData, V
         d.cstr = 4;
 
     d.show = !!vsapi->propGetInt(in, "show", 0, &err);
+
+    const int opt = int64ToIntS(vsapi->propGetInt(in, "opt", 0, &err));
 
     if (d.order < 0 || d.order > 1) {
         vsapi->setError(out, "TDeintMod: order must be 0 or 1");
@@ -1962,11 +1124,22 @@ static void VS_CC tdeintmodCreate(const VSMap *in, VSMap *out, void *userData, V
         return;
     }
 
+    if (opt < 0 || opt > 3) {
+        vsapi->setError(out, "TDeintMod: opt must be 0, 1, 2 or 3");
+        return;
+    }
+
     d.node = vsapi->propGetNode(in, "clip", 0, nullptr);
     d.vi = *vsapi->getVideoInfo(d.node);
 
     if (!isConstantFormat(&d.vi) || d.vi.format->sampleType != stInteger || d.vi.format->bitsPerSample > 16) {
         vsapi->setError(out, "TDeintMod: only constant format 8-16 bits integer input supported");
+        vsapi->freeNode(d.node);
+        return;
+    }
+
+    if (d.vi.height < 4) {
+        vsapi->setError(out, "TDeintMod: height must be greater than or equal to 4");
         vsapi->freeNode(d.node);
         return;
     }
@@ -1977,27 +1150,63 @@ static void VS_CC tdeintmodCreate(const VSMap *in, VSMap *out, void *userData, V
         return;
     }
 
-    if (d.mtqL > -1)
-        d.mtqL = scale(d.mtqL, d.vi.format->bitsPerSample);
-    if (d.mthL > -1)
-        d.mthL = scale(d.mthL, d.vi.format->bitsPerSample);
-    if (d.mtqC > -1)
-        d.mtqC = scale(d.mtqC, d.vi.format->bitsPerSample);
-    if (d.mthC > -1)
-        d.mthC = scale(d.mthC, d.vi.format->bitsPerSample);
-    d.nt = scale(d.nt, d.vi.format->bitsPerSample);
-    d.minthresh = scale(d.minthresh, d.vi.format->bitsPerSample);
-    d.maxthresh = scale(d.maxthresh, d.vi.format->bitsPerSample);
+    const int m = vsapi->propNumElements(in, "planes");
 
-    d.ten = scale(10, d.vi.format->bitsPerSample);
-    d.twenty = scale(20, d.vi.format->bitsPerSample);
-    d.thirty = scale(30, d.vi.format->bitsPerSample);
-    d.forty = scale(40, d.vi.format->bitsPerSample);
-    d.fifty = scale(50, d.vi.format->bitsPerSample);
-    d.sixty = scale(60, d.vi.format->bitsPerSample);
-    d.seventy = scale(70, d.vi.format->bitsPerSample);
+    for (unsigned i = 0; i < 3; i++)
+        d.process[i] = m <= 0;
+
+    for (int i = 0; i < m; i++) {
+        const int n = int64ToIntS(vsapi->propGetInt(in, "planes", i, nullptr));
+
+        if (n < 0 || n >= d.vi.format->numPlanes) {
+            vsapi->setError(out, "TDeintMod: plane index out of range");
+            vsapi->freeNode(d.node);
+            return;
+        }
+
+        if (d.process[n]) {
+            vsapi->setError(out, "TDeintMod: plane specified twice");
+            vsapi->freeNode(d.node);
+            return;
+        }
+
+        d.process[n] = true;
+    }
+
+    selectFunctions(opt);
+
+    d.format = vsapi->registerFormat(cmGray, stInteger, d.vi.format->bitsPerSample, 0, 0, core);
+    d.widthPad = 32 / d.vi.format->bytesPerSample;
+    d.peak = (1 << d.vi.format->bitsPerSample) - 1;
+
+    d.ten = 10 * d.peak / 255;
+    d.twenty = 20 * d.peak / 255;
+    d.thirty = 30 * d.peak / 255;
+    d.forty = 40 * d.peak / 255;
+    d.fifty = 50 * d.peak / 255;
+    d.sixty = 60 * d.peak / 255;
+    d.seventy = 70 * d.peak / 255;
 
     if (d.mtqL > -2 || d.mthL > -2 || d.mtqC > -2 || d.mthC > -2) {
+        if (d.mtqL > -1)
+            d.mtqL = d.mtqL * d.peak / 255;
+        if (d.mthL > -1)
+            d.mthL = d.mthL * d.peak / 255;
+        if (d.mtqC > -1)
+            d.mtqC = d.mtqC * d.peak / 255;
+        if (d.mthC > -1)
+            d.mthC = d.mthC * d.peak / 255;
+        d.nt = d.nt * d.peak / 255;
+        d.minthresh = d.minthresh * d.peak / 255;
+        d.maxthresh = d.maxthresh * d.peak / 255;
+
+        for (int plane = 0; plane < d.vi.format->numPlanes; plane++) {
+            d.hShift[plane] = plane ? d.vi.format->subSamplingW : 0;
+            d.vShift[plane] = plane ? 1 << d.vi.format->subSamplingH : 1;
+            d.hHalf[plane] = d.hShift[plane] ? 1 << (d.hShift[plane] - 1) : d.hShift[plane];
+            d.vHalf[plane] = 1 << (d.vShift[plane] - 1);
+        }
+
         VSMap * args = vsapi->createMap();
         VSPlugin * stdPlugin = vsapi->getPluginById("com.vapoursynth.std", core);
 
@@ -2006,12 +1215,6 @@ static void VS_CC tdeintmodCreate(const VSMap *in, VSMap *out, void *userData, V
         vsapi->propSetData(args, "prop", "_FieldBased", -1, paReplace);
         vsapi->propSetInt(args, "intval", 2, paReplace);
         VSMap * ret = vsapi->invoke(stdPlugin, "SetFrameProp", args);
-        if (vsapi->getError(ret)) {
-            vsapi->setError(out, vsapi->getError(ret));
-            vsapi->freeMap(args);
-            vsapi->freeMap(ret);
-            return;
-        }
         d.node = vsapi->propGetNode(ret, "clip", 0, nullptr);
         vsapi->clearMap(args);
         vsapi->freeMap(ret);
@@ -2020,12 +1223,6 @@ static void VS_CC tdeintmodCreate(const VSMap *in, VSMap *out, void *userData, V
         vsapi->freeNode(d.node);
         vsapi->propSetInt(args, "tff", 1, paReplace);
         ret = vsapi->invoke(stdPlugin, "SeparateFields", args);
-        if (vsapi->getError(ret)) {
-            vsapi->setError(out, vsapi->getError(ret));
-            vsapi->freeMap(args);
-            vsapi->freeMap(ret);
-            return;
-        }
         VSNodeRef * separated = vsapi->propGetNode(ret, "clip", 0, nullptr);
         vsapi->clearMap(args);
         vsapi->freeMap(ret);
@@ -2034,50 +1231,44 @@ static void VS_CC tdeintmodCreate(const VSMap *in, VSMap *out, void *userData, V
         vsapi->propSetInt(args, "cycle", 2, paReplace);
         vsapi->propSetInt(args, "offsets", 0, paReplace);
         ret = vsapi->invoke(stdPlugin, "SelectEvery", args);
-        if (vsapi->getError(ret)) {
-            vsapi->setError(out, vsapi->getError(ret));
-            vsapi->freeMap(args);
-            vsapi->freeMap(ret);
-            vsapi->freeNode(separated);
-            return;
-        }
         d.node = vsapi->propGetNode(ret, "clip", 0, nullptr);
         d.vi = *vsapi->getVideoInfo(d.node);
         vsapi->clearMap(args);
         vsapi->freeMap(ret);
 
-        TDeintModData * data = new TDeintModData(d);
+        TDeintModData * data = new TDeintModData{ d };
 
         vsapi->createFilter(in, out, "TDeintMod", tdeintmodInit, tdeintmodCreateMMGetFrame, tdeintmodCreateMMFree, fmParallel, 0, data, core);
         VSNodeRef * temp = vsapi->propGetNode(out, "clip", 0, nullptr);
+        vsapi->propSetNode(args, "clip", temp, paReplace);
+        vsapi->freeNode(temp);
+        ret = vsapi->invoke(stdPlugin, "Cache", args);
+        temp = vsapi->propGetNode(ret, "clip", 0, nullptr);
         vsapi->clearMap(out);
-        if (!invokeCache(&temp, out, stdPlugin, vsapi))
-            return;
+        vsapi->clearMap(args);
+        vsapi->freeMap(ret);
 
         vsapi->propSetNode(args, "clip", separated, paReplace);
         vsapi->freeNode(separated);
         vsapi->propSetInt(args, "cycle", 2, paReplace);
         vsapi->propSetInt(args, "offsets", 1, paReplace);
         ret = vsapi->invoke(stdPlugin, "SelectEvery", args);
-        if (vsapi->getError(ret)) {
-            vsapi->setError(out, vsapi->getError(ret));
-            vsapi->freeMap(args);
-            vsapi->freeMap(ret);
-            vsapi->freeNode(temp);
-            return;
-        }
         d.node = vsapi->propGetNode(ret, "clip", 0, nullptr);
         d.vi = *vsapi->getVideoInfo(d.node);
-        vsapi->freeMap(args);
+        vsapi->clearMap(args);
         vsapi->freeMap(ret);
 
-        data = new TDeintModData(d);
+        data = new TDeintModData{ d };
 
         vsapi->createFilter(in, out, "TDeintMod", tdeintmodInit, tdeintmodCreateMMGetFrame, tdeintmodCreateMMFree, fmParallel, 0, data, core);
         d.node2 = vsapi->propGetNode(out, "clip", 0, nullptr);
+        vsapi->propSetNode(args, "clip", d.node2, paReplace);
+        vsapi->freeNode(d.node2);
+        ret = vsapi->invoke(stdPlugin, "Cache", args);
+        d.node2 = vsapi->propGetNode(ret, "clip", 0, nullptr);
         vsapi->clearMap(out);
-        if (!invokeCache(&d.node2, out, stdPlugin, vsapi))
-            return;
+        vsapi->clearMap(args);
+        vsapi->freeMap(ret);
 
         d.node = temp;
         d.propNode = vsapi->propGetNode(in, "clip", 0, nullptr);
@@ -2132,13 +1323,17 @@ static void VS_CC tdeintmodCreate(const VSMap *in, VSMap *out, void *userData, V
             d.sixty, d.ten, d.forty, d.thirty, d.sixty, d.twenty, d.fifty, d.ten
         };
 
-        data = new TDeintModData(d);
+        data = new TDeintModData{ d };
 
         vsapi->createFilter(in, out, "TDeintMod", tdeintmodInit, tdeintmodBuildMMGetFrame, tdeintmodBuildMMFree, fmParallel, 0, data, core);
         d.mask = vsapi->propGetNode(out, "clip", 0, nullptr);
+        vsapi->propSetNode(args, "clip", d.mask, paReplace);
+        vsapi->freeNode(d.mask);
+        ret = vsapi->invoke(stdPlugin, "Cache", args);
+        d.mask = vsapi->propGetNode(ret, "clip", 0, nullptr);
         vsapi->clearMap(out);
-        if (!invokeCache(&d.mask, out, stdPlugin, vsapi))
-            return;
+        vsapi->freeMap(args);
+        vsapi->freeMap(ret);
     }
 
     if (d.mask)
@@ -2179,7 +1374,7 @@ static void VS_CC tdeintmodCreate(const VSMap *in, VSMap *out, void *userData, V
         }
     }
 
-    TDeintModData * data = new TDeintModData(d);
+    TDeintModData * data = new TDeintModData{ d };
 
     vsapi->createFilter(in, out, "TDeintMod", tdeintmodInit, tdeintmodGetFrame, tdeintmodFree, fmParallel, 0, data, core);
 }
@@ -2192,38 +1387,39 @@ struct IsCombedData {
     const VSVideoInfo * vi;
     int cthresh, blockx, blocky, MI, metric;
     bool chroma;
-    int xhalf, yhalf, xshift, yshift, cthresh6, cthreshsq;
+    int cthresh6, cthreshsq;
+    unsigned xHalf, yHalf, xShift, yShift, xBlocks4, arraySize, widtha, heighta;
+    std::unordered_map<std::thread::id, unsigned *> cArray;
 };
 
-static inline bool isPowerOf2(const int i) {
+static bool isPowerOf2(const int i) noexcept {
     return i && !(i & (i - 1));
 }
 
 template<typename T>
-static int64_t checkCombed(const VSFrameRef * src, VSFrameRef * cmask, int * VS_RESTRICT cArray, const IsCombedData * d, const VSAPI * vsapi) {
-    const T peak = (sizeof(T) == sizeof(uint8_t)) ? UINT8_MAX : UINT16_MAX;
+static int64_t checkCombed(const VSFrameRef * src, VSFrameRef * cmask, const IsCombedData * d, const VSAPI * vsapi) noexcept {
+    constexpr T peak = std::numeric_limits<T>::max();
+
+    unsigned * VS_RESTRICT cArray = d->cArray.at(std::this_thread::get_id());
 
     for (int plane = 0; plane < (d->chroma ? 3 : 1); plane++) {
-        const int width = vsapi->getFrameWidth(src, plane);
-        const int height = vsapi->getFrameHeight(src, plane);
-        const int stride = vsapi->getStride(src, plane) / sizeof(T);
+        const unsigned width = vsapi->getFrameWidth(src, plane);
+        const unsigned height = vsapi->getFrameHeight(src, plane);
+        const unsigned stride = vsapi->getStride(src, plane) / sizeof(T);
         const T * srcp = reinterpret_cast<const T *>(vsapi->getReadPtr(src, plane));
-        const T * srcpp = srcp - stride;
-        const T * srcppp = srcpp - stride;
-        const T * srcpn = srcp + stride;
-        const T * srcpnn = srcpn + stride;
         T * VS_RESTRICT cmkp = reinterpret_cast<T *>(vsapi->getWritePtr(cmask, plane));
 
-        if (d->cthresh < 0) {
-            memset(cmkp, 255, vsapi->getStride(src, plane) * height);
-            continue;
-        }
-        memset(cmkp, 0, vsapi->getStride(src, plane) * height);
+        const T * srcppp = srcp - stride * 2;
+        const T * srcpp = srcp - stride;
+        const T * srcpn = srcp + stride;
+        const T * srcpnn = srcp + stride * 2;
+
+        memset(cmkp, 0, vsapi->getStride(cmask, plane) * height);
 
         if (d->metric == 0) {
-            for (int x = 0; x < width; x++) {
+            for (unsigned x = 0; x < width; x++) {
                 const int sFirst = srcp[x] - srcpn[x];
-                if ((sFirst > d->cthresh || sFirst < -d->cthresh) && std::abs(srcpnn[x] + (srcp[x] << 2) + srcpnn[x] - (3 * (srcpn[x] + srcpn[x]))) > d->cthresh6)
+                if ((sFirst > d->cthresh || sFirst < -d->cthresh) && std::abs(srcpnn[x] + srcp[x] * 4 + srcpnn[x] - (3 * (srcpn[x] + srcpn[x]))) > d->cthresh6)
                     cmkp[x] = peak;
             }
             srcppp += stride;
@@ -2233,11 +1429,11 @@ static int64_t checkCombed(const VSFrameRef * src, VSFrameRef * cmask, int * VS_
             srcpnn += stride;
             cmkp += stride;
 
-            for (int x = 0; x < width; x++) {
+            for (unsigned x = 0; x < width; x++) {
                 const int sFirst = srcp[x] - srcpp[x];
                 const int sSecond = srcp[x] - srcpn[x];
                 if (((sFirst > d->cthresh && sSecond > d->cthresh) || (sFirst < -d->cthresh && sSecond < -d->cthresh)) &&
-                    std::abs(srcpnn[x] + (srcp[x] << 2) + srcpnn[x] - (3 * (srcpp[x] + srcpn[x]))) > d->cthresh6)
+                    std::abs(srcpnn[x] + srcp[x] * 4 + srcpnn[x] - (3 * (srcpp[x] + srcpn[x]))) > d->cthresh6)
                     cmkp[x] = peak;
             }
             srcppp += stride;
@@ -2247,12 +1443,12 @@ static int64_t checkCombed(const VSFrameRef * src, VSFrameRef * cmask, int * VS_
             srcpnn += stride;
             cmkp += stride;
 
-            for (int y = 2; y < height - 2; y++) {
-                for (int x = 0; x < width; x++) {
+            for (unsigned y = 2; y < height - 2; y++) {
+                for (unsigned x = 0; x < width; x++) {
                     const int sFirst = srcp[x] - srcpp[x];
                     const int sSecond = srcp[x] - srcpn[x];
                     if (((sFirst > d->cthresh && sSecond > d->cthresh) || (sFirst < -d->cthresh && sSecond < -d->cthresh)) &&
-                        std::abs(srcppp[x] + (srcp[x] << 2) + srcpnn[x] - (3 * (srcpp[x] + srcpn[x]))) > d->cthresh6)
+                        std::abs(srcppp[x] + srcp[x] * 4 + srcpnn[x] - (3 * (srcpp[x] + srcpn[x]))) > d->cthresh6)
                         cmkp[x] = peak;
                 }
                 srcppp += stride;
@@ -2263,11 +1459,11 @@ static int64_t checkCombed(const VSFrameRef * src, VSFrameRef * cmask, int * VS_
                 cmkp += stride;
             }
 
-            for (int x = 0; x < width; x++) {
+            for (unsigned x = 0; x < width; x++) {
                 const int sFirst = srcp[x] - srcpp[x];
                 const int sSecond = srcp[x] - srcpn[x];
                 if (((sFirst > d->cthresh && sSecond > d->cthresh) || (sFirst < -d->cthresh && sSecond < -d->cthresh)) &&
-                    std::abs(srcppp[x] + (srcp[x] << 2) + srcppp[x] - (3 * (srcpp[x] + srcpn[x]))) > d->cthresh6)
+                    std::abs(srcppp[x] + srcp[x] * 4 + srcppp[x] - (3 * (srcpp[x] + srcpn[x]))) > d->cthresh6)
                     cmkp[x] = peak;
             }
             srcppp += stride;
@@ -2277,13 +1473,13 @@ static int64_t checkCombed(const VSFrameRef * src, VSFrameRef * cmask, int * VS_
             srcpnn += stride;
             cmkp += stride;
 
-            for (int x = 0; x < width; x++) {
+            for (unsigned x = 0; x < width; x++) {
                 const int sFirst = srcp[x] - srcpp[x];
-                if ((sFirst > d->cthresh || sFirst < -d->cthresh) && std::abs(srcppp[x] + (srcp[x] << 2) + srcppp[x] - (3 * (srcpp[x] + srcpp[x]))) > d->cthresh6)
+                if ((sFirst > d->cthresh || sFirst < -d->cthresh) && std::abs(srcppp[x] + srcp[x] * 4 + srcppp[x] - (3 * (srcpp[x] + srcpp[x]))) > d->cthresh6)
                     cmkp[x] = peak;
             }
         } else {
-            for (int x = 0; x < width; x++) {
+            for (unsigned x = 0; x < width; x++) {
                 if ((srcp[x] - srcpn[x]) * (srcp[x] - srcpn[x]) > d->cthreshsq)
                     cmkp[x] = peak;
             }
@@ -2292,8 +1488,8 @@ static int64_t checkCombed(const VSFrameRef * src, VSFrameRef * cmask, int * VS_
             srcpn += stride;
             cmkp += stride;
 
-            for (int y = 1; y < height - 1; y++) {
-                for (int x = 0; x < width; x++) {
+            for (unsigned y = 1; y < height - 1; y++) {
+                for (unsigned x = 0; x < width; x++) {
                     if ((srcp[x] - srcpp[x]) * (srcp[x] - srcpn[x]) > d->cthreshsq)
                         cmkp[x] = peak;
                 }
@@ -2303,7 +1499,7 @@ static int64_t checkCombed(const VSFrameRef * src, VSFrameRef * cmask, int * VS_
                 cmkp += stride;
             }
 
-            for (int x = 0; x < width; x++) {
+            for (unsigned x = 0; x < width; x++) {
                 if ((srcp[x] - srcpp[x]) * (srcp[x] - srcpp[x]) > d->cthreshsq)
                     cmkp[x] = peak;
             }
@@ -2311,39 +1507,32 @@ static int64_t checkCombed(const VSFrameRef * src, VSFrameRef * cmask, int * VS_
     }
 
     if (d->chroma) {
-        const int width = vsapi->getFrameWidth(cmask, 2);
-        const int height = vsapi->getFrameHeight(cmask, 2);
-        const int stride = vsapi->getStride(cmask, 0) / sizeof(T);
-        const int strideY = stride << d->vi->format->subSamplingH;
-        const int strideUV = vsapi->getStride(cmask, 2) / sizeof(T);
+        const unsigned width = vsapi->getFrameWidth(cmask, 2);
+        const unsigned height = vsapi->getFrameHeight(cmask, 2);
+        const unsigned stride = vsapi->getStride(cmask, 0) / sizeof(T);
+        const unsigned strideY = stride << d->vi->format->subSamplingH;
+        const unsigned strideUV = vsapi->getStride(cmask, 2) / sizeof(T);
         T * VS_RESTRICT cmkp = reinterpret_cast<T *>(vsapi->getWritePtr(cmask, 0));
         const T * cmkpU = reinterpret_cast<const T *>(vsapi->getReadPtr(cmask, 1));
         const T * cmkpV = reinterpret_cast<const T *>(vsapi->getReadPtr(cmask, 2));
+
         T * VS_RESTRICT cmkpp3 = cmkp - stride * 3;
         T * VS_RESTRICT cmkpp2 = cmkp - stride * 2;
         T * VS_RESTRICT cmkpp = cmkp - stride;
         T * VS_RESTRICT cmkpn = cmkp + stride;
         T * VS_RESTRICT cmkpn2 = cmkp + stride * 2;
-        T * VS_RESTRICT cmkpn3 = cmkp + stride * 3;
-        T * VS_RESTRICT cmkpn4 = cmkp + stride * 4;
-        T * VS_RESTRICT cmkpn5 = cmkp + stride * 5;
-        T * VS_RESTRICT cmkpn6 = cmkp + stride * 6;
         const T * cmkppU = cmkpU - strideUV;
         const T * cmkpnU = cmkpU + strideUV;
         const T * cmkppV = cmkpV - strideUV;
         const T * cmkpnV = cmkpV + strideUV;
 
-        for (int y = 1; y < height - 1; y++) {
+        for (unsigned y = 1; y < height - 1; y++) {
             cmkpp3 += strideY;
             cmkpp2 += strideY;
             cmkpp += strideY;
             cmkp += strideY;
             cmkpn += strideY;
             cmkpn2 += strideY;
-            cmkpn3 += strideY;
-            cmkpn4 += strideY;
-            cmkpn5 += strideY;
-            cmkpn6 += strideY;
             cmkppU += strideUV;
             cmkpU += strideUV;
             cmkpnU += strideUV;
@@ -2351,99 +1540,78 @@ static int64_t checkCombed(const VSFrameRef * src, VSFrameRef * cmask, int * VS_
             cmkpV += strideUV;
             cmkpnV += strideUV;
 
-            for (int x = 1; x < width - 1; x++) {
+            for (unsigned x = 1; x < width - 1; x++) {
                 if ((cmkpU[x] == peak && (cmkpU[x - 1] == peak || cmkpU[x + 1] == peak ||
-                     cmkppU[x - 1] == peak || cmkppU[x] == peak || cmkppU[x + 1] == peak ||
-                     cmkpnU[x - 1] == peak || cmkpnU[x] == peak || cmkpnU[x + 1] == peak)) ||
+                                          cmkppU[x - 1] == peak || cmkppU[x] == peak || cmkppU[x + 1] == peak ||
+                                          cmkpnU[x - 1] == peak || cmkpnU[x] == peak || cmkpnU[x + 1] == peak)) ||
                     (cmkpV[x] == peak && (cmkpV[x - 1] == peak || cmkpV[x + 1] == peak ||
-                     cmkppV[x - 1] == peak || cmkppV[x] == peak || cmkppV[x + 1] == peak ||
-                     cmkpnV[x - 1] == peak || cmkpnV[x] == peak || cmkpnV[x + 1] == peak))) {
+                                          cmkppV[x - 1] == peak || cmkppV[x] == peak || cmkppV[x + 1] == peak ||
+                                          cmkpnV[x - 1] == peak || cmkpnV[x] == peak || cmkpnV[x + 1] == peak))) {
                     if (d->vi->format->subSamplingW == 0) {
                         cmkp[x] = peak;
+
                         if (d->vi->format->subSamplingH > 0) {
                             cmkpn[x] = peak;
                             (y & 1 ? cmkpp : cmkpn2)[x] = peak;
+
                             if (d->vi->format->subSamplingH == 2) {
-                                if (y & 1) {
-                                    cmkpp2[x] = peak;
-                                    cmkpp3[x] = peak;
-                                } else {
-                                    cmkpn3[x] = peak;
-                                    cmkpn4[x] = peak;
-                                    cmkpn5[x] = peak;
-                                    cmkpn6[x] = peak;
-                                }
+                                cmkpp2[x] = peak;
+                                (y & 1 ? cmkpp3 : cmkpp)[x] = peak;
                             }
                         }
                     } else if (d->vi->format->subSamplingW == 1) {
-                        if (sizeof(T) == sizeof(uint8_t)) {
-                            reinterpret_cast<uint16_t *>(cmkp)[x] = UINT16_MAX;
+                        if (std::is_same<T, uint8_t>::value) {
+                            constexpr uint16_t peak2 = std::numeric_limits<uint16_t>::max();
+                            reinterpret_cast<uint16_t *>(cmkp)[x] = peak2;
+
                             if (d->vi->format->subSamplingH > 0) {
-                                reinterpret_cast<uint16_t *>(cmkpn)[x] = UINT16_MAX;
-                                reinterpret_cast<uint16_t *>(y & 1 ? cmkpp : cmkpn2)[x] = UINT16_MAX;
+                                reinterpret_cast<uint16_t *>(cmkpn)[x] = peak2;
+                                reinterpret_cast<uint16_t *>(y & 1 ? cmkpp : cmkpn2)[x] = peak2;
+
                                 if (d->vi->format->subSamplingH == 2) {
-                                    if (y & 1) {
-                                        reinterpret_cast<uint16_t *>(cmkpp2)[x] = UINT16_MAX;
-                                        reinterpret_cast<uint16_t *>(cmkpp3)[x] = UINT16_MAX;
-                                    } else {
-                                        reinterpret_cast<uint16_t *>(cmkpn3)[x] = UINT16_MAX;
-                                        reinterpret_cast<uint16_t *>(cmkpn4)[x] = UINT16_MAX;
-                                        reinterpret_cast<uint16_t *>(cmkpn5)[x] = UINT16_MAX;
-                                        reinterpret_cast<uint16_t *>(cmkpn6)[x] = UINT16_MAX;
-                                    }
+                                    reinterpret_cast<uint16_t *>(cmkpp2)[x] = peak2;
+                                    reinterpret_cast<uint16_t *>(y & 1 ? cmkpp3 : cmkpp)[x] = peak2;
                                 }
                             }
                         } else {
-                            reinterpret_cast<uint32_t *>(cmkp)[x] = UINT32_MAX;
+                            constexpr uint32_t peak2 = std::numeric_limits<uint32_t>::max();
+                            reinterpret_cast<uint32_t *>(cmkp)[x] = peak2;
+
                             if (d->vi->format->subSamplingH > 0) {
-                                reinterpret_cast<uint32_t *>(cmkpn)[x] = UINT32_MAX;
-                                reinterpret_cast<uint32_t *>(y & 1 ? cmkpp : cmkpn2)[x] = UINT32_MAX;
+                                reinterpret_cast<uint32_t *>(cmkpn)[x] = peak2;
+                                reinterpret_cast<uint32_t *>(y & 1 ? cmkpp : cmkpn2)[x] = peak2;
+
                                 if (d->vi->format->subSamplingH == 2) {
-                                    if (y & 1) {
-                                        reinterpret_cast<uint32_t *>(cmkpp2)[x] = UINT32_MAX;
-                                        reinterpret_cast<uint32_t *>(cmkpp3)[x] = UINT32_MAX;
-                                    } else {
-                                        reinterpret_cast<uint32_t *>(cmkpn3)[x] = UINT32_MAX;
-                                        reinterpret_cast<uint32_t *>(cmkpn4)[x] = UINT32_MAX;
-                                        reinterpret_cast<uint32_t *>(cmkpn5)[x] = UINT32_MAX;
-                                        reinterpret_cast<uint32_t *>(cmkpn6)[x] = UINT32_MAX;
-                                    }
+                                    reinterpret_cast<uint32_t *>(cmkpp2)[x] = peak2;
+                                    reinterpret_cast<uint32_t *>(y & 1 ? cmkpp3 : cmkpp)[x] = peak2;
                                 }
                             }
                         }
                     } else {
-                        if (sizeof(T) == sizeof(uint8_t)) {
-                            reinterpret_cast<uint32_t *>(cmkp)[x] = UINT32_MAX;
+                        if (std::is_same<T, uint8_t>::value) {
+                            constexpr uint32_t peak2 = std::numeric_limits<uint32_t>::max();
+                            reinterpret_cast<uint32_t *>(cmkp)[x] = peak2;
+
                             if (d->vi->format->subSamplingH > 0) {
-                                reinterpret_cast<uint32_t *>(cmkpn)[x] = UINT32_MAX;
-                                reinterpret_cast<uint32_t *>(y & 1 ? cmkpp : cmkpn2)[x] = UINT32_MAX;
+                                reinterpret_cast<uint32_t *>(cmkpn)[x] = peak2;
+                                reinterpret_cast<uint32_t *>(y & 1 ? cmkpp : cmkpn2)[x] = peak2;
+
                                 if (d->vi->format->subSamplingH == 2) {
-                                    if (y & 1) {
-                                        reinterpret_cast<uint32_t *>(cmkpp2)[x] = UINT32_MAX;
-                                        reinterpret_cast<uint32_t *>(cmkpp3)[x] = UINT32_MAX;
-                                    } else {
-                                        reinterpret_cast<uint32_t *>(cmkpn3)[x] = UINT32_MAX;
-                                        reinterpret_cast<uint32_t *>(cmkpn4)[x] = UINT32_MAX;
-                                        reinterpret_cast<uint32_t *>(cmkpn5)[x] = UINT32_MAX;
-                                        reinterpret_cast<uint32_t *>(cmkpn6)[x] = UINT32_MAX;
-                                    }
+                                    reinterpret_cast<uint32_t *>(cmkpp2)[x] = peak2;
+                                    reinterpret_cast<uint32_t *>(y & 1 ? cmkpp3 : cmkpp)[x] = peak2;
                                 }
                             }
                         } else {
-                            reinterpret_cast<uint64_t *>(cmkp)[x] = UINT64_MAX;
+                            constexpr uint64_t peak2 = std::numeric_limits<uint64_t>::max();
+                            reinterpret_cast<uint64_t *>(cmkp)[x] = peak2;
+
                             if (d->vi->format->subSamplingH > 0) {
-                                reinterpret_cast<uint64_t *>(cmkpn)[x] = UINT64_MAX;
-                                reinterpret_cast<uint64_t *>(y & 1 ? cmkpp : cmkpn2)[x] = UINT64_MAX;
+                                reinterpret_cast<uint64_t *>(cmkpn)[x] = peak2;
+                                reinterpret_cast<uint64_t *>(y & 1 ? cmkpp : cmkpn2)[x] = peak2;
+
                                 if (d->vi->format->subSamplingH == 2) {
-                                    if (y & 1) {
-                                        reinterpret_cast<uint64_t *>(cmkpp2)[x] = UINT64_MAX;
-                                        reinterpret_cast<uint64_t *>(cmkpp3)[x] = UINT64_MAX;
-                                    } else {
-                                        reinterpret_cast<uint64_t *>(cmkpn3)[x] = UINT64_MAX;
-                                        reinterpret_cast<uint64_t *>(cmkpn4)[x] = UINT64_MAX;
-                                        reinterpret_cast<uint64_t *>(cmkpn5)[x] = UINT64_MAX;
-                                        reinterpret_cast<uint64_t *>(cmkpn6)[x] = UINT64_MAX;
-                                    }
+                                    reinterpret_cast<uint64_t *>(cmkpp2)[x] = peak2;
+                                    reinterpret_cast<uint64_t *>(y & 1 ? cmkpp3 : cmkpp)[x] = peak2;
                                 }
                             }
                         }
@@ -2453,50 +1621,48 @@ static int64_t checkCombed(const VSFrameRef * src, VSFrameRef * cmask, int * VS_
         }
     }
 
-    const int width = vsapi->getFrameWidth(cmask, 0);
-    const int height = vsapi->getFrameHeight(cmask, 0);
-    const int stride = vsapi->getStride(cmask, 0) / sizeof(T);
+    const unsigned width = vsapi->getFrameWidth(cmask, 0);
+    const unsigned height = vsapi->getFrameHeight(cmask, 0);
+    const unsigned stride = vsapi->getStride(cmask, 0) / sizeof(T);
     const T * cmkp = reinterpret_cast<const T *>(vsapi->getReadPtr(cmask, 0)) + stride;
+
     const T * cmkpp = cmkp - stride;
     const T * cmkpn = cmkp + stride;
-    const int xblocks = ((width + d->xhalf) >> d->xshift) + 1;
-    const int xblocks4 = xblocks * 4;
-    const int yblocks = ((height + d->yhalf) >> d->yshift) + 1;
-    const int arraySize = (xblocks * yblocks) * 4;
-    memset(cArray, 0, arraySize * sizeof(int));
-    const int widtha = (width >> (d->xshift - 1)) << (d->xshift - 1);
-    int heighta = (height >> (d->yshift - 1)) << (d->yshift - 1);
-    if (heighta == height)
-        heighta = height - d->yhalf;
 
-    for (int y = 1; y < d->yhalf; y++) {
-        const int temp1 = (y >> d->yshift) * xblocks4;
-        const int temp2 = ((y + d->yhalf) >> d->yshift) * xblocks4;
-        for (int x = 0; x < width; x++) {
+    memset(cArray, 0, d->arraySize * sizeof(unsigned));
+
+    for (unsigned y = 1; y < d->yHalf; y++) {
+        const unsigned temp1 = (y >> d->yShift) * d->xBlocks4;
+        const unsigned temp2 = ((y + d->yHalf) >> d->yShift) * d->xBlocks4;
+
+        for (unsigned x = 0; x < width; x++) {
             if (cmkpp[x] == peak && cmkp[x] == peak && cmkpn[x] == peak) {
-                const int box1 = (x >> d->xshift) << 2;
-                const int box2 = ((x + d->xhalf) >> d->xshift) << 2;
+                const unsigned box1 = (x >> d->xShift) * 4;
+                const unsigned box2 = ((x + d->xHalf) >> d->xShift) * 4;
                 ++cArray[temp1 + box1];
                 ++cArray[temp1 + box2 + 1];
                 ++cArray[temp2 + box1 + 2];
                 ++cArray[temp2 + box2 + 3];
             }
         }
+
         cmkpp += stride;
         cmkp += stride;
         cmkpn += stride;
     }
 
-    for (int y = d->yhalf; y < heighta; y += d->yhalf) {
-        const int temp1 = (y >> d->yshift) * xblocks4;
-        const int temp2 = ((y + d->yhalf) >> d->yshift) * xblocks4;
-        for (int x = 0; x < widtha; x += d->xhalf) {
+    for (unsigned y = d->yHalf; y < d->heighta; y += d->yHalf) {
+        const unsigned temp1 = (y >> d->yShift) * d->xBlocks4;
+        const unsigned temp2 = ((y + d->yHalf) >> d->yShift) * d->xBlocks4;
+
+        for (unsigned x = 0; x < d->widtha; x += d->xHalf) {
             const T * cmkppT = cmkpp;
             const T * cmkpT = cmkp;
             const T * cmkpnT = cmkpn;
-            int sum = 0;
-            for (int u = 0; u < d->yhalf; u++) {
-                for (int v = 0; v < d->xhalf; v++) {
+            unsigned sum = 0;
+
+            for (unsigned u = 0; u < d->yHalf; u++) {
+                for (unsigned v = 0; v < d->xHalf; v++) {
                     if (cmkppT[x + v] == peak && cmkpT[x + v] == peak && cmkpnT[x + v] == peak)
                         sum++;
                 }
@@ -2504,65 +1670,72 @@ static int64_t checkCombed(const VSFrameRef * src, VSFrameRef * cmask, int * VS_
                 cmkpT += stride;
                 cmkpnT += stride;
             }
+
             if (sum) {
-                const int box1 = (x >> d->xshift) << 2;
-                const int box2 = ((x + d->xhalf) >> d->xshift) << 2;
+                const unsigned box1 = (x >> d->xShift) * 4;
+                const unsigned box2 = ((x + d->xHalf) >> d->xShift) * 4;
                 cArray[temp1 + box1] += sum;
                 cArray[temp1 + box2 + 1] += sum;
                 cArray[temp2 + box1 + 2] += sum;
                 cArray[temp2 + box2 + 3] += sum;
             }
         }
-        for (int x = widtha; x < width; x++) {
+
+        for (unsigned x = d->widtha; x < width; x++) {
             const T * cmkppT = cmkpp;
             const T * cmkpT = cmkp;
             const T * cmkpnT = cmkpn;
-            int sum = 0;
-            for (int u = 0; u < d->yhalf; u++) {
+            unsigned sum = 0;
+
+            for (unsigned u = 0; u < d->yHalf; u++) {
                 if (cmkppT[x] == peak && cmkpT[x] == peak && cmkpnT[x] == peak)
                     sum++;
                 cmkppT += stride;
                 cmkpT += stride;
                 cmkpnT += stride;
             }
+
             if (sum) {
-                const int box1 = (x >> d->xshift) << 2;
-                const int box2 = ((x + d->xhalf) >> d->xshift) << 2;
+                const unsigned box1 = (x >> d->xShift) * 4;
+                const unsigned box2 = ((x + d->xHalf) >> d->xShift) * 4;
                 cArray[temp1 + box1] += sum;
                 cArray[temp1 + box2 + 1] += sum;
                 cArray[temp2 + box1 + 2] += sum;
                 cArray[temp2 + box2 + 3] += sum;
             }
         }
-        cmkpp += stride * d->yhalf;
-        cmkp += stride * d->yhalf;
-        cmkpn += stride * d->yhalf;
+
+        cmkpp += stride * d->yHalf;
+        cmkp += stride * d->yHalf;
+        cmkpn += stride * d->yHalf;
     }
 
-    for (int y = heighta; y < height - 1; y++) {
-        const int temp1 = (y >> d->yshift) * xblocks4;
-        const int temp2 = ((y + d->yhalf) >> d->yshift) * xblocks4;
-        for (int x = 0; x < width; x++) {
+    for (unsigned y = d->heighta; y < height - 1; y++) {
+        const unsigned temp1 = (y >> d->yShift) * d->xBlocks4;
+        const unsigned temp2 = ((y + d->yHalf) >> d->yShift) * d->xBlocks4;
+
+        for (unsigned x = 0; x < width; x++) {
             if (cmkpp[x] == peak && cmkp[x] == peak && cmkpn[x] == peak) {
-                const int box1 = (x >> d->xshift) << 2;
-                const int box2 = ((x + d->xhalf) >> d->xshift) << 2;
+                const unsigned box1 = (x >> d->xShift) * 4;
+                const unsigned box2 = ((x + d->xHalf) >> d->xShift) * 4;
                 ++cArray[temp1 + box1];
                 ++cArray[temp1 + box2 + 1];
                 ++cArray[temp2 + box1 + 2];
                 ++cArray[temp2 + box2 + 3];
             }
         }
+
         cmkpp += stride;
         cmkp += stride;
         cmkpn += stride;
     }
 
-    int MIC = 0;
-    for (int x = 0; x < arraySize; x++) {
+    unsigned MIC = 0;
+    for (unsigned x = 0; x < d->arraySize; x++) {
         if (cArray[x] > MIC)
             MIC = cArray[x];
     }
-    return MIC > d->MI;
+    return MIC > static_cast<unsigned>(d->MI);
 }
 
 static void VS_CC iscombedInit(VSMap *in, VSMap *out, void **instanceData, VSNode *node, VSCore *core, const VSAPI *vsapi) {
@@ -2571,27 +1744,30 @@ static void VS_CC iscombedInit(VSMap *in, VSMap *out, void **instanceData, VSNod
 }
 
 static const VSFrameRef *VS_CC iscombedGetFrame(int n, int activationReason, void **instanceData, void **frameData, VSFrameContext *frameCtx, VSCore *core, const VSAPI *vsapi) {
-    const IsCombedData * d = static_cast<const IsCombedData *>(*instanceData);
+    IsCombedData * d = static_cast<IsCombedData *>(*instanceData);
 
     if (activationReason == arInitial) {
         vsapi->requestFrameFilter(n, d->node, frameCtx);
     } else if (activationReason == arAllFramesReady) {
-        int * cArray = vs_aligned_malloc<int>((((d->vi->width + d->xhalf) >> d->xshift) + 1) * (((d->vi->height + d->yhalf) >> d->yshift) + 1) * 4 * sizeof(int), 32);
-        if (!cArray) {
-            vsapi->setFilterError("IsCombed: malloc failure (cArray)", frameCtx);
-            return nullptr;
+        auto threadId = std::this_thread::get_id();
+        if (!d->cArray.count(threadId)) {
+            unsigned * cArray = new (std::nothrow) unsigned[d->arraySize];
+            if (!cArray) {
+                vsapi->setFilterError("IsCombed: malloc failure (cArray)", frameCtx);
+                return nullptr;
+            }
+            d->cArray.emplace(threadId, cArray);
         }
 
         const VSFrameRef * src = vsapi->getFrameFilter(n, d->node, frameCtx);
         VSFrameRef * cmask = vsapi->newVideoFrame(d->vi->format, d->vi->width, d->vi->height, nullptr, core);
         VSFrameRef * dst = vsapi->copyFrame(src, core);
 
-        if (d->vi->format->bitsPerSample == 8)
-            vsapi->propSetInt(vsapi->getFramePropsRW(dst), "_Combed", checkCombed<uint8_t>(src, cmask, cArray, d, vsapi), paReplace);
+        if (d->vi->format->bytesPerSample == 1)
+            vsapi->propSetInt(vsapi->getFramePropsRW(dst), "_Combed", checkCombed<uint8_t>(src, cmask, d, vsapi), paReplace);
         else
-            vsapi->propSetInt(vsapi->getFramePropsRW(dst), "_Combed", checkCombed<uint16_t>(src, cmask, cArray, d, vsapi), paReplace);
+            vsapi->propSetInt(vsapi->getFramePropsRW(dst), "_Combed", checkCombed<uint16_t>(src, cmask, d, vsapi), paReplace);
 
-        vs_aligned_free(cArray);
         vsapi->freeFrame(src);
         vsapi->freeFrame(cmask);
         return dst;
@@ -2602,85 +1778,100 @@ static const VSFrameRef *VS_CC iscombedGetFrame(int n, int activationReason, voi
 
 static void VS_CC iscombedFree(void *instanceData, VSCore *core, const VSAPI *vsapi) {
     IsCombedData * d = static_cast<IsCombedData *>(instanceData);
+
     vsapi->freeNode(d->node);
+
+    for (auto & iter : d->cArray)
+        delete[] iter.second;
+
     delete d;
 }
 
 static void VS_CC iscombedCreate(const VSMap *in, VSMap *out, void *userData, VSCore *core, const VSAPI *vsapi) {
-    IsCombedData d;
+    std::unique_ptr<IsCombedData> d{ new IsCombedData{} };
     int err;
 
-    d.cthresh = int64ToIntS(vsapi->propGetInt(in, "cthresh", 0, &err));
-    if (err)
-        d.cthresh = 6;
+    d->node = vsapi->propGetNode(in, "clip", 0, nullptr);
+    d->vi = vsapi->getVideoInfo(d->node);
 
-    d.blockx = int64ToIntS(vsapi->propGetInt(in, "blockx", 0, &err));
-    if (err)
-        d.blockx = 16;
+    try {
+        if (!isConstantFormat(d->vi) || d->vi->format->sampleType != stInteger || d->vi->format->bitsPerSample > 16)
+            throw std::string{ "only constant format 8-16 bits integer input supported" };
 
-    d.blocky = int64ToIntS(vsapi->propGetInt(in, "blocky", 0, &err));
-    if (err)
-        d.blocky = 16;
+        if (d->vi->height < 5)
+            throw std::string{ "the clip's height must be greater than or equal to 5" };
 
-    d.chroma = !!vsapi->propGetInt(in, "chroma", 0, &err);
+        if (d->vi->format->subSamplingW > 2)
+            throw std::string{ "only horizontal chroma subsampling 1x-4x supported" };
 
-    d.MI = int64ToIntS(vsapi->propGetInt(in, "mi", 0, &err));
-    if (err)
-        d.MI = 64;
+        if (d->vi->format->subSamplingH > 2)
+            throw std::string{ "only vertical chroma subsampling 1x-4x supported" };
 
-    d.metric = int64ToIntS(vsapi->propGetInt(in, "metric", 0, &err));
+        d->cthresh = int64ToIntS(vsapi->propGetInt(in, "cthresh", 0, &err));
+        if (err)
+            d->cthresh = 6;
 
-    if (d.blockx < 4 || d.blockx > 2048 || !isPowerOf2(d.blockx)) {
-        vsapi->setError(out, "IsCombed: illegal blockx size");
+        d->blockx = int64ToIntS(vsapi->propGetInt(in, "blockx", 0, &err));
+        if (err)
+            d->blockx = 16;
+
+        d->blocky = int64ToIntS(vsapi->propGetInt(in, "blocky", 0, &err));
+        if (err)
+            d->blocky = 16;
+
+        d->chroma = !!vsapi->propGetInt(in, "chroma", 0, &err);
+
+        d->MI = int64ToIntS(vsapi->propGetInt(in, "mi", 0, &err));
+        if (err)
+            d->MI = 64;
+
+        d->metric = int64ToIntS(vsapi->propGetInt(in, "metric", 0, &err));
+
+        if (d->cthresh < 0 || d->cthresh > 255)
+            throw std::string{ "cthresh must be between 0 and 255 (inclusive)" };
+
+        if (d->blockx < 4 || d->blockx > 2048 || !isPowerOf2(d->blockx))
+            throw std::string{ "illegal blockx size" };
+
+        if (d->blocky < 4 || d->blocky > 2048 || !isPowerOf2(d->blocky))
+            throw std::string{ "illegal blocky size" };
+
+        if (d->chroma && d->vi->format->colorFamily == cmGray)
+            throw std::string{ "chroma can not be true for Gray color family" };
+
+        if (d->MI < 0)
+            throw std::string{ "mi must be greater than or equal to 0" };
+
+        if (d->metric < 0 || d->metric > 1)
+            throw std::string{ "metric must be 0 or 1" };
+
+        d->cthresh = d->cthresh * ((1 << d->vi->format->bitsPerSample) - 1) / 255;
+        d->cthresh6 = d->cthresh * 6;
+        d->cthreshsq = d->cthresh * d->cthresh;
+
+        d->xHalf = d->blockx / 2;
+        d->yHalf = d->blocky / 2;
+        d->xShift = static_cast<unsigned>(std::log2(d->blockx));
+        d->yShift = static_cast<unsigned>(std::log2(d->blocky));
+
+        const unsigned xBlocks = ((d->vi->width + d->xHalf) >> d->xShift) + 1;
+        const unsigned yBlocks = ((d->vi->height + d->yHalf) >> d->yShift) + 1;
+        d->xBlocks4 = xBlocks * 4;
+        d->arraySize = xBlocks * yBlocks * 4;
+
+        d->widtha = (d->vi->width >> (d->xShift - 1)) << (d->xShift - 1);
+        d->heighta = (d->vi->height >> (d->yShift - 1)) << (d->yShift - 1);
+        if (d->heighta == static_cast<unsigned>(d->vi->height))
+            d->heighta = d->vi->height - d->yHalf;
+
+        d->cArray.reserve(vsapi->getCoreInfo(core)->numThreads);
+    } catch (const std::string & error) {
+        vsapi->setError(out, ("IsCombed: " + error).c_str());
+        vsapi->freeNode(d->node);
         return;
     }
 
-    if (d.blocky < 4 || d.blocky > 2048 || !isPowerOf2(d.blocky)) {
-        vsapi->setError(out, "IsCombed: illegal blocky size");
-        return;
-    }
-
-    if (d.metric < 0 || d.metric > 1) {
-        vsapi->setError(out, "IsCombed: metric must be 0 or 1");
-        return;
-    }
-
-    d.node = vsapi->propGetNode(in, "clip", 0, nullptr);
-    d.vi = vsapi->getVideoInfo(d.node);
-
-    if (!isConstantFormat(d.vi) || d.vi->format->sampleType != stInteger || d.vi->format->bitsPerSample > 16) {
-        vsapi->setError(out, "IsCombed: only constant format 8-16 bits integer input supported");
-        vsapi->freeNode(d.node);
-        return;
-    }
-
-    if (d.vi->format->subSamplingW > 2) {
-        vsapi->setError(out, "IsCombed: only horizontal chroma subsampling 1x-4x supported");
-        vsapi->freeNode(d.node);
-        return;
-    }
-
-    if (d.vi->format->subSamplingH > 2) {
-        vsapi->setError(out, "IsCombed: only vertical chroma subsampling 1x-4x supported");
-        vsapi->freeNode(d.node);
-        return;
-    }
-
-    if (d.vi->format->colorFamily == cmGray)
-        d.chroma = false;
-
-    d.cthresh = scale(d.cthresh, d.vi->format->bitsPerSample);
-
-    d.xhalf = d.blockx / 2;
-    d.yhalf = d.blocky / 2;
-    d.xshift = static_cast<int>(std::log2(d.blockx));
-    d.yshift = static_cast<int>(std::log2(d.blocky));
-    d.cthresh6 = d.cthresh * 6;
-    d.cthreshsq = d.cthresh * d.cthresh;
-
-    IsCombedData * data = new IsCombedData(d);
-
-    vsapi->createFilter(in, out, "IsCombed", iscombedInit, iscombedGetFrame, iscombedFree, fmParallel, 0, data, core);
+    vsapi->createFilter(in, out, "IsCombed", iscombedInit, iscombedGetFrame, iscombedFree, fmParallel, 0, d.release(), core);
 }
 
 //////////////////////////////////////////
@@ -2705,7 +1896,9 @@ VS_EXTERNAL_API(void) VapourSynthPluginInit(VSConfigPlugin configFunc, VSRegiste
                  "maxthresh:int:opt;"
                  "cstr:int:opt;"
                  "show:int:opt;"
-                 "edeint:clip:opt;",
+                 "edeint:clip:opt;"
+                 "opt:int:opt;"
+                 "planes:int[]:opt;",
                  tdeintmodCreate, nullptr, plugin);
     registerFunc("IsCombed",
                  "clip:clip;"
