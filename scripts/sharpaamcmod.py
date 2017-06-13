@@ -1,170 +1,137 @@
-# sharpaamcmod.py 2015-05-15
 import vapoursynth as vs
 import havsfunc as haf
-import vshelpers as vsh
-import scoll
 
+__version__ = '1.99'
 
-def sharpaamcmod(orig, dark=20, thin=10, sharp=0, smooth=0, stabilize=False, lcresize=False,
-                 tradius=2, aapel=2, aaov=None, aablk=None, aatype='nnedi3'):
-    # dark      = Line darkening amount, 0-256.
-    # thin      = optional line thinning amount, 0-256.
-    # sharp     = Postsharpening
-    # smooth    = Postsmoothing
-    # stabilize = Use post stabilization with Motion Compensation
-    # Tradius   = 2 = MDegrain2 / 3 = MDegrain3
-    # aapel     = Accuracy of the motion estimation (Value can only be 1, 2 or 4. 1 means a precision to the pixel.
-    #             2 means a precision to half a pixel, 4 means a precision to quarter a pixel, produced by spatial
-    #             interpolation (better but slower).)
-    # aaov      = Block overlap value (horizontal). Must be even and less than block size.
-    # aablk     = Size of a block (horizontal). It's either 4, 8 or 16 ( default is 8 ).
-    #             Larger blocks are less sensitive to noise, are faster, but also less accurate.
-    # aatype    = Use Sangnom, EEDI2 or NNEDI3 for anti-aliasing
-    c = vs.get_core()
+def sharpaamcmod(src, dark=20, thin=10, sharp=0, smooth=0, stabilize=False,
+                 tradius=2, aapel=2, aaov=None, aablk=None, aatype='sangnom'):
+    """Ported from: http://forum.doom9.org/showthread.php?p=1673928
+
+    Args:
+        dark (int): Line darkening amount, 0-256.
+        thin (int): optional line thinning amount, 0-256.
+        sharp (int): Postsharpening
+        smooth (int): Postsmoothing
+        stabilize (bool): Use post stabilization with Motion Compensation
+        Tradius (int): Temporal radius for Mdegrain (1, 2 or 3)
+        aapel (int): Accuracy of the motion estimation. Value can only be 1, 2 or 4.
+                    1 means a precision to the pixel. 2 means a precision to half a pixel,
+                    4 means a precision to quarter a pixel, produced by spatial interpolation
+                    (better but slower).
+        aaov (int): Block overlap value (horizontal). Must be even and less than block size.
+        aablk (int): Size of a block (horizontal). It's either 4, 8 or 16 ( default is 8 ).
+                    Larger blocks are less sensitive to noise, are faster, but also less accurate.
+        aatype (sting): Use sangnom or eedi2 for anti-aliasing
+    """
+    core = vs.get_core()
 
     # Vars and stuff
 
-    w = orig.width
-    h = orig.height
-    if w > 1100 and aaov is None:
+    if src.width > 1100 and aaov is None:
         aaov = 8
     else:
         aaov = 4
-    if w > 1100 and aablk is None:
+
+    if src.width > 1100 and aablk is None:
         aablk = 16
     else:
         aablk = 8
 
-    shift = orig.format.bits_per_sample - 8
-    multiple = 2 ** shift
-    peak = (1 << orig.format.bits_per_sample) - 1
+    _max = (1 << src.format.bits_per_sample) - 1
+    _mid = (1 << src.format.bits_per_sample) / 2
 
-    # Cheks
-
-    if orig.format.id != vs.YUV420P8:
-        raise ValueError('Input video format should be YUV420P8.')
+    aatype = aatype.lower()
 
     # Mask
 
-    m = vsh.get_luma(orig)
+    mask = core.std.ShufflePlanes(src, planes=0, colorfamily=vs.GRAY)
 
-    def get_lut2(x):
-        return min(round((x / multiple / 128) ** 0.86 * 255 * multiple), peak)
-
-    m = c.std.Lut(c.std.Expr([c.std.Convolution(m, [5, 10, 5, 0, 0, 0, -5, -10, -5], divisor=4, saturate=False),
-                              c.std.Convolution(m, [5, 0, -5, 10, 0, -10, 5, 0, -5], divisor=4, saturate=False)],
-                             ['x y max']), function=get_lut2)
+    mask = core.std.Expr(core.std.Expr([core.std.Convolution(mask, [5, 10, 5, 0, 0, 0, -5, -10, -5],
+                                                             divisor=4, saturate=False),
+                                        core.std.Convolution(mask, [5, 0, -5, 10, 0, -10, 5, 0, -5],
+                                                             divisor=4, saturate=False)],
+                                       ['x y max']),
+                         ['x {_mid} / 0.86 pow {_max} *'.format(_max=_max, _mid=_mid)])
 
     # darkening and thining work different than in the original script because of effort
 
     if dark != 0 or thin != 0:
-        preaa = haf.FastLineDarkenMOD(orig, strength=dark, thinning=thin)
+        preaa = haf.FastLineDarkenMOD(src, strength=dark, thinning=thin)
     else:
-        preaa = orig
+        preaa = src
 
     # Antialiasing
 
     if aatype == 'sangnom':
-        aa = sangnomaa(preaa, lcresize=lcresize)
+        aa_clip = _sangnomaa(preaa)
     elif aatype == 'eedi2':
-        aa = ediaa(preaa, lcresize=lcresize)
-    elif aatype == 'nnedi3':
-        aa = nnedi3aa(preaa, lcresize=lcresize)
+        aa_clip = _ediaa(preaa)
     else:
-        raise ValueError('Wrong aatype, it should be "sangnom", "eedi2" or "nnedi3".')
+        raise ValueError('Wrong aatype, it should be "sangnom" or "eedi2".')
 
     # Post sharpen
 
     if sharp == 0 and smooth == 0:
-        postsh = aa
+        postsh = aa_clip
     else:
-        postsh = haf.LSFmod(aa, edgemode=1, strength=sharp, overshoot=1, soft=smooth)
+        postsh = haf.LSFmod(aa_clip, edgemode=1, strength=sharp, overshoot=1, soft=smooth)
 
     # Merge results
 
-    merged = c.std.MaskedMerge(orig, postsh, m)
+    merged = core.std.MaskedMerge(src, postsh, mask, planes=0)
 
     # Motion compensate AA clip
 
-    sdiff = c.std.MakeDiff(orig, merged)
+    sdiff = core.std.MakeDiff(src, merged)
 
-    origsuper = c.mv.Super(orig, pel=aapel)
-    sdiffsuper = c.mv.Super(sdiff, pel=aapel, levels=1)
+    srcsuper = core.mv.Super(src, pel=aapel)
+    sdiffsuper = core.mv.Super(sdiff, pel=aapel, levels=1)
 
-    fvec3 = c.mv.Analyse(origsuper, delta=3, isb=False, blksize=aablk, overlap=aaov)
-    fvec2 = c.mv.Analyse(origsuper, delta=2, isb=False, blksize=aablk, overlap=aaov)
-    fvec1 = c.mv.Analyse(origsuper, delta=1, isb=False, blksize=aablk, overlap=aaov)
-    bvec1 = c.mv.Analyse(origsuper, delta=1, isb=True, blksize=aablk, overlap=aaov)
-    bvec2 = c.mv.Analyse(origsuper, delta=2, isb=True, blksize=aablk, overlap=aaov)
-    bvec3 = c.mv.Analyse(origsuper, delta=3, isb=True, blksize=aablk, overlap=aaov)
+    fvec3 = core.mv.Analyse(srcsuper, delta=3, isb=False, blksize=aablk, overlap=aaov)
+    fvec2 = core.mv.Analyse(srcsuper, delta=2, isb=False, blksize=aablk, overlap=aaov)
+    fvec1 = core.mv.Analyse(srcsuper, delta=1, isb=False, blksize=aablk, overlap=aaov)
+    bvec1 = core.mv.Analyse(srcsuper, delta=1, isb=True, blksize=aablk, overlap=aaov)
+    bvec2 = core.mv.Analyse(srcsuper, delta=2, isb=True, blksize=aablk, overlap=aaov)
+    bvec3 = core.mv.Analyse(srcsuper, delta=3, isb=True, blksize=aablk, overlap=aaov)
 
     if tradius > 0:
-        sdd = c.mv.Degrain1(clip=sdiff, super=sdiffsuper, mvbw=bvec1, mvfw=fvec1)
+        sdd = core.mv.Degrain1(clip=sdiff, super=sdiffsuper, mvbw=bvec1, mvfw=fvec1)
     if tradius > 1:
-        sdd = c.mv.Degrain2(clip=sdiff, super=sdiffsuper,
-                            mvbw=bvec1, mvfw=fvec1, mvbw2=bvec2, mvfw2=fvec2)
+        sdd = core.mv.Degrain2(clip=sdiff, super=sdiffsuper,
+                               mvbw=bvec1, mvfw=fvec1, mvbw2=bvec2, mvfw2=fvec2)
     if tradius > 2:
-        sdd = c.mv.Degrain3(clip=sdiff, super=sdiffsuper,
-                            mvbw=bvec1, mvfw=fvec1, mvbw2=bvec2,
-                            mvfw2=fvec2, mvbw3=bvec3, mvfw3=fvec3)
+        sdd = core.mv.Degrain3(clip=sdiff, super=sdiffsuper,
+                               mvbw=bvec1, mvfw=fvec1, mvbw2=bvec2,
+                               mvfw2=fvec2, mvbw3=bvec3, mvfw3=fvec3)
 
     reduct = 0.4
-    tmp = c.std.Expr([sdiff, sdd], 'x 128 - abs y 128 - abs < x y ?')
-    sdd = c.std.Merge(tmp, sdd, [1.0 - reduct, 0])
+    tmp = core.std.Expr([sdiff, sdd], 'x {_mid} - abs y {_mid} - abs < x y ?'.format(_mid=_mid))
+    sdd = core.std.Merge(tmp, sdd, [1.0 - reduct, 0])
 
-    return c.std.MakeDiff(orig, sdd) if stabilize is True else merged
+    return core.std.MakeDiff(src, sdd) if stabilize is True else merged
 
 
-def sangnomaa(src, lcresize):
-    c = vs.get_core()
+
+def _sangnomaa(src):
+    core = vs.get_core()
 
     if not isinstance(src, vs.VideoNode):
         raise ValueError('sangnomaa: This is not a clip')
-    if src.format.color_family != vs.YUV or src.format.color_family != vs.GRAY and src.format.bits_per_sample != 8:
-        raise ValueError('sangnomaa: Input video format should be 8 bits YUV or GRAY8.')
 
-    if lcresize is True:
-        ss = scoll.resamplehq(src, src.width*2, src.height*2)
-    else:
-        ss = haf.Resize(src, src.width*2, src.height*2)
-
-    aa = c.std.Transpose(ss).sangnom.SangNomMod().std.Transpose().sangnom.SangNomMod()
-
-    if lcresize is True:
-        result = scoll.resamplehq(aa, src.width, src.height)
-    else:
-        result = haf.Resize(aa, src.width, src.height)
+    ss_clip = core.resize.Spline36(src, src.width*2, src.height*2)
+    aa_clip = core.std.Transpose(ss_clip).sangnom.SangNom().std.Transpose().sangnom.SangNom()
+    result = core.resize.Spline36(aa_clip, src.width, src.height)
 
     return result
 
 
-def ediaa(src, lcresize):
-    c = vs.get_core()
+def _ediaa(src):
+    core = vs.get_core()
 
     if not isinstance(src, vs.VideoNode):
         raise ValueError('ediaa: This is not a clip')
 
-    aa = c.std.Transpose(src).eedi2.EEDI2(field=1).std.Transpose().eedi2.EEDI2(field=1)
-
-    if lcresize is True:
-        result = scoll.resamplehq(aa, src.width, src.height, -0.5, -0.5)
-    else:
-        result = haf.Resize(aa, src.width, src.height, -0.5, -0.5)
-
-    return result
-
-
-def nnedi3aa(src, lcresize):
-    c = vs.get_core()
-
-    if not isinstance(src, vs.VideoNode):
-        raise ValueError('nnedi3aa: This is not a clip')
-
-    aa = c.std.Transpose(src).nnedi3.nnedi3(field=1).std.Transpose().nnedi3.nnedi3(field=1)
-
-    if lcresize is True:
-        result = scoll.resamplehq(aa, src.width, src.height, -0.5, -0.5)
-    else:
-        result = haf.Resize(aa, src.width, src.height, -0.5, -0.5)
+    aa_clip = core.std.Transpose(src).eedi2.EEDI2(field=1).std.Transpose().eedi2.EEDI2(field=1)
+    result = core.resize.Spline36(aa_clip, src.width, src.height, src_left=-0.5, src_top=-0.5)
 
     return result
