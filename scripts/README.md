@@ -7,5 +7,6 @@
 [vsTAAmbk 0.6.2](https://github.com/HomeOfVapourSynthEvolution/vsTAAmbk)<br>
 
 dehalo_alpha, edgecleaner, fastlinedarken, finesharp, knlm, mcdegrainsharp, nnedi3_rpow2,
-psharpen, resamplehq, sharpaamcmod, supersampledantialiasing, vshelpers:
-https://gist.github.com/4re/ and https://github.com/4re/vapoursynth-modules
+psharpen, resamplehq, sharpaamcmod, showdiff, supersampledantialiasing, vshelpers:
+https://gist.github.com/4re/
+https://github.com/4re/vapoursynth-modules
