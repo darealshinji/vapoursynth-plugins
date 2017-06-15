@@ -1,3 +1,9 @@
+vapoursynth-extra-plugins (20170615-1~xenial) xenial; urgency=low
+
+  * Several updates
+
+ -- Marshall Banana <djcj@gmx.de>  Thu, 15 Jun 2017 20:21:44 +0200
+
 vapoursynth-extra-plugins (20161106-1~xenial) xenial; urgency=low
 
   * Updates: lsmashsource, knlmeanscl, deblock, awarpsharp2, fluxsmooth,
