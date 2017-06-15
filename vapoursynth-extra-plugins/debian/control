@@ -11,6 +11,7 @@ Build-Depends:
  yasm,
  libtool,
  pkg-config,
+ libbluray-dev,
  libfftw3-dev,
  libpng-dev,
  libsndfile1-dev,
