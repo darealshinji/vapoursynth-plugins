@@ -93,14 +93,14 @@ AX_CHECK_LIB_LINK([bluray])
 
 # FFTW3
 AX_CHECK_LIB_LINK([fftw3f])
-AS_IF([test "x$have_fftw3f" != "xno"], [
-    fftw3_minimal="3.3.4"
-    printf "checking for fftw >= $fftw3_minimal... "
-    fftw3_version=$($srcdir/include/ac/check-fftw3-version.sh $fftw3_minimal "$CC $CFLAGS $LDFLAGS")
-    AS_IF([test "x$fftw3_version" = "xyes"],
-          [have_fftw3_newer="yes"], [have_fftw3_newer="no"])
-    printf "$have_fftw3_newer\n"
-])
+AS_IF([test "x$have_fftw3f" != "xno"], [have_fftw3_newer="yes"])
+dnl    fftw3_minimal="3.3.4"
+dnl    printf "checking for fftw >= $fftw3_minimal... "
+dnl    fftw3_version=$($srcdir/include/ac/check-fftw3-version.sh $fftw3_minimal "$CC $CFLAGS $LDFLAGS")
+dnl    AS_IF([test "x$fftw3_version" = "xyes"],
+dnl          [have_fftw3_newer="yes"], [have_fftw3_newer="no"])
+dnl    printf "$have_fftw3_newer\n"
+dnl])
 
 AX_CHECK_LIB_LINK([opencv_core])
 AX_CHECK_CL
