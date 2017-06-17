@@ -1,0 +1,51 @@
+libbluray is too old on trusty and I'm too
+lazy to add an extra version check
+--- a/configure
++++ b/configure
+@@ -5758,33 +5758,7 @@
+     conftest$ac_exeext conftest.$ac_ext
+     LIBS="$LIBS_backup"
+ }
+-{
+-    LIBS_backup="$LIBS"
+-    LIBS="-lbluray "
+-    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for -lbluray" >&5
+-$as_echo_n "checking for -lbluray... " >&6; }
+-    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+-/* end confdefs.h.  */
+-
+-        int main() { return 0; }
+-
+-
+-_ACEOF
+-if ac_fn_c_try_link "$LINENO"; then :
+-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+-$as_echo "yes" >&6; }
+-        eval have_$( echo bluray )="yes"
+-
+-else
+-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+-$as_echo "no" >&6; }
+-        eval have_$( echo bluray )="no"
+-
+-fi
+-rm -f core conftest.err conftest.$ac_objext \
+-    conftest$ac_exeext conftest.$ac_ext
+-    LIBS="$LIBS_backup"
+-}
++have_bluray="no"
+ 
+ # FFTW3
+ {
+--- a/configure.ac
++++ b/configure.ac
+@@ -89,7 +89,8 @@
+ AX_CHECK_LIB_LINK([png])
+ AX_CHECK_LIB_LINK([sndfile])
+ AX_CHECK_LIB_LINK([xvidcore])
+-AX_CHECK_LIB_LINK([bluray])
++dnl AX_CHECK_LIB_LINK([bluray])
++have_bluray="no"
+ 
+ # FFTW3
+ AX_CHECK_LIB_LINK([fftw3f])
