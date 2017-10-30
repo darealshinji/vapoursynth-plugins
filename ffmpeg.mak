@@ -47,7 +47,6 @@ ffmpeg/config.mak:
 		--disable-doc \
 		--disable-dxva2 \
 		--disable-vaapi \
-		--disable-vda \
 		--disable-vdpau \
 		--disable-encoders \
 		--disable-hwaccels \
@@ -57,7 +56,6 @@ ffmpeg/config.mak:
 		--disable-lzo \
 		--disable-lzma \
 		--disable-zlib \
-		--disable-sdl \
 		--disable-xlib \
 		--disable-asm \
 		$(silent_conf_out)
