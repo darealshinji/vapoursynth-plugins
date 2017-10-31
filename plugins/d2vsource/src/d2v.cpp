@@ -196,9 +196,9 @@ d2vcontext *d2vparse(const char *filename, string& err)
             size_t pos2 = r.find(",", pos1 + 1);
             size_t pos3 = r.find(",", pos2 + 1);
 
-            ret->loc.startfile   = strtoul(r.substr(       0, pos1          ).c_str(), NULL, 16);
+            ret->loc.startfile   = strtoul(r.substr(       0, pos1          ).c_str(), NULL, 10);
             ret->loc.startoffset = strtoul(r.substr(pos1 + 1, pos2          ).c_str(), NULL, 16);
-            ret->loc.endfile     = strtoul(r.substr(pos2 + 1, pos3          ).c_str(), NULL, 16);
+            ret->loc.endfile     = strtoul(r.substr(pos2 + 1, pos3          ).c_str(), NULL, 10);
             ret->loc.endoffset   = strtoul(r.substr(pos3 + 1, r.length() - 1).c_str(), NULL, 16);
         }
 
@@ -222,7 +222,8 @@ d2vcontext *d2vparse(const char *filename, string& err)
         err = "Invalid stream type in D2V header.";
         goto fail;
     } else if (ret->loc.startfile < 0 || ret->loc.startoffset < 0 ||
-               ret->loc.endfile < ret->loc.startfile || ret->loc.endoffset < ret->loc.startoffset) {
+               ret->loc.endfile < ret->loc.startfile ||
+               (ret->loc.endfile == ret->loc.startfile && ret->loc.endoffset < ret->loc.startoffset)) {
         err = "Invalid location in D2V header.";
         goto fail;
     }
