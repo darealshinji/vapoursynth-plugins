@@ -247,7 +247,7 @@ template void andMasks_sse2<uint8_t, Vec16uc, 16>(const VSFrameRef *, const VSFr
 template void andMasks_sse2<uint16_t, Vec8us, 8>(const VSFrameRef *, const VSFrameRef *, VSFrameRef *, const int, const TDeintModData *, const VSAPI *) noexcept;
 
 template<typename T1, typename T2, int step>
-void combineMasks_sse2(VSFrameRef * src, VSFrameRef * dst, const int plane, const TDeintModData * d, const VSAPI * vsapi) noexcept {
+void combineMasks_sse2(const VSFrameRef * src, VSFrameRef * dst, const int plane, const TDeintModData * d, const VSAPI * vsapi) noexcept {
     const int width = vsapi->getFrameWidth(dst, plane);
     const unsigned height = vsapi->getFrameHeight(dst, plane);
     const unsigned srcStride = vsapi->getStride(src, 0) / sizeof(T1);
@@ -279,6 +279,6 @@ void combineMasks_sse2(VSFrameRef * src, VSFrameRef * dst, const int plane, cons
     }
 }
 
-template void combineMasks_sse2<uint8_t, Vec16uc, 16>(VSFrameRef *, VSFrameRef *, const int, const TDeintModData *, const VSAPI *) noexcept;
-template void combineMasks_sse2<uint16_t, Vec8us, 8>(VSFrameRef *, VSFrameRef *, const int, const TDeintModData *, const VSAPI *) noexcept;
+template void combineMasks_sse2<uint8_t, Vec16uc, 16>(const VSFrameRef *, VSFrameRef *, const int, const TDeintModData *, const VSAPI *) noexcept;
+template void combineMasks_sse2<uint16_t, Vec8us, 8>(const VSFrameRef *, VSFrameRef *, const int, const TDeintModData *, const VSAPI *) noexcept;
 #endif

@@ -57,14 +57,14 @@ template<typename T1, typename T2, int step> extern void motionMask_avx2(const V
 template<typename T1, typename T2, int step> extern void andMasks_sse2(const VSFrameRef *, const VSFrameRef *, VSFrameRef *, const int, const TDeintModData *, const VSAPI *) noexcept;
 template<typename T1, typename T2, int step> extern void andMasks_avx2(const VSFrameRef *, const VSFrameRef *, VSFrameRef *, const int, const TDeintModData *, const VSAPI *) noexcept;
 
-template<typename T1, typename T2, int step> extern void combineMasks_sse2(VSFrameRef *, VSFrameRef *, const int, const TDeintModData *, const VSAPI *) noexcept;
-template<typename T1, typename T2, int step> extern void combineMasks_avx2(VSFrameRef *, VSFrameRef *, const int, const TDeintModData *, const VSAPI *) noexcept;
+template<typename T1, typename T2, int step> extern void combineMasks_sse2(const VSFrameRef *, VSFrameRef *, const int, const TDeintModData *, const VSAPI *) noexcept;
+template<typename T1, typename T2, int step> extern void combineMasks_avx2(const VSFrameRef *, VSFrameRef *, const int, const TDeintModData *, const VSAPI *) noexcept;
 #endif
 
 template<typename T1, typename T2 = void, int step = 0> static void (*threshMask)(const VSFrameRef *, VSFrameRef *, const int, const TDeintModData *, const VSAPI *) = nullptr;
 template<typename T1, typename T2 = void, int step = 0> static void (*motionMask)(const VSFrameRef *, const VSFrameRef *, const VSFrameRef *, const VSFrameRef *, VSFrameRef *, const int, const TDeintModData *, const VSAPI *) = nullptr;
 template<typename T1, typename T2 = void, int step = 0> static void (*andMasks)(const VSFrameRef *, const VSFrameRef *, VSFrameRef *, const int, const TDeintModData *, const VSAPI *) = nullptr;
-template<typename T1, typename T2 = void, int step = 0> static void (*combineMasks)(VSFrameRef *, VSFrameRef *, const int, const TDeintModData *, const VSAPI *) = nullptr;
+template<typename T1, typename T2 = void, int step = 0> static void (*combineMasks)(const VSFrameRef *, VSFrameRef *, const int, const TDeintModData *, const VSAPI *) = nullptr;
 
 template<typename T>
 static void copyPad(const VSFrameRef * src, VSFrameRef * dst, const int plane, const uint8_t widthPad, const VSAPI * vsapi) noexcept {
@@ -378,7 +378,7 @@ static void andMasks_c(const VSFrameRef * src1, const VSFrameRef * src2, VSFrame
 }
 
 template<typename T1, typename T2 = void, int step = 0>
-static void combineMasks_c(VSFrameRef * src, VSFrameRef * dst, const int plane, const TDeintModData * d, const VSAPI * vsapi) noexcept {
+static void combineMasks_c(const VSFrameRef * src, VSFrameRef * dst, const int plane, const TDeintModData * d, const VSAPI * vsapi) noexcept {
     const int width = vsapi->getFrameWidth(dst, plane);
     const unsigned height = vsapi->getFrameHeight(dst, plane);
     const unsigned srcStride = vsapi->getStride(src, 0) / sizeof(T1);
