@@ -105,21 +105,27 @@ class AANnedi3UpscaleSangNom(AANnedi3SangNom):
 class AAEedi3(AAParent):
     def __init__(self, clip, strength=0, down8=False, **args):
         super(AAEedi3, self).__init__(clip, strength, down8)
-        self.alpha = args.get('alpha', 0.5)
-        self.beta = args.get('beta', 0.2)
-        self.gamma = args.get('gamma', 20)
-        self.nrad = args.get('nrad', 3)
-        self.mdis = args.get('mdis', 30)
-        self.eedi3m = args.get('eedi3m', True)
-        # Make sure process depth is 8bit because eedi3 is too slow for high depth processing
-        if clip.format.bits_per_sample > 8:
-            self.clip = mvf.Depth(self.clip, 8)
-        try:
-            self.eedi3 = self.core.eedi3_092.eedi3
-        except AttributeError:
-            self.eedi3 = self.core.eedi3.eedi3
-            self.eedi3m = False
+        self.eedi3_args = {'alpha': args.get('alpha', 0.5), 'beta': args.get('beta', 0.2),
+                           'gamma': args.get('gamma', 20), 'nrad': args.get('nrad', 3), 'mdis': args.get('mdis', 30)}
 
+        self.opencl = args.get('opencl', False)
+        if self.opencl is True:
+            try:
+                self.eedi3 = self.core.eedi3m.EEDI3CL
+                self.eedi3_args['device'] = args.get('opencl_device', 0)
+            except AttributeError:
+                self.eedi3 = self.core.eedi3.eedi3
+                if self.process_depth > 8:
+                    self.clip = mvf.Depth(self.clip, 8)
+        else:
+            try:
+                self.eedi3 = self.core.eedi3m.EEDI3
+            except AttributeError:
+                self.eedi3 = self.core.eedi3.eedi3
+                if self.process_depth > 8:
+                    self.clip = mvf.Depth(self.clip, 8)
+
+    '''
     def build_eedi3_mask(self, clip):
         eedi3_mask = self.core.nnedi3.nnedi3(clip, field=1, show_mask=True)
         eedi3_mask = self.core.std.Expr([eedi3_mask, clip], "x 254 > x y - 0 = not and 255 0 ?")
@@ -127,33 +133,17 @@ class AAEedi3(AAParent):
         if self.dfactor != 1:
             eedi3_mask_turn = self.core.resize.Bicubic(eedi3_mask_turn, self.clip_height, self.dw)
         return eedi3_mask, eedi3_mask_turn
+    '''
 
     def out(self):
-        if self.eedi3m is False:
-            aaed = self.eedi3(self.clip, field=1, dh=True, alpha=self.alpha, beta=self.beta,
-                              gamma=self.gamma, nrad=self.nrad, mdis=self.mdis)
-            aaed = self.resize(aaed, self.dw, self.clip_height, shift=-0.5)
-            aaed = self.core.std.Transpose(aaed)
-            aaed = self.eedi3(aaed, field=1, dh=True, alpha=self.alpha, beta=self.beta,
-                              gamma=self.gamma, nrad=self.nrad, mdis=self.mdis)
-            aaed = self.resize(aaed, self.clip_height, self.clip_width, shift=-0.5)
-            aaed = self.core.std.Transpose(aaed)
-            aaed_bits = aaed.format.bits_per_sample
-            return aaed if aaed_bits == self.process_depth else mvf.Depth(aaed, self.process_depth)
-        elif self.eedi3m is True:
-            mask = self.build_eedi3_mask(self.clip)
-            aaed = self.eedi3(self.clip, field=1, dh=True, alpha=self.alpha, beta=self.beta, gamma=self.gamma,
-                              nrad=self.nrad, mdis=self.mdis, mclip=mask[0])
-            aaed = self.resize(aaed, self.dw, self.clip_height, shift=-0.5)
-            aaed = self.core.std.Transpose(aaed)
-            aaed = self.eedi3(aaed, field=1, dh=True, alpha=self.alpha, beta=self.beta, gamma=self.gamma,
-                              nrad=self.nrad, mdis=self.mdis, mclip=mask[1])
-            aaed = self.resize(aaed, self.clip_height, self.clip_width, shift=-0.5)
-            aaed = self.core.std.Transpose(aaed)
-            aaed_bits = aaed.format.bits_per_sample
-            return aaed if aaed_bits == self.process_depth else mvf.Depth(aaed, self.process_depth)
-        else:
-            raise ValueError(MODULE_NAME + ': Incorrect eedi3m setting.')
+        aaed = self.eedi3(self.clip, field=1, dh=True, **self.eedi3_args)
+        aaed = self.resize(aaed, self.dw, self.clip_height, shift=-0.5)
+        aaed = self.core.std.Transpose(aaed)
+        aaed = self.eedi3(aaed, field=1, dh=True, **self.eedi3_args)
+        aaed = self.resize(aaed, self.clip_height, self.clip_width, shift=-0.5)
+        aaed = self.core.std.Transpose(aaed)
+        aaed_bits = aaed.format.bits_per_sample
+        return aaed if aaed_bits == self.process_depth else mvf.Depth(aaed, self.process_depth)
 
 
 class AAEedi3SangNom(AAEedi3):
@@ -161,45 +151,27 @@ class AAEedi3SangNom(AAEedi3):
         super(AAEedi3SangNom, self).__init__(clip, strength, down8, **args)
         self.aa = args.get('aa', 48)
 
+    '''
     def build_eedi3_mask(self, clip):
         eedi3_mask = self.core.nnedi3.nnedi3(clip, field=1, show_mask=True)
         eedi3_mask = self.core.std.Expr([eedi3_mask, clip], "x 254 > x y - 0 = not and 255 0 ?")
         eedi3_mask_turn = self.core.std.Transpose(eedi3_mask)
         eedi3_mask_turn = self.core.resize.Bicubic(eedi3_mask_turn, self.uph4, self.dw)
         return eedi3_mask, eedi3_mask_turn
+    '''
 
     def out(self):
-        if self.eedi3m is False:
-            aaed = self.eedi3(self.clip, field=1, dh=True, alpha=self.alpha, beta=self.beta,
-                              gamma=self.gamma, nrad=self.nrad, mdis=self.mdis)
-            aaed = self.resize(aaed, self.dw, self.uph4, shift=-0.5)
-            aaed = self.core.std.Transpose(aaed)
-            aaed = self.eedi3(aaed, field=1, dh=True, alpha=self.alpha, beta=self.beta,
-                              gamma=self.gamma, nrad=self.nrad, mdis=self.mdis)
-            aaed = self.resize(aaed, self.uph4, self.upw4, shift=-0.5)
-            aaed = self.core.sangnom.SangNom(aaed, aa=self.aa)
-            aaed = self.core.std.Transpose(aaed)
-            aaed = self.core.sangnom.SangNom(aaed, aa=self.aa)
-            aaed = self.resize(aaed, self.clip_width, self.clip_height, shift=0)
-            aaed_bits = aaed.format.bits_per_sample
-            return aaed if aaed_bits == self.process_depth else mvf.Depth(aaed, self.process_depth)
-        elif self.eedi3m is True:
-            mask = self.build_eedi3_mask(self.clip)
-            aaed = self.eedi3(self.clip, field=1, dh=True, alpha=self.alpha, beta=self.beta, gamma=self.gamma,
-                              nrad=self.nrad, mdis=self.mdis, mclip=mask[0])
-            aaed = self.resize(aaed, self.dw, self.uph4, shift=-0.5)
-            aaed = self.core.std.Transpose(aaed)
-            aaed = self.eedi3(aaed, field=1, dh=True, alpha=self.alpha, beta=self.beta, gamma=self.gamma,
-                              nrad=self.nrad, mdis=self.mdis, mclip=mask[1])
-            aaed = self.resize(aaed, self.uph4, self.upw4, shift=-0.5)
-            aaed = self.core.sangnom.SangNom(aaed, aa=self.aa)
-            aaed = self.core.std.Transpose(aaed)
-            aaed = self.core.sangnom.SangNom(aaed, aa=self.aa)
-            aaed = self.resize(aaed, self.clip_width, self.clip_height, shift=0)
-            aaed_bits = aaed.format.bits_per_sample
-            return aaed if aaed_bits == self.process_depth else mvf.Depth(aaed, self.process_depth)
-        else:
-            raise ValueError(MODULE_NAME + ': Incorrect eedi3m setting.')
+        aaed = self.eedi3(self.clip, field=1, dh=True, **self.eedi3_args)
+        aaed = self.resize(aaed, self.dw, self.uph4, shift=-0.5)
+        aaed = self.core.std.Transpose(aaed)
+        aaed = self.eedi3(aaed, field=1, dh=True, **self.eedi3_args)
+        aaed = self.resize(aaed, self.uph4, self.upw4, shift=-0.5)
+        aaed = self.core.sangnom.SangNom(aaed, aa=self.aa)
+        aaed = self.core.std.Transpose(aaed)
+        aaed = self.core.sangnom.SangNom(aaed, aa=self.aa)
+        aaed = self.resize(aaed, self.clip_width, self.clip_height, shift=0)
+        aaed_bits = aaed.format.bits_per_sample
+        return aaed if aaed_bits == self.process_depth else mvf.Depth(aaed, self.process_depth)
 
 
 class AAEedi2(AAParent):
@@ -330,19 +302,21 @@ class MaskCanny(MaskParent):
         self.t_h = kwargs.get('t_h', 8.0)
         self.lthresh = kwargs.get('lthresh', None)
         self.mpand = kwargs.get('mpand', [1, 0])
+        self.opencl = kwargs.get('opencl', False)
+        self.opencl_device = kwargs.get('opencl_devices', 0)
 
         if isinstance(self.sigma, (list, tuple)) and isinstance(self.t_h, (list, tuple)) \
                 and isinstance(self.lthresh, (list, tuple)):
             if len(self.sigma) != len(self.t_h) or len(self.lthresh) != len(self.sigma) - 1:
                 raise ValueError(MODULE_NAME + ': incorrect length of sigma, t_h or lthresh.')
-            self.mask = self.core.tcanny.TCanny(self.clip, sigma=self.sigma[0], t_h=self.t_h[0], mode=0, planes=0)
+            self.mask = self.tcanny(self.clip, sigma=self.sigma[0], t_h=self.t_h[0], mode=0, planes=0)
             for i in range(len(self.lthresh)):
-                temp_mask = self.core.tcanny.TCanny(self.clip, sigma=self.sigma[i+1], t_h=self.t_h[i+1],
-                                                    mode=0, planes=0)
+                temp_mask = self.tcanny(self.clip, sigma=self.sigma[i + 1], t_h=self.t_h[i + 1],
+                                        mode=0, planes=0)
                 expr = "x " + str(self.lthresh[i]) + " < z y ?"
                 self.mask = self.core.std.Expr([self.clip, temp_mask, self.mask], expr)
         elif not isinstance(self.sigma, (list, tuple)) and not isinstance(self.t_h, (list, tuple)):
-            self.mask = self.core.tcanny.TCanny(self.clip, sigma=self.sigma, t_h=self.t_h, mode=0, planes=0)
+            self.mask = self.tcanny(self.clip, sigma=self.sigma, t_h=self.t_h, mode=0, planes=0)
         else:
             raise ValueError(MODULE_NAME + ': sigma, t_h, lthresh shoule be same type (num, list or tuple).')
 
@@ -351,6 +325,13 @@ class MaskCanny(MaskParent):
         if self.mpand != [0, 0] and self.mpand != (0, 0):
             self.expand(self.mpand[0])
             self.inpand(self.mpand[1])
+
+    def tcanny(self, clip, sigma, t_h, mode, planes):
+        if self.opencl is True:
+            return self.core.tcanny.TCannyCL(clip, sigma=sigma, t_h=t_h, mode=mode, planes=planes,
+                                             device=self.opencl_device)
+        else:
+            return self.core.tcanny.TCanny(clip, sigma=sigma, t_h=t_h, mode=mode, planes=planes)
 
 
 class MaskSobel(MaskParent):
@@ -368,7 +349,7 @@ class MaskSobel(MaskParent):
             expr = 'x {binarize} < 0 255 ?'.format(binarize=self.binarize[0])
             self.mask = self.core.std.Expr(eemask, expr)
             for i in range(len(self.lthresh)):
-                temp_expr = 'x {binarize} < 0 255 ?'.format(binarize=self.binarize[i+1])
+                temp_expr = 'x {binarize} < 0 255 ?'.format(binarize=self.binarize[i + 1])
                 temp_mask = self.core.std.Expr(eemask, temp_expr)
                 luma_expr = 'x {thresh} < z y ?'.format(thresh=self.lthresh[i])
                 self.mask = self.core.std.Expr([self.clip, temp_mask, self.mask], luma_expr)
@@ -403,7 +384,7 @@ class MaskPrewitt(MaskParent):
             expr = 'x {factor} <= x 2 / x 1.4 pow ?'.format(factor=self.factor[0])
             self.mask = self.core.std.Expr(eemask, expr)
             for i in range(len(self.lthresh)):
-                temp_expr = "x {factor} <= x 2 / x 1.4 pow ?".format(factor=self.factor[i+1])
+                temp_expr = "x {factor} <= x 2 / x 1.4 pow ?".format(factor=self.factor[i + 1])
                 temp_mask = self.core.std.Expr(eemask, temp_expr)
                 luma_expr = "x {lthresh} < z y ?".format(lthresh=self.lthresh[i])
                 self.mask = self.core.std.Expr([self.clip, temp_mask, self.mask], luma_expr)
@@ -588,7 +569,8 @@ def soothe(clip, src, keep=24):
 
 def TAAmbk(clip, aatype=1, aatypeu=None, aatypev=None, preaa=0, strength=0.0, cycle=0, mtype=None, mclip=None,
            mthr=None, mthr2=None, mlthresh=None, mpand=(1, 0), txtmask=0, txtfade=0, thin=0, dark=0.0, sharp=0,
-           aarepair=0, postaa=None, src=None, stabilize=0, down8=True, showmask=0, eedi3m=True, **pn):
+           aarepair=0, postaa=None, src=None, stabilize=0, down8=True, showmask=0, opencl=False, opencl_device=0,
+           **args):
     core = vs.get_core()
     aatypeu = aatype if aatypeu is None else aatypeu
     aatypev = aatype if aatypev is None else aatypev
@@ -647,30 +629,32 @@ def TAAmbk(clip, aatype=1, aatypeu=None, aatypev=None, preaa=0, strength=0.0, cy
         v = core.std.ShufflePlanes(edge_enhanced_clip, 2, vs.GRAY)
         if aatype != 0:
             try:
-                y = aa_kernel[aatype](y, strength, down8, eedi3m=eedi3m, **pn).out()
+                y = aa_kernel[aatype](y, strength, down8, opencl=opencl, opencl_device=opencl_device, **args).out()
                 cycle_y = cycle
                 while cycle_y > 0:
-                    y = aa_kernel[aatype](y, strength, down8, eedi3m=eedi3m, **pn).out()
+                    y = aa_kernel[aatype](y, strength, down8, opencl=opencl, opencl_device=opencl_device, **args).out()
                     cycle_y -= 1
                 y = mvf.Depth(y, clip.format.bits_per_sample) if down8 is True else y
             except KeyError:
                 raise ValueError(MODULE_NAME + ': unknown aatype.')
         if aatypeu != 0:
             try:
-                u = aa_kernel[aatypeu](u, 0, down8, eedi3m=eedi3m, **pn).out()  # Won't do predown for u plane
+                u = aa_kernel[aatypeu](u, 0, down8, opencl=opencl, opencl_device=opencl_device,
+                                       **args).out()  # Won't do predown for u plane
                 cycle_u = cycle
                 while cycle_u > 0:
-                    u = aa_kernel[aatypeu](u, 0, down8, eedi3m=eedi3m, **pn).out()
+                    u = aa_kernel[aatypeu](u, 0, down8, opencl=opencl, opencl_device=opencl_device, **args).out()
                     cycle_u -= 1
                 u = mvf.Depth(u, clip.format.bits_per_sample) if down8 is True else u
             except KeyError:
                 raise ValueError(MODULE_NAME + ': unknown aatypeu.')
         if aatypev != 0:
             try:
-                v = aa_kernel[aatypev](v, 0, down8, eedi3m=eedi3m, **pn).out()  # Won't do predown for v plane
+                v = aa_kernel[aatypev](v, 0, down8, opencl=opencl, opencl_device=opencl_device,
+                                       **args).out()  # Won't do predown for v plane
                 cycle_v = cycle
                 while cycle_v > 0:
-                    v = aa_kernel[aatypev](v, 0, down8, eedi3m=eedi3m, **pn).out()
+                    v = aa_kernel[aatypev](v, 0, down8, opencl=opencl, opencl_device=opencl_device, **args).out()
                     cycle_v -= 1
                 v = mvf.Depth(v, clip.format.bits_per_sample) if down8 is True else v
             except KeyError:
@@ -680,10 +664,10 @@ def TAAmbk(clip, aatype=1, aatypeu=None, aatypev=None, preaa=0, strength=0.0, cy
         y = edge_enhanced_clip
         if aatype != 0:
             try:
-                y = aa_kernel[aatype](y, strength, down8, **pn).out()
+                y = aa_kernel[aatype](y, strength, down8, **args).out()
                 cycle_y = cycle
                 while cycle_y > 0:
-                    y = aa_kernel[aatype](y, strength, down8, **pn).out()
+                    y = aa_kernel[aatype](y, strength, down8, **args).out()
                     cycle_y -= 1
                 aaed_clip = mvf.Depth(y, clip.format.bits_per_sample) if down8 is True else y
             except KeyError:
@@ -703,7 +687,7 @@ def TAAmbk(clip, aatype=1, aatypeu=None, aatypev=None, preaa=0, strength=0.0, cy
     elif sharp == -1:
         blured = core.rgvs.RemoveGrain(aaed_clip, mode=20 if aaed_clip.width > 1100 else 11)
         diff = core.std.MakeDiff(aaed_clip, blured)
-        diff = core.std.Repair(diff, core.std.MakeDiff(src, aaed_clip), mode=13)
+        diff = core.rgvs.Repair(diff, core.std.MakeDiff(src, aaed_clip), mode=13)
         sharped_clip = core.std.MergeDiff(aaed_clip, diff)
     else:
         sharped_clip = aaed_clip
@@ -721,9 +705,11 @@ def TAAmbk(clip, aatype=1, aatypeu=None, aatypev=None, preaa=0, strength=0.0, cy
                                              'Maybe resolution or bit_depth mismatch.')
     elif mtype != 0:
         if mtype == 1 or mtype is 'Canny':
+            opencl_device = args.get('opencl_device', 0)
             mthr = 1.2 if mthr is None else mthr
             mthr2 = 8.0 if mthr2 is None else mthr2
-            mask = MaskCanny(clip, sigma=mthr, t_h=mthr2, lthresh=mlthresh, mpand=mpand).out()
+            mask = MaskCanny(clip, sigma=mthr, t_h=mthr2, lthresh=mlthresh, mpand=mpand, opencl=opencl,
+                             opencl_devices=opencl_device).out()
         elif mtype == 2 or mtype is 'Sobel':
             mthr = 1.2 if mthr is None else mthr
             mthr2 = 48 if mthr2 is None else mthr2
