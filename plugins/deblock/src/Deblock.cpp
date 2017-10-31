@@ -23,7 +23,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <string>
-#include <utility>
+#include <memory>
 
 #include <VapourSynth.h>
 #include <VSHelper.h>
@@ -78,11 +78,10 @@ struct DeblockData {
     int alpha, beta, c0, c1;
     float alphaF, betaF, c0F, c1F;
     int peak;
-    float lower[3], upper[3];
 };
 
 template<typename T>
-static void deblockHorEdge(T * VS_RESTRICT dstp, const unsigned stride, const unsigned plane, const DeblockData * d) {
+static inline void deblockHorEdge(T * VS_RESTRICT dstp, const unsigned stride, const DeblockData * d) noexcept {
     const int alpha = d->alpha;
     const int beta = d->beta;
     const int c0 = d->c0;
@@ -106,10 +105,10 @@ static void deblockHorEdge(T * VS_RESTRICT dstp, const unsigned stride, const un
             if (ap < beta)
                 c += c1;
 
-            const int avg = (sp0[i] + sq0[i] + 1) / 2;
-            const int delta = std::min(std::max(((sq0[i] - sp0[i]) * 4 + sp1[i] - sq1[i] + 4) / 8, -c), c);
-            const int deltap1 = std::min(std::max((sp2[i] + avg - sp1[i] * 2) / 2, -c0), c0);
-            const int deltaq1 = std::min(std::max((sq2[i] + avg - sq1[i] * 2) / 2, -c0), c0);
+            const int avg = (sp0[i] + sq0[i] + 1) >> 1;
+            const int delta = std::min(std::max(((sq0[i] - sp0[i]) * 4 + sp1[i] - sq1[i] + 4) >> 3, -c), c);
+            const int deltap1 = std::min(std::max((sp2[i] + avg - sp1[i] * 2) >> 1, -c0), c0);
+            const int deltaq1 = std::min(std::max((sq2[i] + avg - sq1[i] * 2) >> 1, -c0), c0);
 
             sp0[i] = std::min(std::max(sp0[i] + delta, 0), d->peak);
             sq0[i] = std::min(std::max(sq0[i] - delta, 0), d->peak);
@@ -122,7 +121,7 @@ static void deblockHorEdge(T * VS_RESTRICT dstp, const unsigned stride, const un
 }
 
 template<>
-void deblockHorEdge(float * VS_RESTRICT dstp, const unsigned stride, const unsigned plane, const DeblockData * d) {
+inline void deblockHorEdge(float * VS_RESTRICT dstp, const unsigned stride, const DeblockData * d) noexcept {
     const float alpha = d->alphaF;
     const float beta = d->betaF;
     const float c0 = d->c0F;
@@ -151,8 +150,8 @@ void deblockHorEdge(float * VS_RESTRICT dstp, const unsigned stride, const unsig
             const float deltap1 = std::min(std::max((sp2[i] + avg - sp1[i] * 2.f) / 2.f, -c0), c0);
             const float deltaq1 = std::min(std::max((sq2[i] + avg - sq1[i] * 2.f) / 2.f, -c0), c0);
 
-            sp0[i] = std::min(std::max(sp0[i] + delta, d->lower[plane]), d->upper[plane]);
-            sq0[i] = std::min(std::max(sq0[i] - delta, d->lower[plane]), d->upper[plane]);
+            sp0[i] += delta;
+            sq0[i] -= delta;
             if (ap < beta)
                 sp1[i] += deltap1;
             if (aq < beta)
@@ -162,7 +161,7 @@ void deblockHorEdge(float * VS_RESTRICT dstp, const unsigned stride, const unsig
 }
 
 template<typename T>
-static void deblockVerEdge(T * VS_RESTRICT dstp, const unsigned stride, const unsigned plane, const DeblockData * d) {
+static inline void deblockVerEdge(T * VS_RESTRICT dstp, const unsigned stride, const DeblockData * d) noexcept {
     const int alpha = d->alpha;
     const int beta = d->beta;
     const int c0 = d->c0;
@@ -179,10 +178,10 @@ static void deblockVerEdge(T * VS_RESTRICT dstp, const unsigned stride, const un
             if (ap < beta)
                 c += c1;
 
-            const int avg = (dstp[0] + dstp[-1] + 1) / 2;
-            const int delta = std::min(std::max(((dstp[0] - dstp[-1]) * 4 + dstp[-2] - dstp[1] + 4) / 8, -c), c);
-            const int deltaq1 = std::min(std::max((dstp[2] + avg - dstp[1] * 2) / 2, -c0), c0);
-            const int deltap1 = std::min(std::max((dstp[-3] + avg - dstp[-2] * 2) / 2, -c0), c0);
+            const int avg = (dstp[0] + dstp[-1] + 1) >> 1;
+            const int delta = std::min(std::max(((dstp[0] - dstp[-1]) * 4 + dstp[-2] - dstp[1] + 4) >> 3, -c), c);
+            const int deltaq1 = std::min(std::max((dstp[2] + avg - dstp[1] * 2) >> 1, -c0), c0);
+            const int deltap1 = std::min(std::max((dstp[-3] + avg - dstp[-2] * 2) >> 1, -c0), c0);
 
             dstp[0] = std::min(std::max(dstp[0] - delta, 0), d->peak);
             dstp[-1] = std::min(std::max(dstp[-1] + delta, 0), d->peak);
@@ -197,7 +196,7 @@ static void deblockVerEdge(T * VS_RESTRICT dstp, const unsigned stride, const un
 }
 
 template<>
-void deblockVerEdge(float * VS_RESTRICT dstp, const unsigned stride, const unsigned plane, const DeblockData * d) {
+inline void deblockVerEdge(float * VS_RESTRICT dstp, const unsigned stride, const DeblockData * d) noexcept {
     const float alpha = d->alphaF;
     const float beta = d->betaF;
     const float c0 = d->c0F;
@@ -219,8 +218,8 @@ void deblockVerEdge(float * VS_RESTRICT dstp, const unsigned stride, const unsig
             const float deltaq1 = std::min(std::max((dstp[2] + avg - dstp[1] * 2.f) / 2.f, -c0), c0);
             const float deltap1 = std::min(std::max((dstp[-3] + avg - dstp[-2] * 2.f) / 2.f, -c0), c0);
 
-            dstp[0] = std::min(std::max(dstp[0] - delta, d->lower[plane]), d->upper[plane]);
-            dstp[-1] = std::min(std::max(dstp[-1] + delta, d->lower[plane]), d->upper[plane]);
+            dstp[0] -= delta;
+            dstp[-1] += delta;
             if (ap < beta)
                 dstp[1] += deltaq1;
             if (aq < beta)
@@ -232,7 +231,7 @@ void deblockVerEdge(float * VS_RESTRICT dstp, const unsigned stride, const unsig
 }
 
 template<typename T>
-static void process(VSFrameRef * dst, const DeblockData * d, const VSAPI * vsapi) {
+static void process(VSFrameRef * dst, const DeblockData * d, const VSAPI * vsapi) noexcept {
     for (int plane = 0; plane < d->vi->format->numPlanes; plane++) {
         if (d->process[plane]) {
             const unsigned width = vsapi->getFrameWidth(dst, plane);
@@ -241,16 +240,16 @@ static void process(VSFrameRef * dst, const DeblockData * d, const VSAPI * vsapi
             T * VS_RESTRICT dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
 
             for (unsigned x = 4; x < width; x += 4)
-                deblockVerEdge(dstp + x, stride, plane, d);
+                deblockVerEdge(dstp + x, stride, d);
 
             dstp += stride * 4;
 
             for (unsigned y = 4; y < height; y += 4) {
-                deblockHorEdge(dstp, stride, plane, d);
+                deblockHorEdge(dstp, stride, d);
 
                 for (unsigned x = 4; x < width; x += 4) {
-                    deblockHorEdge(dstp + x, stride, plane, d);
-                    deblockVerEdge(dstp + x, stride, plane, d);
+                    deblockHorEdge(dstp + x, stride, d);
+                    deblockVerEdge(dstp + x, stride, d);
                 }
 
                 dstp += stride * 4;
@@ -294,22 +293,18 @@ static void VS_CC deblockFree(void *instanceData, VSCore *core, const VSAPI *vsa
 }
 
 static void VS_CC deblockCreate(const VSMap *in, VSMap *out, void *userData, VSCore *core, const VSAPI *vsapi) {
-#if __GNUC__ >= 5
-    DeblockData d{};
-#else
-    DeblockData d;
-#endif
+    std::unique_ptr<DeblockData> d{ new DeblockData{} };
     int err;
 
-    d.node = vsapi->propGetNode(in, "clip", 0, nullptr);
-    d.vi = vsapi->getVideoInfo(d.node);
+    d->node = vsapi->propGetNode(in, "clip", 0, nullptr);
+    d->vi = vsapi->getVideoInfo(d->node);
 
-    const int padWidth = (d.vi->width & 7) ? 8 - d.vi->width % 8 : 0;
-    const int padHeight = (d.vi->height & 7) ? 8 - d.vi->height % 8 : 0;
+    const int padWidth = (d->vi->width & 7) ? 8 - d->vi->width % 8 : 0;
+    const int padHeight = (d->vi->height & 7) ? 8 - d->vi->height % 8 : 0;
 
     try {
-        if (!isConstantFormat(d.vi) || (d.vi->format->sampleType == stInteger && d.vi->format->bitsPerSample > 16) ||
-            (d.vi->format->sampleType == stFloat && d.vi->format->bitsPerSample != 32))
+        if (!isConstantFormat(d->vi) || (d->vi->format->sampleType == stInteger && d->vi->format->bitsPerSample > 16) ||
+            (d->vi->format->sampleType == stFloat && d->vi->format->bitsPerSample != 32))
             throw std::string{ "only constant format 8-16 bits integer and 32 bits float input supported" };
 
         int quant = int64ToIntS(vsapi->propGetInt(in, "quant", 0, &err));
@@ -326,59 +321,49 @@ static void VS_CC deblockCreate(const VSMap *in, VSMap *out, void *userData, VSC
         const int m = vsapi->propNumElements(in, "planes");
 
         for (int i = 0; i < 3; i++)
-            d.process[i] = m <= 0;
+            d->process[i] = m <= 0;
 
         for (int i = 0; i < m; i++) {
             const int n = int64ToIntS(vsapi->propGetInt(in, "planes", i, nullptr));
 
-            if (n < 0 || n >= d.vi->format->numPlanes)
+            if (n < 0 || n >= d->vi->format->numPlanes)
                 throw std::string{ "plane index out of range" };
 
-            if (d.process[n])
+            if (d->process[n])
                 throw std::string{ "plane specified twice" };
 
-            d.process[n] = true;
+            d->process[n] = true;
         }
 
         aOffset = std::min(std::max(aOffset, -quant), QUANT_MAX - quant);
         bOffset = std::min(std::max(bOffset, -quant), QUANT_MAX - quant);
-        const int aIndex = quant + aOffset;
-        const int bIndex = quant + bOffset;
-        d.alpha = alphas[aIndex];
-        d.beta = betas[bIndex];
-        d.c0 = cs[aIndex];
+        const int aIndex = std::min(std::max(quant + aOffset, 0), QUANT_MAX);
+        const int bIndex = std::min(std::max(quant + bOffset, 0), QUANT_MAX);
+        d->alpha = alphas[aIndex];
+        d->beta = betas[bIndex];
+        d->c0 = cs[aIndex];
 
-        if (d.vi->format->sampleType == stInteger) {
-            d.peak = (1 << d.vi->format->bitsPerSample) - 1;
-            d.alpha = d.alpha * d.peak / 255;
-            d.beta = d.beta * d.peak / 255;
-            d.c0 = d.c0 * d.peak / 255;
-            d.c1 = 1 * d.peak / 255;
+        if (d->vi->format->sampleType == stInteger) {
+            d->peak = (1 << d->vi->format->bitsPerSample) - 1;
+            d->alpha = d->alpha * d->peak / 255;
+            d->beta = d->beta * d->peak / 255;
+            d->c0 = d->c0 * d->peak / 255;
+            d->c1 = 1 * d->peak / 255;
         } else {
-            d.alphaF = d.alpha / 255.f;
-            d.betaF = d.beta / 255.f;
-            d.c0F = d.c0 / 255.f;
-            d.c1F = 1.f / 255.f;
-
-            for (int plane = 0; plane < d.vi->format->numPlanes; plane++) {
-                if (plane == 0 || d.vi->format->colorFamily == cmRGB) {
-                    d.lower[plane] = 0.f;
-                    d.upper[plane] = 1.f;
-                } else {
-                    d.lower[plane] = -0.5f;
-                    d.upper[plane] = 0.5f;
-                }
-            }
+            d->alphaF = d->alpha / 255.f;
+            d->betaF = d->beta / 255.f;
+            d->c0F = d->c0 / 255.f;
+            d->c1F = 1.f / 255.f;
         }
 
         if (padWidth || padHeight) {
             VSMap * args = vsapi->createMap();
-            vsapi->propSetNode(args, "clip", d.node, paReplace);
-            vsapi->freeNode(d.node);
-            vsapi->propSetInt(args, "width", d.vi->width + padWidth, paReplace);
-            vsapi->propSetInt(args, "height", d.vi->height + padHeight, paReplace);
-            vsapi->propSetFloat(args, "src_width", d.vi->width + padWidth, paReplace);
-            vsapi->propSetFloat(args, "src_height", d.vi->height + padHeight, paReplace);
+            vsapi->propSetNode(args, "clip", d->node, paReplace);
+            vsapi->freeNode(d->node);
+            vsapi->propSetInt(args, "width", d->vi->width + padWidth, paReplace);
+            vsapi->propSetInt(args, "height", d->vi->height + padHeight, paReplace);
+            vsapi->propSetFloat(args, "src_width", d->vi->width + padWidth, paReplace);
+            vsapi->propSetFloat(args, "src_height", d->vi->height + padHeight, paReplace);
 
             VSMap * ret = vsapi->invoke(vsapi->getPluginById("com.vapoursynth.resize", core), "Point", args);
             if (vsapi->getError(ret)) {
@@ -388,24 +373,18 @@ static void VS_CC deblockCreate(const VSMap *in, VSMap *out, void *userData, VSC
                 return;
             }
 
-            d.node = vsapi->propGetNode(ret, "clip", 0, nullptr);
-            d.vi = vsapi->getVideoInfo(d.node);
+            d->node = vsapi->propGetNode(ret, "clip", 0, nullptr);
+            d->vi = vsapi->getVideoInfo(d->node);
             vsapi->freeMap(args);
             vsapi->freeMap(ret);
         }
     } catch (const std::string & error) {
         vsapi->setError(out, ("Deblock: " + error).c_str());
-        vsapi->freeNode(d.node);
+        vsapi->freeNode(d->node);
         return;
     }
 
-#if __GNUC__ >= 5
-    DeblockData * data = new DeblockData{ std::move(d) };
-#else
-    DeblockData * data = new DeblockData(std::move(d));
-#endif
-
-    vsapi->createFilter(in, out, "Deblock", deblockInit, deblockGetFrame, deblockFree, fmParallel, 0, data, core);
+    vsapi->createFilter(in, out, "Deblock", deblockInit, deblockGetFrame, deblockFree, fmParallel, 0, d.release(), core);
 
     if (padWidth || padHeight) {
         VSNodeRef * node = vsapi->propGetNode(out, "clip", 0, nullptr);

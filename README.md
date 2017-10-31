@@ -45,7 +45,7 @@ sudo apt-get install vapoursynth-extra-plugins
 [d2vsource 1.1+git20170622](https://github.com/dwbuiten/d2vsource)<br>
 [damb r3](https://github.com/dubhater/vapoursynth-damb)<br>
 [dctfilter r3](https://bitbucket.org/mystery_keeper/vapoursynth-dctfilter)<br>
-[deblock r5](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Deblock)<br>
+[deblock r6](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Deblock)<br>
 [degrainmedian 1](https://github.com/dubhater/vapoursynth-degrainmedian)<br>
 [delogo 0.4](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-DeLogo)<br>
 [depan r1](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-DePan)<br>
