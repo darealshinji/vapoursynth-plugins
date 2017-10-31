@@ -518,17 +518,17 @@ public:
         return *this;
     }
     // Member function to load from array (unaligned)
-    Vec8f & load(float const * p) {
-        y0 = _mm_loadu_ps(p);
-        y1 = _mm_loadu_ps(p+4);
+    Vec8f & load(void const * p) {
+        y0 = _mm_loadu_ps((float const*)p);
+        y1 = _mm_loadu_ps((float const*)p+4);
         return *this;
     }
     // Member function to load from array, aligned by 32
     // You may use load_a instead of load if you are certain that p points to an address
     // divisible by 32.
-    Vec8f & load_a(float const * p) {
-        y0 = _mm_load_ps(p);
-        y1 = _mm_load_ps(p+4);
+    Vec8f & load_a(void const * p) {
+        y0 = _mm_load_ps((float const*)p);
+        y1 = _mm_load_ps((float const*)p+4);
         return *this;
     }
     // Member function to store into array (unaligned)

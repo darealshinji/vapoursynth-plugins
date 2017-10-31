@@ -573,15 +573,15 @@ public:
         return ymm;
     }
     // Member function to load from array (unaligned)
-    Vec8f & load(float const * p) {
-        ymm = _mm256_loadu_ps(p);
+    Vec8f & load(void const * p) {
+        ymm = _mm256_loadu_ps((float const*)p);
         return *this;
     }
     // Member function to load from array, aligned by 32
     // You may use load_a instead of load if you are certain that p points to an address
     // divisible by 32.
-    Vec8f & load_a(float const * p) {
-        ymm = _mm256_load_ps(p);
+    Vec8f & load_a(void const * p) {
+        ymm = _mm256_load_ps((float const*)p);
         return *this;
     }
     // Member function to store into array (unaligned)
