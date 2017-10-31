@@ -91,5 +91,5 @@ sudo apt-get install vapoursynth-extra-plugins
 [waifu2x-opt r1+20160218](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-waifu2x-opt)<br>
 [waifu2x-w2xc r6](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Waifu2x-w2xc)<br>
 [wwxd 1.0](https://github.com/dubhater/vapoursynth-wwxd)<br>
-[yadifmod r10](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Yadifmod)<br>
+[yadifmod r10+git20170604](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-Yadifmod)<br>
 

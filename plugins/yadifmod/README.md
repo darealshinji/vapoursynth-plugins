@@ -29,3 +29,20 @@ Usage
   * 1 = double rate, do spatial check
   * 2 = same rate, no spatial check
   * 3 = double rate, no spatial check
+
+* opt: Sets which cpu optimizations to use.
+  * 0 = auto detect
+  * 1 = use c
+  * 2 = use sse2
+  * 3 = use avx
+  * 4 = use avx2
+
+
+Compilation
+===========
+
+```
+./autogen.sh
+./configure
+make
+```

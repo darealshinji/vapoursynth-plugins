@@ -1,8 +1,8 @@
 /****************************  vectorf128.h   *******************************
 * Author:        Agner Fog
 * Date created:  2012-05-30
-* Last modified: 2016-12-21
-* Version:       1.26
+* Last modified: 2017-05-10
+* Version:       1.29
 * Project:       vector classes
 * Description:
 * Header file defining floating point vector classes as interface to 
@@ -30,7 +30,7 @@
 *
 * For detailed instructions, see VectorClass.pdf
 *
-* (c) Copyright 2012-2016 GNU General Public License http://www.gnu.org/licenses
+* (c) Copyright 2012-2017 GNU General Public License http://www.gnu.org/licenses
 *****************************************************************************/
 #ifndef VECTORF128_H
 #define VECTORF128_H
@@ -139,14 +139,23 @@ public:
     operator __m128() const {
         return xmm;
     }
-#if defined (__clang__) /* && CLANG_VERSION < xxxxx */ || defined(__apple_build_version__)
-#define FIX_CLANG_VECTOR_ALIAS_AMBIGUITY  // clang 3.3 has silent conversion between intrinsic vector types. 
-                                          // I expected this to be fixed in version 3.4 but it still exists in version 3.9!
-                                          // http://llvm.org/bugs/show_bug.cgi?id=17164
-                                          // Additional problem: The version number is not consistent across platforms
-                                          // The Apple build has different version numbers. Too bad!
-                                          // http://llvm.org/bugs/show_bug.cgi?id=12643
+    /* Clang problem:
+    The Clang compiler treats the intrinsic vector types __m128, __m128i, and __m128f as identical.
+    I have reported this problem in 2013 but it is still not fixed in 2017!
+    See the bug report at http://llvm.org/bugs/show_bug.cgi?id=17164
+    Additional problem: The version number is not consistent across platforms. The Apple build has 
+    different version numbers. We have to rely on __apple_build_version__ on the Mac platform:
+    http://llvm.org/bugs/show_bug.cgi?id=12643
+    I have received reports that there was no aliasing of vector types on __apple_build_version__ = 6020053
+    but apparently the problem has come back. The aliasing of vector types has been reported on 
+    __apple_build_version__ = 8000042
+    We have to make switches here when - hopefully - the error some day has been fixed.
+    We need different version checks with and whithout __apple_build_version__
+    */
 
+//#if (defined (__clang__) && !defined(__apple_build_version__)) || (defined(__apple_build_version__) && __apple_build_version__ < 6020000)
+#if defined (__clang__) /* && CLANG_VERSION < xxxxx */ || defined(__apple_build_version__)
+#define FIX_CLANG_VECTOR_ALIAS_AMBIGUITY  
 #else
     // Type cast operator to convert to type Vec4ib used as Boolean for integer vectors
     operator Vec4ib() const {
@@ -471,8 +480,8 @@ public:
         return xmm;
     }
     // Member function to load from array (unaligned)
-    Vec4f & load(float const * p) {
-        xmm = _mm_loadu_ps(p);
+    Vec4f & load(void const * p) {
+        xmm = _mm_loadu_ps((float const*)p);
         return *this;
     }
     // Member function to load from array, aligned by 16
@@ -480,8 +489,8 @@ public:
     // Merom, Wolfdale) and Atom, but not on other processors from Intel, AMD or VIA.
     // You may use load_a instead of load if you are certain that p points to an address
     // divisible by 16.
-    Vec4f & load_a(float const * p) {
-        xmm = _mm_load_ps(p);
+    Vec4f & load_a(void const * p) {
+        xmm = _mm_load_ps((float const*)p);
         return *this;
     }
     // Member function to store into array (unaligned)
@@ -2673,7 +2682,7 @@ static inline Vec2d gather2d(void const * a) {
 *****************************************************************************/
 
 template <int i0, int i1, int i2, int i3>
-static inline void scatter(Vec4f data, float * array) {
+static inline void scatter(Vec4f const & data, float * array) {
 #if defined (__AVX512VL__)
     __m128i indx = constant4i<i0,i1,i2,i3>();
     __mmask16 mask = uint16_t(i0>=0 | (i1>=0)<<1 | (i2>=0)<<2 | (i3>=0)<<3);
@@ -2687,12 +2696,12 @@ static inline void scatter(Vec4f data, float * array) {
 }
 
 template <int i0, int i1>
-static inline void scatter(Vec2d data, double * array) {
+static inline void scatter(Vec2d const & data, double * array) {
     if (i0 >= 0) array[i0] = data[0];
     if (i1 >= 0) array[i1] = data[1];
 }
 
-static inline void scatter(Vec4i index, uint32_t limit, Vec4f data, float * array) {
+static inline void scatter(Vec4i const & index, uint32_t limit, Vec4f const & data, float * array) {
 #if defined (__AVX512VL__)
     __mmask16 mask = _mm_cmplt_epu32_mask(index, Vec4ui(limit));
     _mm_mask_i32scatter_ps(array, mask, index, data, 4);
@@ -2703,12 +2712,12 @@ static inline void scatter(Vec4i index, uint32_t limit, Vec4f data, float * arra
 #endif
 }
 
-static inline void scatter(Vec2q index, uint32_t limit, Vec2d data, double * array) {
+static inline void scatter(Vec2q const & index, uint32_t limit, Vec2d const & data, double * array) {
     if (uint64_t(index[0]) < uint64_t(limit)) array[index[0]] = data[0];
     if (uint64_t(index[1]) < uint64_t(limit)) array[index[1]] = data[1];
 }
 
-static inline void scatter(Vec4i index, uint32_t limit, Vec2d data, double * array) {
+static inline void scatter(Vec4i const & index, uint32_t limit, Vec2d const & data, double * array) {
     if (uint32_t(index[0]) < limit) array[index[0]] = data[0];
     if (uint32_t(index[1]) < limit) array[index[1]] = data[1];
 }

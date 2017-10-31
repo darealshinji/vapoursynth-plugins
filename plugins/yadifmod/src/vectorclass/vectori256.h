@@ -1,8 +1,8 @@
 /****************************  vectori256.h   *******************************
 * Author:        Agner Fog
 * Date created:  2012-05-30
-* Last modified: 2016-12-21
-* Version:       1.26
+* Last modified: 2017-02-19
+* Version:       1.27
 * Project:       vector classes
 * Description:
 * Header file defining integer vector classes as interface to intrinsic 
@@ -36,7 +36,7 @@
 *
 * For detailed instructions, see VectorClass.pdf
 *
-* (c) Copyright 2012 - 2016 GNU General Public License http://www.gnu.org/licenses
+* (c) Copyright 2012-2017 GNU General Public License http://www.gnu.org/licenses
 *****************************************************************************/
 
 // check combination of header files
@@ -4831,7 +4831,7 @@ static inline Vec4q gather4q(void const * a) {
 *****************************************************************************/
 
 template <int i0, int i1, int i2, int i3, int i4, int i5, int i6, int i7>
-static inline void scatter(Vec8i data, void * array) {
+static inline void scatter(Vec8i const & data, void * array) {
 #if defined (__AVX512VL__)
     __m256i indx = constant8i<i0,i1,i2,i3,i4,i5,i6,i7>();
     __mmask16 mask = uint16_t(i0>=0 | (i1>=0)<<1 | (i2>=0)<<2 | (i3>=0)<<3| (i4>=0)<<4| (i5>=0)<<5| (i6>=0)<<6| (i7>=0)<<7);
@@ -4850,7 +4850,7 @@ static inline void scatter(Vec8i data, void * array) {
 }
 
 template <int i0, int i1, int i2, int i3>
-static inline void scatter(Vec4q data, void * array) {
+static inline void scatter(Vec4q const & data, void * array) {
 #if defined (__AVX512VL__)
     __m128i indx = constant4i<i0,i1,i2,i3>();
     __mmask16 mask = uint16_t(i0>=0 | (i1>=0)<<1 | (i2>=0)<<2 | (i3>=0)<<3);
@@ -4868,7 +4868,7 @@ static inline void scatter(Vec4q data, void * array) {
 #endif
 }
 
-static inline void scatter(Vec8i index, uint32_t limit, Vec8i data, void * array) {
+static inline void scatter(Vec8i const & index, uint32_t limit, Vec8i const & data, void * array) {
 #if defined (__AVX512VL__)
     __mmask16 mask = _mm256_cmplt_epu32_mask(index, Vec8ui(limit));
     _mm256_mask_i32scatter_epi32((int*)array, mask, index, data, 4);
@@ -4884,7 +4884,7 @@ static inline void scatter(Vec8i index, uint32_t limit, Vec8i data, void * array
 #endif
 } 
 
-static inline void scatter(Vec4q index, uint32_t limit, Vec4q data, void * array) {
+static inline void scatter(Vec4q const & index, uint32_t limit, Vec4q const & data, void * array) {
 #if defined (__AVX512VL__)
     __mmask16 mask = _mm256_cmplt_epu64_mask(index, Vec4uq(uint64_t(limit)));
     _mm256_mask_i64scatter_epi64((long long*)array, mask, index, data, 8);
@@ -4900,7 +4900,7 @@ static inline void scatter(Vec4q index, uint32_t limit, Vec4q data, void * array
 #endif
 } 
 
-static inline void scatter(Vec4i index, uint32_t limit, Vec4q data, void * array) {
+static inline void scatter(Vec4i const & index, uint32_t limit, Vec4q const & data, void * array) {
 #if defined (__AVX512VL__)
     __mmask16 mask = _mm_cmplt_epu32_mask(index, Vec4ui(limit));
     _mm256_mask_i32scatter_epi64((long long*)array, mask, index, data, 8);

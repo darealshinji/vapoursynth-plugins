@@ -1,8 +1,8 @@
 /****************************  vectorf256.h   *******************************
 * Author:        Agner Fog
 * Date created:  2012-05-30
-* Last modified: 2016-11-25
-* Version:       1.25
+* Last modified: 2017-02-19
+* Version:       1.27
 * Project:       vector classes
 * Description:
 * Header file defining 256-bit floating point vector classes as interface
@@ -27,7 +27,7 @@
 *
 * For detailed instructions, see VectorClass.pdf
 *
-* (c) Copyright 2012 - 2016 GNU General Public License http://www.gnu.org/licenses
+* (c) Copyright 2012-2017 GNU General Public License http://www.gnu.org/licenses
 *****************************************************************************/
 
 // check combination of header files
@@ -573,15 +573,15 @@ public:
         return ymm;
     }
     // Member function to load from array (unaligned)
-    Vec8f & load(float const * p) {
-        ymm = _mm256_loadu_ps(p);
+    Vec8f & load(void const * p) {
+        ymm = _mm256_loadu_ps((float const*)p);
         return *this;
     }
     // Member function to load from array, aligned by 32
     // You may use load_a instead of load if you are certain that p points to an address
     // divisible by 32.
-    Vec8f & load_a(float const * p) {
-        ymm = _mm256_load_ps(p);
+    Vec8f & load_a(void const * p) {
+        ymm = _mm256_load_ps((float const*)p);
         return *this;
     }
     // Member function to store into array (unaligned)
@@ -3209,7 +3209,7 @@ static inline Vec4d gather4d(void const * a) {
 *****************************************************************************/
 
 template <int i0, int i1, int i2, int i3, int i4, int i5, int i6, int i7>
-static inline void scatter(Vec8f data, float * array) {
+static inline void scatter(Vec8f const & data, float * array) {
 #if defined (__AVX512VL__)
     __m256i indx = constant8i<i0,i1,i2,i3,i4,i5,i6,i7>();
     __mmask16 mask = uint16_t(i0>=0 | (i1>=0)<<1 | (i2>=0)<<2 | (i3>=0)<<3| (i4>=0)<<4| (i5>=0)<<5| (i6>=0)<<6| (i7>=0)<<7);
@@ -3227,7 +3227,7 @@ static inline void scatter(Vec8f data, float * array) {
 }
 
 template <int i0, int i1, int i2, int i3>
-static inline void scatter(Vec4d data, double * array) {
+static inline void scatter(Vec4d const & data, double * array) {
 #if defined (__AVX512VL__)
     __m128i indx = constant4i<i0,i1,i2,i3>();
     __mmask16 mask = uint16_t(i0>=0 | (i1>=0)<<1 | (i2>=0)<<2 | (i3>=0)<<3);
@@ -3244,7 +3244,7 @@ static inline void scatter(Vec4d data, double * array) {
 #endif
 }
 
-static inline void scatter(Vec8i index, uint32_t limit, Vec8f data, float * array) {
+static inline void scatter(Vec8i const & index, uint32_t limit, Vec8f const & data, float * array) {
 #if defined (__AVX512VL__)
     __mmask16 mask = _mm256_cmplt_epu32_mask(index, Vec8ui(limit));
     _mm256_mask_i32scatter_ps(array, mask, index, data, 4);
@@ -3259,7 +3259,7 @@ static inline void scatter(Vec8i index, uint32_t limit, Vec8f data, float * arra
 #endif
 }
 
-static inline void scatter(Vec4q index, uint32_t limit, Vec4d data, double * array) {
+static inline void scatter(Vec4q const & index, uint32_t limit, Vec4d const & data, double * array) {
 #if defined (__AVX512VL__)
     __mmask16 mask = _mm256_cmplt_epu64_mask(index, Vec4uq(uint64_t(limit)));
     _mm256_mask_i64scatter_pd(array, mask, index, data, 8);
@@ -3274,7 +3274,7 @@ static inline void scatter(Vec4q index, uint32_t limit, Vec4d data, double * arr
 #endif
 } 
 
-static inline void scatter(Vec4i index, uint32_t limit, Vec4d data, double * array) {
+static inline void scatter(Vec4i const & index, uint32_t limit, Vec4d const & data, double * array) {
 #if defined (__AVX512VL__)
     __mmask16 mask = _mm_cmplt_epu32_mask(index, Vec4ui(limit));
     _mm256_mask_i32scatter_pd(array, mask, index, data, 8);
