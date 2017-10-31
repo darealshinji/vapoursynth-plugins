@@ -1,8 +1,8 @@
 /****************************  vectori256e.h   *******************************
 * Author:        Agner Fog
 * Date created:  2012-05-30
-* Last modified: 2016-12-21
-* Version:       1.26
+* Last modified: 2017-02-19
+* Version:       1.27
 * Project:       vector classes
 * Description:
 * Header file defining 256-bit integer point vector classes as interface
@@ -25,7 +25,7 @@
 *
 * For detailed instructions, see VectorClass.pdf
 *
-* (c) Copyright 2012 - 2016 GNU General Public License http://www.gnu.org/licenses
+* (c) Copyright 2012-2017 GNU General Public License http://www.gnu.org/licenses
 *****************************************************************************/
 
 // check combination of header files
@@ -3919,7 +3919,7 @@ static inline Vec4q gather4q(void const * a) {
 *****************************************************************************/
 
 template <int i0, int i1, int i2, int i3, int i4, int i5, int i6, int i7>
-static inline void scatter(Vec8i data, void * array) {
+static inline void scatter(Vec8i const & data, void * array) {
     int32_t* arr = (int32_t*)array;
     const int index[8] = {i0,i1,i2,i3,i4,i5,i6,i7};
     for (int i = 0; i < 8; i++) {
@@ -3928,7 +3928,7 @@ static inline void scatter(Vec8i data, void * array) {
 }
 
 template <int i0, int i1, int i2, int i3>
-static inline void scatter(Vec4q data, void * array) {
+static inline void scatter(Vec4q const & data, void * array) {
     int64_t* arr = (int64_t*)array;
     const int index[4] = {i0,i1,i2,i3};
     for (int i = 0; i < 4; i++) {
@@ -3936,21 +3936,21 @@ static inline void scatter(Vec4q data, void * array) {
     }
 }
 
-static inline void scatter(Vec8i index, uint32_t limit, Vec8i data, void * array) {
+static inline void scatter(Vec8i const & index, uint32_t limit, Vec8i const & data, void * array) {
     int32_t* arr = (int32_t*)array;
     for (int i = 0; i < 8; i++) {
         if (uint32_t(index[i]) < limit) arr[index[i]] = data[i];
     }
 }
 
-static inline void scatter(Vec4q index, uint32_t limit, Vec4q data, void * array) {
+static inline void scatter(Vec4q const & index, uint32_t limit, Vec4q const & data, void * array) {
     int64_t* arr = (int64_t*)array;
     for (int i = 0; i < 4; i++) {
         if (uint64_t(index[i]) < uint64_t(limit)) arr[index[i]] = data[i];
     }
 } 
 
-static inline void scatter(Vec4i index, uint32_t limit, Vec4q data, void * array) {
+static inline void scatter(Vec4i const & index, uint32_t limit, Vec4q const & data, void * array) {
     int64_t* arr = (int64_t*)array;
     for (int i = 0; i < 4; i++) {
         if (uint32_t(index[i]) < limit) arr[index[i]] = data[i];

@@ -1,0 +1,558 @@
+--- a/plugins/yadifmod/src/vectorclass/vectorf128.h
++++ b/plugins/yadifmod/src/vectorclass/vectorf128.h
+@@ -480,8 +480,8 @@ public:
+         return xmm;
+     }
+     // Member function to load from array (unaligned)
+-    Vec4f & load(float const * p) {
+-        xmm = _mm_loadu_ps(p);
++    Vec4f & load(void const * p) {
++        xmm = _mm_loadu_ps((float const*)p);
+         return *this;
+     }
+     // Member function to load from array, aligned by 16
+@@ -489,8 +489,8 @@ public:
+     // Merom, Wolfdale) and Atom, but not on other processors from Intel, AMD or VIA.
+     // You may use load_a instead of load if you are certain that p points to an address
+     // divisible by 16.
+-    Vec4f & load_a(float const * p) {
+-        xmm = _mm_load_ps(p);
++    Vec4f & load_a(void const * p) {
++        xmm = _mm_load_ps((float const*)p);
+         return *this;
+     }
+     // Member function to store into array (unaligned)
+@@ -505,6 +505,10 @@ public:
+     void store_a(float * p) const {
+         _mm_store_ps(p, xmm);
+     }
++    // Member function to store into array using a non-temporal memory hint, aligned by 16
++    void stream(float * p) const {
++        _mm_stream_ps(p, xmm);
++    }
+     // Partial load. Load n elements and set the rest to 0
+     Vec4f & load_partial(int n, float const * p) {
+         __m128 t1, t2;
+@@ -789,6 +793,10 @@ static inline Vec4fb operator ! (Vec4f const & a) {
+ *
+ *****************************************************************************/
+ 
++static inline Vec4f zero_4f() {
++    return _mm_setzero_ps();
++}
++
+ // Select between two operands. Corresponds to this pseudocode:
+ // for (int i = 0; i < 4; i++) result[i] = s[i] ? a[i] : b[i];
+ // Each byte in s must be either 0 (false) or 0xFFFFFFFF (true). No other values are allowed.
+--- a/plugins/yadifmod/src/vectorclass/vectorf256.h
++++ b/plugins/yadifmod/src/vectorclass/vectorf256.h
+@@ -573,15 +573,15 @@ public:
+         return ymm;
+     }
+     // Member function to load from array (unaligned)
+-    Vec8f & load(float const * p) {
+-        ymm = _mm256_loadu_ps(p);
++    Vec8f & load(void const * p) {
++        ymm = _mm256_loadu_ps((float const*)p);
+         return *this;
+     }
+     // Member function to load from array, aligned by 32
+     // You may use load_a instead of load if you are certain that p points to an address
+     // divisible by 32.
+-    Vec8f & load_a(float const * p) {
+-        ymm = _mm256_load_ps(p);
++    Vec8f & load_a(void const * p) {
++        ymm = _mm256_load_ps((float const*)p);
+         return *this;
+     }
+     // Member function to store into array (unaligned)
+@@ -594,6 +594,10 @@ public:
+     void store_a(float * p) const {
+         _mm256_store_ps(p, ymm);
+     }
++    // Member function to store into array using a non-temporal memory hint, aligned by 32
++    void stream(float * p) const {
++        _mm256_stream_ps(p, ymm);
++    }
+     // Partial load. Load n elements and set the rest to 0
+     Vec8f & load_partial(int n, float const * p) {
+         if (n > 0 && n <= 4) {
+@@ -875,6 +879,10 @@ static inline Vec8fb operator ! (Vec8f const & a) {
+ *
+ *****************************************************************************/
+ 
++static inline Vec8f zero_8f() {
++    return _mm256_setzero_ps();
++}
++
+ // Select between two operands. Corresponds to this pseudocode:
+ // for (int i = 0; i < 8; i++) result[i] = s[i] ? a[i] : b[i];
+ // Each byte in s must be either 0 (false) or 0xFFFFFFFF (true). No other values are allowed.
+--- a/plugins/yadifmod/src/vectorclass/vectorf256e.h
++++ b/plugins/yadifmod/src/vectorclass/vectorf256e.h
+@@ -518,17 +518,17 @@ public:
+         return *this;
+     }
+     // Member function to load from array (unaligned)
+-    Vec8f & load(float const * p) {
+-        y0 = _mm_loadu_ps(p);
+-        y1 = _mm_loadu_ps(p+4);
++    Vec8f & load(void const * p) {
++        y0 = _mm_loadu_ps((float const*)p);
++        y1 = _mm_loadu_ps((float const*)p+4);
+         return *this;
+     }
+     // Member function to load from array, aligned by 32
+     // You may use load_a instead of load if you are certain that p points to an address
+     // divisible by 32.
+-    Vec8f & load_a(float const * p) {
+-        y0 = _mm_load_ps(p);
+-        y1 = _mm_load_ps(p+4);
++    Vec8f & load_a(void const * p) {
++        y0 = _mm_load_ps((float const*)p);
++        y1 = _mm_load_ps((float const*)p+4);
+         return *this;
+     }
+     // Member function to store into array (unaligned)
+@@ -543,6 +543,11 @@ public:
+         _mm_store_ps(p,   y0);
+         _mm_store_ps(p+4, y1);
+     }
++    // Member function to store into array using a non-temporal memory hint, aligned by 32
++    void stream(float * p) const {
++        _mm_stream_ps(p,   y0);
++        _mm_stream_ps(p+4, y1);
++    }
+     // Partial load. Load n elements and set the rest to 0
+     Vec8f & load_partial(int n, float const * p) {
+         if (n > 0 && n <= 4) {
+@@ -816,6 +821,10 @@ static inline Vec8fb operator ! (Vec8f const & a) {
+ *
+ *****************************************************************************/
+ 
++static inline Vec8f zero_8f() {
++    return Vec8f(_mm_setzero_ps(), _mm_setzero_ps());
++}
++
+ // Select between two operands. Corresponds to this pseudocode:
+ // for (int i = 0; i < 8; i++) result[i] = s[i] ? a[i] : b[i];
+ // Each byte in s must be either 0 (false) or 0xFFFFFFFF (true). No other values are allowed.
+--- a/plugins/yadifmod/src/vectorclass/vectori128.h
++++ b/plugins/yadifmod/src/vectorclass/vectori128.h
+@@ -94,8 +94,13 @@ public:
+     // Merom, Wolfdale) and Atom, but not on other processors from Intel, AMD or VIA.
+     // You may use load_a instead of load if you are certain that p points to an address
+     // divisible by 16.
+-    void load_a(void const * p) {
++    Vec128b & load_a(void const * p) {
+         xmm = _mm_load_si128((__m128i const*)p);
++        return *this;
++    }
++    // Member function to store 64-bit integer into array
++    void storel(void * p) const {
++        _mm_storel_epi64((__m128i*)p, xmm);
+     }
+     // Member function to store into array (unaligned)
+     void store(void * p) const {
+@@ -109,6 +114,10 @@ public:
+     void store_a(void * p) const {
+         _mm_store_si128((__m128i*)p, xmm);
+     }
++    // Member function to store into array using a non-temporal memory hint, aligned by 16
++    void stream(void * p) const {
++        _mm_stream_si128((__m128i*)p, xmm);
++    }
+     // Member function to change a single bit
+     // Note: This function is inefficient. Use load function if changing more than one bit
+     Vec128b const & set_bit(uint32_t index, int value) {
+@@ -199,6 +208,10 @@ static inline Vec128b & operator ^= (Vec128b & a, Vec128b const & b) {
+ 
+ // Define functions for this class
+ 
++static inline __m128i zero_128b() {
++    return _mm_setzero_si128();
++}
++
+ // function andnot: a & ~ b
+ static inline Vec128b andnot (Vec128b const & a, Vec128b const & b) {
+     return _mm_andnot_si128(b, a);
+@@ -329,6 +342,11 @@ public:
+     operator __m128i() const {
+         return xmm;
+     }
++    // Member function to load 64-bit integer from array
++    Vec16c & loadl(void const * p) {
++        xmm = _mm_loadl_epi64((__m128i const*)p);
++        return *this;
++    }
+     // Member function to load from array (unaligned)
+     Vec16c & load(void const * p) {
+         xmm = _mm_loadu_si128((__m128i const*)p);
+@@ -905,6 +923,11 @@ public:
+         xmm = x;
+         return *this;
+     }
++    // Member function to load 64-bit integer from array
++    Vec16uc & loadl(void const * p) {
++        xmm = _mm_loadl_epi64((__m128i const*)p);
++        return *this;
++    }
+     // Member function to load from array (unaligned)
+     Vec16uc & load(void const * p) {
+         xmm = _mm_loadu_si128((__m128i const*)p);
+@@ -1124,6 +1147,11 @@ public:
+     operator __m128i() const {
+         return xmm;
+     }
++    // Member function to load 64-bit integer from array
++    Vec8s & loadl(void const * p) {
++        xmm = _mm_loadl_epi64((__m128i const*)p);
++        return *this;
++    }
+     // Member function to load from array (unaligned)
+     Vec8s & load(void const * p) {
+         xmm = _mm_loadu_si128((__m128i const*)p);
+@@ -1134,6 +1162,15 @@ public:
+         xmm = _mm_load_si128((__m128i const*)p);
+         return *this;
+     }
++    // Member function to load 8 8-bit unsigned integers from array
++    Vec8s & load_8uc(void const * p) {
++#if INSTRSET >= 5   // SSE4.1
++        xmm = _mm_cvtepu8_epi16(Vec16uc().loadl(p));
++#else
++        xmm = _mm_unpacklo_epi8(Vec16uc().loadl(p),_mm_setzero_si128());
++#endif
++        return *this;
++    }
+     // Partial load. Load n elements and set the rest to 0
+     Vec8s & load_partial(int n, void const * p) {
+         if      (n >= 8) load(p);
+@@ -1492,7 +1529,7 @@ static inline Vec8sb operator >= (Vec8s const & a, Vec8s const & b) {
+ #ifdef __XOP__  // AMD XOP instruction set
+     return (Vec8sb)_mm_comge_epi16(a,b);
+ #else  // SSE2 instruction set
+-    return Vec8sb (~(b > a));
++    return Vec8sb(Vec8s(~(b > a)));
+ #endif
+ }
+ 
+@@ -1697,6 +1734,11 @@ public:
+         xmm = x;
+         return *this;
+     }
++    // Member function to load 64-bit integer from array
++    Vec8us & loadl(void const * p) {
++        xmm = _mm_loadl_epi64((__m128i const*)p);
++        return *this;
++    }
+     // Member function to load from array (unaligned)
+     Vec8us & load(void const * p) {
+         xmm = _mm_loadu_si128((__m128i const*)p);
+@@ -1791,9 +1833,9 @@ static inline Vec8sb operator <= (Vec8us const & a, Vec8us const & b) {
+ // vector operator > : returns true for elements for which a > b (unsigned)
+ static inline Vec8sb operator > (Vec8us const & a, Vec8us const & b) {
+ #ifdef __XOP__  // AMD XOP instruction set
+-    return (Vec8s)_mm_comgt_epu16(a,b);
++    return (Vec8sb)_mm_comgt_epu16(a,b);
+ #else  // SSE2 instruction set
+-    return Vec8sb (~(b >= a));
++    return Vec8sb(Vec8s(~(b >= a)));
+ #endif
+ }
+ 
+@@ -1979,6 +2021,25 @@ public:
+         xmm = _mm_load_si128((__m128i const*)p);
+         return *this;
+     }
++    // Member function to load 4 8-bit unsigned integers from array
++    Vec4i & load_4uc(void const * p) {
++#if INSTRSET >= 5   // SSE4.1
++        xmm          = _mm_cvtepu8_epi32(_mm_cvtsi32_si128(*(int const*)p));
++#else
++        __m128i zero = _mm_setzero_si128();
++        xmm          = _mm_unpacklo_epi16(_mm_unpacklo_epi8(Vec16uc().loadl(p),zero),zero);
++#endif
++        return *this;
++    }
++    // Member function to load 4 16-bit unsigned integers from array
++    Vec4i & load_4us(void const * p) {
++#if INSTRSET >= 5   // SSE4.1
++        xmm = _mm_cvtepu16_epi32(Vec8us().loadl(p));
++#else
++        xmm = _mm_unpacklo_epi16(Vec8us().loadl(p),_mm_setzero_si128());
++#endif
++        return *this;
++    }
+     // Partial load. Load n elements and set the rest to 0
+     Vec4i & load_partial(int n, void const * p) {
+         switch (n) {
+@@ -5223,6 +5284,12 @@ static inline Vec16uc compress_saturated (Vec8us const & low, Vec8us const & hig
+ #endif
+ }
+ 
++// Function compress : packs two vectors of 16-bit integers into one vector of 8-bit integers
++// Signed to unsigned, with saturation
++static inline Vec16uc compress_saturated_s2u (Vec8s const & low, Vec8s const & high) {
++    return  _mm_packus_epi16(low,high);
++}
++
+ // Compress 32-bit integers to 16-bit integers, signed and unsigned, with and without saturation
+ 
+ // Function compress : packs two vectors of 32-bit integers into one vector of 16-bit integers
+@@ -5282,6 +5349,19 @@ static inline Vec8us compress_saturated (Vec4ui const & low, Vec4ui const & high
+ #endif
+ }
+ 
++// Function compress : packs two vectors of 32-bit integers into one vector of 16-bit integers
++// Signed to unsigned, with saturation
++static inline Vec8us compress_saturated_s2u (Vec4i const & low, Vec4i const & high) {
++#if INSTRSET >= 5   // SSE4.1 supported
++    return  _mm_packus_epi32(low,high);                    // pack with unsigned saturation
++#else
++    __m128i signbit = _mm_set1_epi32(0x8000);
++    __m128i low1    = _mm_sub_epi32(low,signbit);
++    __m128i high1   = _mm_sub_epi32(high,signbit);
++    return  _mm_xor_si128(_mm_packs_epi32(low1,high1),_mm_set1_epi16(-0x8000));
++#endif
++}
++
+ // Compress 64-bit integers to 32-bit integers, signed and unsigned, with and without saturation
+ 
+ // Function compress : packs two vectors of 64-bit integers into one vector of 32-bit integers
+--- a/plugins/yadifmod/src/vectorclass/vectori256.h
++++ b/plugins/yadifmod/src/vectorclass/vectori256.h
+@@ -126,6 +126,10 @@ public:
+     void store_a(void * p) const {
+         _mm256_store_si256((__m256i*)p, ymm);
+     }
++    // Member function to store into array using a non-temporal memory hint, aligned by 32
++    void stream(void * p) const {
++        _mm256_stream_si256((__m256i*)p, ymm);
++    }
+     // Member function to change a single bit
+     // Note: This function is inefficient. Use load function if changing more than one bit
+     Vec256b const & set_bit(uint32_t index, int value) {
+@@ -165,7 +169,7 @@ public:
+         return _mm256_castsi256_si128(ymm);
+     }
+     Vec128b get_high() const {
+-        return _mm256_extractf128_si256(ymm,1);
++        return _mm256_extracti128_si256(ymm,1);
+     }
+     static int size() {
+         return 256;
+@@ -221,6 +225,10 @@ static inline Vec256b & operator ^= (Vec256b & a, Vec256b const & b) {
+ 
+ // Define functions for this class
+ 
++static inline __m256i zero_256b() {
++    return _mm256_setzero_si256();
++}
++
+ // function andnot: a & ~ b
+ static inline Vec256b andnot (Vec256b const & a, Vec256b const & b) {
+     return _mm256_andnot_si256(b, a);
+@@ -887,7 +895,7 @@ public:
+         return _mm256_castsi256_si128(ymm);
+     }
+     Vec16uc get_high() const {
+-        return _mm256_extractf128_si256(ymm,1);
++        return _mm256_extracti128_si256(ymm,1);
+     }
+ };
+ 
+@@ -1102,6 +1110,11 @@ public:
+         ymm = _mm256_load_si256((__m256i const*)p);
+         return *this;
+     }
++    // Member function to load 16 8-bit unsigned integers from array
++    Vec16s & load_16uc(void const * p) {
++        ymm = _mm256_cvtepu8_epi16(Vec16uc().load(p));
++        return *this;
++    }
+     // Partial load. Load n elements and set the rest to 0
+     Vec16s & load_partial(int n, void const * p) {
+         if (n <= 0) {
+@@ -1164,7 +1177,7 @@ public:
+         return _mm256_castsi256_si128(ymm);
+     }
+     Vec8s get_high() const {
+-        return _mm256_extractf128_si256(ymm,1);
++        return _mm256_extracti128_si256(ymm,1);
+     }
+     static int size() {
+         return 16;
+@@ -1615,7 +1628,7 @@ public:
+         return _mm256_castsi256_si128(ymm);
+     }
+     Vec8us get_high() const {
+-        return _mm256_extractf128_si256(ymm,1);
++        return _mm256_extracti128_si256(ymm,1);
+     }
+ };
+ 
+@@ -1827,6 +1840,16 @@ public:
+         ymm = _mm256_load_si256((__m256i const*)p);
+         return *this;
+     }
++    // Member function to load 8 8-bit unsigned integers from array
++    Vec8i & load_8uc(void const * p) {
++        ymm = _mm256_cvtepu8_epi32(Vec16uc().loadl(p));
++        return *this;
++    }
++    // Member function to load 8 16-bit unsigned integers from array
++    Vec8i & load_8us(void const * p) {
++        ymm = _mm256_cvtepu16_epi32(Vec8us().load(p));
++        return *this;
++    }
+     // Partial load. Load n elements and set the rest to 0
+     Vec8i & load_partial(int n, void const * p) {
+         if (n <= 0) {
+@@ -1889,7 +1912,7 @@ public:
+         return _mm256_castsi256_si128(ymm);
+     }
+     Vec4i get_high() const {
+-        return _mm256_extractf128_si256(ymm,1);
++        return _mm256_extracti128_si256(ymm,1);
+     }
+     static int size() {
+         return 8;
+@@ -2342,7 +2365,7 @@ public:
+         return _mm256_castsi256_si128(ymm);
+     }
+     Vec4ui get_high() const {
+-        return _mm256_extractf128_si256(ymm,1);
++        return _mm256_extracti128_si256(ymm,1);
+     }
+ };
+ 
+@@ -2631,7 +2654,7 @@ public:
+         return _mm256_castsi256_si128(ymm);
+     }
+     Vec2q get_high() const {
+-        return _mm256_extractf128_si256(ymm,1);
++        return _mm256_extracti128_si256(ymm,1);
+     }
+     static int size() {
+         return 4;
+@@ -3090,7 +3113,7 @@ public:
+         return _mm256_castsi256_si128(ymm);
+     }
+     Vec2uq get_high() const {
+-        return _mm256_extractf128_si256(ymm,1);
++        return _mm256_extracti128_si256(ymm,1);
+     }
+ };
+ 
+@@ -5021,6 +5044,13 @@ static inline Vec32uc compress_saturated (Vec16us const & low, Vec16us const & h
+     return            _mm256_permute4x64_epi64(pk, 0xD8);     // put in right place
+ }
+ 
++// Function compress : packs two vectors of 16-bit integers into one vector of 8-bit integers
++// Signed to unsigned, with saturation
++static inline Vec32uc compress_saturated_s2u (Vec16s const & low, Vec16s const & high) {
++    __m256i pk    = _mm256_packus_epi16(low,high);            // packed with unsigned saturation
++    return          _mm256_permute4x64_epi64(pk, 0xD8);       // put in right place
++}
++
+ // Compress 32-bit integers to 16-bit integers, signed and unsigned, with and without saturation
+ 
+ // Function compress : packs two vectors of 32-bit integers into one vector of 16-bit integers
+@@ -5059,6 +5089,13 @@ static inline Vec16us compress_saturated (Vec8ui const & low, Vec8ui const & hig
+     return            _mm256_permute4x64_epi64(pk, 0xD8);     // put in right place
+ }
+ 
++// Function compress : packs two vectors of 32-bit integers into one vector of 16-bit integers
++// Signed to unsigned, with saturation
++static inline Vec16us compress_saturated_s2u (Vec8i const & low, Vec8i const & high) {
++    __m256i pk    =  _mm256_packus_epi32(low,high);           // pack with unsigned saturation
++    return           _mm256_permute4x64_epi64(pk, 0xD8);      // put in right place
++}
++
+ // Compress 64-bit integers to 32-bit integers, signed and unsigned, with and without saturation
+ 
+ // Function compress : packs two vectors of 64-bit integers into one vector of 32-bit integers
+--- a/plugins/yadifmod/src/vectorclass/vectori256e.h
++++ b/plugins/yadifmod/src/vectorclass/vectori256e.h
+@@ -126,6 +126,11 @@ public:
+         _mm_store_si128((__m128i*)p,     y0);
+         _mm_store_si128((__m128i*)p + 1, y1);
+     }
++    // Member function to store into array using a non-temporal memory hint, aligned by 32
++    void stream(void * p) const {
++        _mm_stream_si128((__m128i*)p,     y0);
++        _mm_stream_si128((__m128i*)p + 1, y1);
++    }
+     // Member function to change a single bit
+     // Note: This function is inefficient. Use load function if changing more than one bit
+     Vec256b const & set_bit(uint32_t index, int value) {
+@@ -212,6 +217,10 @@ static inline Vec256b & operator ^= (Vec256b & a, Vec256b const & b) {
+ 
+ // Define functions for this class
+ 
++static inline Vec256b zero_256b() {
++    return Vec256b(_mm_setzero_si128(), _mm_setzero_si128());
++}
++
+ // function andnot: a & ~ b
+ static inline Vec256b andnot (Vec256b const & a, Vec256b const & b) {
+     return Vec256b(andnot(a.get_low(), b.get_low()), andnot(a.get_high(), b.get_high()));
+@@ -1039,6 +1048,12 @@ public:
+         y1 = _mm_load_si128((__m128i const*)p + 1);
+         return *this;
+     }
++    // Member function to load 16 8-bit unsigned integers from array
++    Vec16s & load_16uc(void const * p) {
++        y0 = Vec8s().load_8uc(p);
++        y1 = Vec8s().load_8uc((uint8_t const*)p + 8);
++        return *this;
++    }
+     // Partial load. Load n elements and set the rest to 0
+     Vec16s & load_partial(int n, void const * p) {
+         if (n <= 0) {
+@@ -1741,6 +1756,18 @@ public:
+         y1 = _mm_load_si128((__m128i const*)p + 1);
+         return *this;
+     }
++    // Member function to load 8 8-bit unsigned integers from array
++    Vec8i & load_8uc(void const * p) {
++        y0 = Vec4i().load_4uc(p);
++        y1 = Vec4i().load_4uc((uint8_t const*)p + 4);
++        return *this;
++    }
++    // Member function to load 8 16-bit unsigned integers from array
++    Vec8i & load_8us(void const * p) {
++        y0 = Vec4i().load_4us(p);
++        y1 = Vec4i().load_4us((uint16_t const*)p + 4);
++        return *this;
++    }
+     // Partial load. Load n elements and set the rest to 0
+     Vec8i & load_partial(int n, void const * p) {
+         if (n <= 0) {
+@@ -4055,6 +4082,12 @@ static inline Vec32uc compress_saturated (Vec16us const & low, Vec16us const & h
+     return Vec32uc(compress_saturated(low.get_low(),low.get_high()), compress_saturated(high.get_low(),high.get_high()));
+ }
+ 
++// Function compress : packs two vectors of 16-bit integers into one vector of 8-bit integers
++// Signed to unsigned, with saturation
++static inline Vec32uc compress_saturated_s2u (Vec16s const & low, Vec16s const & high) {
++    return Vec32uc(compress_saturated_s2u(low.get_low(),low.get_high()), compress_saturated_s2u(high.get_low(),high.get_high()));
++}
++
+ // Compress 32-bit integers to 16-bit integers, signed and unsigned, with and without saturation
+ 
+ // Function compress : packs two vectors of 32-bit integers into one vector of 16-bit integers
+@@ -4081,6 +4114,12 @@ static inline Vec16us compress_saturated (Vec8ui const & low, Vec8ui const & hig
+     return Vec16us(compress_saturated(low.get_low(),low.get_high()), compress_saturated(high.get_low(),high.get_high()));
+ }
+ 
++// Function compress : packs two vectors of 32-bit integers into one vector of 16-bit integers
++// Signed to unsigned, with saturation
++static inline Vec16us compress_saturated_s2u (Vec8i const & low, Vec8i const & high) {
++    return Vec16us(compress_saturated_s2u(low.get_low(),low.get_high()), compress_saturated_s2u(high.get_low(),high.get_high()));
++}
++
+ // Compress 64-bit integers to 32-bit integers, signed and unsigned, with and without saturation
+ 
+ // Function compress : packs two vectors of 64-bit integers into one vector of 32-bit integers

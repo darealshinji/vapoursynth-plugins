@@ -1,8 +1,8 @@
 /****************************  vectori128.h   *******************************
 * Author:        Agner Fog
 * Date created:  2012-05-30
-* Last modified: 2016-12-21
-* Version:       1.26
+* Last modified: 2017-05-02
+* Version:       1.28
 * Project:       vector classes
 * Description:
 * Header file defining integer vector classes as interface to intrinsic 
@@ -39,7 +39,7 @@
 *
 * For detailed instructions, see VectorClass.pdf
 *
-* (c) Copyright 2012-2016 GNU General Public License http://www.gnu.org/licenses
+* (c) Copyright 2012-2017 GNU General Public License http://www.gnu.org/licenses
 *****************************************************************************/
 #ifndef VECTORI128_H
 #define VECTORI128_H
@@ -1771,7 +1771,7 @@ static inline Vec8us operator << (Vec8us const & a, int32_t b) {
 }
 
 // vector operator >= : returns true for elements for which a >= b (unsigned)
-static inline Vec8s operator >= (Vec8us const & a, Vec8us const & b) {
+static inline Vec8sb operator >= (Vec8us const & a, Vec8us const & b) {
 #ifdef __XOP__  // AMD XOP instruction set
     return _mm_comge_epu16(a,b);
 #elif INSTRSET >= 5   // SSE4.1
@@ -1784,21 +1784,21 @@ static inline Vec8s operator >= (Vec8us const & a, Vec8us const & b) {
 }
 
 // vector operator <= : returns true for elements for which a <= b (unsigned)
-static inline Vec8s operator <= (Vec8us const & a, Vec8us const & b) {
+static inline Vec8sb operator <= (Vec8us const & a, Vec8us const & b) {
     return b >= a;
 }
 
 // vector operator > : returns true for elements for which a > b (unsigned)
-static inline Vec8s operator > (Vec8us const & a, Vec8us const & b) {
+static inline Vec8sb operator > (Vec8us const & a, Vec8us const & b) {
 #ifdef __XOP__  // AMD XOP instruction set
     return (Vec8s)_mm_comgt_epu16(a,b);
 #else  // SSE2 instruction set
-    return Vec8s (~(b >= a));
+    return Vec8sb (~(b >= a));
 #endif
 }
 
 // vector operator < : returns true for elements for which a < b (unsigned)
-static inline Vec8s operator < (Vec8us const & a, Vec8us const & b) {
+static inline Vec8sb operator < (Vec8us const & a, Vec8us const & b) {
     return b > a;
 }
 
@@ -5051,7 +5051,7 @@ static inline Vec2q gather2q(void const * a) {
 *****************************************************************************/
 
 template <int i0, int i1, int i2, int i3>
-static inline void scatter(Vec4i data, void * array) {
+static inline void scatter(Vec4i const & data, void * array) {
 #if defined (__AVX512VL__)
     __m128i indx = constant4i<i0,i1,i2,i3>();
     __mmask16 mask = uint16_t(i0>=0 | (i1>=0)<<1 | (i2>=0)<<2 | (i3>=0)<<3);
@@ -5066,13 +5066,13 @@ static inline void scatter(Vec4i data, void * array) {
 }
 
 template <int i0, int i1>
-static inline void scatter(Vec2q data, void * array) {
+static inline void scatter(Vec2q const & data, void * array) {
     int64_t* arr = (int64_t*)array;
     if (i0 >= 0) arr[i0] = data[0];
     if (i1 >= 0) arr[i1] = data[1];
 }
 
-static inline void scatter(Vec4i index, uint32_t limit, Vec4i data, void * array) {
+static inline void scatter(Vec4i const & index, uint32_t limit, Vec4i const & data, void * array) {
 #if defined (__AVX512VL__)
     __mmask16 mask = _mm_cmplt_epu32_mask(index, Vec4ui(limit));
     _mm_mask_i32scatter_epi32((int*)array, mask, index, data, 4);
@@ -5084,13 +5084,13 @@ static inline void scatter(Vec4i index, uint32_t limit, Vec4i data, void * array
 #endif
 }
 
-static inline void scatter(Vec2q index, uint32_t limit, Vec2q data, void * array) {
+static inline void scatter(Vec2q const & index, uint32_t limit, Vec2q const & data, void * array) {
     int64_t* arr = (int64_t*)array;
     if (uint64_t(index[0]) < uint64_t(limit)) arr[index[0]] = data[0];
     if (uint64_t(index[1]) < uint64_t(limit)) arr[index[1]] = data[1];
 } 
 
-static inline void scatter(Vec4i index, uint32_t limit, Vec2q data, void * array) {
+static inline void scatter(Vec4i const & index, uint32_t limit, Vec2q const & data, void * array) {
     int64_t* arr = (int64_t*)array;
     if (uint32_t(index[0]) < limit) arr[index[0]] = data[0];
     if (uint32_t(index[1]) < limit) arr[index[1]] = data[1];
