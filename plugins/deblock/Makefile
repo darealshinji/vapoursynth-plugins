@@ -1,6 +1,6 @@
 include ../../config.mak
 
-ifeq ($(HAVE_CXX14),yes)
+ifeq ($(HAVE_CXX14),1)
 LIBNAME = deblock
 endif
 
