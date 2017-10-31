@@ -20,6 +20,8 @@
 
 /* This file is available under an ISC license. */
 
+#include "deprecated_enums.h"
+
 static inline uint32_t get_decoder_delay
 (
     AVCodecContext *ctx

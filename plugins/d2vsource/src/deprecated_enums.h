@@ -1,0 +1,6 @@
+#ifndef FF_IDCT_XVIDMMX
+#define FF_IDCT_XVIDMMX FF_IDCT_XVID
+#endif
+#ifndef CODEC_FLAG_EMU_EDGE
+#define CODEC_FLAG_EMU_EDGE 0x4000
+#endif

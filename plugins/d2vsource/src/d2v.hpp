@@ -34,6 +34,8 @@ extern "C" {
 
 #define D2V_VERSION "16"
 
+#include "deprecated_enums.h"
+
 using namespace std;
 
 enum streamtype {
