@@ -127,6 +127,12 @@ Copyright: 2012-2013, 2015 Oka Motofumi
            2013-2016 Fredrik Mellbin
 License: LGPL-2.1
 
+Files: plugins/hqdn3d/*
+Copyright: 2003 Daniel Moreno <comac@comac.darktech.org>
+           2005 Loren Merritt <lorenm@u.washington.edu>
+           2017 Martin Güthle <mguethle@xunit.de>
+License: GPL-2+
+
 Files: plugins/it/*
 Copyright: 2002 thejam79
            2003 minamina

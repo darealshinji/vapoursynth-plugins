@@ -60,6 +60,7 @@ sudo apt-get install vapoursynth-extra-plugins
 [fmtconv r20](https://github.com/EleonoreMizo/fmtconv)<br>
 [genericfilters 1.0.0+git20160316](https://github.com/myrsloik/GenericFilters)<br>
 [histogram 1.0+git20171026](https://github.com/dubhater/vapoursynth-histogram)<br>
+[hqdn3d 1.0](https://github.com/Hinterwaeldlers/vapoursynth-hqdn3d)<br>
 [imagereader 0.2.1](https://github.com/chikuzen/vsimagereader)<br>
 [it 1.2](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-IT)<br>
 [knlmeanscl 1.1.0+git20170519](https://github.com/Khanattila/KNLMeansCL)<br>
