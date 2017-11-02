@@ -9,6 +9,7 @@ So don't expect this build system to work on anything else than Linux on x86 arc
 git nasm yasm libtool pkg-config
 libfftw3-dev libpng-dev libsndfile1-dev libxvidcore-dev libbluray-dev zlib1g-dev
 libopencv-dev ocl-icd-libopencl1 opencl-headers
+libboost-filesystem-dev libboost-system-dev libcompute-dev
 ```
 
 
