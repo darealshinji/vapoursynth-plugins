@@ -166,6 +166,11 @@ Copyright: 2010-2011 Kevin Eliot Stone <kes25c@mail.missouri.edu>
            2014-2017 dubhater
 License: GPL-2+
 
+Files: plugins/nnedi3cl/*
+Copyright: 2010-2011 Kevin Eliot Stone <kes25c@mail.missouri.edu>
+           2017 HolyWu
+License: GPL-2+
+
 Files: plugins/reduceflicker/*
 Copyright: 2005 Rainer Wittmann <gorw@gmx.de>
            2015 Yusuke Nakamura <muken.the.vfrmaniac@gmail.com>
