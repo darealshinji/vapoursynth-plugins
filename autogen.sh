@@ -20,7 +20,8 @@ autogen () {
 	if [ ! -d ffmpeg ]; then
 		type git >/dev/null 2>&1 || { echo >&2 "Cannot find \`git'.  Aborting."; exit 1; }
 		echo "cloning ffmpeg sources into ./ffmpeg"
-		git clone -q --depth 1 "git://source.ffmpeg.org/ffmpeg.git" ffmpeg
+		git clone -q --depth 1 "https://github.com/FFmpeg/FFmpeg" ffmpeg
+		#git clone -q --depth 1 "git://source.ffmpeg.org/ffmpeg.git" ffmpeg
 		rm -rf ffmpeg/.git
 	fi
 }
