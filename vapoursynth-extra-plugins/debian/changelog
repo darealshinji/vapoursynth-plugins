@@ -1,3 +1,12 @@
+vapoursynth-extra-plugins (20171104-1~xenial) xenial; urgency=low
+
+  * Updates: yadifmod, tdeintmod, tcanny, knlmeanscl, histogram, deblock,
+    d2vsource
+  * New plugins: eedi3, nnedi3cl, hqdn3d
+  * Update scripts: havsfunc, vstaambk
+
+ -- Marshall Banana <djcj@gmx.de>  Wed, 08 Nov 2017 16:17:17 +0100
+
 vapoursynth-extra-plugins (20170615-1~xenial) xenial; urgency=low
 
   * Several updates

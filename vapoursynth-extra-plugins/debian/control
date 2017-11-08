@@ -4,9 +4,6 @@ Priority: optional
 Maintainer: Marshall Banana <djcj@gmx.de>
 Build-Depends:
  debhelper (>= 9),
-# enable on Ubuntu >14.04
-#gcc-5,
-#g++-5,
  nasm,
  yasm,
  libtool,
@@ -20,7 +17,7 @@ Build-Depends:
  libopencv-dev,
  ocl-icd-libopencl1,
  opencl-headers
-Standards-Version: 3.9.5
+Standards-Version: 3.9.7
 Homepage: https://github.com/darealshinji/vapoursynth-plugins
 Vcs-Git: https://github.com/darealshinji/vapoursynth-plugins.git
 Vcs-Browser: https://github.com/darealshinji/vapoursynth-plugins
