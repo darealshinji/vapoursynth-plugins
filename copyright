@@ -172,7 +172,7 @@ License: GPL-2+
 
 Files: plugins/nnedi3cl/*
 Copyright: 2010-2011 Kevin Eliot Stone <kes25c@mail.missouri.edu>
-           2017 HolyWu
+           2017-2018 HolyWu
 License: GPL-2+
 
 Files: plugins/reduceflicker/*

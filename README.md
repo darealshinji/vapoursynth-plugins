@@ -70,7 +70,7 @@ sudo apt-get install vapoursynth-extra-plugins
 [msmoosh 1.1](https://github.com/dubhater/vapoursynth-msmoosh)<br>
 [mvtools 19](https://github.com/dubhater/vapoursynth-mvtools)<br>
 [nnedi3 11](https://github.com/dubhater/vapoursynth-nnedi3)<br>
-[nnedi3cl r6](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-NNEDI3CL)<br>
+[nnedi3cl r7](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-NNEDI3CL)<br>
 [rawsource git20160426](https://github.com/chikuzen/vsrawsource)<br>
 [readmpls r3](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-ReadMpls)<br>
 [reduceflicker git20150225](https://github.com/VFR-maniac/VapourSynth-ReduceFlicker)<br>
