@@ -1,6 +1,9 @@
+include ../../config.mak
 
+ifeq ($(HAVE_FFTW3F),yes)
 LIBNAME = dctfilter
-LIBADD = -lm
+LIBADD = -lfftw3f
+endif
 
-include ../../cc.inc
+include ../../cxx.inc
 
