@@ -26,8 +26,6 @@ def nnedi3_rpow2(clip, rfactor=2, width=None, height=None, correct_shift=True,
 
     # Setting up variables
 
-    plugins = core.get_plugins()
-
     if width is None:
         width = clip.width*rfactor
     if height is None:
@@ -53,10 +51,11 @@ def nnedi3_rpow2(clip, rfactor=2, width=None, height=None, correct_shift=True,
     if tmp != rfactor:
         raise ValueError("nnedi3_rpow2: rfactor must be a power of 2")
 
-    if 'com.deinterlace.nnedi3' not in plugins:
+    if hasattr(core, 'nnedi3') is not True:
         raise RuntimeError("nnedi3_rpow2: nnedi3 plugin is required")
+
     if correct_shift or clip.format.subsampling_h:
-        if 'fmtconv' not in plugins:
+        if hasattr(core, 'fmtc') is not True:
             raise RuntimeError("nnedi3_rpow2: fmtconv plugin is required")
 
     # Processing

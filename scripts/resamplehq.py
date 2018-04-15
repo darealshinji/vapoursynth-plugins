@@ -1,10 +1,11 @@
 import vapoursynth as vs
 
-__version__ = '1.99'
+__version__ = '2.0.0'
 
-def resamplehq(src, width=None, height=None, kernel='spline36',
-               matrix='709', tmatrix=None, src_left=0, src_top=0,
-               src_width=0, src_height=0, fulls=False, dither=True):
+
+def resample_hq(clip, width=None, height=None, kernel='spline36', matrix='709', transfer='709',
+                src_left=None, src_top=None, src_width=None, src_height=None, descale=False,
+                filter_param_a=None, filter_param_b=None, range_in=None, precision=1):
     """Gamma correct resizing in linear light (RGB).
 
     Args:
@@ -14,7 +15,7 @@ def resamplehq(src, width=None, height=None, kernel='spline36',
             Default is "spline36".
         matrix (string): The source matrix. Default is "709".
             Ignored if source colorspace is RGB.
-        tmatrix (string): The target matrix. Default is "matrix" value.
+        transfer (string): The transfer matrix. Default is "709".
         src_left (int): A sub‐pixel offset to crop the source from the left.
             Default 0.
         src_top (int): A sub‐pixel offset to crop the source from the top.
@@ -24,51 +25,105 @@ def resamplehq(src, width=None, height=None, kernel='spline36',
         src_height (int): A sub‐pixel height to crop the source to.
             If negative, specifies offset from the bottom.
             Default is source height − src_top.
-        fulls (bool): True if input clip is full range, False otherwise (default).
-        dither (bool): If True, the output is dithered to the source bitdepth
-             if this was lower thant 16. If false, the output will be kept at
-             the internal precision of 16 bits.
+        descale (bool): Activates the kernel inversion mode, allowing to “undo” a previous upsizing
+            by compensating the loss in high frequencies, giving a sharper and more accurate output
+            than classic kernels, closer to the original. Default is False.
+        filter_param_a (float): For the bicubic filter, filter_param_a represent the “b” parameter ,
+            for the lanczos filter, it represents the number of taps.
+        filter_param_b (float): For the bicubic filter, it represent the “c” parameter.
+        range_in (bool): Range of the input video, either "limited" or "full". Default is "limited".
+        precision (bool): 0 uses half float precision , 1 uses single float precision. Default is 1.
     """
     core = vs.get_core()
 
+    # Cheks
+
+    if kernel == 'point' and descale is True:
+        raise ValueError('Descale does not support point resizer.')
+
+    if not isinstance(descale, bool):
+        raise ValueError('"descale" must be True or False.')
+
+    if precision < 0 or precision > 1:
+        raise ValueError('"precision" must be either 0 (half) or 1 (single).')
+
     # Var stuff
 
-    clip = src
+    if descale is True:
+        precision = 1
 
-    if tmatrix is None:
-        tmatrix = matrix
+    kernel = kernel.lower().strip()
 
-    if src.format.bits_per_sample != 16:
-        clip = core.fmtc.bitdepth(clip=clip, bits=16)
+    if kernel == 'point':
+        scaler = core.resize.Point
+    elif kernel == 'linear' or kernel == 'bilinear':
+        if descale is False:
+            scaler = core.resize.Bilinear
+        else:
+            scaler = core.descale.Debilinear
+    elif kernel == 'cubic' or kernel == 'bicubic':
+        if descale is False:
+            scaler = core.resize.Bicubic
+        else:
+            scaler = core.descale.Debicubic
+    elif kernel == 'lanczos':
+        if descale is False:
+            scaler = core.resize.Lanczos
+        else:
+            scaler = core.descale.Delanczos
+    elif kernel == 'spline16':
+        if descale is False:
+            scaler = core.resize.Spline16
+        else:
+            scaler = core.descale.Despline16
+    elif kernel == 'spline36':
+        if descale is False:
+            scaler = core.resize.Spline36
+        else:
+            scaler = core.descale.Despline36
 
-    tid = clip.format.id
+    scaler_opts = dict(width=width, height=height)
 
-    # Convert to RGB
+    if descale is True:
+        scaler_opts.update(src_top=src_top, src_left=src_left)
+        if kernel == 'cubic' or kernel == 'bicubic':
+            scaler_opts.update(b=filter_param_a, c=filter_param_b)
+        elif kernel == 'lanczos':
+            scaler_opts.update(taps=filter_param_a)
+    else:
+        scaler_opts.update(src_left=src_left, src_top=src_top,
+                           src_width=src_width, src_height=src_height,
+                           filter_param_a=filter_param_a, filter_param_b=filter_param_b)
 
-    if src.format.color_family != vs.RGB:
-        clip = core.fmtc.resample(clip=clip, css='444')
-        clip = core.fmtc.matrix(clip=clip, mat=matrix,
-                                fulls=fulls, col_fam=vs.RGB)
+    if range_in is None:
+        if clip.format.color_family == vs.RGB:
+            range_in = 'full'
+        else:
+            range_in = 'limited'
+
+    orig_format = clip.format.id
+
+    if precision == 1:
+        tmp_format = vs.RGBS
+    else:
+        tmp_format = vs.RGBH
+
+    to_tmp_format_opts = dict(format=tmp_format, transfer_in_s=transfer, transfer_s='linear',
+                              range_in_s=range_in, range_s='full')
+
+    to_orig_format_opts = dict(format=orig_format, transfer_in_s='linear', transfer_s=transfer,
+                               range_in_s='full', range_s=range_in)
+
+    if clip.format.color_family != vs.RGB:
+        to_tmp_format_opts.update(matrix_in_s=matrix)
+        to_orig_format_opts.update(matrix_s=matrix)
 
     # Do stuff
 
-    clip = core.fmtc.transfer(clip, transs=tmatrix, transd='linear')
+    clip = core.resize.Bicubic(clip, **to_tmp_format_opts)
 
-    clip = core.fmtc.resample(clip, w=width, h=height, kernel=kernel,
-                              sx=src_left, sy=src_top, sw=src_width, sh=src_height)
+    clip = scaler(clip, **scaler_opts)
 
-    clip = core.fmtc.transfer(clip, transs='linear', transd=tmatrix)
-
-    # Back to original format
-
-    if src.format.color_family != vs.RGB:
-        clip = core.fmtc.matrix(clip=clip, mat=matrix, fulld=fulls,
-                                col_fam=src.format.color_family)
-        clip = core.fmtc.resample(clip=clip, csp=tid)
-
-    # Dither as needed
-
-    if dither is True and src.format.bits_per_sample != clip.format.bits_per_sample:
-        clip = core.fmtc.bitdepth(clip=clip, bits=src.format.bits_per_sample)
+    clip = core.resize.Bicubic(clip, **to_orig_format_opts)
 
     return clip

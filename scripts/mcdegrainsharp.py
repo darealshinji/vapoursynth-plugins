@@ -1,6 +1,11 @@
 import vapoursynth as vs
 
-__version__ = '1.99'
+
+def _sharpen(clip, strength, planes):
+    core = vs.get_core()
+    blur = core.tcanny.TCanny(clip, sigma=strength, mode=-1, planes=planes)
+    return core.std.Expr([clip, blur], "x x + y -")
+
 
 def mcdegrainsharp(clip, frames=2, bblur=0.3, csharp=0.3, bsrch=True,
                    thsad=400, plane=4):
@@ -27,7 +32,7 @@ def mcdegrainsharp(clip, frames=2, bblur=0.3, csharp=0.3, bsrch=True,
             Low values can result in staggered denoising,
             large values can result in ghosting and artefacts.
         plane (int): Sets processed color plane:
-                0 - luma, 1 - chroma U, 2 - chroma V, 3 - both chromas, 4 - all.
+            0 - luma, 1 - chroma U, 2 - chroma V, 3 - both chromas, 4 - all.
     """
     core = vs.get_core()
 
@@ -45,12 +50,12 @@ def mcdegrainsharp(clip, frames=2, bblur=0.3, csharp=0.3, bsrch=True,
     elif plane == 4:
         planes = [0, 1, 2]
     else:
-        planes = [plane]
+        planes = plane
 
-        clip2 = core.tcanny.TCanny(clip, sigma=bblur, mode=-1, planes=planes)
+    c2 = core.tcanny.TCanny(clip, sigma=bblur, mode=-1, planes=planes)
 
     if bsrch is True:
-        super_a = core.mv.Super(clip2, pel=2, sharp=1)
+        super_a = core.mv.Super(c2, pel=2, sharp=1)
     else:
         super_a = core.mv.Super(clip, pel=2, sharp=1)
 
@@ -71,16 +76,16 @@ def mcdegrainsharp(clip, frames=2, bblur=0.3, csharp=0.3, bsrch=True,
                             overlap=blksize//2, blksize=blksize)
 
     if frames == 1:
-        last = core.mv.Degrain1(clip=clip2, super=super_rend,
+        last = core.mv.Degrain1(clip=c2, super=super_rend,
                                 mvbw=mvbw1, mvfw=mvfw1, thsad=thsad,
                                 plane=plane)
     elif frames == 2:
-        last = core.mv.Degrain2(clip=clip2, super=super_rend,
+        last = core.mv.Degrain2(clip=c2, super=super_rend,
                                 mvbw=mvbw1, mvfw=mvfw1,
                                 mvbw2=mvbw2, mvfw2=mvfw2,
                                 thsad=thsad, plane=plane)
     elif frames == 3:
-        last = core.mv.Degrain3(clip=clip2, super=super_rend,
+        last = core.mv.Degrain3(clip=c2, super=super_rend,
                                 mvbw=mvbw1, mvfw=mvfw1, mvbw2=mvbw2,
                                 mvfw2=mvfw2, mvbw3=mvbw3, mvfw3=mvfw3,
                                 thsad=thsad, plane=plane)
@@ -88,10 +93,3 @@ def mcdegrainsharp(clip, frames=2, bblur=0.3, csharp=0.3, bsrch=True,
         raise ValueError('"frames" must be 1, 2 or 3.')
 
     return last
-
-
-
-def _sharpen(clip, strength, planes):
-    core = vs.get_core()
-    blur = core.tcanny.TCanny(clip, sigma=strength, mode=-1, planes=planes)
-    return core.std.Expr([clip, blur], "x x + y -")

@@ -1,4 +1,4 @@
-# vsTAAmbk 0.7.3
+# vsTAAmbk 0.7.5
 An Anti-aliasing script ported from Avisynth  
 For more details NMM-HD：https://www.nmm-hd.org/newbbs/viewtopic.php?f=23&t=1666
 
@@ -7,13 +7,15 @@ For more details NMM-HD：https://www.nmm-hd.org/newbbs/viewtopic.php?f=23&t=166
 VapourSynth R28 or newer
 
 #### Plugins:
-* [EEDI2](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-EEDI2)
-* [nnedi3](https://github.com/dubhater/vapoursynth-nnedi3)
-* [fmtconv](https://github.com/EleonoreMizo/fmtconv)
-* [MVTools](https://github.com/dubhater/vapoursynth-mvtools)
+* [EEDI2](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-EEDI2)						
+* [nnedi3](https://github.com/dubhater/vapoursynth-nnedi3)								
+* [fmtconv](https://github.com/EleonoreMizo/fmtconv)													
+* [MVTools](https://github.com/dubhater/vapoursynth-mvtools)							
 * [SangNom](https://bitbucket.org/James1201/vapoursynth-sangnom/overview)
 * [TCanny](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-TCanny)
-* [eedi3m (optional)](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-EEDI3github)
+* [eedi3m (optional)](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-EEDI3)
+* [nnedi3cl (optional)](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-NNEDI3CL)
+* [znedi3 (optional)](https://github.com/sekrit-twc/znedi3)
 
 #### Script:
 * [havsfunc](https://github.com/HomeOfVapourSynthEvolution/havsfunc) r22 or newer (and its requirements)
@@ -59,7 +61,7 @@ For more details please visit our threads in NMM-HD Forum.
     * 1: Vertical
     * 2: Horizontal
     * -1: Both
-    
+
     Perform a preaa before applying main AA kernel.<br />
 	Preaa is basically a simplified version of daa.<br />
 	Pretty useful for dealing with residual comb caused by poor deinterlace.<br />
@@ -75,7 +77,7 @@ For more details please visit our threads in NMM-HD Forum.
     * 1: Canny mask
     * 2: Sobel mask
     * 3: Prewitt mask
-    
+
 	Mask always be built under 8bit scale.<br />
 
 * *mclip*: (Default: None)<br />
@@ -116,7 +118,7 @@ For more details please visit our threads in NMM-HD Forum.
     * 0~1: Simlar to Avisynth's sharpen()
     * -1~0: LSFmod(defaults='fast')
     * -1: Contra-Sharpen
-    
+
     Whatever type of sharpen, larger absolute value of sharp means larger strength of sharpen.<br />
 
 * *aarepair*: (Default: 0)<br />
@@ -127,7 +129,7 @@ For more details please visit our threads in NMM-HD Forum.
 
 * *postaa*: (Default: False)<br />
     Whether use soothe to counter the aliasing introduced by sharpening.<br />
-	
+
 * *src*: (Default: clip)<br />
     Use your own src clip for sharp, repair, mask merge, etc.<br />
 
@@ -150,7 +152,7 @@ For more details please visit our threads in NMM-HD Forum.
     * TCannyCL
     * EEDI3CL
     <br />
-    
+
 * *opencl_device*: (Default: 0)<br />
     Select an opencl device.<br />
 

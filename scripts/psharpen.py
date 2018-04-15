@@ -1,92 +1,86 @@
 import vapoursynth as vs
 
-__version__ = '1.99'
 
-def psharpen(clip, strength=25, threshold=75, ss_w=1.0, ss_h=1.0,
-             d_width=None, d_height=None):
+def _clamp(minimum, x, maximum):
+    return int(max(minimum, min(round(x), maximum)))
+
+
+def _m4(x, m=4.0):
+    return 16 if x < 16 else int(round(x / m) * m)
+
+
+def psharpen(clip, strength=25, threshold=75, ss_x=1.0, ss_y=1.0,
+             dest_x=None, dest_y=None):
     """From http://forum.doom9.org/showpost.php?p=683344&postcount=28
 
-    Sharpening function similar to LimitedSharpenFaster.
+    Sharpeing function similar to LimitedSharpenFaster.
 
     Args:
-        clip (clip): Input clip.
         strength (int): Strength of the sharpening.
         threshold (int): Controls "how much" to be sharpened.
-        ss_w (float): Supersampling factor (reduce aliasing on edges).
-        ss_h (float): Supersampling factor (reduce aliasing on edges).
-        d_width (int): Output resolution after sharpening.
-        d_height (int): Output resolution after sharpening.
+        ss_x (float): Supersampling factor (reduce aliasing on edges).
+        ss_y (float): Supersampling factor (reduce aliasing on edges).
+        dest_x (int): Output resolution after sharpening.
+        dest_y (int): Output resolution after sharpening.
     """
     core = vs.get_core()
 
-    src = clip
+    ox = clip.width
+    oy = clip.height
 
-    if d_width is None:
-        d_width = src.width
-    if d_height is None:
-        d_height = src.height
+    bd = clip.format.bits_per_sample
+    max_ = 2 ** bd - 1
+    scl = (max_ + 1) // 256
+    x = 'x {} /'.format(scl) if bd != 8 else 'x'
+    y = 'y {} /'.format(scl) if bd != 8 else 'y'
 
-    strength = _clamp(0, strength, 100) / 100.0
-    threshold = _clamp(0, threshold, 100) / 100.0
+    if dest_x is None:
+        dest_x = ox
+    if dest_y is None:
+        dest_y = oy
 
-    if ss_w < 1.0:
-        ss_w = 1.0
-    if ss_h < 1.0:
-        ss_h = 1.0
+    strength = _clamp(0, strength, 100)
+    threshold = _clamp(0, threshold, 100)
 
-    if ss_w != 1.0 or ss_h != 1.0:
-        clip = core.resize.Lanczos(clip, width=_m4(src.width*ss_w), height=_m4(src.height*ss_h))
+    if ss_x < 1.0:
+        ss_x = 1.0
+    if ss_y < 1.0:
+        ss_y = 1.0
 
-    if src.format.num_planes != 1:
+    if ss_x != 1.0 or ss_y != 1.0:
+        clip = core.resize.Lanczos(clip, width=_m4(ox*ss_x), height=_m4(oy*ss_y))
+
+    orig = clip
+
+    if orig.format.num_planes != 1:
         clip = core.std.ShufflePlanes(clips=clip, planes=[0],
                                       colorfamily=vs.GRAY)
+    val = clip
 
     max_ = core.std.Maximum(clip)
     min_ = core.std.Minimum(clip)
 
     nmax = core.std.Expr([max_, min_], ['x y -'])
-    nval = core.std.Expr([clip, min_], ['x y -'])
+    nval = core.std.Expr([val, min_], ['x y -'])
 
-    expr0 = threshold * (1.0 - strength) / (1.0 - (1.0 - threshold) * (1.0 - strength))
+    s = strength/100.0
+    t = threshold/100.0
+    x0 = t * (1.0 - s) / (1.0 - (1.0 - t) * (1.0 - s))
 
-    expr = ('{x} {y} / 2 * 1 - abs {expr0} < {strength} 1 = {x} {y} 2 / = 0 {y} 2 / ? '
-            '{x} {y} / 2 * 1 - abs 1 {strength} - / ? {x} {y} / 2 * 1 - abs 1 {threshold} - '
-            '* {threshold} + ? {x} {y} 2 / > 1 -1 ? * 1 + {y} * 2 / {scl} *').format(
-                x=_interop(clip)[0],
-                y=_interop(clip)[1],
-                scl=_interop(clip)[2],
-                expr0=expr0,
-                threshold=threshold,
-                strength=strength)
+    expr = ('{x} {y} / 2 * 1 - abs {x0} < {s} 1 = {x} {y} 2 / = 0 {y} 2 / ? '
+            '{x} {y} / 2 * 1 - abs 1 {s} - / ? {x} {y} / 2 * 1 - abs 1 {t} - '
+            '* {t} + ? {x} {y} 2 / > 1 -1 ? * 1 + {y} * 2 / {scl} *').format(
+                x=x, y=y, x0=x0, t=t, s=s, scl=scl)
 
     nval = core.std.Expr([nval, nmax], [expr])
 
-    clip = core.std.Expr([nval, min_], ['x y +'])
+    val = core.std.Expr([nval, min_], ['x y +'])
 
-    if src.format.num_planes != 1:
-        clip = core.std.ShufflePlanes(clips=[clip, src], planes=[0, 1, 2],
-                                      colorfamily=src.format.color_family)
+    if orig.format.num_planes != 1:
+        clip = core.std.ShufflePlanes(clips=[val, orig], planes=[0, 1, 2],
+                                      colorfamily=orig.format.color_family)
 
-    if ss_w != 1.0 or ss_h != 1.0 or d_width != src.width or d_height != src.height:
-        clip = core.resize.Lanczos(clip, width=d_width, height=d_height)
+    if ss_x != 1.0 or ss_y != 1.0 or dest_x != ox or dest_y != oy:
+        clip = core.resize.Lanczos(clip, width=dest_x, height=dest_y)
 
     return clip
-
-
-
-def _interop(clip):
-    bits = clip.format.bits_per_sample
-    scl = (1 << bits) // 256
-
-    x_val = 'x {} /'.format(scl) if bits != 8 else 'x'
-    y_val = 'y {} /'.format(scl) if bits != 8 else 'y'
-
-    return [x_val, y_val, scl]
-
-
-def _clamp(minimum, value, maximum):
-    return int(max(minimum, min(round(value), maximum)))
-
-
-def _m4(value, mult=4.0):
-    return 16 if value < 16 else int(round(value / mult) * mult)
