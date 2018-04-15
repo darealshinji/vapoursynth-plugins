@@ -108,11 +108,6 @@ void lsmash_log_refresh_line
     const void *class
 );
 
-uint32_t lsmash_count_bits
-(
-    uint32_t bits
-);
-
 void lsmash_ifprintf
 (
     FILE       *fp,
@@ -120,10 +115,44 @@ void lsmash_ifprintf
     const char *format, ...
 );
 
-int lsmash_ceil_log2
+static inline uint32_t lsmash_count_bits
+(
+    uint32_t bits
+)
+{
+    bits = (bits & 0x55555555) + ((bits >>  1) & 0x55555555);
+    bits = (bits & 0x33333333) + ((bits >>  2) & 0x33333333);
+    bits = (bits & 0x0f0f0f0f) + ((bits >>  4) & 0x0f0f0f0f);
+    bits = (bits & 0x00ff00ff) + ((bits >>  8) & 0x00ff00ff);
+    return (bits & 0x0000ffff) + ((bits >> 16) & 0x0000ffff);
+}
+
+static inline size_t lsmash_floor_log2
 (
     uint64_t value
-);
+)
+{
+    assert( value >= 1 );
+#if defined(__GNUC__) && (__GNUC__ >= 4 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 4))  /* GCC >= 3.4 */
+    return (sizeof(uint64_t) - 1) - __builtin_clzll( value );
+#else
+    size_t s = 0;
+    while( value )
+    {
+        value >>= 1;
+        ++s;
+    }
+    return s - 1;
+#endif
+}
+
+static inline size_t lsmash_ceil_log2
+(
+    uint64_t value
+)
+{
+    return lsmash_floor_log2( value ) + ((value & (value - 1)) != 0);
+}
 
 int lsmash_compare_dts
 (

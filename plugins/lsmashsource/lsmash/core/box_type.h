@@ -188,6 +188,13 @@ DEFINE_BOX_TYPE( ISOM_BOX_TYPE_STSL, LSMASH_4CC( 's', 't', 's', 'l' ), ISO );
 
 DEFINE_BOX_TYPE( ISOM_BOX_TYPE_FTAB, LSMASH_4CC( 'f', 't', 'a', 'b' ), ISO );
 
+DEFINE_BOX_TYPE( ISOM_BOX_TYPE_HNTI, LSMASH_4CC( 'h', 'n', 't', 'i' ), ISO );
+DEFINE_BOX_TYPE( ISOM_BOX_TYPE_RTP , LSMASH_4CC( 'r', 't', 'p', ' ' ), ISO );
+DEFINE_BOX_TYPE( ISOM_BOX_TYPE_SDP , LSMASH_4CC( 's', 'd', 'p', ' ' ), ISO );
+DEFINE_BOX_TYPE( ISOM_BOX_TYPE_TIMS, LSMASH_4CC( 't', 'i', 'm', 's' ), ISO );
+DEFINE_BOX_TYPE( ISOM_BOX_TYPE_TSRO, LSMASH_4CC( 't', 's', 'r', 'o' ), ISO );
+DEFINE_BOX_TYPE( ISOM_BOX_TYPE_TSSY, LSMASH_4CC( 't', 's', 's', 'y' ), ISO );
+
 /* iTunes Metadata */
 DEFINE_BOX_TYPE( ISOM_BOX_TYPE_DATA, LSMASH_4CC( 'd', 'a', 't', 'a' ), ISO );
 DEFINE_BOX_TYPE( ISOM_BOX_TYPE_ILST, LSMASH_4CC( 'i', 'l', 's', 't' ), ISO );
@@ -212,6 +219,7 @@ DEFINE_BOX_TYPE( ISOM_BOX_TYPE_WFEX, LSMASH_4CC( 'w', 'f', 'e', 'x' ), ISO );
 DEFINE_BOX_TYPE( QT_BOX_TYPE_ALLF, LSMASH_4CC( 'A', 'l', 'l', 'F' ), QTFF );
 DEFINE_BOX_TYPE( QT_BOX_TYPE_CLEF, LSMASH_4CC( 'c', 'l', 'e', 'f' ), QTFF );
 DEFINE_BOX_TYPE( QT_BOX_TYPE_CLIP, LSMASH_4CC( 'c', 'l', 'i', 'p' ), QTFF );
+DEFINE_BOX_TYPE( QT_BOX_TYPE_CLLI, LSMASH_4CC( 'c', 'l', 'l', 'i' ), QTFF );
 DEFINE_BOX_TYPE( QT_BOX_TYPE_CRGN, LSMASH_4CC( 'c', 'r', 'g', 'n' ), QTFF );
 DEFINE_BOX_TYPE( QT_BOX_TYPE_CTAB, LSMASH_4CC( 'c', 't', 'a', 'b' ), QTFF );
 DEFINE_BOX_TYPE( QT_BOX_TYPE_ENOF, LSMASH_4CC( 'e', 'n', 'o', 'f' ), QTFF );
@@ -224,6 +232,7 @@ DEFINE_BOX_TYPE( QT_BOX_TYPE_KMAT, LSMASH_4CC( 'k', 'm', 'a', 't' ), QTFF );
 DEFINE_BOX_TYPE( QT_BOX_TYPE_LOAD, LSMASH_4CC( 'l', 'o', 'a', 'd' ), QTFF );
 DEFINE_BOX_TYPE( QT_BOX_TYPE_LOOP, LSMASH_4CC( 'L', 'O', 'O', 'P' ), QTFF );
 DEFINE_BOX_TYPE( QT_BOX_TYPE_MATT, LSMASH_4CC( 'm', 'a', 't', 't' ), QTFF );
+DEFINE_BOX_TYPE( QT_BOX_TYPE_MDCV, LSMASH_4CC( 'm', 'd', 'c', 'v' ), QTFF );
 DEFINE_BOX_TYPE( QT_BOX_TYPE_META, LSMASH_4CC( 'm', 'e', 't', 'a' ), QTFF );
 DEFINE_BOX_TYPE( QT_BOX_TYPE_PNOT, LSMASH_4CC( 'p', 'n', 'o', 't' ), QTFF );
 DEFINE_BOX_TYPE( QT_BOX_TYPE_PROF, LSMASH_4CC( 'p', 'r', 'o', 'f' ), QTFF );

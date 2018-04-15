@@ -2,11 +2,12 @@ include ../../config.mak
 
 LIBNAME = lsmashsource
 
-local_CFLAGS = -std=c99 \
+local_CFLAGS = \
 	-I./libs/include \
 	-I../../ffmpeg_libs/include \
 	-Wno-sign-compare \
-	-Wno-missing-field-initializers
+	-Wno-missing-field-initializers \
+	-Wno-deprecated-declarations
 
 LIBADD = libs/lib/liblsmash.a \
 	-L../../ffmpeg_libs/lib \

@@ -21,7 +21,6 @@
 /* This file is available under an ISC license. */
 
 #include "../common/video_output.h"
-#include "../common/deprecated_enums.h"
 
 typedef int component_reorder_t;
 

@@ -1,7 +1,7 @@
 /*****************************************************************************
- * print.h
+ * libavsmash_audio_internal.h
  *****************************************************************************
- * Copyright (C) 2010-2017 L-SMASH project
+ * Copyright (C) 2012-2015 L-SMASH Works project
  *
  * Authors: Yusuke Nakamura <muken.the.vfrmaniac@gmail.com>
  *
@@ -20,11 +20,19 @@
 
 /* This file is available under an ISC license. */
 
-#ifndef LSMASH_PRINT_H
-#define LSMASH_PRINT_H
-
-int isom_add_print_func( lsmash_file_t *file, void *box, int level );
-void isom_printer_destory_list( lsmash_file_t *file );
-lsmash_entry_list_t *isom_printer_create_list( void );
-
-#endif /* LSMASH_PRINT_H */
+struct libavsmash_audio_decode_handler_tag
+{
+    lsmash_root_t        *root;
+    uint32_t              track_id;
+    codec_configuration_t config;
+    AVFrame              *frame_buffer;
+    AVPacket              packet;
+    uint64_t              pcm_sample_count;
+    uint64_t              next_pcm_sample_number;
+    uint32_t              last_frame_number;
+    uint32_t              frame_count;
+    int                   implicit_preroll;
+    uint32_t              media_timescale;
+    uint64_t              media_duration;   /* unused */
+    uint64_t              min_cts;
+};

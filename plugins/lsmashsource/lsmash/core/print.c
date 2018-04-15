@@ -141,15 +141,15 @@ static void isom_ifprintf_sample_flags( FILE *fp, int indent, char *field_name, 
                   | (flags->sample_is_non_sync_sample << 16)
                   |  flags->sample_degradation_priority;
     lsmash_ifprintf( fp, indent++, "%s = 0x%08"PRIx32"\n", field_name, temp );
-    if     ( flags->is_leading & ISOM_SAMPLE_IS_UNDECODABLE_LEADING       ) lsmash_ifprintf( fp, indent, "undecodable leading\n" );
-    else if( flags->is_leading & ISOM_SAMPLE_IS_NOT_LEADING               ) lsmash_ifprintf( fp, indent, "non-leading\n" );
-    else if( flags->is_leading & ISOM_SAMPLE_IS_DECODABLE_LEADING         ) lsmash_ifprintf( fp, indent, "decodable leading\n" );
-    if     ( flags->sample_depends_on & ISOM_SAMPLE_IS_INDEPENDENT        ) lsmash_ifprintf( fp, indent, "independent\n" );
-    else if( flags->sample_depends_on & ISOM_SAMPLE_IS_NOT_INDEPENDENT    ) lsmash_ifprintf( fp, indent, "dependent\n" );
-    if     ( flags->sample_is_depended_on & ISOM_SAMPLE_IS_NOT_DISPOSABLE ) lsmash_ifprintf( fp, indent, "non-disposable\n" );
-    else if( flags->sample_is_depended_on & ISOM_SAMPLE_IS_DISPOSABLE     ) lsmash_ifprintf( fp, indent, "disposable\n" );
-    if     ( flags->sample_has_redundancy & ISOM_SAMPLE_HAS_REDUNDANCY    ) lsmash_ifprintf( fp, indent, "redundant\n" );
-    else if( flags->sample_has_redundancy & ISOM_SAMPLE_HAS_NO_REDUNDANCY ) lsmash_ifprintf( fp, indent, "non-redundant\n" );
+    if     ( flags->is_leading == ISOM_SAMPLE_IS_UNDECODABLE_LEADING       ) lsmash_ifprintf( fp, indent, "undecodable leading\n" );
+    else if( flags->is_leading == ISOM_SAMPLE_IS_NOT_LEADING               ) lsmash_ifprintf( fp, indent, "non-leading\n" );
+    else if( flags->is_leading == ISOM_SAMPLE_IS_DECODABLE_LEADING         ) lsmash_ifprintf( fp, indent, "decodable leading\n" );
+    if     ( flags->sample_depends_on == ISOM_SAMPLE_IS_INDEPENDENT        ) lsmash_ifprintf( fp, indent, "independent\n" );
+    else if( flags->sample_depends_on == ISOM_SAMPLE_IS_NOT_INDEPENDENT    ) lsmash_ifprintf( fp, indent, "dependent\n" );
+    if     ( flags->sample_is_depended_on == ISOM_SAMPLE_IS_NOT_DISPOSABLE ) lsmash_ifprintf( fp, indent, "non-disposable\n" );
+    else if( flags->sample_is_depended_on == ISOM_SAMPLE_IS_DISPOSABLE     ) lsmash_ifprintf( fp, indent, "disposable\n" );
+    if     ( flags->sample_has_redundancy == ISOM_SAMPLE_HAS_REDUNDANCY    ) lsmash_ifprintf( fp, indent, "redundant\n" );
+    else if( flags->sample_has_redundancy == ISOM_SAMPLE_HAS_NO_REDUNDANCY ) lsmash_ifprintf( fp, indent, "non-redundant\n" );
     if( flags->sample_padding_value )
         lsmash_ifprintf( fp, indent, "padding_bits = %"PRIu8"\n", flags->sample_padding_value );
     lsmash_ifprintf( fp, indent, flags->sample_is_non_sync_sample ? "non-sync sample\n" : "sync sample\n" );
@@ -984,6 +984,32 @@ static int isom_print_fiel( FILE *fp, lsmash_file_t *file, isom_box_t *box, int 
     return 0;
 }
 
+static int isom_print_clli( FILE *fp, lsmash_file_t *file, isom_box_t *box, int level ) {
+    isom_clli_t *clli = (isom_clli_t *)box;
+    int indent = level;
+    isom_print_box_common( fp, indent++, box, "Content Light Level Box" );
+    lsmash_ifprintf( fp, indent, "max_content_light_level = %"PRIu16"\n", clli->max_content_light_level );
+    lsmash_ifprintf( fp, indent, "max_pic_average_light_level = %"PRIu16"\n", clli->max_pic_average_light_level );
+    return 0;
+}
+
+static int isom_print_mdcv( FILE *fp, lsmash_file_t *file, isom_box_t *box, int level ) {
+    isom_mdcv_t *mdcv = (isom_mdcv_t *)box;
+    int indent = level;
+    isom_print_box_common( fp, indent++, box, "Mastering Display Color Volume Box" );
+    lsmash_ifprintf( fp, indent, "display_primaries_g_x = %"PRIu16"\n", mdcv->display_primaries_g_x );
+    lsmash_ifprintf( fp, indent, "display_primaries_g_y = %"PRIu16"\n", mdcv->display_primaries_g_y );
+    lsmash_ifprintf( fp, indent, "display_primaries_b_x = %"PRIu16"\n", mdcv->display_primaries_b_x );
+    lsmash_ifprintf( fp, indent, "display_primaries_b_y = %"PRIu16"\n", mdcv->display_primaries_b_y );
+    lsmash_ifprintf( fp, indent, "display_primaries_r_x = %"PRIu16"\n", mdcv->display_primaries_r_x );
+    lsmash_ifprintf( fp, indent, "display_primaries_r_y = %"PRIu16"\n", mdcv->display_primaries_r_y );
+    lsmash_ifprintf( fp, indent, "white_point_x = %"PRIu16"\n", mdcv->white_point_x );
+    lsmash_ifprintf( fp, indent, "white_point_y = %"PRIu16"\n", mdcv->white_point_y );
+    lsmash_ifprintf( fp, indent, "max_display_mastering_luminance = %"PRIu32"\n", mdcv->max_display_mastering_luminance );
+    lsmash_ifprintf( fp, indent, "min_display_mastering_luminance = %"PRIu32"\n", mdcv->min_display_mastering_luminance );
+    return 0;
+}
+
 static int isom_print_cspc( FILE *fp, lsmash_file_t *file, isom_box_t *box, int level )
 {
     isom_cspc_t *cspc = (isom_cspc_t *)box;
@@ -1318,6 +1344,8 @@ static int isom_print_sample_description_extesion( FILE *fp, lsmash_file_t *file
         ADD_PRINT_DESCRIPTION_EXTENSION_TABLE_ELEMENT(   QT_BOX_TYPE_COLR, isom_print_colr );
         ADD_PRINT_DESCRIPTION_EXTENSION_TABLE_ELEMENT(   QT_BOX_TYPE_GAMA, isom_print_gama );
         ADD_PRINT_DESCRIPTION_EXTENSION_TABLE_ELEMENT(   QT_BOX_TYPE_FIEL, isom_print_fiel );
+        ADD_PRINT_DESCRIPTION_EXTENSION_TABLE_ELEMENT(   QT_BOX_TYPE_CLLI, isom_print_clli );
+        ADD_PRINT_DESCRIPTION_EXTENSION_TABLE_ELEMENT(   QT_BOX_TYPE_MDCV, isom_print_mdcv );
         ADD_PRINT_DESCRIPTION_EXTENSION_TABLE_ELEMENT(   QT_BOX_TYPE_CSPC, isom_print_cspc );
         ADD_PRINT_DESCRIPTION_EXTENSION_TABLE_ELEMENT(   QT_BOX_TYPE_SGBT, isom_print_sgbt );
         ADD_PRINT_DESCRIPTION_EXTENSION_TABLE_ELEMENT(   QT_BOX_TYPE_CTAB, isom_print_ctab );
@@ -1465,26 +1493,26 @@ static int isom_print_sdtp( FILE *fp, lsmash_file_t *file, isom_box_t *box, int 
         {
             if( file->avc_extensions )
             {
-                if( data->is_leading & ISOM_SAMPLE_IS_UNDECODABLE_LEADING )
+                if( data->is_leading == ISOM_SAMPLE_IS_UNDECODABLE_LEADING )
                     lsmash_ifprintf( fp, indent, "undecodable leading\n" );
-                else if( data->is_leading & ISOM_SAMPLE_IS_NOT_LEADING )
+                else if( data->is_leading == ISOM_SAMPLE_IS_NOT_LEADING )
                     lsmash_ifprintf( fp, indent, "non-leading\n" );
-                else if( data->is_leading & ISOM_SAMPLE_IS_DECODABLE_LEADING )
+                else if( data->is_leading == ISOM_SAMPLE_IS_DECODABLE_LEADING )
                     lsmash_ifprintf( fp, indent, "decodable leading\n" );
             }
-            else if( data->is_leading & QT_SAMPLE_EARLIER_PTS_ALLOWED )
+            else if( data->is_leading == QT_SAMPLE_EARLIER_PTS_ALLOWED )
                 lsmash_ifprintf( fp, indent, "early display times allowed\n" );
-            if( data->sample_depends_on & ISOM_SAMPLE_IS_INDEPENDENT )
+            if( data->sample_depends_on == ISOM_SAMPLE_IS_INDEPENDENT )
                 lsmash_ifprintf( fp, indent, "independent\n" );
-            else if( data->sample_depends_on & ISOM_SAMPLE_IS_NOT_INDEPENDENT )
+            else if( data->sample_depends_on == ISOM_SAMPLE_IS_NOT_INDEPENDENT )
                 lsmash_ifprintf( fp, indent, "dependent\n" );
-            if( data->sample_is_depended_on & ISOM_SAMPLE_IS_NOT_DISPOSABLE )
+            if( data->sample_is_depended_on == ISOM_SAMPLE_IS_NOT_DISPOSABLE )
                 lsmash_ifprintf( fp, indent, "non-disposable\n" );
-            else if( data->sample_is_depended_on & ISOM_SAMPLE_IS_DISPOSABLE )
+            else if( data->sample_is_depended_on == ISOM_SAMPLE_IS_DISPOSABLE )
                 lsmash_ifprintf( fp, indent, "disposable\n" );
-            if( data->sample_has_redundancy & ISOM_SAMPLE_HAS_REDUNDANCY )
+            if( data->sample_has_redundancy == ISOM_SAMPLE_HAS_REDUNDANCY )
                 lsmash_ifprintf( fp, indent, "redundant\n" );
-            else if( data->sample_has_redundancy & ISOM_SAMPLE_HAS_NO_REDUNDANCY )
+            else if( data->sample_has_redundancy == ISOM_SAMPLE_HAS_NO_REDUNDANCY )
                 lsmash_ifprintf( fp, indent, "non-redundant\n" );
         }
         else
@@ -2485,6 +2513,8 @@ static isom_print_box_t isom_select_print_func( isom_box_t *box )
         ADD_PRINT_BOX_TABLE_ELEMENT(   QT_BOX_TYPE_GLBL, isom_print_glbl );
         ADD_PRINT_BOX_TABLE_ELEMENT(   QT_BOX_TYPE_GAMA, isom_print_gama );
         ADD_PRINT_BOX_TABLE_ELEMENT(   QT_BOX_TYPE_FIEL, isom_print_fiel );
+        ADD_PRINT_BOX_TABLE_ELEMENT(   QT_BOX_TYPE_CLLI, isom_print_clli );
+        ADD_PRINT_BOX_TABLE_ELEMENT(   QT_BOX_TYPE_MDCV, isom_print_mdcv );
         ADD_PRINT_BOX_TABLE_ELEMENT(   QT_BOX_TYPE_CSPC, isom_print_cspc );
         ADD_PRINT_BOX_TABLE_ELEMENT(   QT_BOX_TYPE_SGBT, isom_print_sgbt );
         ADD_PRINT_BOX_TABLE_ELEMENT( ISOM_BOX_TYPE_STSL, isom_print_stsl );
@@ -2564,7 +2594,7 @@ int isom_add_print_func( lsmash_file_t *file, void *box, int level )
     data->box   = (isom_box_t *)box;
     data->func  = isom_select_print_func( (isom_box_t *)box );
     assert( data->func );
-    if( lsmash_add_entry( file->print, data ) < 0 )
+    if( lsmash_list_add_entry( file->print, data ) < 0 )
     {
         isom_print_remove_plastic_box( data->box );
         lsmash_free( data );
@@ -2581,8 +2611,13 @@ static void isom_remove_print_func( isom_print_entry_t *data )
     lsmash_free( data );
 }
 
-void isom_remove_print_funcs( lsmash_file_t *file )
+void isom_printer_destory_list( lsmash_file_t *file )
 {
-    lsmash_remove_list( file->print, isom_remove_print_func );
+    lsmash_list_destroy( file->print );
     file->print = NULL;
+}
+
+lsmash_entry_list_t *isom_printer_create_list( void )
+{
+    return lsmash_list_create( isom_remove_print_func );
 }

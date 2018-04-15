@@ -60,7 +60,7 @@ void isom_remove_dcr_ps
 }
 
 /* Convert EBSP (Encapsulated Byte Sequence Packets) to RBSP (Raw Byte Sequence Packets). */
-uint8_t *nalu_remove_emulation_prevention
+static uint8_t *nalu_remove_emulation_prevention
 (
     uint8_t *src,
     uint64_t src_length,
@@ -85,14 +85,17 @@ int nalu_import_rbsp_from_ebsp
 (
     lsmash_bits_t *bits,
     uint8_t       *rbsp_buffer,
+    uint64_t      *rbsp_size,
     uint8_t       *ebsp,
     uint64_t       ebsp_size
 )
 {
-    uint8_t *rbsp_start  = rbsp_buffer;
-    uint8_t *rbsp_end    = nalu_remove_emulation_prevention( ebsp, ebsp_size, rbsp_buffer );
-    uint64_t rbsp_length = rbsp_end - rbsp_start;
-    return lsmash_bits_import_data( bits, rbsp_start, rbsp_length );
+    uint8_t *rbsp_start = rbsp_buffer;
+    uint8_t *rbsp_end   = nalu_remove_emulation_prevention( ebsp, ebsp_size, rbsp_buffer );
+    *rbsp_size = (uint64_t)(rbsp_end - rbsp_start);
+    if( *rbsp_size > ebsp_size )
+        return LSMASH_ERR_INVALID_DATA;
+    return lsmash_bits_import_data( bits, rbsp_start, *rbsp_size );
 }
 
 int nalu_check_more_rbsp_data
@@ -189,7 +192,7 @@ int nalu_get_dcr_ps
         isom_dcr_ps_entry_t *data = lsmash_malloc( sizeof(isom_dcr_ps_entry_t) );
         if( !data )
             return LSMASH_ERR_MEMORY_ALLOC;
-        if( lsmash_add_entry( list, data ) < 0 )
+        if( lsmash_list_add_entry( list, data ) < 0 )
         {
             lsmash_free( data );
             return LSMASH_ERR_MEMORY_ALLOC;
@@ -198,7 +201,7 @@ int nalu_get_dcr_ps
         data->nalUnit       = lsmash_bs_get_bytes( bs, data->nalUnitLength );
         if( !data->nalUnit )
         {
-            lsmash_remove_entries( list, isom_remove_dcr_ps );
+            lsmash_list_remove_entries( list );
             return LSMASH_ERR_NAMELESS;
         }
     }
@@ -244,7 +247,7 @@ uint64_t nalu_get_codeNum
 
 int nalu_update_bitrate( isom_stbl_t *stbl, isom_mdhd_t *mdhd, uint32_t sample_description_index )
 {
-    isom_visual_entry_t *sample_entry = (isom_visual_entry_t *)lsmash_get_entry_data( &stbl->stsd->list, sample_description_index );
+    isom_visual_entry_t *sample_entry = (isom_visual_entry_t *)lsmash_list_get_entry_data( &stbl->stsd->list, sample_description_index );
     if( LSMASH_IS_NON_EXISTING_BOX( sample_entry ) )
         return LSMASH_ERR_INVALID_DATA;
     isom_btrt_t *btrt = (isom_btrt_t *)isom_get_extension_box_format( &sample_entry->extensions, ISOM_BOX_TYPE_BTRT );

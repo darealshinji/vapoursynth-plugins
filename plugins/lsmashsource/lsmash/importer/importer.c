@@ -81,7 +81,7 @@ importer_t *lsmash_importer_alloc( lsmash_root_t *root )
     if( !importer )
         return NULL;
     importer->root = root;
-    importer->summaries = lsmash_create_entry_list();
+    importer->summaries = lsmash_list_create( lsmash_cleanup_summary );
     if( !importer->summaries )
     {
         lsmash_destroy_root( importer->root );
@@ -98,10 +98,10 @@ void lsmash_importer_destroy( importer_t *importer )
     lsmash_file_t *file = importer->file;
     if( importer->funcs.cleanup )
         importer->funcs.cleanup( importer );
-    lsmash_remove_list( importer->summaries, lsmash_cleanup_summary );
+    lsmash_list_destroy( importer->summaries );
     lsmash_free( importer );
     /* Prevent freeing this already freed importer in file's destructor again. */
-    if( file->importer )
+    if( file && file->importer )
         file->importer = NULL;
 }
 
@@ -245,7 +245,7 @@ lsmash_summary_t *lsmash_duplicate_summary( importer_t *importer, uint32_t track
 {
     if( !importer )
         return NULL;
-    lsmash_summary_t *src_summary = lsmash_get_entry_data( importer->summaries, track_number );
+    lsmash_summary_t *src_summary = lsmash_list_get_entry_data( importer->summaries, track_number );
     if( !src_summary )
         return NULL;
     lsmash_summary_t *summary = lsmash_create_summary( src_summary->summary_type );
@@ -260,6 +260,9 @@ lsmash_summary_t *lsmash_duplicate_summary( importer_t *importer, uint32_t track
         case LSMASH_SUMMARY_TYPE_AUDIO :
             *(lsmash_audio_summary_t *)summary = *(lsmash_audio_summary_t *)src_summary;
             break;
+        case LSMASH_SUMMARY_TYPE_HINT:
+            *(lsmash_hint_summary_t *)summary  = *(lsmash_hint_summary_t *)src_summary;
+            break;
         default :
             lsmash_cleanup_summary( summary );
             return NULL;
@@ -271,7 +274,7 @@ lsmash_summary_t *lsmash_duplicate_summary( importer_t *importer, uint32_t track
         if( !src_specific )
             continue;
         lsmash_codec_specific_t *dup = isom_duplicate_codec_specific_data( src_specific );
-        if( lsmash_add_entry( &summary->opaque->list, dup ) < 0 )
+        if( lsmash_list_add_entry( &summary->opaque->list, dup ) < 0 )
         {
             lsmash_cleanup_summary( (lsmash_summary_t *)summary );
             lsmash_destroy_codec_specific_data( dup );

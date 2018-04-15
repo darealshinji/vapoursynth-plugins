@@ -158,7 +158,7 @@ Copyright: 2014-2018 Edoardo Brunetti
 License: GPL-3+
 
 Files: plugins/lsmashsource/*
-Copyright: 2010-2017 L-SMASH project
+Copyright: 2010-2018 L-SMASH project
 License: ISC
 Comment:
  The plugin will be linked against static FFmpeg libraries, so the resulting

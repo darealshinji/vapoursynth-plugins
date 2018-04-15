@@ -35,6 +35,7 @@
 typedef struct lsmash_file_tag isom_file_abstract_t;
 typedef struct lsmash_root_tag isom_root_abstract_t;
 typedef struct isom_unknown_box_tag isom_unknown_t;
+typedef struct lsmash_box_tag isom_dummy_t; /* for dummy usage */
 
 typedef struct lsmash_box_tag isom_box_t;
 typedef struct isom_unknown_box_tag isom_unknown_box_t;
@@ -399,6 +400,9 @@ typedef struct
     uint32_t maxbitrate;        /* the maximum rate in bits/second over any window of one second */
     uint32_t avgbitrate;        /* the average rate in bits/second over the entire presentation */
     uint32_t reserved;
+    /* run time variables for calculating avgPDUsize, should not be written to file */
+    uint64_t combinedPDUsize;
+    uint64_t PDUcount;
 } isom_hmhd_t;
 
 /* Null Media Header Box
@@ -483,6 +487,29 @@ typedef struct
     uint32_t maxBitrate;    /* the maximum rate in bits/second over any window of one second */
     uint32_t avgBitrate;    /* the average rate in bits/second over the entire presentation */
 } isom_btrt_t;
+
+typedef struct
+{
+    /* This box is in RTP and RTP reception hint track sample descriptions */
+    ISOM_BASEBOX_COMMON;
+    uint32_t timescale;
+} isom_tims_t;
+
+typedef struct
+{
+    /* This box is in RTP and RTP reception hint track sample descriptions */
+    ISOM_BASEBOX_COMMON;
+    int32_t offset;
+} isom_tsro_t;
+
+typedef struct
+{
+    /* This box is in RTP reception hint track sample description */
+    ISOM_BASEBOX_COMMON;
+    unsigned int reserved       : 6;
+    unsigned int timestamp_sync : 2;
+} isom_tssy_t;
+
 
 /* Global Header Box */
 typedef struct
@@ -577,6 +604,34 @@ typedef struct
     uint8_t detail;     /* field ordering */
 } isom_fiel_t;
 
+/* Content Light Level Info Box
+ * This Box is used to identify the upper bounds for the nominal target brightness light level of the pictures of the video.
+ * Note:  The format of this box is identical to h.265 (HEVC) SEI Payload Type 144 (ISO-23008-2 D.2.35) */
+typedef struct
+{
+    ISOM_BASEBOX_COMMON;
+    uint16_t max_content_light_level;
+    uint16_t max_pic_average_light_level;
+} isom_clli_t;
+
+/* Master Display Color Volume Box
+ * This box is used to identify the color volume of a display that is considered to be the mastering display for the video content
+ * Note:  The format of this box is identical to the h.265 (HEVC) SEI Payload Type 137 (ISO-23008-2 D.2.28) */
+typedef struct
+{
+    ISOM_BASEBOX_COMMON;
+    uint16_t display_primaries_g_x;
+    uint16_t display_primaries_g_y;
+    uint16_t display_primaries_b_x;
+    uint16_t display_primaries_b_y;
+    uint16_t display_primaries_r_x;
+    uint16_t display_primaries_r_y;
+    uint16_t white_point_x;
+    uint16_t white_point_y;
+    uint32_t max_display_mastering_luminance;
+    uint32_t min_display_mastering_luminance;
+} isom_mdcv_t;
+
 /* Colorspace Box
  * This box is defined in ImageCompression.h. */
 typedef struct
@@ -586,7 +641,7 @@ typedef struct
 } isom_cspc_t;
 
 /* Significant Bits Box
- * This box is defined in Letters from the Ice Floe dispatch019. 
+ * This box is defined in Letters from the Ice Floe dispatch019.
  * Note: this box is a mandatory extension for 'v216' (Uncompressed Y'CbCr, 10, 12, 14, or 16-bit-per-component 4:2:2). */
 typedef struct
 {
@@ -800,15 +855,20 @@ typedef struct
     uint32_t constLPCMFramesPerAudioPacket;     /* only set if constant */
 } isom_audio_entry_t;
 
-/* Hint Sample Entry */
-#define ISOM_HINT_SAMPLE_ENTRY \
-    ISOM_SAMPLE_ENTRY; \
-    uint8_t *data
-
+/* Hint Sample Entry data field for
+ * rtp hint track, 
+ * srtp hint track,
+ * rtp reception hint track and 
+ * srtp reception hint track
+ * rtcp reception hint track
+ * srtcp reception hint track
+ */
 typedef struct
 {
-    ISOM_HINT_SAMPLE_ENTRY;
-    uint32_t data_length;
+    ISOM_SAMPLE_ENTRY;
+    uint16_t hinttrackversion;         /* = 1 */
+    uint16_t highestcompatibleversion; /* = 1 */
+    uint32_t maxpacketsize;
 } isom_hint_entry_t;
 
 /* Metadata Sample Entry */
@@ -851,7 +911,7 @@ typedef struct
     uint16_t font_ID;
     /* Pascal string */
     uint8_t font_name_length;
-    char *font_name;
+    char   *font_name;
 } isom_font_record_t;
 
 /* Font Table Box */
@@ -1389,6 +1449,30 @@ typedef struct
         uint32_t notice_length;
 } isom_cprt_t;
 
+/* Movie SDP Information box */
+typedef struct
+{
+    ISOM_BASEBOX_COMMON;
+    uint32_t descriptionformat;
+    uint8_t *sdptext;
+    uint32_t sdp_length;
+}isom_rtp_t;
+
+/* Track SDP Information box */
+typedef struct
+{
+    ISOM_BASEBOX_COMMON;
+    uint8_t *sdptext;
+    uint32_t sdp_length;
+}isom_sdp_t;
+
+typedef struct
+{
+    ISOM_BASEBOX_COMMON;
+    isom_rtp_t *rtp;      /* Movie-level SDP box*/
+    isom_sdp_t *sdp;      /* Track-level SDP box*/
+} isom_hnti_t;
+
 /* User Data Box
  * This box is a container box for informative user-data.
  * This user data is formatted as a set of boxes with more specific box types, which declare more precisely their content.
@@ -1405,6 +1489,8 @@ typedef struct
     isom_AllF_t *AllF;      /* Play All Frames Box */
     /* Copyright Box List */
     lsmash_entry_list_t cprt_list;  /* Copyright Boxes is defined in ISO Base Media and 3GPP file format */
+    /* Hint information box */
+    isom_hnti_t *hnti;
 } isom_udta_t;
 
 /** Caches for handling tracks **/
@@ -2012,10 +2098,15 @@ struct lsmash_root_tag
 #define LSMASH_BOX_PRECEDENCE_ISOM_ESDS (LSMASH_BOX_PRECEDENCE_HM -  0 * LSMASH_BOX_PRECEDENCE_S)
 #define LSMASH_BOX_PRECEDENCE_QTFF_ESDS (LSMASH_BOX_PRECEDENCE_HM -  1 * LSMASH_BOX_PRECEDENCE_S)   /* preceded by 'frma' and 'mp4a' */
 #define LSMASH_BOX_PRECEDENCE_ISOM_BTRT (LSMASH_BOX_PRECEDENCE_HM -  1 * LSMASH_BOX_PRECEDENCE_S)
+#define LSMASH_BOX_PRECEDENCE_ISOM_TIMS (LSMASH_BOX_PRECEDENCE_HM -  0 * LSMASH_BOX_PRECEDENCE_S)
+#define LSMASH_BOX_PRECEDENCE_ISOM_TSRO (LSMASH_BOX_PRECEDENCE_HM -  1 * LSMASH_BOX_PRECEDENCE_S)
+#define LSMASH_BOX_PRECEDENCE_ISOM_TSSY (LSMASH_BOX_PRECEDENCE_HM -  2 * LSMASH_BOX_PRECEDENCE_S)
 #define LSMASH_BOX_PRECEDENCE_ISOM_COLR (LSMASH_BOX_PRECEDENCE_LP +  2 * LSMASH_BOX_PRECEDENCE_S)
 #define LSMASH_BOX_PRECEDENCE_QTFF_COLR (LSMASH_BOX_PRECEDENCE_LP +  2 * LSMASH_BOX_PRECEDENCE_S)
 #define LSMASH_BOX_PRECEDENCE_QTFF_GAMA (LSMASH_BOX_PRECEDENCE_N  -  0 * LSMASH_BOX_PRECEDENCE_S)
 #define LSMASH_BOX_PRECEDENCE_QTFF_FIEL (LSMASH_BOX_PRECEDENCE_N  -  0 * LSMASH_BOX_PRECEDENCE_S)
+#define LSMASH_BOX_PRECEDENCE_QTFF_CLLI (LSMASH_BOX_PRECEDENCE_N  -  0 * LSMASH_BOX_PRECEDENCE_S)
+#define LSMASH_BOX_PRECEDENCE_QTFF_MDCV (LSMASH_BOX_PRECEDENCE_N  -  0 * LSMASH_BOX_PRECEDENCE_S)
 #define LSMASH_BOX_PRECEDENCE_QTFF_CSPC (LSMASH_BOX_PRECEDENCE_N  -  0 * LSMASH_BOX_PRECEDENCE_S)
 #define LSMASH_BOX_PRECEDENCE_QTFF_SGBT (LSMASH_BOX_PRECEDENCE_HM -  0 * LSMASH_BOX_PRECEDENCE_S)   /* 'v216' specific */
 #define LSMASH_BOX_PRECEDENCE_ISOM_CLAP (LSMASH_BOX_PRECEDENCE_LP +  1 * LSMASH_BOX_PRECEDENCE_S)
@@ -2052,6 +2143,9 @@ struct lsmash_root_tag
 #define LSMASH_BOX_PRECEDENCE_ISOM_METAITEM (LSMASH_BOX_PRECEDENCE_N - 0 * LSMASH_BOX_PRECEDENCE_S)
 #define LSMASH_BOX_PRECEDENCE_ISOM_CHPL (LSMASH_BOX_PRECEDENCE_N  -  0 * LSMASH_BOX_PRECEDENCE_S)
 #define LSMASH_BOX_PRECEDENCE_ISOM_META (LSMASH_BOX_PRECEDENCE_N  -  7 * LSMASH_BOX_PRECEDENCE_S)
+#define LSMASH_BOX_PRECEDENCE_ISOM_HNTI (LSMASH_BOX_PRECEDENCE_N  -  8 * LSMASH_BOX_PRECEDENCE_S)
+#define LSMASH_BOX_PRECEDENCE_ISOM_RTP  (LSMASH_BOX_PRECEDENCE_N  -  0 * LSMASH_BOX_PRECEDENCE_S)
+#define LSMASH_BOX_PRECEDENCE_ISOM_SDP  (LSMASH_BOX_PRECEDENCE_N  -  1 * LSMASH_BOX_PRECEDENCE_S)
 #define LSMASH_BOX_PRECEDENCE_QTFF_WLOC (LSMASH_BOX_PRECEDENCE_N  -  8 * LSMASH_BOX_PRECEDENCE_S)
 #define LSMASH_BOX_PRECEDENCE_QTFF_LOOP (LSMASH_BOX_PRECEDENCE_N  -  9 * LSMASH_BOX_PRECEDENCE_S)
 #define LSMASH_BOX_PRECEDENCE_QTFF_SELO (LSMASH_BOX_PRECEDENCE_N  - 10 * LSMASH_BOX_PRECEDENCE_S)
@@ -2485,6 +2579,7 @@ isom_stbl_t *isom_add_stbl( isom_minf_t *minf );
 isom_stsd_t *isom_add_stsd( isom_stbl_t *stbl );
 isom_visual_entry_t *isom_add_visual_description( isom_stsd_t *stsd, lsmash_codec_type_t sample_type );
 isom_audio_entry_t *isom_add_audio_description( isom_stsd_t *stsd, lsmash_codec_type_t sample_type );
+isom_hint_entry_t *isom_add_hint_description(isom_stsd_t *stsd, lsmash_codec_type_t sample_type);
 isom_qt_text_entry_t *isom_add_qt_text_description( isom_stsd_t *stsd );
 isom_tx3g_entry_t *isom_add_tx3g_description( isom_stsd_t *stsd );
 isom_esds_t *isom_add_esds( void *parent_box );
@@ -2494,10 +2589,15 @@ isom_pasp_t *isom_add_pasp( isom_visual_entry_t *visual );
 isom_colr_t *isom_add_colr( isom_visual_entry_t *visual );
 isom_gama_t *isom_add_gama( isom_visual_entry_t *visual );
 isom_fiel_t *isom_add_fiel( isom_visual_entry_t *visual );
+isom_clli_t *isom_add_clli( isom_visual_entry_t *visual );
+isom_mdcv_t *isom_add_mdcv( isom_visual_entry_t *visual );
 isom_cspc_t *isom_add_cspc( isom_visual_entry_t *visual );
 isom_sgbt_t *isom_add_sgbt( isom_visual_entry_t *visual );
 isom_stsl_t *isom_add_stsl( isom_visual_entry_t *visual );
 isom_btrt_t *isom_add_btrt( isom_visual_entry_t *visual );
+isom_tims_t *isom_add_tims( isom_hint_entry_t *hint );
+isom_tsro_t *isom_add_tsro( isom_hint_entry_t *hint );
+isom_tssy_t *isom_add_tssy( isom_hint_entry_t *hint );
 isom_wave_t *isom_add_wave( isom_audio_entry_t *audio );
 isom_frma_t *isom_add_frma( isom_wave_t *wave );
 isom_enda_t *isom_add_enda( isom_wave_t *wave );
@@ -2521,6 +2621,9 @@ isom_stco_t *isom_add_stco( isom_stbl_t *stbl );
 isom_stco_t *isom_add_co64( isom_stbl_t *stbl );
 isom_udta_t *isom_add_udta( void *parent_box );
 isom_cprt_t *isom_add_cprt( isom_udta_t *udta );
+isom_hnti_t *isom_add_hnti( isom_udta_t *udta );
+isom_rtp_t  *isom_add_rtp(  isom_hnti_t *hnti );
+isom_sdp_t  *isom_add_sdp(  isom_hnti_t *hnti );
 isom_WLOC_t *isom_add_WLOC( isom_udta_t *udta );
 isom_LOOP_t *isom_add_LOOP( isom_udta_t *udta );
 isom_SelO_t *isom_add_SelO( isom_udta_t *udta );
@@ -2550,6 +2653,7 @@ isom_free_t *isom_add_free( void *parent_box );
 isom_styp_t *isom_add_styp( lsmash_file_t *file );
 isom_sidx_t *isom_add_sidx( lsmash_file_t *file );
 
+void isom_remove_extension_box( isom_box_t *ext );
 void isom_remove_sample_description( isom_sample_entry_t *sample );
 void isom_remove_unknown_box( isom_unknown_box_t *unknown_box );
 void isom_remove_sample_pool( isom_sample_pool_t *pool );

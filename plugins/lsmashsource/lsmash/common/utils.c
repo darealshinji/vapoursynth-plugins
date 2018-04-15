@@ -99,18 +99,6 @@ void lsmash_log_refresh_line
     fprintf( stderr, "%80c", '\r' );
 }
 
-uint32_t lsmash_count_bits
-(
-    uint32_t bits
-)
-{
-    bits = (bits & 0x55555555) + ((bits >>  1) & 0x55555555);
-    bits = (bits & 0x33333333) + ((bits >>  2) & 0x33333333);
-    bits = (bits & 0x0f0f0f0f) + ((bits >>  4) & 0x0f0f0f0f);
-    bits = (bits & 0x00ff00ff) + ((bits >>  8) & 0x00ff00ff);
-    return (bits & 0x0000ffff) + ((bits >> 16) & 0x0000ffff);
-}
-
 void lsmash_ifprintf
 (
     FILE       *fp,
@@ -143,17 +131,6 @@ void lsmash_ifprintf
             fprintf( fp, "    " );
     vfprintf( fp, format, args );
     va_end( args );
-}
-
-int lsmash_ceil_log2
-(
-    uint64_t value
-)
-{
-    int length = 0;
-    while( value > (1ULL << length) )
-        ++length;
-    return length;
 }
 
 /* for qsort function */
