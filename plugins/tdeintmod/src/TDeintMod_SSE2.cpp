@@ -11,8 +11,8 @@ void threshMask_sse2(const VSFrameRef * src, VSFrameRef * dst, const int plane, 
     constexpr T1 peak = std::numeric_limits<T1>::max();
 
     const int width = d->vi.width >> (plane ? d->vi.format->subSamplingW : 0);
-    const unsigned height = d->vi.height >> (plane ? d->vi.format->subSamplingH : 0);
-    const unsigned stride = vsapi->getStride(src, 0) / sizeof(T1);
+    const int height = d->vi.height >> (plane ? d->vi.format->subSamplingH : 0);
+    const int stride = vsapi->getStride(src, 0) / sizeof(T1);
     const T1 * srcp = reinterpret_cast<const T1 *>(vsapi->getReadPtr(src, 0)) + d->widthPad;
     T1 * dstp0 = reinterpret_cast<T1 *>(vsapi->getWritePtr(dst, 0)) + d->widthPad;
     T1 * dstp1 = dstp0 + stride * height;
@@ -27,10 +27,10 @@ void threshMask_sse2(const VSFrameRef * src, VSFrameRef * dst, const int plane, 
         return;
     }
 
-    const T1 * srcpp = srcp;
-    const T1 * srcpn = srcp + stride;
+    const T1 * srcpp = srcp + stride;
+    const T1 * srcpn = srcpp;
 
-    for (unsigned y = 0; y < height; y++) {
+    for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x += step) {
             const T2 topLeft = T2().load(srcpp + x - 1);
             const T2 top = T2().load_a(srcpp + x);
@@ -42,8 +42,8 @@ void threshMask_sse2(const VSFrameRef * src, VSFrameRef * dst, const int plane, 
             const T2 bottom = T2().load_a(srcpn + x);
             const T2 bottomRight = T2().load(srcpn + x + 1);
 
-            T2 min0{ peak }, max0 = zero_128b();
-            T2 min1{ peak }, max1 = zero_128b();
+            T2 min0 = peak, max0 = zero_128b();
+            T2 min1 = peak, max1 = zero_128b();
 
             if (d->ttype == 0) { // 4 neighbors - compensated
                 min0 = min(min0, top);
@@ -160,8 +160,7 @@ void threshMask_sse2(const VSFrameRef * src, VSFrameRef * dst, const int plane, 
 
         srcpp = srcp;
         srcp = srcpn;
-        if (y < height - 2)
-            srcpn += stride;
+        srcpn += (y < height - 2) ? stride : -stride;
         dstp0 += stride;
         dstp1 += stride;
     }
@@ -183,9 +182,9 @@ template void threshMask_sse2<uint16_t, Vec8us, 8>(const VSFrameRef *, VSFrameRe
 template<typename T1, typename T2, int step>
 void motionMask_sse2(const VSFrameRef * src1, const VSFrameRef * msk1, const VSFrameRef * src2, const VSFrameRef * msk2, VSFrameRef * dst,
                      const int plane, const TDeintModData * d, const VSAPI * vsapi) noexcept {
-    const unsigned width = d->vi.width >> (plane ? d->vi.format->subSamplingW : 0);
-    const unsigned height = d->vi.height >> (plane ? d->vi.format->subSamplingH : 0);
-    const unsigned stride = vsapi->getStride(src1, 0) / sizeof(T1);
+    const int width = d->vi.width >> (plane ? d->vi.format->subSamplingW : 0);
+    const int height = d->vi.height >> (plane ? d->vi.format->subSamplingH : 0);
+    const int stride = vsapi->getStride(src1, 0) / sizeof(T1);
     const T1 * srcp1 = reinterpret_cast<const T1 *>(vsapi->getReadPtr(src1, 0)) + d->widthPad;
     const T1 * srcp2 = reinterpret_cast<const T1 *>(vsapi->getReadPtr(src2, 0)) + d->widthPad;
     const T1 * mskp1q = reinterpret_cast<const T1 *>(vsapi->getReadPtr(msk1, 0)) + d->widthPad;
@@ -196,15 +195,15 @@ void motionMask_sse2(const VSFrameRef * src1, const VSFrameRef * msk1, const VSF
     const T1 * mskp2h = mskp2q + stride * height;
     T1 * dstph = dstpq + stride * height;
 
-    for (unsigned y = 0; y < height; y++) {
-        for (unsigned x = 0; x < width; x += step) {
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x += step) {
             const T2 diff = abs_dif<T2>(T2().load_a(srcp1 + x), T2().load_a(srcp2 + x));
             const T2 minq = min(T2().load_a(mskp1q + x), T2().load_a(mskp2q + x));
             const T2 minh = min(T2().load_a(mskp1h + x), T2().load_a(mskp2h + x));
-            const T2 thresh1 = min(max(add_saturated(minq, d->nt), d->minthresh), d->maxthresh);
-            const T2 thresh2 = min(max(add_saturated(minh, d->nt), d->minthresh), d->maxthresh);
-            select(diff <= thresh1, T2{ 1 }, zero_128b()).stream(dstpq + x);
-            select(diff <= thresh2, T2{ 1 }, zero_128b()).stream(dstph + x);
+            const T2 threshq = min(max(add_saturated(minq, d->nt), d->minthresh), d->maxthresh);
+            const T2 threshh = min(max(add_saturated(minh, d->nt), d->minthresh), d->maxthresh);
+            select(diff <= threshq, T2(1), zero_128b()).stream(dstpq + x);
+            select(diff <= threshh, T2(1), zero_128b()).stream(dstph + x);
         }
 
         srcp1 += stride;
@@ -223,19 +222,19 @@ template void motionMask_sse2<uint16_t, Vec8us, 8>(const VSFrameRef *, const VSF
 
 template<typename T1, typename T2, int step>
 void andMasks_sse2(const VSFrameRef * src1, const VSFrameRef * src2, VSFrameRef * dst, const int plane, const TDeintModData * d, const VSAPI * vsapi) noexcept {
-    const unsigned width = d->vi.width >> (plane ? d->vi.format->subSamplingW : 0);
-    const unsigned height = (d->vi.height * 2) >> (plane ? d->vi.format->subSamplingH : 0);
-    const unsigned stride = vsapi->getStride(src1, 0) / sizeof(T1);
+    const int width = d->vi.width >> (plane ? d->vi.format->subSamplingW : 0);
+    const int height = (d->vi.height * 2) >> (plane ? d->vi.format->subSamplingH : 0);
+    const int stride = vsapi->getStride(src1, 0) / sizeof(T1);
     const T1 * srcp1 = reinterpret_cast<const T1 *>(vsapi->getReadPtr(src1, 0)) + d->widthPad;
     const T1 * srcp2 = reinterpret_cast<const T1 *>(vsapi->getReadPtr(src2, 0)) + d->widthPad;
     T1 * dstp = reinterpret_cast<T1 *>(vsapi->getWritePtr(dst, 0)) + d->widthPad;
 
-    for (unsigned y = 0; y < height; y++) {
-        for (unsigned x = 0; x < width; x += step)
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x += step)
             (T2().load_a(srcp1 + x) & T2().load_a(srcp2 + x) & T2().load_a(dstp + x)).stream(dstp + x);
 
-        dstp[-1] = dstp[0];
-        dstp[width] = dstp[width - 1];
+        dstp[-1] = dstp[1];
+        dstp[width] = dstp[width - 2];
 
         srcp1 += stride;
         srcp2 += stride;
@@ -248,32 +247,32 @@ template void andMasks_sse2<uint16_t, Vec8us, 8>(const VSFrameRef *, const VSFra
 
 template<typename T1, typename T2, int step>
 void combineMasks_sse2(const VSFrameRef * src, VSFrameRef * dst, const int plane, const TDeintModData * d, const VSAPI * vsapi) noexcept {
+    constexpr T1 peak = std::numeric_limits<T1>::max();
+
     const int width = vsapi->getFrameWidth(dst, plane);
-    const unsigned height = vsapi->getFrameHeight(dst, plane);
-    const unsigned srcStride = vsapi->getStride(src, 0) / sizeof(T1);
-    const unsigned dstStride = vsapi->getStride(dst, plane) / sizeof(T1);
+    const int height = vsapi->getFrameHeight(dst, plane);
+    const int srcStride = vsapi->getStride(src, 0) / sizeof(T1);
+    const int dstStride = vsapi->getStride(dst, plane) / sizeof(T1);
     const T1 * srcp0 = reinterpret_cast<const T1 *>(vsapi->getReadPtr(src, 0)) + d->widthPad;
     T1 * dstp = reinterpret_cast<T1 *>(vsapi->getWritePtr(dst, plane));
 
-    const T1 * srcpp0 = srcp0;
-    const T1 * srcpn0 = srcp0 + srcStride;
+    const T1 * srcpp0 = srcp0 + srcStride;
+    const T1 * srcpn0 = srcpp0;
     const T1 * srcp1 = srcp0 + srcStride * height;
 
     vs_bitblt(dstp, vsapi->getStride(dst, plane), srcp0, vsapi->getStride(src, 0), width * sizeof(T1), height);
 
-    for (unsigned y = 0; y < height; y++) {
+    for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x += step) {
             const T2 count = T2().load(srcpp0 + x - 1) + T2().load_a(srcpp0 + x) + T2().load(srcpp0 + x + 1) +
                              T2().load(srcp0 + x - 1) + T2().load(srcp0 + x + 1) +
                              T2().load(srcpn0 + x - 1) + T2().load_a(srcpn0 + x) + T2().load(srcpn0 + x + 1);
-            select((T2().load_a(srcp0 + x) == T2{ zero_128b() }) & (T2().load_a(srcp1 + x) != T2{ zero_128b() }) & (count >= d->cstr),
-                   std::numeric_limits<T1>::max(), T2().load_a(dstp + x)).stream(dstp + x);
+            select(T2().load_a(srcp0 + x) == zero_128b() && T2().load_a(srcp1 + x) != zero_128b() && count >= d->cstr, peak, T2().load_a(dstp + x)).stream(dstp + x);
         }
 
         srcpp0 = srcp0;
         srcp0 = srcpn0;
-        if (y < height - 2)
-            srcpn0 += srcStride;
+        srcpn0 += (y < height - 2) ? srcStride : -srcStride;
         srcp1 += srcStride;
         dstp += dstStride;
     }

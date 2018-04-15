@@ -518,17 +518,17 @@ public:
         return *this;
     }
     // Member function to load from array (unaligned)
-    Vec8f & load(void const * p) {
-        y0 = _mm_loadu_ps((float const*)p);
-        y1 = _mm_loadu_ps((float const*)p+4);
+    Vec8f & load(float const * p) {
+        y0 = _mm_loadu_ps(p);
+        y1 = _mm_loadu_ps(p+4);
         return *this;
     }
     // Member function to load from array, aligned by 32
     // You may use load_a instead of load if you are certain that p points to an address
     // divisible by 32.
-    Vec8f & load_a(void const * p) {
-        y0 = _mm_load_ps((float const*)p);
-        y1 = _mm_load_ps((float const*)p+4);
+    Vec8f & load_a(float const * p) {
+        y0 = _mm_load_ps(p);
+        y1 = _mm_load_ps(p+4);
         return *this;
     }
     // Member function to store into array (unaligned)
@@ -542,11 +542,6 @@ public:
     void store_a(float * p) const {
         _mm_store_ps(p,   y0);
         _mm_store_ps(p+4, y1);
-    }
-    // Member function to store into array using a non-temporal memory hint, aligned by 32
-    void stream(float * p) const {
-        _mm_stream_ps(p,   y0);
-        _mm_stream_ps(p+4, y1);
     }
     // Partial load. Load n elements and set the rest to 0
     Vec8f & load_partial(int n, float const * p) {
@@ -820,10 +815,6 @@ static inline Vec8fb operator ! (Vec8f const & a) {
 *          Functions for Vec8f
 *
 *****************************************************************************/
-
-static inline Vec8f zero_8f() {
-    return Vec8f(_mm_setzero_ps(), _mm_setzero_ps());
-}
 
 // Select between two operands. Corresponds to this pseudocode:
 // for (int i = 0; i < 8; i++) result[i] = s[i] ? a[i] : b[i];

@@ -218,7 +218,8 @@ static inline Vec256b & operator ^= (Vec256b & a, Vec256b const & b) {
 // Define functions for this class
 
 static inline Vec256b zero_256b() {
-    return Vec256b(_mm_setzero_si128(), _mm_setzero_si128());
+    Vec128b zero = _mm_setzero_si128();
+    return Vec256b(zero, zero);
 }
 
 // function andnot: a & ~ b
@@ -4082,12 +4083,6 @@ static inline Vec32uc compress_saturated (Vec16us const & low, Vec16us const & h
     return Vec32uc(compress_saturated(low.get_low(),low.get_high()), compress_saturated(high.get_low(),high.get_high()));
 }
 
-// Function compress : packs two vectors of 16-bit integers into one vector of 8-bit integers
-// Signed to unsigned, with saturation
-static inline Vec32uc compress_saturated_s2u (Vec16s const & low, Vec16s const & high) {
-    return Vec32uc(compress_saturated_s2u(low.get_low(),low.get_high()), compress_saturated_s2u(high.get_low(),high.get_high()));
-}
-
 // Compress 32-bit integers to 16-bit integers, signed and unsigned, with and without saturation
 
 // Function compress : packs two vectors of 32-bit integers into one vector of 16-bit integers
@@ -4112,12 +4107,6 @@ static inline Vec16us compress (Vec8ui const & low, Vec8ui const & high) {
 // Unsigned, with saturation
 static inline Vec16us compress_saturated (Vec8ui const & low, Vec8ui const & high) {
     return Vec16us(compress_saturated(low.get_low(),low.get_high()), compress_saturated(high.get_low(),high.get_high()));
-}
-
-// Function compress : packs two vectors of 32-bit integers into one vector of 16-bit integers
-// Signed to unsigned, with saturation
-static inline Vec16us compress_saturated_s2u (Vec8i const & low, Vec8i const & high) {
-    return Vec16us(compress_saturated_s2u(low.get_low(),low.get_high()), compress_saturated_s2u(high.get_low(),high.get_high()));
 }
 
 // Compress 64-bit integers to 32-bit integers, signed and unsigned, with and without saturation

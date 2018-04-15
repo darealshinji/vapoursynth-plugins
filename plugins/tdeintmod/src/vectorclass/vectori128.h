@@ -1510,7 +1510,7 @@ static inline Vec8sb operator != (Vec8s const & a, Vec8s const & b) {
 #ifdef __XOP__  // AMD XOP instruction set
     return (Vec8sb)_mm_comneq_epi16(a,b);
 #else  // SSE2 instruction set
-    return Vec8sb (~(a == b));
+    return Vec8sb(Vec8s(~(a == b)));
 #endif
 }
 
@@ -2024,10 +2024,10 @@ public:
     // Member function to load 4 8-bit unsigned integers from array
     Vec4i & load_4uc(void const * p) {
 #if INSTRSET >= 5   // SSE4.1
-        xmm          = _mm_cvtepu8_epi32(_mm_cvtsi32_si128(*(int const*)p));
+        xmm          = _mm_cvtepu8_epi32(_mm_cvtsi32_si128(*(int32_t const*)p));
 #else
         __m128i zero = _mm_setzero_si128();
-        xmm          = _mm_unpacklo_epi16(_mm_unpacklo_epi8(Vec16uc().loadl(p),zero),zero);
+        xmm          = _mm_unpacklo_epi16(_mm_unpacklo_epi8(_mm_cvtsi32_si128(*(int32_t const*)p),zero),zero);
 #endif
         return *this;
     }
@@ -5287,7 +5287,7 @@ static inline Vec16uc compress_saturated (Vec8us const & low, Vec8us const & hig
 // Function compress : packs two vectors of 16-bit integers into one vector of 8-bit integers
 // Signed to unsigned, with saturation
 static inline Vec16uc compress_saturated_s2u (Vec8s const & low, Vec8s const & high) {
-    return  _mm_packus_epi16(low,high);
+    return  _mm_packus_epi16(low,high);                    // this instruction saturates from signed 16 bit to unsigned 8 bit
 }
 
 // Compress 32-bit integers to 16-bit integers, signed and unsigned, with and without saturation
@@ -5353,7 +5353,7 @@ static inline Vec8us compress_saturated (Vec4ui const & low, Vec4ui const & high
 // Signed to unsigned, with saturation
 static inline Vec8us compress_saturated_s2u (Vec4i const & low, Vec4i const & high) {
 #if INSTRSET >= 5   // SSE4.1 supported
-    return  _mm_packus_epi32(low,high);                    // pack with unsigned saturation
+    return  _mm_packus_epi32(low,high);                    // this instruction saturates from signed 32 bit to unsigned 16 bit
 #else
     __m128i signbit = _mm_set1_epi32(0x8000);
     __m128i low1    = _mm_sub_epi32(low,signbit);
