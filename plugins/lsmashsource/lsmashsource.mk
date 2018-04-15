@@ -11,7 +11,7 @@ local_CFLAGS = \
 
 LIBADD = libs/lib/liblsmash.a \
 	-L../../ffmpeg_libs/lib \
-	-lavformat -lavcodec -lswscale -lavutil -lavresample \
+	-lavformat -lavcodec -ldl -lswscale -lavutil -lavresample \
 	-lpthread -lm
 
 include ../../cc.inc

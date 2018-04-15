@@ -11,7 +11,7 @@ local_CXXFLAGS = \
 	-D__STDC_CONSTANT_MACROS
 
 LIBADD = -L../../ffmpeg_libs/lib \
-	-lavformat -lavutil -lavresample -lavcodec -lswscale \
+	-lavformat -lavutil -lavresample -lavcodec -ldl -lswscale \
 	-lavutil -lpthread -lz
 
 include ../../cxx.inc

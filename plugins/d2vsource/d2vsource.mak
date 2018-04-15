@@ -1,9 +1,9 @@
 include ../../config.mak
 
 LIBNAME = d2vsource
-local_CXXFLAGS = -Wno-sign-compare -I../../ffmpeg_libs/include
+local_CXXFLAGS = -Wno-deprecated-declarations -Wno-sign-compare -I../../ffmpeg_libs/include
 LIBADD = -L../../ffmpeg_libs/lib \
-	-lavcodec -lpthread -lavformat -lavcodec -lavutil -lswscale -lavresample
+	-lavcodec -ldl -lpthread -lavformat -lavcodec -lavutil -lswscale -lavresample
 
 include ../../cxx.inc
 

@@ -46,7 +46,7 @@ static const VSFrameRef *VS_CC lumaGetFrame(int n, int activationReason, void **
             for (y = 0; y < src_height; y++) {
                 for (x = 0; x < src_width; x++) {
                     int p = srcp[x] << 4;
-                    dstp[x] = (p & d->maxVal + 1) ? (d->maxVal - (p & d->maxVal)) : p & d->maxVal;
+                    dstp[x] = ((p & d->maxVal) + 1) ? (d->maxVal - (p & d->maxVal)) : p & d->maxVal;
                 }
                 srcp += src_stride;
                 dstp += dst_stride;
@@ -58,7 +58,7 @@ static const VSFrameRef *VS_CC lumaGetFrame(int n, int activationReason, void **
             for (y = 0; y < src_height; y++) {
                 for (x = 0; x < src_width; x++) {
                     int p = srcp[x] << 4;
-                    dstp[x] = (p & d->maxVal + 1) ? (d->maxVal - (p & d->maxVal)) : p & d->maxVal;
+                    dstp[x] = ((p & d->maxVal) + 1) ? (d->maxVal - (p & d->maxVal)) : p & d->maxVal;
                 }
                 srcp += src_stride;
                 dstp += dst_stride;
