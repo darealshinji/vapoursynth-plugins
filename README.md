@@ -52,7 +52,7 @@ sudo apt-get install vapoursynth-extra-plugins
 [depan r1](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-DePan)<br>
 [dfttest r4](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-DFTTest)<br>
 [eedi2 r7](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-EEDI2)<br>
-[eedi3 r2](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-EEDI3)<br>
+[eedi3 r3](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-EEDI3)<br>
 [ffms2 2.23.1](https://github.com/FFMS/ffms2)<br>
 [ff3dfilter git20150227](https://github.com/VFR-maniac/VapourSynth-FFT3DFilter)<br>
 [fieldhint 3](https://github.com/dubhater/vapoursynth-fieldhint)<br>

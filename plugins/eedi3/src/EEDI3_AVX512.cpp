@@ -74,10 +74,10 @@ static inline void calculateConnectionCosts(const void * srcp, float * ccosts, c
 
 template<>
 inline void calculateConnectionCosts<float>(const void * srcp, float * ccosts, const int width, const int stride, const EEDI3Data * d) noexcept {
-    const __m256 * src3p = reinterpret_cast<const __m256 *>(srcp) + 12;
-    const __m256 * src1p = src3p + stride;
-    const __m256 * src1n = src1p + stride;
-    const __m256 * src3n = src1n + stride;
+    const __m512 * src3p = reinterpret_cast<const __m512 *>(srcp) + 12;
+    const __m512 * src1p = src3p + stride;
+    const __m512 * src1n = src1p + stride;
+    const __m512 * src3n = src1n + stride;
 
     if (d->cost3) {
         for (int x = 0; x < width; x++) {

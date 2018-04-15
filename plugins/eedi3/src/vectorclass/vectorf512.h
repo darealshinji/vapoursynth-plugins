@@ -384,14 +384,14 @@ public:
     }
     // Member function to load from array (unaligned)
     Vec16f & load(void const * p) {
-        zmm = _mm512_loadu_ps(p);
+        zmm = _mm512_loadu_ps((float const*)p);
         return *this;
     }
     // Member function to load from array, aligned by 64
     // You may use load_a instead of load if you are certain that p points to an address
     // divisible by 64.
     Vec16f & load_a(void const * p) {
-        zmm = _mm512_load_ps(p);
+        zmm = _mm512_load_ps((float const*)p);
         return *this;
     }
     // Member function to store into array (unaligned)

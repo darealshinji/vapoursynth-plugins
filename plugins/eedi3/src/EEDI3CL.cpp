@@ -24,6 +24,8 @@
 **   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
+#include <clocale>
+#include <cstdio>
 #include <memory>
 #include <string>
 
@@ -58,7 +60,8 @@ static void processCL_c(const VSFrameRef * src, const VSFrameRef * scp, VSFrameR
             int * _dmap = d->dmap.at(threadId);
             float * tline = d->tline.at(threadId);
 
-            const size_t globalWorkSize[] = { static_cast<size_t>(dstWidth), 1 };
+            const size_t globalWorkSize[] = { static_cast<size_t>((dstWidth + 63) & -64), 1 };
+            constexpr size_t localWorkSize[] = { 64, 1 };
             const int bufferSize = dstWidth * d->tpitch * sizeof(cl_float);
 
             vs_bitblt(_dstp + dstStride * (1 - field_n), vsapi->getStride(dst, plane) * 2,
@@ -79,7 +82,7 @@ static void processCL_c(const VSFrameRef * src, const VSFrameRef * scp, VSFrameR
                 const T * src3n = srcp + srcStride * 3;
 
                 calculateConnectionCosts.set_args(srcImage, _ccosts, dstWidth, srcHeight - 4, y);
-                queue.enqueue_nd_range_kernel(calculateConnectionCosts, 2, nullptr, globalWorkSize, nullptr);
+                queue.enqueue_nd_range_kernel(calculateConnectionCosts, 2, nullptr, globalWorkSize, localWorkSize);
 
                 float * ccosts = reinterpret_cast<float *>(queue.enqueue_map_buffer(_ccosts, CL_MAP_READ, 0, bufferSize)) + d->mdis;
 
@@ -354,7 +357,7 @@ void VS_CC eedi3clCreate(const VSMap *in, VSMap *out, void *userData, VSCore *co
     try {
         if (!isConstantFormat(&d->vi) || (d->vi.format->sampleType == stInteger && d->vi.format->bitsPerSample > 16) ||
             (d->vi.format->sampleType == stFloat && d->vi.format->bitsPerSample != 32))
-            throw std::string{ "only constant format 8-16 bits integer and 32 bits float input supported" };
+            throw std::string{ "only constant format 8-16 bit integer and 32 bit float input supported" };
 
         d->field = int64ToIntS(vsapi->propGetInt(in, "field", 0, nullptr));
 
@@ -363,7 +366,7 @@ void VS_CC eedi3clCreate(const VSMap *in, VSMap *out, void *userData, VSCore *co
         const int m = vsapi->propNumElements(in, "planes");
 
         for (int i = 0; i < 3; i++)
-            d->process[i] = m <= 0;
+            d->process[i] = (m <= 0);
 
         for (int i = 0; i < m; i++) {
             const int n = int64ToIntS(vsapi->propGetInt(in, "planes", i, nullptr));
@@ -531,8 +534,6 @@ void VS_CC eedi3clCreate(const VSMap *in, VSMap *out, void *userData, VSCore *co
         d->dmap.reserve(numThreads);
         d->tline.reserve(numThreads);
 
-        selectFunctions(opt, d.get());
-
         if (d->vi.format->sampleType == stInteger) {
             d->peak = (1 << d->vi.format->bitsPerSample) - 1;
             const float scale = d->peak / 255.f;
@@ -547,6 +548,8 @@ void VS_CC eedi3clCreate(const VSMap *in, VSMap *out, void *userData, VSCore *co
             vthresh1 /= 255.f;
         }
 
+        selectFunctions(opt, d.get());
+
         d->tpitch = d->mdis * 2 + 1;
         d->mdisVector = d->mdis * d->vectorSize;
         d->tpitchVector = d->tpitch * d->vectorSize;
@@ -560,24 +563,6 @@ void VS_CC eedi3clCreate(const VSMap *in, VSMap *out, void *userData, VSCore *co
             d->gpu = compute::system::devices().at(device);
         d->ctx = compute::context{ d->gpu };
 
-        d->program = compute::program::create_with_source(source, d->ctx);
-        try {
-            std::string options{ "-cl-single-precision-constant -cl-denorms-are-zero -cl-fast-relaxed-math -Werror" };
-            options += " -D ALPHA=" + std::to_string(alpha);
-            options += " -D BETA=" + std::to_string(beta);
-            options += " -D NRAD=" + std::to_string(nrad);
-            options += " -D MDIS=" + std::to_string(d->mdis);
-            options += " -D COST3=" + std::to_string(cost3);
-            options += " -D REMAINING_WEIGHT=" + std::to_string(remainingWeight);
-            options += " -D TPITCH=" + std::to_string(d->tpitch);
-            options += " -D VECTOR_SIZE=" + std::to_string(d->vectorSize);
-            options += " -D MDIS_VECTOR=" + std::to_string(d->mdisVector);
-            options += " -D TPITCH_VECTOR=" + std::to_string(d->tpitchVector);
-            d->program.build(options);
-        } catch (const compute::opencl_error & error) {
-            throw error.error_string() + "\n" + d->program.build_log();
-        }
-
         if (!!vsapi->propGetInt(in, "info", 0, &err)) {
             vsapi->freeNode(d->sclip);
 
@@ -590,13 +575,14 @@ void VS_CC eedi3clCreate(const VSMap *in, VSMap *out, void *userData, VSCore *co
             text += "Local Memory Size: " + std::to_string(d->gpu.get_info<CL_DEVICE_LOCAL_MEM_SIZE>() / 1024) + " KB\n";
             text += "Local Memory Type: " + std::string{ d->gpu.get_info<CL_DEVICE_LOCAL_MEM_TYPE>() == CL_LOCAL ? "CL_LOCAL" : "CL_GLOBAL" } +"\n";
             text += "Image Support: " + std::string{ d->gpu.get_info<CL_DEVICE_IMAGE_SUPPORT>() ? "CL_TRUE" : "CL_FALSE" } +"\n";
+            text += "1D Image Max Buffer Size: " + std::to_string(d->gpu.get_info<size_t>(CL_DEVICE_IMAGE_MAX_BUFFER_SIZE)) + "\n";
             text += "2D Image Max Width: " + std::to_string(d->gpu.get_info<CL_DEVICE_IMAGE2D_MAX_WIDTH>()) + "\n";
             text += "2D Image Max Height: " + std::to_string(d->gpu.get_info<CL_DEVICE_IMAGE2D_MAX_HEIGHT>()) + "\n";
             text += "Max Constant Arguments: " + std::to_string(d->gpu.get_info<CL_DEVICE_MAX_CONSTANT_ARGS>()) + "\n";
             text += "Max Constant Buffer Size: " + std::to_string(d->gpu.get_info<CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE>() / 1024) + " KB\n";
             text += "Max Work-group Size: " + std::to_string(d->gpu.get_info<CL_DEVICE_MAX_WORK_GROUP_SIZE>()) + "\n";
             const auto MAX_WORK_ITEM_SIZES = d->gpu.get_info<CL_DEVICE_MAX_WORK_ITEM_SIZES>();
-            text += "Max Work-item Sizes: (" + std::to_string(MAX_WORK_ITEM_SIZES[0]) + ", " + std::to_string(MAX_WORK_ITEM_SIZES[1]) + ", " + std::to_string(MAX_WORK_ITEM_SIZES[2]) + ")\n";
+            text += "Max Work-item Sizes: (" + std::to_string(MAX_WORK_ITEM_SIZES[0]) + ", " + std::to_string(MAX_WORK_ITEM_SIZES[1]) + ", " + std::to_string(MAX_WORK_ITEM_SIZES[2]) + ")";
 
             VSMap * args = vsapi->createMap();
             vsapi->propSetNode(args, "clip", d->node, paReplace);
@@ -617,6 +603,31 @@ void VS_CC eedi3clCreate(const VSMap *in, VSMap *out, void *userData, VSCore *co
             vsapi->propSetNode(out, "clip", d->node, paReplace);
             vsapi->freeNode(d->node);
             return;
+        }
+
+        try {
+            std::setlocale(LC_ALL, "C");
+            char buf[100];
+            std::string options{ "-cl-denorms-are-zero -cl-fast-relaxed-math -Werror" };
+            std::snprintf(buf, 100, "%.20ff", alpha);
+            options += " -D ALPHA=" + std::string{ buf };
+            std::snprintf(buf, 100, "%.20ff", beta);
+            options += " -D BETA=" + std::string{ buf };
+            options += " -D NRAD=" + std::to_string(nrad);
+            options += " -D MDIS=" + std::to_string(d->mdis);
+            options += " -D COST3=" + std::to_string(cost3);
+            std::snprintf(buf, 100, "%.20ff", remainingWeight);
+            options += " -D REMAINING_WEIGHT=" + std::string{ buf };
+            options += " -D TPITCH=" + std::to_string(d->tpitch);
+            options += " -D VECTOR_SIZE=" + std::to_string(d->vectorSize);
+            options += " -D MDIS_VECTOR=" + std::to_string(d->mdisVector);
+            options += " -D TPITCH_VECTOR=" + std::to_string(d->tpitchVector);
+            options += " -D LOCAL_WORK_SIZE_X=" + std::to_string(64 / d->vectorSize);
+            options += " -D LOCAL_WORK_SIZE_Y=" + std::to_string(d->vectorSize);
+            std::setlocale(LC_ALL, "");
+            d->program = compute::program::build_with_source(source, d->ctx, options);
+        } catch (const compute::opencl_error & error) {
+            throw error.error_string() + "\n" + d->program.build_log();
         }
 
         if (d->vi.format->bytesPerSample == 1)

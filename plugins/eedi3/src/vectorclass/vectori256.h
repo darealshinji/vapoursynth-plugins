@@ -5047,7 +5047,7 @@ static inline Vec32uc compress_saturated (Vec16us const & low, Vec16us const & h
 // Function compress : packs two vectors of 16-bit integers into one vector of 8-bit integers
 // Signed to unsigned, with saturation
 static inline Vec32uc compress_saturated_s2u (Vec16s const & low, Vec16s const & high) {
-    __m256i pk    = _mm256_packus_epi16(low,high);            // packed with unsigned saturation
+    __m256i pk    = _mm256_packus_epi16(low,high);            // this instruction saturates from signed 16 bit to unsigned 8 bit
     return          _mm256_permute4x64_epi64(pk, 0xD8);       // put in right place
 }
 
@@ -5092,7 +5092,7 @@ static inline Vec16us compress_saturated (Vec8ui const & low, Vec8ui const & hig
 // Function compress : packs two vectors of 32-bit integers into one vector of 16-bit integers
 // Signed to unsigned, with saturation
 static inline Vec16us compress_saturated_s2u (Vec8i const & low, Vec8i const & high) {
-    __m256i pk    =  _mm256_packus_epi32(low,high);           // pack with unsigned saturation
+    __m256i pk    =  _mm256_packus_epi32(low,high);           // this instruction saturates from signed 32 bit to unsigned 16 bit
     return           _mm256_permute4x64_epi64(pk, 0xD8);      // put in right place
 }
 

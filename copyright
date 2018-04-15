@@ -75,7 +75,7 @@ Files: plugins/eedi2/*
        plugins/eedi3/*
 Copyright: 2005-2006, 2010 Kevin Eliot Stone <kes25c@mail.missouri.edu>
            2013 Laurent de Soras
-           2014-2017 HolyWu
+           2014-2018 HolyWu
 License: GPL-2+
 
 Files: plugins/ffms2/*

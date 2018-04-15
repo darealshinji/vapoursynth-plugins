@@ -27,7 +27,8 @@ void processCL_sse2(const VSFrameRef * src, const VSFrameRef * scp, VSFrameRef *
             int * _dmap = d->dmap.at(threadId);
             float * tline = d->tline.at(threadId);
 
-            const size_t globalWorkSize[] = { static_cast<size_t>(dstWidth), static_cast<size_t>(d->vectorSize) };
+            const size_t globalWorkSize[] = { static_cast<size_t>((dstWidth + 15) & -16), static_cast<size_t>(d->vectorSize) };
+            constexpr size_t localWorkSize[] = { 16, 4 };
             const int bufferSize = dstWidth * d->tpitchVector * sizeof(cl_float);
 
             vs_bitblt(_dstp + dstStride * (1 - field_n), vsapi->getStride(dst, plane) * 2,
@@ -40,7 +41,7 @@ void processCL_sse2(const VSFrameRef * src, const VSFrameRef * scp, VSFrameRef *
                 const int off = (y - 4 - field_n) >> 1;
 
                 calculateConnectionCosts.set_args(srcImage, _ccosts, dstWidth, srcHeight - 4, y);
-                queue.enqueue_nd_range_kernel(calculateConnectionCosts, 2, nullptr, globalWorkSize, nullptr);
+                queue.enqueue_nd_range_kernel(calculateConnectionCosts, 2, nullptr, globalWorkSize, localWorkSize);
 
                 float * ccosts = reinterpret_cast<float *>(queue.enqueue_map_buffer(_ccosts, CL_MAP_READ, 0, bufferSize)) + d->mdisVector;
 
