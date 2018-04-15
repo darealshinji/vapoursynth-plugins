@@ -10,7 +10,7 @@ endif
 
 d = libw2xc/
 
-local_CXXFLAGS  = -O3 -Wall -Wextra -Werror=format-security -fPIC -DPIC -fopenmp
+local_CXXFLAGS  = -O3 -Wall -Wextra -fPIC -DPIC -fopenmp
 local_CXXFLAGS += -Wno-switch -Wno-sign-compare -Wno-maybe-uninitialized -Wno-unused-parameter
 local_CXXFLAGS += -Wno-unused-variable -Wno-unused-but-set-variable -Wno-unused-result
 local_CXXFLAGS += -DBUILD_TS=\"\" -DHAVE_OPENCV -DX86OPT -Dw2xc_EXPORTS

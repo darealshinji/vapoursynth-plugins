@@ -5,7 +5,7 @@ CXX_silent    = @ echo '  CXX      '$@;
 AR_silent     = @ echo '  AR       '$@;
 endif
 
-local_CXXFLAGS  = -O3 -Wall -Wextra -Werror=format-security -fPIC -DPIC
+local_CXXFLAGS  = -O3 -Wall -Wextra -fPIC -DPIC
 local_CXXFLAGS += -Wno-missing-field-initializers -Wno-unused-parameter -Wno-unused-but-set-parameter
 local_CXXFLAGS += -I$(d) -I$(d)API -I$(d)Colorspace -I$(d)Common -I$(d)Depth -I$(d)Resize -I$(d)Unresize
 local_CXXFLAGS += -mfpmath=sse -msse2 -DZIMG_X86 $(CXXFLAGS) $(CPPFLAGS)

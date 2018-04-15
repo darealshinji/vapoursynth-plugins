@@ -7,7 +7,6 @@ HOST = @host@
 BUILD = @build@
 HAVE_I686 = @HAVE_I686@
 HAVE_X86_64 = @HAVE_X86_64@
-HAVE_CXX14 = @HAVE_CXX14@
 
 #srcdir = @srcdir@
 #top_srcdir = @top_srcdir@

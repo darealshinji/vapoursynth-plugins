@@ -54,16 +54,12 @@ AS_IF([test "x$YASM" = "x"], [have_yasm="no"], [have_yasm="yes"])
 
 
 # build flags
-AX_CXX_COMPILE_STDCXX([14], [ext], [optional])
-AS_IF([test "x$ax_cv_cxx_compile_cxx14" != "xyes"], [
-    AX_CXX_COMPILE_STDCXX([11], [ext], [mandatory])
-])
-
 _sps="-fstack-protector-strong"
 _sp="-fstack-protector --param=ssp-buffer-size=4"
 AX_CHECK_COMPILE_FLAG([$_sps], [CXXFLAGS="$CXXFLAGS $_sps" CFLAGS="$CFLAGS $_sps"], [
     AX_CHECK_COMPILE_FLAG([$_sp], [CXXFLAGS="$CXXFLAGS $_sp" CFLAGS="$CFLAGS $_sp"])
 ])
+AX_CXX_COMPILE_STDCXX([14], [ext], [mandatory])
 
 
 # architecture

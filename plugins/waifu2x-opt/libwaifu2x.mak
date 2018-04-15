@@ -9,7 +9,7 @@ LIB = $(d)libwaifu2x.a
 
 d = libwaifu2x/
 
-local_CXXFLAGS  = -O3 -Wall -Wextra -Werror=format-security -fPIC -DPIC -Dwaifu2x_EXPORTS
+local_CXXFLAGS  = -O3 -Wall -Wextra -fPIC -DPIC -Dwaifu2x_EXPORTS
 local_CXXFLAGS += -I$(d)include -fopenmp $(CXXFLAGS) $(CPPFLAGS)
 local_LDFLAGS   = -fopenmp -Wl,-z,relro -Wl,-z,noexecstack -Wl,-z,defs -Wl,--as-needed $(LDFLAGS)
 
