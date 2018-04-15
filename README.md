@@ -88,6 +88,7 @@ sudo apt-get install vapoursynth-extra-plugins
 [temporalsoften 1.0](https://github.com/dubhater/vapoursynth-temporalsoften)<br>
 [temporalsoften2 0.1.1](http://forum.doom9.org/showthread.php?t=166769)<br>
 [tnlmeans git20150225](https://github.com/VFR-maniac/VapourSynth-TNLMeans)<br>
+[ttempsmooth r2](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-TTempSmooth)<br>
 [vaguedenoiser r2](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-VagueDenoiser)<br>
 [vautodeint 0.0.1](https://github.com/gnaggnoyil/VAutoDeint)<br>
 [videoscope 1.0](https://github.com/dubhater/vapoursynth-videoscope)<br>
