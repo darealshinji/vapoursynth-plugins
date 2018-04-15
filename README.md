@@ -50,7 +50,7 @@ sudo apt-get install vapoursynth-extra-plugins
 [degrainmedian 1](https://github.com/dubhater/vapoursynth-degrainmedian)<br>
 [delogo 0.4](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-DeLogo)<br>
 [depan r1](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-DePan)<br>
-[dfttest r3](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-DFTTest)<br>
+[dfttest r4](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-DFTTest)<br>
 [eedi2 r7](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-EEDI2)<br>
 [eedi3 r2](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-EEDI3)<br>
 [ffms2 2.23.1](https://github.com/FFMS/ffms2)<br>

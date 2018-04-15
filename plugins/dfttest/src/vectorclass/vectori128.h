@@ -94,8 +94,13 @@ public:
     // Merom, Wolfdale) and Atom, but not on other processors from Intel, AMD or VIA.
     // You may use load_a instead of load if you are certain that p points to an address
     // divisible by 16.
-    void load_a(void const * p) {
+    Vec128b & load_a(void const * p) {
         xmm = _mm_load_si128((__m128i const*)p);
+        return *this;
+    }
+    // Member function to store 64-bit integer into array
+    void storel(void * p) const {
+        _mm_storel_epi64((__m128i*)p, xmm);
     }
     // Member function to store into array (unaligned)
     void store(void * p) const {
@@ -108,6 +113,10 @@ public:
     // divisible by 16.
     void store_a(void * p) const {
         _mm_store_si128((__m128i*)p, xmm);
+    }
+    // Member function to store into array using a non-temporal memory hint, aligned by 16
+    void stream(void * p) const {
+        _mm_stream_si128((__m128i*)p, xmm);
     }
     // Member function to change a single bit
     // Note: This function is inefficient. Use load function if changing more than one bit
@@ -198,6 +207,10 @@ static inline Vec128b & operator ^= (Vec128b & a, Vec128b const & b) {
 }
 
 // Define functions for this class
+
+static inline __m128i zero_128b() {
+    return _mm_setzero_si128();
+}
 
 // function andnot: a & ~ b
 static inline Vec128b andnot (Vec128b const & a, Vec128b const & b) {
@@ -328,6 +341,11 @@ public:
     // Type cast operator to convert to __m128i used in intrinsics
     operator __m128i() const {
         return xmm;
+    }
+    // Member function to load 64-bit integer from array
+    Vec16c & loadl(void const * p) {
+        xmm = _mm_loadl_epi64((__m128i const*)p);
+        return *this;
     }
     // Member function to load from array (unaligned)
     Vec16c & load(void const * p) {
@@ -905,6 +923,11 @@ public:
         xmm = x;
         return *this;
     }
+    // Member function to load 64-bit integer from array
+    Vec16uc & loadl(void const * p) {
+        xmm = _mm_loadl_epi64((__m128i const*)p);
+        return *this;
+    }
     // Member function to load from array (unaligned)
     Vec16uc & load(void const * p) {
         xmm = _mm_loadu_si128((__m128i const*)p);
@@ -1124,6 +1147,11 @@ public:
     operator __m128i() const {
         return xmm;
     }
+    // Member function to load 64-bit integer from array
+    Vec8s & loadl(void const * p) {
+        xmm = _mm_loadl_epi64((__m128i const*)p);
+        return *this;
+    }
     // Member function to load from array (unaligned)
     Vec8s & load(void const * p) {
         xmm = _mm_loadu_si128((__m128i const*)p);
@@ -1132,6 +1160,15 @@ public:
     // Member function to load from array (aligned)
     Vec8s & load_a(void const * p) {
         xmm = _mm_load_si128((__m128i const*)p);
+        return *this;
+    }
+    // Member function to load 8 8-bit unsigned integers from array
+    Vec8s & load_8uc(void const * p) {
+#if INSTRSET >= 5   // SSE4.1
+        xmm = _mm_cvtepu8_epi16(Vec16uc().loadl(p));
+#else
+        xmm = _mm_unpacklo_epi8(Vec16uc().loadl(p),_mm_setzero_si128());
+#endif
         return *this;
     }
     // Partial load. Load n elements and set the rest to 0
@@ -1473,7 +1510,7 @@ static inline Vec8sb operator != (Vec8s const & a, Vec8s const & b) {
 #ifdef __XOP__  // AMD XOP instruction set
     return (Vec8sb)_mm_comneq_epi16(a,b);
 #else  // SSE2 instruction set
-    return Vec8sb (~(a == b));
+    return Vec8sb(Vec8s(~(a == b)));
 #endif
 }
 
@@ -1492,7 +1529,7 @@ static inline Vec8sb operator >= (Vec8s const & a, Vec8s const & b) {
 #ifdef __XOP__  // AMD XOP instruction set
     return (Vec8sb)_mm_comge_epi16(a,b);
 #else  // SSE2 instruction set
-    return Vec8sb (~(b > a));
+    return Vec8sb(Vec8s(~(b > a)));
 #endif
 }
 
@@ -1697,6 +1734,11 @@ public:
         xmm = x;
         return *this;
     }
+    // Member function to load 64-bit integer from array
+    Vec8us & loadl(void const * p) {
+        xmm = _mm_loadl_epi64((__m128i const*)p);
+        return *this;
+    }
     // Member function to load from array (unaligned)
     Vec8us & load(void const * p) {
         xmm = _mm_loadu_si128((__m128i const*)p);
@@ -1791,9 +1833,9 @@ static inline Vec8sb operator <= (Vec8us const & a, Vec8us const & b) {
 // vector operator > : returns true for elements for which a > b (unsigned)
 static inline Vec8sb operator > (Vec8us const & a, Vec8us const & b) {
 #ifdef __XOP__  // AMD XOP instruction set
-    return (Vec8s)_mm_comgt_epu16(a,b);
+    return (Vec8sb)_mm_comgt_epu16(a,b);
 #else  // SSE2 instruction set
-    return Vec8sb (~(b >= a));
+    return Vec8sb(Vec8s(~(b >= a)));
 #endif
 }
 
@@ -1977,6 +2019,25 @@ public:
     // Member function to load from array (aligned)
     Vec4i & load_a(void const * p) {
         xmm = _mm_load_si128((__m128i const*)p);
+        return *this;
+    }
+    // Member function to load 4 8-bit unsigned integers from array
+    Vec4i & load_4uc(void const * p) {
+#if INSTRSET >= 5   // SSE4.1
+        xmm          = _mm_cvtepu8_epi32(_mm_cvtsi32_si128(*(int32_t const*)p));
+#else
+        __m128i zero = _mm_setzero_si128();
+        xmm          = _mm_unpacklo_epi16(_mm_unpacklo_epi8(_mm_cvtsi32_si128(*(int32_t const*)p),zero),zero);
+#endif
+        return *this;
+    }
+    // Member function to load 4 16-bit unsigned integers from array
+    Vec4i & load_4us(void const * p) {
+#if INSTRSET >= 5   // SSE4.1
+        xmm = _mm_cvtepu16_epi32(Vec8us().loadl(p));
+#else
+        xmm = _mm_unpacklo_epi16(Vec8us().loadl(p),_mm_setzero_si128());
+#endif
         return *this;
     }
     // Partial load. Load n elements and set the rest to 0
@@ -5223,6 +5284,12 @@ static inline Vec16uc compress_saturated (Vec8us const & low, Vec8us const & hig
 #endif
 }
 
+// Function compress : packs two vectors of 16-bit integers into one vector of 8-bit integers
+// Signed to unsigned, with saturation
+static inline Vec16uc compress_saturated_s2u (Vec8s const & low, Vec8s const & high) {
+    return  _mm_packus_epi16(low,high);                    // this instruction saturates from signed 16 bit to unsigned 8 bit
+}
+
 // Compress 32-bit integers to 16-bit integers, signed and unsigned, with and without saturation
 
 // Function compress : packs two vectors of 32-bit integers into one vector of 16-bit integers
@@ -5279,6 +5346,19 @@ static inline Vec8us compress_saturated (Vec4ui const & low, Vec4ui const & high
     __m128i lowsatur = _mm_or_si128(low,lownz2);           // low, saturated
     __m128i hisatur  = _mm_or_si128(high,highnz2);         // high, saturated
     return  Vec8us (compress(Vec4i(lowsatur), Vec4i(hisatur)));
+#endif
+}
+
+// Function compress : packs two vectors of 32-bit integers into one vector of 16-bit integers
+// Signed to unsigned, with saturation
+static inline Vec8us compress_saturated_s2u (Vec4i const & low, Vec4i const & high) {
+#if INSTRSET >= 5   // SSE4.1 supported
+    return  _mm_packus_epi32(low,high);                    // this instruction saturates from signed 32 bit to unsigned 16 bit
+#else
+    __m128i signbit = _mm_set1_epi32(0x8000);
+    __m128i low1    = _mm_sub_epi32(low,signbit);
+    __m128i high1   = _mm_sub_epi32(high,signbit);
+    return  _mm_xor_si128(_mm_packs_epi32(low1,high1),_mm_set1_epi16(-0x8000));
 #endif
 }
 

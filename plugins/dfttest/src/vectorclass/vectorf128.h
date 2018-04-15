@@ -480,8 +480,8 @@ public:
         return xmm;
     }
     // Member function to load from array (unaligned)
-    Vec4f & load(float const * p) {
-        xmm = _mm_loadu_ps(p);
+    Vec4f & load(void const * p) {
+        xmm = _mm_loadu_ps((float const*)p);
         return *this;
     }
     // Member function to load from array, aligned by 16
@@ -489,8 +489,8 @@ public:
     // Merom, Wolfdale) and Atom, but not on other processors from Intel, AMD or VIA.
     // You may use load_a instead of load if you are certain that p points to an address
     // divisible by 16.
-    Vec4f & load_a(float const * p) {
-        xmm = _mm_load_ps(p);
+    Vec4f & load_a(void const * p) {
+        xmm = _mm_load_ps((float const*)p);
         return *this;
     }
     // Member function to store into array (unaligned)
@@ -504,6 +504,10 @@ public:
     // divisible by 16.
     void store_a(float * p) const {
         _mm_store_ps(p, xmm);
+    }
+    // Member function to store into array using a non-temporal memory hint, aligned by 16
+    void stream(float * p) const {
+        _mm_stream_ps(p, xmm);
     }
     // Partial load. Load n elements and set the rest to 0
     Vec4f & load_partial(int n, float const * p) {
@@ -788,6 +792,10 @@ static inline Vec4fb operator ! (Vec4f const & a) {
 *          Functions for Vec4f
 *
 *****************************************************************************/
+
+static inline Vec4f zero_4f() {
+    return _mm_setzero_ps();
+}
 
 // Select between two operands. Corresponds to this pseudocode:
 // for (int i = 0; i < 4; i++) result[i] = s[i] ? a[i] : b[i];

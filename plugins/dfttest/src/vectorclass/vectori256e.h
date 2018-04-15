@@ -126,6 +126,11 @@ public:
         _mm_store_si128((__m128i*)p,     y0);
         _mm_store_si128((__m128i*)p + 1, y1);
     }
+    // Member function to store into array using a non-temporal memory hint, aligned by 32
+    void stream(void * p) const {
+        _mm_stream_si128((__m128i*)p,     y0);
+        _mm_stream_si128((__m128i*)p + 1, y1);
+    }
     // Member function to change a single bit
     // Note: This function is inefficient. Use load function if changing more than one bit
     Vec256b const & set_bit(uint32_t index, int value) {
@@ -211,6 +216,11 @@ static inline Vec256b & operator ^= (Vec256b & a, Vec256b const & b) {
 }
 
 // Define functions for this class
+
+static inline Vec256b zero_256b() {
+    Vec128b zero = _mm_setzero_si128();
+    return Vec256b(zero, zero);
+}
 
 // function andnot: a & ~ b
 static inline Vec256b andnot (Vec256b const & a, Vec256b const & b) {
@@ -1039,6 +1049,12 @@ public:
         y1 = _mm_load_si128((__m128i const*)p + 1);
         return *this;
     }
+    // Member function to load 16 8-bit unsigned integers from array
+    Vec16s & load_16uc(void const * p) {
+        y0 = Vec8s().load_8uc(p);
+        y1 = Vec8s().load_8uc((uint8_t const*)p + 8);
+        return *this;
+    }
     // Partial load. Load n elements and set the rest to 0
     Vec16s & load_partial(int n, void const * p) {
         if (n <= 0) {
@@ -1739,6 +1755,18 @@ public:
     Vec8i & load_a(void const * p) {
         y0 = _mm_load_si128((__m128i const*)p);
         y1 = _mm_load_si128((__m128i const*)p + 1);
+        return *this;
+    }
+    // Member function to load 8 8-bit unsigned integers from array
+    Vec8i & load_8uc(void const * p) {
+        y0 = Vec4i().load_4uc(p);
+        y1 = Vec4i().load_4uc((uint8_t const*)p + 4);
+        return *this;
+    }
+    // Member function to load 8 16-bit unsigned integers from array
+    Vec8i & load_8us(void const * p) {
+        y0 = Vec4i().load_4us(p);
+        y1 = Vec4i().load_4us((uint16_t const*)p + 4);
         return *this;
     }
     // Partial load. Load n elements and set the rest to 0

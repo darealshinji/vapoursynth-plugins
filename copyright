@@ -67,7 +67,8 @@ Copyright: 2004-2016 A.G. Balakhnin aka Fizick <bag@hotmail.ru>
 License: GPL-2+
 
 Files: plugins/dfttest/*
-Copyright: 2015 HolyWu
+Copyright: 2015-2018 HolyWu
+           2007-2010 Kevin Stone
 License: GPL-2+
 
 Files: plugins/eedi2/*

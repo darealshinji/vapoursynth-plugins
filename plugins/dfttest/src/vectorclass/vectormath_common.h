@@ -16,7 +16,7 @@
 *   http://www.netlib.org/cephes/
 *
 * Calculation methods:
-* Some functions are using Padé approximations f(x) = P(x)/Q(x)
+* Some functions are using PadÃ© approximations f(x) = P(x)/Q(x)
 * Most single precision functions are using Taylor expansions
 *
 * For detailed instructions, see VectorClass.pdf
