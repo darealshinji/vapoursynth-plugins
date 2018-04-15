@@ -1,9 +1,6 @@
 /*
 *    This file is part of KNLMeansCL,
-*    Copyright(C) 2002		thejam79,
-*    Copyright(C) 2003		minamina,
-*    Copyright(C) 2007		Donald A. Graft,
-*    Copyright(C) 2014-2018 Edoardo Brunetti.
+*    Copyright(C) 2015-2018  Edoardo Brunetti.
 *
 *    KNLMeansCL is free software: you can redistribute it and/or modify
 *    it under the terms of the GNU General Public License as published by
@@ -19,14 +16,14 @@
 *    along with KNLMeansCL. If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef __STARTCHAR_H
-#define __STARTCHAR_H
-
-#include <cstdint>
+#include "common.h"
 
 //////////////////////////////////////////
 // Functions
-void DrawDigit(uint8_t* dst, int pitch, int x, int y, int num);
-void DrawString(uint8_t* dst, int pitch, int x, int y, const char *s);
+size_t mrounds(const size_t number, const size_t multiple) {
+    return ((number + multiple - 1) / multiple) * multiple;
+}
 
-#endif //__STARTCHAR_H__
+int min(const  int a, const int b) {
+    return (b < a) ? b : a;
+}
