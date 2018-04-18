@@ -1,3 +1,14 @@
+vapoursynth-extra-plugins (20180415-1~xenial) xenial; urgency=low
+
+  * Updates: dfttest, eedi3, knlmeanscl, lsmashsource, nnedi3cl, tdeintmod
+  * Use HolyWu's version of dctfilter
+  * New plugins: ttempsmooth
+  * Update scripts: finesharp, havsfunc, mcdegrainsharp, nnedi3_rpow2,
+    psharpen, resamplehq, sharpaamcmod, vstaambk, vshelpers
+  * Update VS headers (r43)
+
+ -- Marshall Banana <djcj@gmx.de>  Sun, 15 Apr 2018 16:14:40 +020
+
 vapoursynth-extra-plugins (20171104-1~xenial) xenial; urgency=low
 
   * Updates: yadifmod, tdeintmod, tcanny, knlmeanscl, histogram, deblock,
