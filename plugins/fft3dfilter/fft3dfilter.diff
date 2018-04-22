@@ -1,0 +1,158 @@
+Patches to enable building on Linux.
+
+--- a/FFT3DFilter.cpp
++++ b/FFT3DFilter.cpp
+@@ -202,7 +202,9 @@
+     if (istat == 0)
+         throw std::runtime_error{ "fftwf_init_threads() failed!" };
+ 
++#ifdef HAVE_FFTW3_MAKE_PLANNER_THREAD_SAFE
+     fftwf_make_planner_thread_safe();
++#endif
+ 
+     int i, j;
+ 
+@@ -877,7 +879,7 @@
+             inp = inp0 + h * bw;
+             for( w = 0; w < bw - ow; w++ )   /* first half line of first block */
+             {   
+-                if constexpr (std::is_integral<T>::value)
++                if /*constexpr*/ (std::is_integral<T>::value)
+                     dstp[w] = std::min(maxval, std::max( 0, (int)(inp[w] * norm) + planeBase ) ); /* Copy each byte from float array to dest with windows */
+                 else 
+                     dstp[w] = inp[w] * norm;
+@@ -888,7 +890,7 @@
+             {
+                 for( w = 0; w < ow; w++ )   /* half line of block */
+                 {
+-                    if constexpr (std::is_integral<T>::value)
++                    if /*constexpr*/ (std::is_integral<T>::value)
+                         dstp[w] = std::min(maxval, std::max( 0, (int)((inp[w] * wsynxr[w] + inp[w + xoffset] * wsynxl[w]) * norm) + planeBase ) );  /* overlapped Copy */
+                     else
+                         dstp[w] = (inp[w] * wsynxr[w] + inp[w + xoffset] * wsynxl[w]) * norm;
+@@ -897,7 +899,7 @@
+                 dstp += ow;
+                 for( w = 0; w < bw - ow - ow; w++ )   /* first half line of first block */
+                 {
+-                    if constexpr (std::is_integral<T>::value)
++                    if /*constexpr*/ (std::is_integral<T>::value)
+                         dstp[w] = std::min(maxval, std::max( 0, (int)(inp[w] * norm) + planeBase ) );   /* Copy each byte from float array to dest with windows */
+                     else
+                         dstp[w] = inp[w] * norm;
+@@ -907,7 +909,7 @@
+             }
+             for( w = 0; w < ow; w++ )   /* last half line of last block */
+             {
+-                if constexpr (std::is_integral<T>::value)
++                if /*constexpr*/ (std::is_integral<T>::value)
+                     dstp[w] = std::min(maxval, std::max( 0,(int)(inp[w] * norm) + planeBase ) );
+                 else
+                     dstp[w] = inp[w] * norm;
+@@ -930,7 +932,7 @@
+ 
+             for( w = 0; w < bw - ow; w++ )   /* first half line of first block */
+             {
+-                if constexpr (std::is_integral<T>::value)
++                if /*constexpr*/ (std::is_integral<T>::value)
+                     dstp[w] = std::min(maxval, std::max( 0, (int)((inp[w] * wsynyrh + inp[w + yoffset] * wsynylh)) + planeBase ) );   /* y overlapped */
+                 else
+                     dstp[w] = inp[w] * wsynyrh + inp[w + yoffset] * wsynylh;
+@@ -941,7 +943,7 @@
+             {
+                 for( w = 0; w < ow; w++ )   /* half overlapped line of block */
+                 {
+-                    if constexpr (std::is_integral<T>::value)
++                    if /*constexpr*/ (std::is_integral<T>::value)
+                         dstp[w] = std::min(maxval, std::max( 0, (int)(((inp[w] * wsynxr[w] + inp[w + xoffset] * wsynxl[w]) * wsynyrh
+                             + (inp[w + yoffset] * wsynxr[w] + inp[w + xoffset + yoffset] * wsynxl[w]) * wsynylh)) + planeBase ) );   /* x overlapped */
+                     else
+@@ -952,7 +954,7 @@
+                 dstp += ow;
+                 for( w = 0; w < bw - ow - ow; w++ )   /* double minus - half non-overlapped line of block */
+                 {
+-                    if constexpr (std::is_integral<T>::value)
++                    if /*constexpr*/ (std::is_integral<T>::value)
+                         dstp[w] = std::min(maxval, std::max( 0, (int)((inp[w] * wsynyrh + inp[w + yoffset] * wsynylh )) + planeBase ) );
+                     else
+                         dstp[w] = inp[w] * wsynyrh + inp[w + yoffset] * wsynylh;
+@@ -962,7 +964,7 @@
+             }
+             for( w = 0; w < ow; w++ )   /* last half line of last block */
+             {
+-                if constexpr (std::is_integral<T>::value)
++                if /*constexpr*/ (std::is_integral<T>::value)
+                     dstp[w] = std::min(maxval, std::max( 0, (int)((inp[w] * wsynyrh + inp[w + yoffset] * wsynylh)) + planeBase ) );
+                 else
+                     dstp[w] = inp[w] * wsynyrh + inp[w + yoffset] * wsynylh;
+@@ -978,7 +980,7 @@
+             inp = inp0 + (ihy - 1) * (yoffset + (bh - oh) * bw) + (bh) * bw + h * bw + yoffset;
+             for( w = 0; w < bw - ow; w++ )   /* first half line of first block */
+             {
+-                if constexpr (std::is_integral<T>::value)
++                if /*constexpr*/ (std::is_integral<T>::value)
+                     dstp[w] = std::min(maxval, std::max( 0, (int)(inp[w] * norm) + planeBase ) );
+                 else
+                     dstp[w] = inp[w] * norm;
+@@ -989,7 +991,7 @@
+             {
+                 for( w = 0; w < ow; w++ )   /* half overlapped line of block */
+                 {
+-                    if constexpr (std::is_integral<T>::value)
++                    if /*constexpr*/ (std::is_integral<T>::value)
+                         dstp[w] = std::min(maxval, std::max( 0, (int)((inp[w] * wsynxr[w] + inp[w + xoffset] * wsynxl[w] ) * norm) + planeBase ) );   /* x overlapped */
+                     else
+                         dstp[w] = (inp[w] * wsynxr[w] + inp[w + xoffset] * wsynxl[w]) * norm;
+@@ -998,7 +1000,7 @@
+                 dstp += ow;
+                 for( w = 0; w < bw - ow - ow; w++ )   /* half non-overlapped line of block */
+                 {
+-                    if constexpr (std::is_integral<T>::value)
++                    if /*constexpr*/ (std::is_integral<T>::value)
+                         dstp[w] = std::min(maxval, std::max( 0, (int)(inp[w] * norm) + planeBase ) );
+                     else
+                         dstp[w] = inp[w] * norm;
+@@ -1008,7 +1010,7 @@
+             }
+             for( w = 0; w < ow; w++ )   /* last half line of last block */
+             {
+-                if constexpr (std::is_integral<T>::value)
++                if /*constexpr*/ (std::is_integral<T>::value)
+                     dstp[w] = std::min(maxval, std::max( 0, (int)(inp[w] * norm) + planeBase ) );
+                 else
+                     dstp[w] = inp[w] * norm;
+@@ -1027,7 +1029,7 @@
+             inp = inp0 + (ihy - 1) * (yoffset + (bh - oh) * bw) + (bh - oh) * bw + h * bw;
+             for( w = 0; w < bw - ow; w++ )   /* first half line of first block */
+             {
+-                if constexpr (std::is_integral<T>::value)
++                if /*constexpr*/ (std::is_integral<T>::value)
+                     dstp[w] = std::min(maxval, std::max( 0, (int)(inp[w] * norm) + planeBase ) );
+                 else
+                     dstp[w] = inp[w] * norm;
+@@ -1038,7 +1040,7 @@
+             {
+                 for( w = 0; w < ow; w++ )   /* half line of block */
+                 {
+-                    if constexpr (std::is_integral<T>::value)
++                    if /*constexpr*/ (std::is_integral<T>::value)
+                         dstp[w] = std::min(maxval, std::max( 0, (int)((inp[w] * wsynxr[w] + inp[w + xoffset] * wsynxl[w]) * norm) + planeBase ) );  /* overlapped Copy */
+                     else
+                         dstp[w] = (inp[w] * wsynxr[w] + inp[w + xoffset] * wsynxl[w]) * norm;
+@@ -1047,7 +1049,7 @@
+                 dstp += ow;
+                 for( w = 0; w < bw - ow - ow; w++ )   /* half line of block */
+                 {
+-                    if constexpr (std::is_integral<T>::value)
++                    if /*constexpr*/ (std::is_integral<T>::value)
+                         dstp[w] = std::min(maxval, std::max( 0, (int)(inp[w] * norm) + planeBase ) );
+                     else
+                         dstp[w] = inp[w] * norm;
+@@ -1057,7 +1059,7 @@
+             }
+             for( w = 0; w < ow; w++ )   /* last half line of last block */
+             {
+-                if constexpr (std::is_integral<T>::value)
++                if /*constexpr*/ (std::is_integral<T>::value)
+                     dstp[w] = std::min(maxval, std::max( 0, (int)(inp[w] * norm) + planeBase ) );
+                 else
+                     dstp[w] = inp[w] * norm;

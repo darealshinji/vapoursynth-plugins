@@ -88,20 +88,10 @@ Comment:
 
 Files: plugins/fft3dfilter/src/fft3dfilter_c.cpp
 Copyright: 2004-2006 A.G.Balakhnin aka Fizick <bag@hotmail.ru>
-License: GPL-2
-
-Files: plugins/fft3dfilter/src/FFT3DFilter.*
-Copyright: 2004-2006 A.G.Balakhnin aka Fizick <bag@hotmail.ru>
            2015 Yusuke Nakamura <muken.the.vfrmaniac@gmail.com>
-License: GPL-2
-
-Files: plugins/fft3dfilter/src/info.h
-Copyright: 2002 thejam79
-           2003 minamina
 License: GPL-2+
 
-Files: plugins/fft3dfilter/src/Plugin.cpp
-       plugins/reduceflicker/src/Plugin.cpp
+Files: plugins/reduceflicker/src/Plugin.cpp
        plugins/tnlmeans/src/AlignedMemory.*
        plugins/tnlmeans/src/Plugin.cpp
 Copyright: 2015 Yusuke Nakamura <muken.the.vfrmaniac@gmail.com>

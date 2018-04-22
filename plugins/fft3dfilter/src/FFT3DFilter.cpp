@@ -21,168 +21,120 @@
  *****************************************************************************
  *
  * Plugin uses external FFTW library version 3 (http://www.fftw.org)
- * You must put libfftw3f-3.dll file from this package to some directory in path
- * (for example, C:\WINNT\System32).
+ * You must put libfftw3f-3.dll in the same directory as the plugin dll
  *
  * The algorithm is based on the 3D IIR/3D Frequency Domain Filter from:
  * MOTION PICTURE RESTORATION. by Anil Christopher Kokaram. Ph.D. Thesis. May 1993.
  * http://www.mee.tcd.ie/~ack/papers/a4ackphd.ps.gz
  *
- * For AviSynth 2.5
- *    Version 0.1, 23 November 2004 - initial
- *    Version 0.2, 3 December 2004 - add beta parameter of noise margin
- *    Version 0.3, 21 December 2004 - add bt parameter of temporal size
- *    Version 0.4, 16 January 2005 - algorithm optimized for speed for bt=2 (now default),
- *        mode bt=3 is temporary disabled, changed default bw=bh=32, filtered region now centered.
- *    Version 0.5, 28 January 2005 - added YUY2 support
- *    Version 0.6, 29 January 2005 - added Kalman filter mode for bt=0, ratio parameter
- *    Version 0.7, 30 January 2005 - re-enabled Wiener filter mode with 3 frames (bt=3)
- *    Version 0.8, 05 February2005 - added option to sharpen, and bt=-1
- *    Version 0.8.1, 6 February2005 - skip sharpening of the lowest frequencies to prevent parasitic lines near border
- *    Version 0.8.2,  February 15, 2005 - added internal buffer to process whole frame (borders included) for any bw, bh (a little slower)
- *    Version 0.8.3, March 16, 2005 - fixed sharpen mode (bt=-1) for YUY2
- *    Version 0.8.4, April 3, 2005 - delayed FFTW3.DLL loading
- *    Version 0.9 - April 3,2005 - variable overlapping size
- *    Version 0.9.1 - April 7,2005 - some assembler 3DNow! optimization for mode bt=3
- *    Version 0.9.2 - April 10,2005 - some assembler 3DNow! optimization for mode bt=2,
- *        option measure=true is now default as more fast
- *    Version 0.9.3 - April 24,2005 - bug fixed for bt=2 with 3DNow; * bt=3 now default;
- *        modifyed sharpen to horizontal only (still experimental)
- *    Version 1.0 - June 22, 2005 - improved edges processing (by padding);
- *        added svr parameter to control vertical sharpening
- *    Version 1.0.1 - July 05, 2005 - fixed bug for YUY2 chroma planes
- *    Version 1.1 - July 8,2005 - improved sharpen mode to prevent grid artifactes and to limit sharpening,
- *        added parameters smin, smax; renamed parameter ratio to kratio.
- *    Version 1.2 - July 12, 2005 - changed parameters defaults (bw=bh=48, ow=bw/3, oh=bh/3) to prevent grid artifactes
- *    Version 1.3 - July 20, 2005 - added interlaced mode
- *    Version 1.3.1 - July 21, 2005 - fixed bug for YUY2 interlaced
- *    Version 1.4 - July 23, 2005 - corrected neutral level for chroma processing, added wintype to decrease grid artefactes
- *    Version 1.5 - July 26, 2005 - added noise pattern method and its parameters pframe, px, py, pshow, pcutoff, pfactor
- *    Version 1.5.1 - July 29, 2005 - fixed bug with pshow
- *    Version 1.5.2 - July 31, 2005 - fixed bug with Kalman mode (bt=0) for Athlon (introduced in v1.5)
- *    Version 1.6 - August 01, 2005 - added mode bt=4; optimized SSE version for bt=2,3
- *    Version 1.7 - August 29, 2005 - added SSE version for for sharpen and pattern modes bt=2,3 ; restuctured code, GPL v2
- *    Version 1.8 - September 6, 2005 - improved internal fft cache; added degrid=0; changed wintype=0
- *    Version 1.8.1 - October 26, 2005 - fixed bug with sharpen>0 AND degrid>0 for bt not equal 1.
- *    Version 1.8.2 - November 04, 2005 - really set default degrid=1.0 (was = 0)
- *    Version 1.8.3 - November 28, 2005 - fixed bug with first frame for Kalman YV12 (thanks to Tsp)
- *    Version 1.8.4 - November 29, 2005 - added multiplane modes plane=3,4
- *    Version 1.8.5 - 4 December 2005 - fixed bug with memory leakage (thanks to tsp).
- *    Version 1.9 - April 25, 2006 - added dehalo options; corrected sharpen mode a little;
- *        re-enabled 3DNow and SSE optimization for degrid=0;  added SSE optimization for bt=3,-1 with degrid>0 (faster by 15%)
- *    Version 1.9.1 - May 10, 2006 - added SSE optimization for bt=4 with degrid>0 (faster by 30%)
- *    Version 1.9.2 - September 6, 2006 - added new mode bt=5
- *    Version 2.0.0 - november 6, 2006 - added motion compensation mc parameter, window reorganized, multi-cpu
- *    Version 2.1.0 - January 17, 2007 - removed motion compensation mc parameter
- *    Version 2.1.1 - February 19, 2007 - fixed bug with bw not mod 4 (restored v1.9.2 window method)
- *
- * For VapourSynth
- *    February 2, 2015 - imported for VapourSynth without SIMD optimizations.
- *    February 4, 2015 - stopped using explicit linking to FFTW3 library.
  *****************************************************************************/
 
 #include <cstring>
 #include <algorithm>
-#include <math.h>
-
+#include <cmath>
+#include <cstdlib>
 #include "FFT3DFilter.h"
-#include "info.h"
 
 /** declarations of filtering functions: **/
 /* C */
-void ApplyWiener2D_C( fftwf_complex *out, int outwidth, int outpitch, int bh, int howmanyblocks, float sigmaSquaredNoiseNormed, float beta, float sharpen, float sigmaSquaredSharpenMin, float sigmaSquaredSharpenMax, const float *wsharpen, float dehalo, const float *wdehalo, float ht2n );
-void ApplyPattern2D_C( fftwf_complex *outcur, int outwidth, int outpitch, int bh, int howmanyblocks, float pfactor, const float *pattern2d0, float beta );
-void ApplyWiener3D2_C( const fftwf_complex *outcur, fftwf_complex *outprev, int outwidth, int outpitch, int bh, int howmanyblocks, float sigmaSquaredNoiseNormed, float beta );
-void ApplyPattern3D2_C( const fftwf_complex *outcur, fftwf_complex *outprev, int outwidth, int outpitch, int bh, int howmanyblocks, const float *pattern3d, float beta );
-void ApplyWiener3D3_C( const fftwf_complex *out, fftwf_complex *outprev, const fftwf_complex *outnext, int outwidth, int outpitch, int bh, int howmanyblocks, float sigmaSquaredNoiseNormed, float beta );
-void ApplyPattern3D3_C( const fftwf_complex *out, fftwf_complex *outprev, const fftwf_complex *outnext, int outwidth, int outpitch, int bh, int howmanyblocks, const float *pattern3d, float beta );
-void ApplyWiener3D4_C( const fftwf_complex *out, fftwf_complex *outprev2, const fftwf_complex *outprev, const fftwf_complex *outnext, int outwidth, int outpitch, int bh, int howmanyblocks, float sigmaSquaredNoiseNormed, float beta );
-void ApplyPattern3D4_C( const fftwf_complex *out, fftwf_complex *outprev2, const fftwf_complex *outprev, const fftwf_complex *outnext, int outwidth, int outpitch, int bh, int howmanyblocks, const float *pattern3d, float beta );
-void ApplyWiener3D5_C( const fftwf_complex *out, fftwf_complex *outprev2, const fftwf_complex *outprev, const fftwf_complex *outnext, const fftwf_complex *outnext2, int outwidth, int outpitch, int bh, int howmanyblocks, float sigmaSquaredNoiseNormed, float beta );
-void ApplyPattern3D5_C( const fftwf_complex *out, fftwf_complex *outprev2, const fftwf_complex *outprev, const fftwf_complex *outnext, const fftwf_complex *outnext2, int outwidth, int outpitch, int bh, int howmanyblocks, const float *pattern3d, float beta );
-void ApplyKalmanPattern_C( const fftwf_complex *outcur, fftwf_complex *outLast, fftwf_complex *covar, fftwf_complex *covarProcess, int outwidth, int outpitch, int bh, int howmanyblocks, const float *covarNoiseNormed, float kratio2 );
-void ApplyKalman_C( const fftwf_complex *outcur, fftwf_complex *outLast, fftwf_complex *covar, fftwf_complex *covarProcess, int outwidth, int outpitch, int bh, int howmanyblocks,  float covarNoiseNormed, float kratio2 );
-void Sharpen_C( fftwf_complex *outcur, int outwidth, int outpitch, int bh, int howmanyblocks, float sharpen, float sigmaSquaredSharpenMin, float sigmaSquaredSharpenMax, const float *wsharpen, float dehalo, const float *wdehalo, float ht2n );
+void ApplyWiener2D_C( fftwf_complex *out, int outwidth, int outpitchelems, int bh, int howmanyblocks, float sigmaSquaredNoiseNormed, float beta, float sharpen, float sigmaSquaredSharpenMin, float sigmaSquaredSharpenMax, const float *wsharpen, float dehalo, const float *wdehalo, float ht2n );
+void ApplyPattern2D_C( fftwf_complex *outcur, int outwidth, int outpitchelems, int bh, int howmanyblocks, float pfactor, const float *pattern2d0, float beta );
+void ApplyWiener3D2_C( const fftwf_complex *outcur, fftwf_complex *outprev, int outwidth, int outpitchelems, int bh, int howmanyblocks, float sigmaSquaredNoiseNormed, float beta );
+void ApplyPattern3D2_C( const fftwf_complex *outcur, fftwf_complex *outprev, int outwidth, int outpitchelems, int bh, int howmanyblocks, const float *pattern3d, float beta );
+void ApplyWiener3D3_C( const fftwf_complex *out, fftwf_complex *outprev, const fftwf_complex *outnext, int outwidth, int outpitchelems, int bh, int howmanyblocks, float sigmaSquaredNoiseNormed, float beta );
+void ApplyPattern3D3_C( const fftwf_complex *out, fftwf_complex *outprev, const fftwf_complex *outnext, int outwidth, int outpitchelems, int bh, int howmanyblocks, const float *pattern3d, float beta );
+void ApplyWiener3D4_C( const fftwf_complex *out, fftwf_complex *outprev2, const fftwf_complex *outprev, const fftwf_complex *outnext, int outwidth, int outpitchelems, int bh, int howmanyblocks, float sigmaSquaredNoiseNormed, float beta );
+void ApplyPattern3D4_C( const fftwf_complex *out, fftwf_complex *outprev2, const fftwf_complex *outprev, const fftwf_complex *outnext, int outwidth, int outpitchelems, int bh, int howmanyblocks, const float *pattern3d, float beta );
+void ApplyWiener3D5_C( const fftwf_complex *out, fftwf_complex *outprev2, const fftwf_complex *outprev, const fftwf_complex *outnext, const fftwf_complex *outnext2, int outwidth, int outpitchelems, int bh, int howmanyblocks, float sigmaSquaredNoiseNormed, float beta );
+void ApplyPattern3D5_C( const fftwf_complex *out, fftwf_complex *outprev2, const fftwf_complex *outprev, const fftwf_complex *outnext, const fftwf_complex *outnext2, int outwidth, int outpitchelems, int bh, int howmanyblocks, const float *pattern3d, float beta );
+void ApplyKalmanPattern_C( const fftwf_complex *outcur, fftwf_complex *outLast, fftwf_complex *covar, fftwf_complex *covarProcess, int outwidth, int outpitchelems, int bh, int howmanyblocks, const float *covarNoiseNormed, float kratio2 );
+void ApplyKalman_C( const fftwf_complex *outcur, fftwf_complex *outLast, fftwf_complex *covar, fftwf_complex *covarProcess, int outwidth, int outpitchelems, int bh, int howmanyblocks,  float covarNoiseNormed, float kratio2 );
+void Sharpen_C( fftwf_complex *outcur, int outwidth, int outpitchelems, int bh, int howmanyblocks, float sharpen, float sigmaSquaredSharpenMin, float sigmaSquaredSharpenMax, const float *wsharpen, float dehalo, const float *wdehalo, float ht2n );
 /* degrid_C */
-void ApplyWiener2D_degrid_C( fftwf_complex *out, int outwidth, int outpitch, int bh, int howmanyblocks, float sigmaSquaredNoiseNormed, float beta, float sharpen, float sigmaSquaredSharpenMin, float sigmaSquaredSharpenMax, const float *wsharpen, float degrid, const fftwf_complex *gridsample, float dehalo, const float *wdehalo, float ht2n );
-void ApplyWiener3D2_degrid_C( const fftwf_complex *outcur, fftwf_complex *outprev, int outwidth, int outpitch, int bh, int howmanyblocks, float sigmaSquaredNoiseNormed, float beta, float degrid, const fftwf_complex *gridsample );
-void ApplyWiener3D3_degrid_C( const fftwf_complex *outcur, fftwf_complex *outprev, const fftwf_complex *outnext, int outwidth, int outpitch, int bh, int howmanyblocks, float sigmaSquaredNoiseNormed, float beta, float degrid, const fftwf_complex *gridsample );
-void ApplyWiener3D4_degrid_C( const fftwf_complex *outcur, fftwf_complex *outprev2, const fftwf_complex *outprev, const fftwf_complex *outnext, int outwidth, int outpitch, int bh, int howmanyblocks, float sigmaSquaredNoiseNormed, float beta, float degrid, const fftwf_complex *gridsample );
-void ApplyWiener3D5_degrid_C( const fftwf_complex *outcur, fftwf_complex *outprev2, const fftwf_complex *outprev, const fftwf_complex *outnext, const fftwf_complex *outnext2, int outwidth, int outpitch, int bh, int howmanyblocks, float sigmaSquaredNoiseNormed, float beta, float degrid, const fftwf_complex *gridsample );
-void Sharpen_degrid_C( fftwf_complex *outcur, int outwidth, int outpitch, int bh, int howmanyblocks, float sharpen, float sigmaSquaredSharpenMin, float sigmaSquaredSharpenMax, const float *wsharpen, float degrid, const fftwf_complex *gridsample, float dehalo, const float *wdehalo, float ht2n );
-void ApplyPattern2D_degrid_C( fftwf_complex *outcur, int outwidth, int outpitch, int bh, int howmanyblocks, float pfactor, const float *pattern2d0, float beta, float degrid, const fftwf_complex *gridsample );
-void ApplyPattern3D2_degrid_C( const fftwf_complex *outcur, fftwf_complex *outprev, int outwidth, int outpitch, int bh, int howmanyblocks, const float *pattern3d, float beta, float degrid, const fftwf_complex *gridsample );
-void ApplyPattern3D3_degrid_C( const fftwf_complex *out, fftwf_complex *outprev, const fftwf_complex *outnext, int outwidth, int outpitch, int bh, int howmanyblocks, const float *pattern3d, float beta, float degrid, const fftwf_complex *gridsample );
-void ApplyPattern3D4_degrid_C( const fftwf_complex *out, fftwf_complex *outprev2, const fftwf_complex *outprev, const fftwf_complex *outnext, int outwidth, int outpitch, int bh, int howmanyblocks, const float *pattern3d, float beta, float degrid, const fftwf_complex *gridsample );
-void ApplyPattern3D5_degrid_C( const fftwf_complex *out, fftwf_complex *outprev2, const fftwf_complex *outprev, const fftwf_complex *outnext, const fftwf_complex *outnext2, int outwidth, int outpitch, int bh, int howmanyblocks, const float *pattern3d, float beta, float degrid, const fftwf_complex *gridsample );
+void ApplyWiener2D_degrid_C( fftwf_complex *out, int outwidth, int outpitchelems, int bh, int howmanyblocks, float sigmaSquaredNoiseNormed, float beta, float sharpen, float sigmaSquaredSharpenMin, float sigmaSquaredSharpenMax, const float *wsharpen, float degrid, const fftwf_complex *gridsample, float dehalo, const float *wdehalo, float ht2n );
+void ApplyWiener3D2_degrid_C( const fftwf_complex *outcur, fftwf_complex *outprev, int outwidth, int outpitchelems, int bh, int howmanyblocks, float sigmaSquaredNoiseNormed, float beta, float degrid, const fftwf_complex *gridsample );
+void ApplyWiener3D3_degrid_C( const fftwf_complex *outcur, fftwf_complex *outprev, const fftwf_complex *outnext, int outwidth, int outpitchelems, int bh, int howmanyblocks, float sigmaSquaredNoiseNormed, float beta, float degrid, const fftwf_complex *gridsample );
+void ApplyWiener3D4_degrid_C( const fftwf_complex *outcur, fftwf_complex *outprev2, const fftwf_complex *outprev, const fftwf_complex *outnext, int outwidth, int outpitchelems, int bh, int howmanyblocks, float sigmaSquaredNoiseNormed, float beta, float degrid, const fftwf_complex *gridsample );
+void ApplyWiener3D5_degrid_C( const fftwf_complex *outcur, fftwf_complex *outprev2, const fftwf_complex *outprev, const fftwf_complex *outnext, const fftwf_complex *outnext2, int outwidth, int outpitchelems, int bh, int howmanyblocks, float sigmaSquaredNoiseNormed, float beta, float degrid, const fftwf_complex *gridsample );
+void Sharpen_degrid_C( fftwf_complex *outcur, int outwidth, int outpitchelems, int bh, int howmanyblocks, float sharpen, float sigmaSquaredSharpenMin, float sigmaSquaredSharpenMax, const float *wsharpen, float degrid, const fftwf_complex *gridsample, float dehalo, const float *wdehalo, float ht2n );
+void ApplyPattern2D_degrid_C( fftwf_complex *outcur, int outwidth, int outpitchelems, int bh, int howmanyblocks, float pfactor, const float *pattern2d0, float beta, float degrid, const fftwf_complex *gridsample );
+void ApplyPattern3D2_degrid_C( const fftwf_complex *outcur, fftwf_complex *outprev, int outwidth, int outpitchelems, int bh, int howmanyblocks, const float *pattern3d, float beta, float degrid, const fftwf_complex *gridsample );
+void ApplyPattern3D3_degrid_C( const fftwf_complex *out, fftwf_complex *outprev, const fftwf_complex *outnext, int outwidth, int outpitchelems, int bh, int howmanyblocks, const float *pattern3d, float beta, float degrid, const fftwf_complex *gridsample );
+void ApplyPattern3D4_degrid_C( const fftwf_complex *out, fftwf_complex *outprev2, const fftwf_complex *outprev, const fftwf_complex *outnext, int outwidth, int outpitchelems, int bh, int howmanyblocks, const float *pattern3d, float beta, float degrid, const fftwf_complex *gridsample );
+void ApplyPattern3D5_degrid_C( const fftwf_complex *out, fftwf_complex *outprev2, const fftwf_complex *outprev, const fftwf_complex *outnext, const fftwf_complex *outnext2, int outwidth, int outpitchelems, int bh, int howmanyblocks, const float *pattern3d, float beta, float degrid, const fftwf_complex *gridsample );
 //-------------------------------------------------------------------------------------------
-static void ApplyWiener2D( fftwf_complex *out, int outwidth, int outpitch, int bh, int howmanyblocks, float sigmaSquaredNoiseNormed,
+static void ApplyWiener2D( fftwf_complex *out, int outwidth, int outpitchelems, int bh, int howmanyblocks, float sigmaSquaredNoiseNormed,
                            float beta, float sharpen, float sigmaSquaredSharpenMin, float sigmaSquaredSharpenMax, const float *wsharpen, float dehalo, const float *wdehalo, float ht2n )
 {
-    ApplyWiener2D_C( out, outwidth, outpitch, bh, howmanyblocks, sigmaSquaredNoiseNormed, beta, sharpen, sigmaSquaredSharpenMin, sigmaSquaredSharpenMax, wsharpen, dehalo, wdehalo, ht2n );
+    ApplyWiener2D_C( out, outwidth, outpitchelems, bh, howmanyblocks, sigmaSquaredNoiseNormed, beta, sharpen, sigmaSquaredSharpenMin, sigmaSquaredSharpenMax, wsharpen, dehalo, wdehalo, ht2n );
 }
 //-------------------------------------------------------------------------------------------
-static void ApplyPattern2D( fftwf_complex *outcur, int outwidth, int outpitch, int bh, int howmanyblocks, float pfactor, const float *pattern2d0, float beta )
+static void ApplyPattern2D( fftwf_complex *outcur, int outwidth, int outpitchelems, int bh, int howmanyblocks, float pfactor, const float *pattern2d0, float beta )
 {
-    ApplyPattern2D_C( outcur, outwidth, outpitch, bh, howmanyblocks, pfactor, pattern2d0, beta );
+    ApplyPattern2D_C( outcur, outwidth, outpitchelems, bh, howmanyblocks, pfactor, pattern2d0, beta );
 }
 //-------------------------------------------------------------------------------------------
 template < int btcur >
-static void ApplyWiener3D_degrid( const fftwf_complex *out, fftwf_complex *outprev2, fftwf_complex *outprev, const fftwf_complex *outnext, const fftwf_complex *outnext2, int outwidth, int outpitch, int bh, int howmanyblocks, float sigmaSquaredNoiseNormed, float beta, float degrid, fftwf_complex *gridsample )
+static void ApplyWiener3D_degrid( const fftwf_complex *out, fftwf_complex *outprev2, fftwf_complex *outprev, const fftwf_complex *outnext, const fftwf_complex *outnext2, int outwidth, int outpitchelems, int bh, int howmanyblocks, float sigmaSquaredNoiseNormed, float beta, float degrid, fftwf_complex *gridsample )
 {
-    if( btcur == 5 ) ApplyWiener3D5_degrid_C( out, outprev2, outprev, outnext, outnext2, outwidth, outpitch, bh, howmanyblocks, sigmaSquaredNoiseNormed, beta, degrid, gridsample );
-    if( btcur == 4 ) ApplyWiener3D4_degrid_C( out, outprev2, outprev, outnext,           outwidth, outpitch, bh, howmanyblocks, sigmaSquaredNoiseNormed, beta, degrid, gridsample );
-    if( btcur == 3 ) ApplyWiener3D3_degrid_C( out,           outprev, outnext,           outwidth, outpitch, bh, howmanyblocks, sigmaSquaredNoiseNormed, beta, degrid, gridsample );
-    if( btcur == 2 ) ApplyWiener3D2_degrid_C( out,           outprev,                    outwidth, outpitch, bh, howmanyblocks, sigmaSquaredNoiseNormed, beta, degrid, gridsample );
+    if( btcur == 5 ) ApplyWiener3D5_degrid_C( out, outprev2, outprev, outnext, outnext2, outwidth, outpitchelems, bh, howmanyblocks, sigmaSquaredNoiseNormed, beta, degrid, gridsample );
+    if( btcur == 4 ) ApplyWiener3D4_degrid_C( out, outprev2, outprev, outnext,           outwidth, outpitchelems, bh, howmanyblocks, sigmaSquaredNoiseNormed, beta, degrid, gridsample );
+    if( btcur == 3 ) ApplyWiener3D3_degrid_C( out,           outprev, outnext,           outwidth, outpitchelems, bh, howmanyblocks, sigmaSquaredNoiseNormed, beta, degrid, gridsample );
+    if( btcur == 2 ) ApplyWiener3D2_degrid_C( out,           outprev,                    outwidth, outpitchelems, bh, howmanyblocks, sigmaSquaredNoiseNormed, beta, degrid, gridsample );
 }
 //-------------------------------------------------------------------------------------------
 template < int btcur >
-static void ApplyPattern3D_degrid( const fftwf_complex *out, fftwf_complex *outprev2, fftwf_complex *outprev, const fftwf_complex *outnext, const fftwf_complex *outnext2, int outwidth, int outpitch, int bh, int howmanyblocks, float *pattern3d, float beta, float degrid, fftwf_complex *gridsample )
+static void ApplyPattern3D_degrid( const fftwf_complex *out, fftwf_complex *outprev2, fftwf_complex *outprev, const fftwf_complex *outnext, const fftwf_complex *outnext2, int outwidth, int outpitchelems, int bh, int howmanyblocks, float *pattern3d, float beta, float degrid, fftwf_complex *gridsample )
 {
-    if( btcur == 5 ) ApplyPattern3D5_degrid_C( out, outprev2, outprev, outnext, outnext2, outwidth, outpitch, bh, howmanyblocks, pattern3d, beta, degrid, gridsample );
-    if( btcur == 4 ) ApplyPattern3D4_degrid_C( out, outprev2, outprev, outnext,           outwidth, outpitch, bh, howmanyblocks, pattern3d, beta, degrid, gridsample );
-    if( btcur == 3 ) ApplyPattern3D3_degrid_C( out,           outprev, outnext,           outwidth, outpitch, bh, howmanyblocks, pattern3d, beta, degrid, gridsample );
-    if( btcur == 2 ) ApplyPattern3D2_degrid_C( out,           outprev,                    outwidth, outpitch, bh, howmanyblocks, pattern3d, beta, degrid, gridsample );
+    if( btcur == 5 ) ApplyPattern3D5_degrid_C( out, outprev2, outprev, outnext, outnext2, outwidth, outpitchelems, bh, howmanyblocks, pattern3d, beta, degrid, gridsample );
+    if( btcur == 4 ) ApplyPattern3D4_degrid_C( out, outprev2, outprev, outnext,           outwidth, outpitchelems, bh, howmanyblocks, pattern3d, beta, degrid, gridsample );
+    if( btcur == 3 ) ApplyPattern3D3_degrid_C( out,           outprev, outnext,           outwidth, outpitchelems, bh, howmanyblocks, pattern3d, beta, degrid, gridsample );
+    if( btcur == 2 ) ApplyPattern3D2_degrid_C( out,           outprev,                    outwidth, outpitchelems, bh, howmanyblocks, pattern3d, beta, degrid, gridsample );
 }
 //-------------------------------------------------------------------------------------------
 template < int btcur >
-static void ApplyWiener3D( const fftwf_complex *out, fftwf_complex *outprev2, fftwf_complex *outprev, const fftwf_complex *outnext, const fftwf_complex *outnext2, int outwidth, int outpitch, int bh, int howmanyblocks, float sigmaSquaredNoiseNormed, float beta )
+static void ApplyWiener3D( const fftwf_complex *out, fftwf_complex *outprev2, fftwf_complex *outprev, const fftwf_complex *outnext, const fftwf_complex *outnext2, int outwidth, int outpitchelems, int bh, int howmanyblocks, float sigmaSquaredNoiseNormed, float beta )
 {
-    if( btcur == 5 ) ApplyWiener3D5_C( out, outprev2, outprev, outnext, outnext2, outwidth, outpitch, bh, howmanyblocks, sigmaSquaredNoiseNormed, beta );
-    if( btcur == 4 ) ApplyWiener3D4_C( out, outprev2, outprev, outnext,           outwidth, outpitch, bh, howmanyblocks, sigmaSquaredNoiseNormed, beta );
-    if( btcur == 3 ) ApplyWiener3D3_C( out,           outprev, outnext,           outwidth, outpitch, bh, howmanyblocks, sigmaSquaredNoiseNormed, beta );
-    if( btcur == 2 ) ApplyWiener3D2_C( out,           outprev,                    outwidth, outpitch, bh, howmanyblocks, sigmaSquaredNoiseNormed, beta );
+    if( btcur == 5 ) ApplyWiener3D5_C( out, outprev2, outprev, outnext, outnext2, outwidth, outpitchelems, bh, howmanyblocks, sigmaSquaredNoiseNormed, beta );
+    if( btcur == 4 ) ApplyWiener3D4_C( out, outprev2, outprev, outnext,           outwidth, outpitchelems, bh, howmanyblocks, sigmaSquaredNoiseNormed, beta );
+    if( btcur == 3 ) ApplyWiener3D3_C( out,           outprev, outnext,           outwidth, outpitchelems, bh, howmanyblocks, sigmaSquaredNoiseNormed, beta );
+    if( btcur == 2 ) ApplyWiener3D2_C( out,           outprev,                    outwidth, outpitchelems, bh, howmanyblocks, sigmaSquaredNoiseNormed, beta );
 }
 //-------------------------------------------------------------------------------------------
 template < int btcur >
-static void ApplyPattern3D( const fftwf_complex *out, fftwf_complex *outprev2, fftwf_complex *outprev, const fftwf_complex *outnext, const fftwf_complex *outnext2, int outwidth, int outpitch, int bh, int howmanyblocks, const float *pattern3d, float beta )
+static void ApplyPattern3D( const fftwf_complex *out, fftwf_complex *outprev2, fftwf_complex *outprev, const fftwf_complex *outnext, const fftwf_complex *outnext2, int outwidth, int outpitchelems, int bh, int howmanyblocks, const float *pattern3d, float beta )
 {
-    if( btcur == 5 ) ApplyPattern3D5_C( out, outprev2, outprev, outnext, outnext2, outwidth, outpitch, bh, howmanyblocks, pattern3d, beta );
-    if( btcur == 4 ) ApplyPattern3D4_C( out, outprev2, outprev, outnext,           outwidth, outpitch, bh, howmanyblocks, pattern3d, beta );
-    if( btcur == 3 ) ApplyPattern3D3_C( out,           outprev, outnext,           outwidth, outpitch, bh, howmanyblocks, pattern3d, beta );
-    if( btcur == 2 ) ApplyPattern3D2_C( out,           outprev,                    outwidth, outpitch, bh, howmanyblocks, pattern3d, beta );
+    if( btcur == 5 ) ApplyPattern3D5_C( out, outprev2, outprev, outnext, outnext2, outwidth, outpitchelems, bh, howmanyblocks, pattern3d, beta );
+    if( btcur == 4 ) ApplyPattern3D4_C( out, outprev2, outprev, outnext,           outwidth, outpitchelems, bh, howmanyblocks, pattern3d, beta );
+    if( btcur == 3 ) ApplyPattern3D3_C( out,           outprev, outnext,           outwidth, outpitchelems, bh, howmanyblocks, pattern3d, beta );
+    if( btcur == 2 ) ApplyPattern3D2_C( out,           outprev,                    outwidth, outpitchelems, bh, howmanyblocks, pattern3d, beta );
 }
 //-------------------------------------------------------------------------------------------
-static void ApplyKalmanPattern( const fftwf_complex *outcur, fftwf_complex *outLast, fftwf_complex *covar, fftwf_complex *covarProcess, int outwidth, int outpitch, int bh, int howmanyblocks, const float *covarNoiseNormed, float kratio2 )
+static void ApplyKalmanPattern( const fftwf_complex *outcur, fftwf_complex *outLast, fftwf_complex *covar, fftwf_complex *covarProcess, int outwidth, int outpitchelems, int bh, int howmanyblocks, const float *covarNoiseNormed, float kratio2 )
 {
-    ApplyKalmanPattern_C( outcur, outLast, covar, covarProcess, outwidth, outpitch, bh, howmanyblocks,  covarNoiseNormed, kratio2 );
+    ApplyKalmanPattern_C( outcur, outLast, covar, covarProcess, outwidth, outpitchelems, bh, howmanyblocks,  covarNoiseNormed, kratio2 );
 }
 //-------------------------------------------------------------------------------------------
-static void ApplyKalman( const fftwf_complex *outcur, fftwf_complex *outLast, fftwf_complex *covar, fftwf_complex *covarProcess, int outwidth, int outpitch, int bh, int howmanyblocks,  float covarNoiseNormed, float kratio2 )
+static void ApplyKalman( const fftwf_complex *outcur, fftwf_complex *outLast, fftwf_complex *covar, fftwf_complex *covarProcess, int outwidth, int outpitchelems, int bh, int howmanyblocks,  float covarNoiseNormed, float kratio2 )
 {
-    ApplyKalman_C( outcur, outLast, covar, covarProcess, outwidth, outpitch, bh, howmanyblocks,  covarNoiseNormed, kratio2 );
+    ApplyKalman_C( outcur, outLast, covar, covarProcess, outwidth, outpitchelems, bh, howmanyblocks,  covarNoiseNormed, kratio2 );
 }
 //-------------------------------------------------------------------------------------------
-static void Sharpen( fftwf_complex *outcur, int outwidth, int outpitch, int bh, int howmanyblocks, float sharpen, float sigmaSquaredSharpenMin, float sigmaSquaredSharpenMax, const float *wsharpen, float dehalo, const float *wdehalo, float ht2n )
+static void Sharpen( fftwf_complex *outcur, int outwidth, int outpitchelems, int bh, int howmanyblocks, float sharpen, float sigmaSquaredSharpenMin, float sigmaSquaredSharpenMax, const float *wsharpen, float dehalo, const float *wdehalo, float ht2n )
 {
-    Sharpen_C( outcur, outwidth, outpitch, bh, howmanyblocks, sharpen, sigmaSquaredSharpenMin, sigmaSquaredSharpenMax, wsharpen, dehalo, wdehalo, ht2n );
+    Sharpen_C( outcur, outwidth, outpitchelems, bh, howmanyblocks, sharpen, sigmaSquaredSharpenMin, sigmaSquaredSharpenMax, wsharpen, dehalo, wdehalo, ht2n );
 }
 //-------------------------------------------------------------------------------------------
-static void Sharpen_degrid( fftwf_complex *outcur, int outwidth, int outpitch, int bh, int howmanyblocks, float sharpen, float sigmaSquaredSharpenMin, float sigmaSquaredSharpenMax, const float *wsharpen, float degrid, const fftwf_complex *gridsample, float dehalo, const float *wdehalo, float ht2n )
+static void Sharpen_degrid( fftwf_complex *outcur, int outwidth, int outpitchelems, int bh, int howmanyblocks, float sharpen, float sigmaSquaredSharpenMin, float sigmaSquaredSharpenMax, const float *wsharpen, float degrid, const fftwf_complex *gridsample, float dehalo, const float *wdehalo, float ht2n )
 {
-    Sharpen_degrid_C( outcur, outwidth, outpitch, bh, howmanyblocks, sharpen, sigmaSquaredSharpenMin, sigmaSquaredSharpenMax, wsharpen, degrid, gridsample, dehalo, wdehalo, ht2n );
+    Sharpen_degrid_C( outcur, outwidth, outpitchelems, bh, howmanyblocks, sharpen, sigmaSquaredSharpenMin, sigmaSquaredSharpenMax, wsharpen, degrid, gridsample, dehalo, wdehalo, ht2n );
 }
 //-------------------------------------------------------------------------------------------
+template<typename T>
+static void fft3d_memset(T *dst, T val, size_t count) {
+    for (size_t i = 0; i < count; i++)
+        dst[i] = val;
+}
 //-------------------------------------------------------------------
 static void fill_complex( fftwf_complex *plane, int outsize, float realvalue, float imgvalue)
 {
@@ -194,12 +146,12 @@ static void fill_complex( fftwf_complex *plane, int outsize, float realvalue, fl
     }
 }
 //-------------------------------------------------------------------
-static void SigmasToPattern( float sigma, float sigma2, float sigma3, float sigma4, int bh, int outwidth, int outpitch, float norm, float *pattern2d )
+static void SigmasToPattern( float sigma, float sigma2, float sigma3, float sigma4, int bh, int outwidth, int outpitchelems, float norm, float *pattern2d )
 {
     /* it is not fast, but called only in constructor */
     float sigmacur;
-    constexpr float ft2 = sqrt( 0.5f ) / 2; /* frequency for sigma2 */
-    constexpr float ft3 = sqrt( 0.5f ) / 4; /* frequency for sigma3 */
+    const float ft2 = sqrt( 0.5f ) / 2; /* frequency for sigma2 */
+    const float ft3 = sqrt( 0.5f ) / 4; /* frequency for sigma3 */
     for( int h = 0; h < bh; h++ )
     {
         for( int w = 0; w < outwidth; w++ )
@@ -221,37 +173,7 @@ static void SigmasToPattern( float sigma, float sigma2, float sigma3, float sigm
             }
             pattern2d[w] = sigmacur * sigmacur / norm;
         }
-        pattern2d += outpitch;
-    }
-}
-
-
-//-------------------------------------------------------------------------------------------
-static void BitBlt
-(
-    void       *dstp,
-    int         dst_stride,
-    const void *srcp,
-    int         src_stride,
-    int         row_size,
-    int         height
-)
-{
-    if( height <= 0 )
-        return;
-    if( src_stride == dst_stride
-     && src_stride == row_size )
-        std::memcpy( dstp, srcp, row_size * height );
-    else
-    {
-        unsigned char *srcp8 = static_cast<unsigned char *>(const_cast<void *>(srcp));
-        unsigned char *dstp8 = static_cast<unsigned char *>                   (dstp);
-        for( int i = 0; i < height; ++i )
-        {
-            std::memcpy( dstp8, srcp8, row_size );
-            srcp8 += src_stride;
-            dstp8 += dst_stride;
-        }
+        pattern2d += outpitchelems;
     }
 }
 
@@ -263,38 +185,38 @@ FFT3DFilter::FFT3DFilter
     bool _measure, bool _interlaced, int _wintype,
     int _pframe, int _px, int _py, bool _pshow, float _pcutoff, float _pfactor,
     float _sigma2, float _sigma3, float _sigma4, float _degrid,
-    float _dehalo, float _hr, float _ht, int _ncpu, int _multiplane,
+    float _dehalo, float _hr, float _ht, int _ncpu,
     VSVideoInfo _vi, VSNodeRef *_node
-) : sigma( _sigma ), beta( _beta ), plane( _plane ), bw( _bw ), bh( _bh ), bt( _bt ), ow( _ow ), oh( _oh ),
-    kratio( _kratio ), sharpen( _sharpen ), scutoff( _scutoff ), svr( _svr ), smin( _smin ), smax( _smax ),
-    measure( _measure ), interlaced( _interlaced ), wintype( _wintype ),
-    pframe( _pframe ), px( _px ), py( _py ), pshow( _pshow ), pcutoff( _pcutoff ), pfactor( _pfactor ),
-    sigma2( _sigma2 ), sigma3( _sigma3 ), sigma4( _sigma4 ), degrid( _degrid ),
-    dehalo( _dehalo ), hr( _hr ), ht( _ht ), ncpu( _ncpu ), multiplane( _multiplane ),
-    vi( _vi ), node( _node )
-{
+) : sigma(_sigma), beta(_beta), plane(_plane), bw(_bw), bh(_bh), bt(_bt), ow(_ow), oh(_oh),
+kratio(_kratio), sharpen(_sharpen), scutoff(_scutoff), svr(_svr), smin(_smin), smax(_smax),
+measure(_measure), interlaced(_interlaced), wintype(_wintype),
+pframe(_pframe), px(_px), py(_py), pshow(_pshow), pcutoff(_pcutoff), pfactor(_pfactor),
+sigma2(_sigma2), sigma3(_sigma3), sigma4(_sigma4), degrid(_degrid),
+dehalo(_dehalo), hr(_hr), ht(_ht), ncpu(_ncpu),
+vi(_vi), node(_node), wsharpen(nullptr, nullptr), wdehalo(nullptr, nullptr),
+pattern2d(nullptr, nullptr), pattern3d(nullptr, nullptr), in(nullptr, nullptr),
+gridsample(nullptr, nullptr), outLast(nullptr, nullptr), covar(nullptr, nullptr),
+covarProcess(nullptr, nullptr), outrez(nullptr, nullptr), plan(nullptr, nullptr), planinv(nullptr, nullptr),
+plan1(nullptr, nullptr) {
+    int istat = fftwf_init_threads();
+    if (istat == 0)
+        throw std::runtime_error{ "fftwf_init_threads() failed!" };
+
+#ifdef HAVE_FFTW3_MAKE_PLANNER_THREAD_SAFE
+    fftwf_make_planner_thread_safe();
+#endif
+
     int i, j;
-    //_asm emms;
 
-    if( ow * 2 > bw ) throw bad_param{ "Must not be 2*ow > bw" };
-    if( oh * 2 > bh ) throw bad_param{ "Must not be 2*oh > bh" };
-    if( ow < 0 ) ow = bw / 3; /* changed from bw/4 to bw/3 in v.1.2 */
-    if( oh < 0 ) oh = bh / 3; /* changed from bh/4 to bh/3 in v.1.2 */
+    if (ow < 0) ow = bw / 3; /* changed from bw/4 to bw/3 in v.1.2 */
+    if (oh < 0) oh = bh / 3; /* changed from bh/4 to bh/3 in v.1.2 */
 
-    if( bt < -1 || bt > 5 ) throw bad_param{ "bt must be -1(Sharpen), 0(Kalman), 1,2,3,4,5(Wiener)" };
+    maxval = (1 << vi.format->bitsPerSample) - 1;
 
-    if( vi.format->colorFamily != cmGray && vi.format->colorFamily != cmYUV )
-        throw bad_param{ "only planar YUV formats are supported" };
-    if( vi.format->bitsPerSample != 8 )
-        throw bad_param{ "only 8-bit formats are supported" };
+    planeBase = (plane && vi.format->sampleType == stInteger) ? (1 << (vi.format->bitsPerSample - 1)) : 0;
 
-    if( plane < 3 )
-    {
-        nox = ((vi.width  >> (plane ? vi.format->subSamplingW : 0)) - ow + (bw - ow - 1)) / (bw - ow);
-        noy = ((vi.height >> (plane ? vi.format->subSamplingW : 0)) - oh + (bh - oh - 1)) / (bh - oh);
-    }
-    else
-        throw bad_param{ "internal plane must be 0, 1 or 2" };
+    nox = ((vi.width >> (plane ? vi.format->subSamplingW : 0)) - ow + (bw - ow - 1)) / (bw - ow);
+    noy = ((vi.height >> (plane ? vi.format->subSamplingH : 0)) - oh + (bh - oh - 1)) / (bh - oh);
 
     /* padding by 1 block per side */
     nox += 2;
@@ -302,89 +224,70 @@ FFT3DFilter::FFT3DFilter
     mirw = bw - ow; /* set mirror size as block interval */
     mirh = bh - oh;
 
-    if( beta < 1 )
-        throw bad_param{ "beta must be not less 1.0" };
-
-    int istat = fftwf_init_threads();
-    if( istat == 0 )
-        throw bad_open{ "fftwf_init_threads() failed!" };
-
-    coverwidth  = nox * ( bw - ow ) + ow;
-    coverheight = noy * ( bh - oh ) + oh;
-    coverpitch  = ((coverwidth + 7) / 8 ) * 8;
-    coverbuf    = (uint8_t *)malloc( coverheight * coverpitch );
+    coverwidth = nox * (bw - ow) + ow;
+    coverheight = noy * (bh - oh) + oh;
+    coverpitch = ((coverwidth + 7) / 8) * 8 * vi.format->bytesPerSample;
+    coverbuf = std::unique_ptr<uint8_t[]>(new uint8_t[coverheight * coverpitch]);
 
     int insize = bw * bh * nox * noy;
-    in = (float *)fftwf_malloc( sizeof(float) * insize );
+    in = std::unique_ptr<float[], decltype(&fftw_free)>(fftwf_alloc_real(insize), fftwf_free);
     outwidth = bw / 2 + 1;                  /* width (pitch) of complex fft block */
-    outpitch = ((outwidth + 1) / 2) * 2;    /* must be even for SSE - v1.7 */
-    outsize  = outpitch * bh * nox * noy;   /* replace outwidth to outpitch here and below in v1.7 */
+    outpitchelems = ((outwidth + 1) / 2) * 2;    /* must be even for SSE - v1.7 */
+    outpitch = outpitchelems * vi.format->bytesPerSample;
 
-    if( bt == 0 ) /* Kalman */
-    {
-        outLast      = (fftwf_complex *)fftwf_malloc( sizeof(fftwf_complex) * outsize );
-        covar        = (fftwf_complex *)fftwf_malloc( sizeof(fftwf_complex) * outsize );
-        covarProcess = (fftwf_complex *)fftwf_malloc( sizeof(fftwf_complex) * outsize );
+    outsize = outpitchelems * bh * nox * noy;   /* replace outwidth to outpitchelems here and below in v1.7 */
+
+    if (bt == 0) /* Kalman */
+    { 
+        outLast = std::unique_ptr<fftwf_complex[], decltype(&fftw_free)>(fftwf_alloc_complex(outsize), fftwf_free);
+        covar = std::unique_ptr<fftwf_complex[], decltype(&fftw_free)>(fftwf_alloc_complex(outsize), fftwf_free);
+        covarProcess = std::unique_ptr<fftwf_complex[], decltype(&fftw_free)>(fftwf_alloc_complex(outsize), fftwf_free);
     }
-    outrez     = (fftwf_complex *)fftwf_malloc( sizeof(fftwf_complex) * outsize ); /* v1.8 */
-    gridsample = (fftwf_complex *)fftwf_malloc( sizeof(fftwf_complex) * outsize ); /* v1.8 */
+    outrez = std::unique_ptr<fftwf_complex[], decltype(&fftw_free)>(fftwf_alloc_complex(outsize), fftwf_free);
+    gridsample = std::unique_ptr<fftwf_complex[], decltype(&fftw_free)>(fftwf_alloc_complex(outsize), fftwf_free);
 
-    /* fft cache - added in v1.8 */
-    cachesize = bt + 2;
-    cachewhat = (int *)malloc( sizeof(int) * cachesize );
-    cachefft  = (fftwf_complex **)fftwf_malloc( sizeof(fftwf_complex *) * cachesize );
-    for( i = 0; i < cachesize; i++ )
-    {
-        cachefft [i] = (fftwf_complex *)fftwf_malloc( sizeof(fftwf_complex) * outsize );
-        cachewhat[i] = -1; /* init as notexistant */
-    }
+    fftcache.Initialize(bt + 2 + 4, outsize);
 
-    int planFlags;
-    /* use FFTW_ESTIMATE or FFTW_MEASURE (more optimal plan, but with time calculation at load stage) */
-    if( measure )
-        planFlags = FFTW_MEASURE;
-    else
-        planFlags = FFTW_ESTIMATE;
-
+    int planFlags = measure ? FFTW_MEASURE: FFTW_ESTIMATE;
     int rank = 2; /* 2d */
     ndim[0] = bh; /* size of block along height */
     ndim[1] = bw; /* size of block along width */
     int istride = 1;
     int ostride = 1;
     int idist   = bw * bh;
-    int odist   = outpitch * bh;/*  v1.7 (was outwidth) */
+    int odist   = outpitchelems * bh;/*  v1.7 (was outwidth) */
     inembed[0] = bh;
     inembed[1] = bw;
     onembed[0] = bh;
-    onembed[1] = outpitch;      /*  v1.7 (was outwidth) */
+    onembed[1] = outpitchelems;      /*  v1.7 (was outwidth) */
     howmanyblocks = nox * noy;
 
     fftwf_plan_with_nthreads( ncpu );
 
-    plan = fftwf_plan_many_dft_r2c( rank, ndim, howmanyblocks,
-                                    in, inembed, istride, idist, outrez, onembed, ostride, odist, planFlags );
-    if( plan == nullptr )
-        throw bad_plan{ "fftwf_plan_many_dft_r2c" };
+    plan = std::unique_ptr<fftwf_plan_s, decltype(&fftwf_destroy_plan)>(fftwf_plan_many_dft_r2c(rank, ndim, howmanyblocks,
+        in.get(), inembed, istride, idist, outrez.get(), onembed, ostride, odist, planFlags), fftwf_destroy_plan);
+    if( !plan )
+        throw std::runtime_error{ "fftwf_plan_many_dft_r2c" };
 
-    planinv = fftwf_plan_many_dft_c2r( rank, ndim, howmanyblocks,
-                                       outrez, onembed, ostride, odist, in, inembed, istride, idist, planFlags );
-    if( planinv == nullptr )
-        throw bad_plan{ "fftwf_plan_many_dft_c2r" };
+    planinv = std::unique_ptr<fftwf_plan_s, decltype(&fftwf_destroy_plan)>(fftwf_plan_many_dft_c2r( rank, ndim, howmanyblocks,
+                                       outrez.get(), onembed, ostride, odist, in.get(), inembed, istride, idist, planFlags), fftwf_destroy_plan);
+    if( !planinv )
+        throw std::runtime_error{ "fftwf_plan_many_dft_c2r" };
 
     fftwf_plan_with_nthreads( 1 );
 
-    wanxl = (float *)malloc( ow * sizeof(float) );
-    wanxr = (float *)malloc( ow * sizeof(float) );
-    wanyl = (float *)malloc( oh * sizeof(float) );
-    wanyr = (float *)malloc( oh * sizeof(float) );
+    wanxl = std::unique_ptr<float[]>(new float[ow]);
+    wanxr = std::unique_ptr<float[]>(new float[ow]);
+    wanyl = std::unique_ptr<float[]>(new float[oh]);
+    wanyr = std::unique_ptr<float[]>(new float[oh]);
 
-    wsynxl = (float *)malloc( ow * sizeof(float) );
-    wsynxr = (float *)malloc( ow * sizeof(float) );
-    wsynyl = (float *)malloc( oh * sizeof(float) );
-    wsynyr = (float *)malloc( oh * sizeof(float) );
+    wsynxl = std::unique_ptr<float[]>(new float[ow]);
+    wsynxr = std::unique_ptr<float[]>(new float[ow]);
+    wsynyl = std::unique_ptr<float[]>(new float[oh]);
+    wsynyr = std::unique_ptr<float[]>(new float[oh]);
 
-    wsharpen = (float *)fftwf_malloc( bh * outpitch * sizeof(float) );
-    wdehalo  = (float *)fftwf_malloc( bh * outpitch * sizeof(float) );
+    wsharpen = std::unique_ptr<float[], decltype(&fftw_free)>(fftwf_alloc_real(bh * outpitchelems), fftwf_free);
+    wdehalo  = std::unique_ptr<float[], decltype(&fftw_free)>(fftwf_alloc_real(bh * outpitchelems), fftwf_free);
 
     /* define analysis and synthesis windows
      * combining window (analize mult by synthesis) is raised cosine (Hanning) */
@@ -482,11 +385,9 @@ FFT3DFilter::FFT3DFilter
         for( i = 0; i < outwidth; i++ )
         {
             float d2 = d2v + float(i * i) / ((bw / 2) * (bw / 2)); /* distance_2 - v1.7 */
-            wsharpen[i] = 1 - exp( -d2 / (2 * scutoff * scutoff) );
+            wsharpen[i + j * outpitchelems] = 1 - exp( -d2 / (2 * scutoff * scutoff) );
         }
-        wsharpen += outpitch;
     }
-    wsharpen -= outpitch * bh; /* restore pointer */
 
     /* window for dehalo - added in v1.9 */
     float wmax = 0;
@@ -500,23 +401,19 @@ FFT3DFilter::FFT3DFilter
         {
             float d2 = d2v + float(i * i) / ((bw / 2) * (bw / 2)); /* squared distance in frequency domain */
             //float d1 = sqrt( d2 );
-            wdehalo[i] = exp( -0.7f * d2 * hr * hr ) - exp( -d2 * hr * hr ); /* some window with max around 1/hr, small at low and high frequencies */
-            if( wdehalo[i] > wmax )
+            wdehalo[i + j * outpitchelems] = exp( -0.7f * d2 * hr * hr ) - exp( -d2 * hr * hr ); /* some window with max around 1/hr, small at low and high frequencies */
+            if( wdehalo[i + j * outpitchelems] > wmax )
                 wmax = wdehalo[i]; /* for normalization */
         }
-        wdehalo += outpitch;
     }
-    wdehalo -= outpitch * bh; /* restore pointer */
 
     for( j = 0; j < bh; j++ )
     {
         for( i = 0; i < outwidth; i++ )
         {
-            wdehalo[i] /= wmax; /* normalize */
+            wdehalo[i + j * outpitchelems] /= wmax; /* normalize */
         }
-        wdehalo += outpitch;
     }
-    wdehalo -= outpitch * bh; /* restore pointer */
 
     /* init nlast */
     nlast     = -999; /* init as nonexistant */
@@ -534,14 +431,13 @@ FFT3DFilter::FFT3DFilter
     /* init Kalman */
     if( bt == 0 ) /* Kalman */
     {
-        fill_complex( outLast,      outsize, 0, 0 );
-        fill_complex( covar,        outsize, sigmaSquaredNoiseNormed2D, sigmaSquaredNoiseNormed2D );
-        fill_complex( covarProcess, outsize, sigmaSquaredNoiseNormed2D, sigmaSquaredNoiseNormed2D );
+        fill_complex( outLast.get(),      outsize, 0, 0 );
+        fill_complex( covar.get(),        outsize, sigmaSquaredNoiseNormed2D, sigmaSquaredNoiseNormed2D );
+        fill_complex( covarProcess.get(), outsize, sigmaSquaredNoiseNormed2D, sigmaSquaredNoiseNormed2D );
     }
 
-    mean = (float *)malloc( nox * noy * sizeof(float) );
-
-    pwin = (float *)malloc( bh * outpitch * sizeof(float) ); /* pattern window array */
+    mean = std::unique_ptr<float[]>(new float[nox * noy]); 
+    pwin = std::unique_ptr<float[]>(new float[bh * outpitchelems]); /* pattern window array */
 
     for( j = 0; j < bh; j++ )
     {
@@ -553,18 +449,16 @@ FFT3DFilter::FFT3DFilter
         for( i = 0; i < outwidth; i++ )
         {
             float fw2 = (i * 2.0f / bw) * (j * 2.0f / bw);
-            pwin[i] = (fh2 + fw2) / (fh2 + fw2 + pcutoff * pcutoff);
+            pwin[i + j * outpitchelems] = (fh2 + fw2) / (fh2 + fw2 + pcutoff * pcutoff);
         }
-        pwin += outpitch;
     }
-    pwin -= outpitch * bh; /* restore pointer */
 
-    pattern2d = (float *)fftwf_malloc( bh * outpitch * sizeof(float) ); /* noise pattern window array */
-    pattern3d = (float *)fftwf_malloc( bh * outpitch * sizeof(float) ); /* noise pattern window array */
+    pattern2d = std::unique_ptr<float[], decltype(&fftw_free)>(fftwf_alloc_real(bh * outpitchelems), fftwf_free); /* noise pattern window array */
+    pattern3d = std::unique_ptr<float[], decltype(&fftw_free)>(fftwf_alloc_real(bh * outpitchelems), fftwf_free); /* noise pattern window array */
 
     if( (sigma2 != sigma || sigma3 != sigma || sigma4 != sigma) && pfactor == 0 )
     {   /* we have different sigmas, so create pattern from sigmas */
-        SigmasToPattern( sigma, sigma2, sigma3, sigma4, bh, outwidth, outpitch, norm, pattern2d );
+        SigmasToPattern( sigma, sigma2, sigma3, sigma4, bh, outwidth, outpitchelems, norm, pattern2d.get());
         isPatternSet = true;
         pfactor = 1;
     }
@@ -577,73 +471,46 @@ FFT3DFilter::FFT3DFilter
      * allocate large array for simplicity :)
      * but use one block only for speed
      * Attention: other block could be the same, but we do not calculate them! */
-    plan1 = fftwf_plan_many_dft_r2c( rank, ndim, 1,
-                                     in, inembed, istride, idist, outrez, onembed, ostride, odist, planFlags ); /* 1 block */
+    plan1 = std::unique_ptr<fftwf_plan_s, decltype(&fftwf_destroy_plan)>(fftwf_plan_many_dft_r2c( rank, ndim, 1,
+                                     in.get(), inembed, istride, idist, outrez.get(), onembed, ostride, odist, planFlags), fftwf_destroy_plan); /* 1 block */
 
-    memset( coverbuf, 255, coverheight * coverpitch );
-    FFT3DFilter::InitOverlapPlane( in, coverbuf, coverpitch, 0 );
+    if (vi.format->bytesPerSample == 1) {
+        memset(coverbuf.get(), 255, coverheight * coverpitch);
+        InitOverlapPlane(in.get(), coverbuf.get(), coverpitch, 0);
+    } else if (vi.format->bytesPerSample == 2) {
+        fft3d_memset(reinterpret_cast<uint16_t *>(coverbuf.get()), static_cast<uint16_t>(maxval), coverheight * coverpitch / 2);
+        InitOverlapPlane(in.get(), reinterpret_cast<uint16_t *>(coverbuf.get()), coverpitch, 0);
+    } else if (vi.format->bytesPerSample == 4) {
+        fft3d_memset(reinterpret_cast<float *>(coverbuf.get()), 1.f, coverheight * coverpitch / 4);
+        InitOverlapPlane(in.get(), reinterpret_cast<float *>(coverbuf.get()), coverpitch, 0);
+    }
     /* make FFT 2D */
-    fftwf_execute_dft_r2c( plan1, in, gridsample );
-
-    messagebuf = (char *)malloc( 80 ); /* 1.8.5 */
-}
-//-------------------------------------------------------------------------------------------
-
-FFT3DFilter::~FFT3DFilter()
-{
-    fftwf_destroy_plan( plan );
-    fftwf_destroy_plan( plan1 );
-    fftwf_destroy_plan( planinv );
-    fftwf_free( in );
-    free( wanxl );
-    free( wanxr );
-    free( wanyl );
-    free( wanyr );
-    free( wsynxl );
-    free( wsynxr );
-    free( wsynyl );
-    free( wsynyr );
-    fftwf_free( wsharpen );
-    fftwf_free( wdehalo );
-    free( mean );
-    free( pwin );
-    fftwf_free( pattern2d );
-    fftwf_free( pattern3d );
-    fftwf_free( outrez );
-    if( bt == 0 ) /* Kalman */
-    {
-        fftwf_free( outLast );
-        fftwf_free( covar );
-        fftwf_free( covarProcess );
-    }
-    free( coverbuf );
-    free( cachewhat );
-    for( int i = 0; i < cachesize; i++ )
-    {
-        fftwf_free( cachefft[i] );
-    }
-    fftwf_free( cachefft );
-    fftwf_free( gridsample ); /* fixed memory leakage in v1.8.5 */
-
-    free( messagebuf ); /* v1.8.5 */
+    fftwf_execute_dft_r2c( plan1.get(), in.get(), gridsample.get() );
 }
 //-----------------------------------------------------------------------
 //
-static void PlanarPlaneToCovebuf( const uint8_t *srcp, int src_width, int src_height, int src_pitch, uint8_t *coverbuf, int coverwidth, int coverheight, int coverpitch, int mirw, int mirh, bool interlaced )
+template<typename T>
+static void FramePlaneToCoverbuf( int plane, const VSFrameRef *src, T * __restrict coverbuf, int coverwidth, int coverheight, int coverpitch, int mirw, int mirh, bool interlaced, const VSAPI *vsapi )
 {
+    const T * __restrict srcp = reinterpret_cast<const T *>(vsapi->getReadPtr(src, plane));
+    int            src_height = vsapi->getFrameHeight(src, plane);
+    int            src_width = vsapi->getFrameWidth(src, plane);
+    int            src_pitch = vsapi->getStride(src, plane) / sizeof(T);
+    coverpitch /= sizeof(T);
+
     int h, w;
     int width2 = src_width + src_width + mirw + mirw - 2;
-    uint8_t *coverbuf1 = coverbuf + coverpitch * mirh;
+    T * __restrict coverbuf1 = coverbuf + coverpitch * mirh;
 
     if( !interlaced ) /* progressive */
     {
         for( h = mirh; h < src_height + mirh; h++ )
         {
-            BitBlt( coverbuf1 + mirw, coverpitch, srcp, src_pitch, src_width, 1 ); /* copy line */
             for( w = 0; w < mirw; w++ )
             {
                 coverbuf1[w] = coverbuf1[mirw + mirw - w]; /* mirror left border */
             }
+            memcpy(coverbuf1 + mirw, srcp, src_width * sizeof(T)); /* copy line */
             for( w = src_width + mirw; w < coverwidth; w++ )
             {
                 coverbuf1[w] = coverbuf1[width2 - w]; /* mirror right border */
@@ -656,11 +523,11 @@ static void PlanarPlaneToCovebuf( const uint8_t *srcp, int src_width, int src_he
     {
         for( h = mirh; h < src_height / 2 + mirh; h++ ) /* first field */
         {
-            BitBlt( coverbuf1 + mirw, coverpitch, srcp, src_pitch, src_width, 1 ); /* copy line */
             for( w = 0; w < mirw; w++ )
             {
                 coverbuf1[w] = coverbuf1[mirw + mirw - w]; /* mirror left border */
             }
+            memcpy(coverbuf1 + mirw, srcp, src_width * sizeof(T)); /* copy line */
             for( w = src_width + mirw; w < coverwidth; w++ )
             {
                 coverbuf1[w] = coverbuf1[width2 - w]; /* mirror right border */
@@ -672,11 +539,11 @@ static void PlanarPlaneToCovebuf( const uint8_t *srcp, int src_width, int src_he
         srcp -= src_pitch;
         for( h = src_height / 2 + mirh; h < src_height + mirh; h++ ) /* flip second field */
         {
-            BitBlt( coverbuf1 + mirw, coverpitch, srcp, src_pitch, src_width, 1 ); /* copy line */
             for( w = 0; w < mirw; w++ )
             {
                 coverbuf1[w] = coverbuf1[mirw + mirw - w]; /* mirror left border */
             }
+            memcpy(coverbuf1 + mirw, srcp, src_width * sizeof(T)); /* copy line */
             for( w = src_width + mirw; w < coverwidth; w++ )
             {
                 coverbuf1[w] = coverbuf1[width2 - w]; /* mirror right border */
@@ -686,10 +553,10 @@ static void PlanarPlaneToCovebuf( const uint8_t *srcp, int src_width, int src_he
         }
     }
 
-    uint8_t *pmirror = coverbuf1 - coverpitch * 2; /* pointer to vertical mirror */
+    T *pmirror = coverbuf1 - coverpitch * 2; /* pointer to vertical mirror */
     for( h = src_height + mirh; h < coverheight; h++ )
     {
-        BitBlt( coverbuf1, coverpitch, pmirror, coverpitch, coverwidth, 1 ); /* mirror bottom line by line */
+        memcpy( coverbuf1, pmirror, coverwidth * sizeof(T)); /* mirror bottom line by line */
         coverbuf1 += coverpitch;
         pmirror   -= coverpitch;
     }
@@ -697,101 +564,67 @@ static void PlanarPlaneToCovebuf( const uint8_t *srcp, int src_width, int src_he
     pmirror   = coverbuf1 + coverpitch * mirh * 2; /* pointer to vertical mirror */
     for( h = 0; h < mirh; h++ )
     {
-        BitBlt( coverbuf1, coverpitch, pmirror, coverpitch, coverwidth, 1 ); /* mirror bottom line by line */
+        memcpy( coverbuf1, pmirror, coverwidth * sizeof(T)); /* mirror bottom line by line */
         coverbuf1 += coverpitch;
         pmirror   -= coverpitch;
     }
 }
 //-----------------------------------------------------------------------
 //
-static void CoverbufToPlanarPlane( const uint8_t *coverbuf, int coverwidth, int coverheight, int coverpitch, uint8_t *dstp, int dst_width, int dst_height, int dst_pitch, int mirw, int mirh, bool interlaced )
+template<typename T>
+static void CoverbufToFramePlane(int plane, const T * __restrict coverbuf, int coverwidth, int coverheight, int coverpitch, VSFrameRef *dst, int mirw, int mirh, bool interlaced, const VSAPI *vsapi )
 {
-    int h;
-    const uint8_t *coverbuf1 = coverbuf + coverpitch * mirh + mirw;
+    T *__restrict dstp = reinterpret_cast<T *>(vsapi->getWritePtr(dst, plane));
+    int      dst_height = vsapi->getFrameHeight(dst, plane);
+    int      dst_width = vsapi->getFrameWidth(dst, plane);
+    int      dst_pitch = vsapi->getStride(dst, plane) / sizeof(T);
+    coverpitch /= sizeof(T);
+
+    const T * __restrict coverbuf1 = coverbuf + coverpitch * mirh + mirw;
     if( !interlaced ) /* progressive */
     {
-        for( h = 0; h < dst_height; h++ )
+        for( int h = 0; h < dst_height; h++ )
         {
-            BitBlt( dstp, dst_pitch, coverbuf1, coverpitch, dst_width, 1 ); /* copy pure frame size only */
+            memcpy( dstp, coverbuf1, dst_width * sizeof(T) ); /* copy pure frame size only */
             dstp      += dst_pitch;
             coverbuf1 += coverpitch;
         }
     }
     else /* interlaced */
     {
-        for( h = 0; h < dst_height; h += 2 )
+        for( int h = 0; h < dst_height; h += 2 )
         {
-            BitBlt( dstp, dst_pitch, coverbuf1, coverpitch, dst_width, 1 ); /* copy pure frame size only */
+            memcpy( dstp, coverbuf1, dst_width * sizeof(T)); /* copy pure frame size only */
             dstp      += dst_pitch * 2;
             coverbuf1 += coverpitch;
         }
         /* second field is flipped */
         dstp -= dst_pitch;
-        for( h = 0; h < dst_height; h += 2 )
+        for( int h = 0; h < dst_height; h += 2 )
         {
-            BitBlt( dstp, dst_pitch, coverbuf1, coverpitch, dst_width, 1 ); /* copy pure frame size only */
+            memcpy( dstp, coverbuf1, dst_width * sizeof(T)); /* copy pure frame size only */
             dstp      -= dst_pitch * 2;
             coverbuf1 += coverpitch;
         }
     }
 }
 //-----------------------------------------------------------------------
-//
-static void FramePlaneToCoverbuf
-(
-    int               plane,
-    const VSFrameRef *src,
-    uint8_t          *coverbuf,
-    int               coverwidth,
-    int               coverheight,
-    int               coverpitch,
-    int               mirw,
-    int               mirh,
-    bool              interlaced,
-    const VSAPI      *vsapi
-)
-{
-    const uint8_t *srcp       = vsapi->getReadPtr    ( src, plane );
-    int            src_height = vsapi->getFrameHeight( src, plane );
-    int            src_width  = vsapi->getFrameWidth ( src, plane );
-    int            src_pitch  = vsapi->getStride     ( src, plane );
-    PlanarPlaneToCovebuf( srcp, src_width, src_height, src_pitch, coverbuf, coverwidth, coverheight, coverpitch, mirw, mirh, interlaced );
-}
-//-----------------------------------------------------------------------
-//
-static void CoverbufToFramePlane
-(
-    int            plane,
-    const uint8_t *coverbuf,
-    int            coverwidth,
-    int            coverheight,
-    int            coverpitch,
-    VSFrameRef    *dst,
-    int            mirw,
-    int            mirh,
-    bool           interlaced,
-    const VSAPI   *vsapi
-)
-{
-    uint8_t *dstp       = vsapi->getWritePtr   ( dst, plane );
-    int      dst_height = vsapi->getFrameHeight( dst, plane );
-    int      dst_width  = vsapi->getFrameWidth ( dst, plane );
-    int      dst_pitch  = vsapi->getStride     ( dst, plane );
-    CoverbufToPlanarPlane( coverbuf, coverwidth, coverheight, coverpitch, dstp, dst_width, dst_height, dst_pitch, mirw, mirh, interlaced );
-}
+
 //-----------------------------------------------------------------------
 /* put source bytes to float array of overlapped blocks
  * use analysis windows */
-void FFT3DFilter::InitOverlapPlane( float *inp0, const uint8_t *srcp0, int src_pitch, int planeBase )
+template<typename T>
+void FFT3DFilter::InitOverlapPlane( float * __restrict inp0, const T * __restrict srcp0, int src_pitch, int planeBase )
 {
     int w, h;
     int ihx, ihy;
-    const uint8_t *srcp = srcp0;// + (hrest/2)*src_pitch + wrest/2; /* centered */
+    const T * __restrict srcp = srcp0;
     float ftmp;
     int xoffset = bh * bw - (bw - ow); /* skip frames */
     int yoffset = bw * nox * bh - bw * (bh - oh); /* vertical offset of same block (overlap) */
+    src_pitch /= sizeof(T);
 
-    float *inp = inp0;
+    float * __restrict inp = inp0;
 
     ihy = 0; /* first top (big non-overlapped) part */
     {
@@ -1028,14 +861,16 @@ void FFT3DFilter::InitOverlapPlane( float *inp0, const uint8_t *srcp0, int src_p
 //-----------------------------------------------------------------------------------------
 /* make destination frame plane from overlaped blocks
  * use synthesis windows wsynxl, wsynxr, wsynyl, wsynyr */
-void FFT3DFilter::DecodeOverlapPlane( const float *inp0, float norm, uint8_t *dstp0, int dst_pitch, int planeBase )
+template<typename T>
+void FFT3DFilter::DecodeOverlapPlane( const float * __restrict inp0, float norm, T * __restrict dstp0, int dst_pitch, int planeBase, int maxval )
 {
     int w, h;
     int ihx, ihy;
-    uint8_t *dstp = dstp0;// + (hrest/2)*dst_pitch + wrest/2; /* centered */
-    const float *inp = inp0;
+    T * __restrict dstp = dstp0;
+    const float * __restrict inp = inp0;
     int xoffset = bh * bw - (bw - ow);
     int yoffset = bw * nox * bh - bw * (bh - oh); /* vertical offset of same block (overlap) */
+    dst_pitch /= sizeof(T);
 
     ihy = 0; /* first top big non-overlapped) part */
     {
@@ -1043,8 +878,11 @@ void FFT3DFilter::DecodeOverlapPlane( const float *inp0, float norm, uint8_t *ds
         {
             inp = inp0 + h * bw;
             for( w = 0; w < bw - ow; w++ )   /* first half line of first block */
-            {
-                dstp[w] = std::min( 255, std::max( 0, (int)(inp[w] * norm) + planeBase ) ); /* Copy each byte from float array to dest with windows */
+            {   
+                if /*constexpr*/ (std::is_integral<T>::value)
+                    dstp[w] = std::min(maxval, std::max( 0, (int)(inp[w] * norm) + planeBase ) ); /* Copy each byte from float array to dest with windows */
+                else 
+                    dstp[w] = inp[w] * norm;
             }
             inp  += bw - ow;
             dstp += bw - ow;
@@ -1052,20 +890,29 @@ void FFT3DFilter::DecodeOverlapPlane( const float *inp0, float norm, uint8_t *ds
             {
                 for( w = 0; w < ow; w++ )   /* half line of block */
                 {
-                    dstp[w] = std::min( 255, std::max( 0, (int)((inp[w] * wsynxr[w] + inp[w + xoffset] * wsynxl[w]) * norm) + planeBase ) );  /* overlapped Copy */
+                    if /*constexpr*/ (std::is_integral<T>::value)
+                        dstp[w] = std::min(maxval, std::max( 0, (int)((inp[w] * wsynxr[w] + inp[w + xoffset] * wsynxl[w]) * norm) + planeBase ) );  /* overlapped Copy */
+                    else
+                        dstp[w] = (inp[w] * wsynxr[w] + inp[w + xoffset] * wsynxl[w]) * norm;
                 }
                 inp  += xoffset + ow;
                 dstp += ow;
                 for( w = 0; w < bw - ow - ow; w++ )   /* first half line of first block */
                 {
-                    dstp[w] = std::min( 255, std::max( 0, (int)(inp[w] * norm) + planeBase ) );   /* Copy each byte from float array to dest with windows */
+                    if /*constexpr*/ (std::is_integral<T>::value)
+                        dstp[w] = std::min(maxval, std::max( 0, (int)(inp[w] * norm) + planeBase ) );   /* Copy each byte from float array to dest with windows */
+                    else
+                        dstp[w] = inp[w] * norm;
                 }
                 inp  += bw - ow - ow;
                 dstp += bw - ow - ow;
             }
             for( w = 0; w < ow; w++ )   /* last half line of last block */
             {
-                dstp[w] = std::min( 255, std::max( 0,(int)(inp[w] * norm) + planeBase ) );
+                if /*constexpr*/ (std::is_integral<T>::value)
+                    dstp[w] = std::min(maxval, std::max( 0,(int)(inp[w] * norm) + planeBase ) );
+                else
+                    dstp[w] = inp[w] * norm;
             }
             inp  += ow;
             dstp += ow;
@@ -1085,7 +932,10 @@ void FFT3DFilter::DecodeOverlapPlane( const float *inp0, float norm, uint8_t *ds
 
             for( w = 0; w < bw - ow; w++ )   /* first half line of first block */
             {
-                dstp[w] = std::min( 255, std::max( 0, (int)((inp[w] * wsynyrh + inp[w + yoffset] * wsynylh)) + planeBase ) );   /* y overlapped */
+                if /*constexpr*/ (std::is_integral<T>::value)
+                    dstp[w] = std::min(maxval, std::max( 0, (int)((inp[w] * wsynyrh + inp[w + yoffset] * wsynylh)) + planeBase ) );   /* y overlapped */
+                else
+                    dstp[w] = inp[w] * wsynyrh + inp[w + yoffset] * wsynylh;
             }
             inp  += bw - ow;
             dstp += bw - ow;
@@ -1093,21 +943,31 @@ void FFT3DFilter::DecodeOverlapPlane( const float *inp0, float norm, uint8_t *ds
             {
                 for( w = 0; w < ow; w++ )   /* half overlapped line of block */
                 {
-                    dstp[w] = std::min( 255, std::max( 0, (int)(((inp[w] * wsynxr[w] + inp[w + xoffset] * wsynxl[w]) * wsynyrh
+                    if /*constexpr*/ (std::is_integral<T>::value)
+                        dstp[w] = std::min(maxval, std::max( 0, (int)(((inp[w] * wsynxr[w] + inp[w + xoffset] * wsynxl[w]) * wsynyrh
                             + (inp[w + yoffset] * wsynxr[w] + inp[w + xoffset + yoffset] * wsynxl[w]) * wsynylh)) + planeBase ) );   /* x overlapped */
+                    else
+                        dstp[w] = (inp[w] * wsynxr[w] + inp[w + xoffset] * wsynxl[w]) * wsynyrh
+                            + (inp[w + yoffset] * wsynxr[w] + inp[w + xoffset + yoffset] * wsynxl[w]) * wsynylh;
                 }
                 inp  += xoffset + ow;
                 dstp += ow;
                 for( w = 0; w < bw - ow - ow; w++ )   /* double minus - half non-overlapped line of block */
                 {
-                    dstp[w] = std::min( 255, std::max( 0, (int)((inp[w] * wsynyrh + inp[w + yoffset] * wsynylh )) + planeBase ) );
+                    if /*constexpr*/ (std::is_integral<T>::value)
+                        dstp[w] = std::min(maxval, std::max( 0, (int)((inp[w] * wsynyrh + inp[w + yoffset] * wsynylh )) + planeBase ) );
+                    else
+                        dstp[w] = inp[w] * wsynyrh + inp[w + yoffset] * wsynylh;
                 }
                 inp  += bw - ow - ow;
                 dstp += bw - ow - ow;
             }
             for( w = 0; w < ow; w++ )   /* last half line of last block */
             {
-                dstp[w] = std::min( 255, std::max( 0, (int)((inp[w] * wsynyrh + inp[w + yoffset] * wsynylh)) + planeBase ) );
+                if /*constexpr*/ (std::is_integral<T>::value)
+                    dstp[w] = std::min(maxval, std::max( 0, (int)((inp[w] * wsynyrh + inp[w + yoffset] * wsynylh)) + planeBase ) );
+                else
+                    dstp[w] = inp[w] * wsynyrh + inp[w + yoffset] * wsynylh;
             }
             inp  += ow;
             dstp += ow;
@@ -1120,7 +980,10 @@ void FFT3DFilter::DecodeOverlapPlane( const float *inp0, float norm, uint8_t *ds
             inp = inp0 + (ihy - 1) * (yoffset + (bh - oh) * bw) + (bh) * bw + h * bw + yoffset;
             for( w = 0; w < bw - ow; w++ )   /* first half line of first block */
             {
-                dstp[w] = std::min( 255, std::max( 0, (int)((inp[w]) * norm) + planeBase ) );
+                if /*constexpr*/ (std::is_integral<T>::value)
+                    dstp[w] = std::min(maxval, std::max( 0, (int)(inp[w] * norm) + planeBase ) );
+                else
+                    dstp[w] = inp[w] * norm;
             }
             inp  += bw - ow;
             dstp += bw - ow;
@@ -1128,20 +991,29 @@ void FFT3DFilter::DecodeOverlapPlane( const float *inp0, float norm, uint8_t *ds
             {
                 for( w = 0; w < ow; w++ )   /* half overlapped line of block */
                 {
-                    dstp[w] = std::min( 255, std::max( 0, (int)((inp[w] * wsynxr[w] + inp[w + xoffset] * wsynxl[w] ) * norm) + planeBase ) );   /* x overlapped */
+                    if /*constexpr*/ (std::is_integral<T>::value)
+                        dstp[w] = std::min(maxval, std::max( 0, (int)((inp[w] * wsynxr[w] + inp[w + xoffset] * wsynxl[w] ) * norm) + planeBase ) );   /* x overlapped */
+                    else
+                        dstp[w] = (inp[w] * wsynxr[w] + inp[w + xoffset] * wsynxl[w]) * norm;
                 }
                 inp  += xoffset + ow;
                 dstp += ow;
                 for( w = 0; w < bw - ow - ow; w++ )   /* half non-overlapped line of block */
                 {
-                    dstp[w] = std::min( 255, std::max( 0, (int)((inp[w]) * norm) + planeBase ) );
+                    if /*constexpr*/ (std::is_integral<T>::value)
+                        dstp[w] = std::min(maxval, std::max( 0, (int)(inp[w] * norm) + planeBase ) );
+                    else
+                        dstp[w] = inp[w] * norm;
                 }
                 inp  += bw - ow - ow;
                 dstp += bw - ow - ow;
             }
             for( w = 0; w < ow; w++ )   /* last half line of last block */
             {
-                dstp[w] = std::min( 255, std::max( 0, (int)((inp[w]) * norm) + planeBase ) );
+                if /*constexpr*/ (std::is_integral<T>::value)
+                    dstp[w] = std::min(maxval, std::max( 0, (int)(inp[w] * norm) + planeBase ) );
+                else
+                    dstp[w] = inp[w] * norm;
             }
             inp  += ow;
             dstp += ow;
@@ -1157,7 +1029,10 @@ void FFT3DFilter::DecodeOverlapPlane( const float *inp0, float norm, uint8_t *ds
             inp = inp0 + (ihy - 1) * (yoffset + (bh - oh) * bw) + (bh - oh) * bw + h * bw;
             for( w = 0; w < bw - ow; w++ )   /* first half line of first block */
             {
-                dstp[w] = std::min( 255, std::max( 0, (int)(inp[w] * norm) + planeBase ) );
+                if /*constexpr*/ (std::is_integral<T>::value)
+                    dstp[w] = std::min(maxval, std::max( 0, (int)(inp[w] * norm) + planeBase ) );
+                else
+                    dstp[w] = inp[w] * norm;
             }
             inp  += bw - ow;
             dstp += bw - ow;
@@ -1165,20 +1040,29 @@ void FFT3DFilter::DecodeOverlapPlane( const float *inp0, float norm, uint8_t *ds
             {
                 for( w = 0; w < ow; w++ )   /* half line of block */
                 {
-                    dstp[w] = std::min( 255, std::max( 0, (int)((inp[w] * wsynxr[w] + inp[w + xoffset] * wsynxl[w]) * norm) + planeBase ) );  /* overlapped Copy */
+                    if /*constexpr*/ (std::is_integral<T>::value)
+                        dstp[w] = std::min(maxval, std::max( 0, (int)((inp[w] * wsynxr[w] + inp[w + xoffset] * wsynxl[w]) * norm) + planeBase ) );  /* overlapped Copy */
+                    else
+                        dstp[w] = (inp[w] * wsynxr[w] + inp[w + xoffset] * wsynxl[w]) * norm;
                 }
                 inp  += xoffset + ow;
                 dstp += ow;
                 for( w = 0; w < bw - ow - ow; w++ )   /* half line of block */
                 {
-                    dstp[w] = std::min( 255, std::max( 0, (int)((inp[w]) * norm) + planeBase ) );
+                    if /*constexpr*/ (std::is_integral<T>::value)
+                        dstp[w] = std::min(maxval, std::max( 0, (int)(inp[w] * norm) + planeBase ) );
+                    else
+                        dstp[w] = inp[w] * norm;
                 }
                 inp  += bw - ow - ow;
                 dstp += bw - ow - ow;
             }
             for( w = 0; w < ow; w++ )   /* last half line of last block */
             {
-                dstp[w] = std::min( 255, std::max( 0, (int)(inp[w] * norm) + planeBase ) );
+                if /*constexpr*/ (std::is_integral<T>::value)
+                    dstp[w] = std::min(maxval, std::max( 0, (int)(inp[w] * norm) + planeBase ) );
+                else
+                    dstp[w] = inp[w] * norm;
             }
             inp  += ow;
             dstp += ow;
@@ -1188,9 +1072,9 @@ void FFT3DFilter::DecodeOverlapPlane( const float *inp0, float norm, uint8_t *ds
     }
 }
 //-------------------------------------------------------------------------------------------
-static void FindPatternBlock( const fftwf_complex *outcur0, int outwidth, int outpitch, int bh, int nox, int noy, int &px, int &py, const float *pwin, float degrid, const fftwf_complex *gridsample )
+static void FindPatternBlock( const fftwf_complex *outcur0, int outwidth, int outpitchelems, int bh, int nox, int noy, int &px, int &py, const float *pwin, float degrid, const fftwf_complex *gridsample )
 {
-    /* since v1.7 outwidth must be really an outpitch */
+    /* since v1.7 outwidth must be really an outpitchelems */
     int h;
     int w;
     const fftwf_complex *outcur;
@@ -1202,7 +1086,7 @@ static void FindPatternBlock( const fftwf_complex *outcur0, int outwidth, int ou
     {
         for( int bx = 2; bx < nox - 2; bx++ )
         {
-            outcur = outcur0 + nox * by * bh * outpitch + bx * bh * outpitch;
+            outcur = outcur0 + nox * by * bh * outpitchelems + bx * bh * outpitchelems;
             sigmaSquaredcur = 0;
             float gcur = degrid * outcur[0][0] / gridsample[0][0]; /* grid (windowing) correction factor */
             for( h = 0; h < bh; h++ )
@@ -1216,11 +1100,11 @@ static void FindPatternBlock( const fftwf_complex *outcur0, int outwidth, int ou
                     psd = corrected0 * corrected0 + corrected1 * corrected1;
                     sigmaSquaredcur += psd * pwin[w]; /* windowing */
                 }
-                outcur     += outpitch;
-                pwin       += outpitch;
-                gridsample += outpitch;
+                outcur     += outpitchelems;
+                pwin       += outpitchelems;
+                gridsample += outpitchelems;
             }
-            pwin -= outpitch * bh; /* restore */
+            pwin -= outpitchelems * bh; /* restore */
             if( sigmaSquaredcur < sigmaSquared )
             {
                 px = bx;
@@ -1231,11 +1115,11 @@ static void FindPatternBlock( const fftwf_complex *outcur0, int outwidth, int ou
     }
 }
 //-------------------------------------------------------------------------------------------
-static void SetPattern( const fftwf_complex *outcur, int outwidth, int outpitch, int bh, int nox, int noy, int px, int py, const float *pwin, float *pattern2d, float &psigma, float degrid, const fftwf_complex *gridsample )
+static void SetPattern( const fftwf_complex *outcur, int outwidth, int outpitchelems, int bh, int nox, int noy, int px, int py, const float *pwin, float *pattern2d, float &psigma, float degrid, const fftwf_complex *gridsample )
 {
     int h;
     int w;
-    outcur += nox * py * bh * outpitch + px * bh * outpitch;
+    outcur += nox * py * bh * outpitchelems + px * bh * outpitchelems;
     float psd;
     float sigmaSquared = 0;
     float weight = 0;
@@ -1246,9 +1130,9 @@ static void SetPattern( const fftwf_complex *outcur, int outwidth, int outpitch,
         {
             weight += pwin[w];
         }
-        pwin += outpitch;
+        pwin += outpitchelems;
     }
-    pwin -= outpitch * bh; /* restore */
+    pwin -= outpitchelems * bh; /* restore */
 
     float gcur = degrid * outcur[0][0] / gridsample[0][0]; /* grid (windowing) correction factor */
 
@@ -1264,15 +1148,15 @@ static void SetPattern( const fftwf_complex *outcur, int outwidth, int outpitch,
             pattern2d[w] = psd * pwin[w]; /* windowing */
             sigmaSquared += pattern2d[w]; /* sum */
         }
-        outcur     += outpitch;
-        pattern2d  += outpitch;
-        pwin       += outpitch;
-        gridsample += outpitch;
+        outcur     += outpitchelems;
+        pattern2d  += outpitchelems;
+        pwin       += outpitchelems;
+        gridsample += outpitchelems;
     }
     psigma = sqrt( sigmaSquared / (weight * bh * outwidth) ); /* mean std deviation (sigma) */
 }
 //-------------------------------------------------------------------------------------------
-static void PutPatternOnly( fftwf_complex *outcur, int outwidth, int outpitch, int bh, int nox, int noy, int px, int py )
+static void PutPatternOnly( fftwf_complex *outcur, int outwidth, int outpitchelems, int bh, int nox, int noy, int px, int py )
 {
     int h,w;
     int block;
@@ -1288,11 +1172,11 @@ static void PutPatternOnly( fftwf_complex *outcur, int outwidth, int outpitch, i
                 outcur[w][0] = 0;
                 outcur[w][1] = 0;
             }
-            outcur += outpitch;
+            outcur += outpitchelems;
         }
     }
 
-    outcur += bh * outpitch;
+    outcur += bh * outpitchelems;
 
     for( block = pblock + 1; block < blocks; block++ )
     {
@@ -1303,103 +1187,22 @@ static void PutPatternOnly( fftwf_complex *outcur, int outwidth, int outpitch, i
                 outcur[w][0] = 0;
                 outcur[w][1] = 0;
             }
-            outcur += outpitch;
+            outcur += outpitchelems;
         }
     }
 }
 //-------------------------------------------------------------------------------------------
-static void Pattern2Dto3D( const float *pattern2d, int bh, int outwidth, int outpitch, float mult, float *pattern3d )
+static void Pattern2Dto3D( const float *pattern2d, int bh, int outwidth, int outpitchelems, float mult, float *pattern3d )
 {
     /* slow, but executed once only per clip */
-    int size = bh * outpitch;
+    int size = bh * outpitchelems;
     for( int i = 0; i < size; i++ )
     { /* get 3D pattern */
         pattern3d[i] = pattern2d[i] * mult;
     }
 }
 //-------------------------------------------------------------------------------------------
-static void Copyfft( fftwf_complex *outrez, const fftwf_complex *outprev, int outsize )
-{ /* save outprev to outrez to prevent cache change (inverse fft2d will destroy the array) */
-#if 0
-    for( int i = 0; i < outsize; i++ )
-    {
-        outrez[i][0] = outprev[i][0];
-        outrez[i][1] = outprev[i][1];
-    }
-#else
-    /* more fast */
-    BitBlt( (uint8_t *)&outrez [0][0], outsize * 8,
-            (uint8_t *)&outprev[0][0], outsize * 8,
-            outsize * 8, 1 );
-#endif
-}
-//-------------------------------------------------------------------------------------------
-static void SortCache( int *cachewhat, fftwf_complex **cachefft, int cachesize, int cachestart, int cachestartold )
-{
-    /* sort ordered series, put existant ffts to proper places */
-    int i;
-    int ctemp;
-    fftwf_complex *ffttemp;
-
-    int offset = cachestart - cachestartold;
-    if( offset > 0 ) /* right */
-    {
-        for( i = 0; i < cachesize; i++ )
-        {
-            if( (i + offset) < cachesize )
-            {
-                /* swap */
-                ctemp = cachewhat[i + offset];
-                cachewhat[i + offset] = cachewhat[i];
-                cachewhat[i         ] = ctemp;
-                ffttemp = cachefft[i + offset];
-                cachefft[i + offset] = cachefft[i];
-                cachefft[i         ] = ffttemp;
-            }
-        }
-    }
-    else if( offset < 0 )
-    {
-        for( i = cachesize - 1; i >= 0; i-- )
-        {
-            if( (i + offset) >= 0 )
-            {
-                ctemp = cachewhat[i + offset];
-                cachewhat[i + offset] = cachewhat[i];
-                cachewhat[i         ] = ctemp;
-                ffttemp = cachefft[i + offset];
-                cachefft[i + offset] = cachefft[i];
-                cachefft[i         ] = ffttemp;
-            }
-        }
-    }
-}
-//-------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------
-static void CopyFrame
-(
-    const VSFrameRef *src,
-    VSFrameRef       *dst,
-    VSVideoInfo      &vi,
-    int               planeskip,
-    const VSAPI      *vsapi
-)
-{
-    for( int plane = 0; plane < vi.format->numPlanes; plane++ )
-        if( plane != planeskip )
-        {
-            const uint8_t *srcp       = vsapi->getReadPtr    ( src, plane );
-            int            src_pitch  = vsapi->getStride     ( src, plane );
-                  uint8_t *dstp       = vsapi->getWritePtr   ( dst, plane );
-            int            dst_height = vsapi->getFrameHeight( dst, plane );
-            int            dst_width  = vsapi->getFrameWidth ( dst, plane );
-            int            dst_pitch  = vsapi->getStride     ( dst, plane );
-            BitBlt( dstp, dst_pitch, srcp, src_pitch, dst_width, dst_height ); /* copy one plane */
-        }
-}
-//-------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------
-template < int btcur >
+template < typename T, int btcur >
 void FFT3DFilter::Wiener3D
 (
     int               n,
@@ -1408,75 +1211,64 @@ void FFT3DFilter::Wiener3D
     const VSAPI      *vsapi
 )
 {
-    /* cycle prev2(-2), prev(-1), cur(0), next(1) and next2(2) */
-    constexpr int cachecur      = btcur / 2 + 1;
-    int           cachestart    = n     - cachecur;
-    int           cachestartold = nlast - cachecur;
-    SortCache( cachewhat, cachefft, cachesize, cachestart, cachestartold );
+    int fromframe = n - btcur / 2;
+    int toframe = n + (btcur - 1) / 2;
+    int outcenter = btcur / 2;
+    fftwf_complex *frames[btcur] = {};
+    bool valid[btcur];
 
-    fftwf_complex **out = &outcache[btcur / 2];
+    fftcache.GetCachedFrames(fromframe, toframe, frames, valid);
 
-    for( int offset = - btcur / 2; offset <= (btcur - 1) / 2; ++offset )
-    {
-        out[offset] = cachefft[cachecur + offset];
-        if( cachewhat[cachecur + offset] != n + offset )
-        {
-            /* calculate out[offset] */
-            if( offset != 0 )
-            {
-                const VSFrameRef *frame = vsapi->getFrameFilter( n + offset, node, frame_ctx );
-                FramePlaneToCoverbuf( plane, frame, coverbuf, coverwidth, coverheight, coverpitch, mirw, mirh, interlaced, vsapi );
-                vsapi->freeFrame( frame );
+    for (int i = 0; i <= toframe - fromframe; i++) {
+        if (!valid[i]) {
+            if (i + fromframe != n) {
+                const VSFrameRef *frame = vsapi->getFrameFilter(i + fromframe, node, frame_ctx);
+                FramePlaneToCoverbuf(plane, frame, reinterpret_cast<T *>(coverbuf.get()), coverwidth, coverheight, coverpitch, mirw, mirh, interlaced, vsapi);
+                vsapi->freeFrame(frame);
+            } else {
+                FramePlaneToCoverbuf(plane, src, reinterpret_cast<T *>(coverbuf.get()), coverwidth, coverheight, coverpitch, mirw, mirh, interlaced, vsapi);
             }
-            else
-                FramePlaneToCoverbuf( plane, src, coverbuf, coverwidth, coverheight, coverpitch, mirw, mirh, interlaced, vsapi );
-            FFT3DFilter::InitOverlapPlane( in, coverbuf, coverpitch, planeBase );
+            InitOverlapPlane(in.get(), reinterpret_cast<T *>(coverbuf.get()), coverpitch, planeBase);
             /* make FFT 2D */
-            fftwf_execute_dft_r2c( plan, in, out[offset] );
-            cachewhat[cachecur + offset] = n + offset;
+            fftwf_execute_dft_r2c(plan.get(), in.get(), frames[i]);
         }
-        if( offset == - btcur / 2 )
-        {
-            if( n != nlast + 1 )
-            {
-                Copyfft( outrez, out[offset], outsize ); /* save out[offset] to outrez to prevent its change in cache */
-            }
-            else
-            {
-                /* swap */
-                outtemp     = outrez;
-                outrez      = out[offset];
-                out[offset] = outtemp;
-                cachefft [cachecur + offset] = outtemp;
-                cachewhat[cachecur + offset] = -1; /* will be destroyed */
-            }
+        if (i + fromframe == n - btcur / 2) {
+            // oldest frame will be used as scratch space so use a copy of it instead
+            // originally a complicated scheme that assumed perfectly linear access was used to actually consume the cached frame but that's too complicated,
+            // and possibly not that great when out of order access can happen due to multithreading
+            memcpy(outrez.get(),
+                frames[i],
+                outsize * sizeof(fftwf_complex));
         }
     }
 
-    fftwf_complex *outp[5] = { out[-2], out[-1], out[0], out[1], out[2] };
-    outp[2 - btcur / 2] = outrez;
+    // unwrap the frames to outp again, because this step was in the original code and rewriting things nicer is effort
+    // also clamp the index unlike the original so no reads happen beyond the array bounds...
+    fftwf_complex *outp[5] = { frames[std::max(0, outcenter - 2)], frames[std::max(0, outcenter - 1)], frames[outcenter], frames[std::min(outcenter + 1, btcur - 1)], frames[std::min(outcenter + 2, btcur - 1)] };
+    outp[2 - btcur / 2] = outrez.get();
 
     if( degrid != 0 )
     {
         if( pfactor != 0 )
-            ApplyPattern3D_degrid< btcur >( outp[2], outp[0], outp[1], outp[3], outp[4], outwidth, outpitch, bh, howmanyblocks, pattern3d, beta, degrid, gridsample );
+            ApplyPattern3D_degrid< btcur >( outp[2], outp[0], outp[1], outp[3], outp[4], outwidth, outpitchelems, bh, howmanyblocks, pattern3d.get(), beta, degrid, gridsample.get());
         else
-            ApplyWiener3D_degrid< btcur >( outp[2], outp[0], outp[1], outp[3], outp[4], outwidth, outpitch, bh, howmanyblocks, sigmaSquaredNoiseNormed, beta, degrid, gridsample );
-        Sharpen_degrid( outrez, outwidth, outpitch, bh, howmanyblocks, sharpen, sigmaSquaredSharpenMinNormed, sigmaSquaredSharpenMaxNormed, wsharpen, degrid, gridsample, dehalo, wdehalo, ht2n );
+            ApplyWiener3D_degrid< btcur >( outp[2], outp[0], outp[1], outp[3], outp[4], outwidth, outpitchelems, bh, howmanyblocks, sigmaSquaredNoiseNormed, beta, degrid, gridsample.get());
+        Sharpen_degrid( outrez.get(), outwidth, outpitchelems, bh, howmanyblocks, sharpen, sigmaSquaredSharpenMinNormed, sigmaSquaredSharpenMaxNormed, wsharpen.get(), degrid, gridsample.get(), dehalo, wdehalo.get(), ht2n );
     }
     else
     {
         if( pfactor != 0 )
-            ApplyPattern3D< btcur >( outp[2], outp[0], outp[1], outp[3], outp[4], outwidth, outpitch, bh, howmanyblocks, pattern3d, beta );
+            ApplyPattern3D< btcur >( outp[2], outp[0], outp[1], outp[3], outp[4], outwidth, outpitchelems, bh, howmanyblocks, pattern3d.get(), beta );
         else
-            ApplyWiener3D< btcur >( outp[2], outp[0], outp[1], outp[3], outp[4], outwidth, outpitch, bh, howmanyblocks, sigmaSquaredNoiseNormed, beta );
-        Sharpen( outrez, outwidth, outpitch, bh, howmanyblocks, sharpen, sigmaSquaredSharpenMinNormed, sigmaSquaredSharpenMaxNormed, wsharpen, dehalo, wdehalo, ht2n );
+            ApplyWiener3D< btcur >( outp[2], outp[0], outp[1], outp[3], outp[4], outwidth, outpitchelems, bh, howmanyblocks, sigmaSquaredNoiseNormed, beta );
+        Sharpen( outrez.get(), outwidth, outpitchelems, bh, howmanyblocks, sharpen, sigmaSquaredSharpenMinNormed, sigmaSquaredSharpenMaxNormed, wsharpen.get(), dehalo, wdehalo.get(), ht2n );
     }
     /* do inverse FFT 2D, get filtered 'in' array
      * note: input "outrez" array is destroyed by execute algo. */
-    fftwf_execute_dft_c2r( planinv, outrez, in );
+    fftwf_execute_dft_c2r( planinv.get(), outrez.get(), in.get());
 }
 
+template<typename T>
 void FFT3DFilter::ApplyFilter
 (
     int               n,
@@ -1487,45 +1279,38 @@ void FFT3DFilter::ApplyFilter
     const VSAPI      *vsapi
 )
 {
-    //_asm emms;
-
-    if( plane == 0 )
-        planeBase = 0;
-    else
-        planeBase = 128; /* neutral chroma value */
-
     if( pfactor != 0 && isPatternSet == false && pshow == false ) /* get noise pattern */
     {
         const VSFrameRef *psrc = vsapi->getFrameFilter( pframe, node, frame_ctx ); /* get noise pattern frame */
 
         /* put source bytes to float array of overlapped blocks */
-        FramePlaneToCoverbuf( plane, psrc, coverbuf, coverwidth, coverheight, coverpitch, mirw, mirh, interlaced, vsapi );
+        FramePlaneToCoverbuf( plane, psrc, reinterpret_cast<T *>(coverbuf.get()), coverwidth, coverheight, coverpitch, mirw, mirh, interlaced, vsapi );
         vsapi->freeFrame( psrc );
-        FFT3DFilter::InitOverlapPlane( in, coverbuf, coverpitch, planeBase );
+        InitOverlapPlane( in.get(), reinterpret_cast<T *>(coverbuf.get()), coverpitch, planeBase );
         /* make FFT 2D */
-        fftwf_execute_dft_r2c( plan, in, outrez );
+        fftwf_execute_dft_r2c( plan.get(), in.get(), outrez.get());
         if( px == 0 && py == 0 ) /* try find pattern block with minimal noise sigma */
-            FindPatternBlock( outrez, outwidth, outpitch, bh, nox, noy, px, py, pwin, degrid, gridsample );
-        SetPattern( outrez, outwidth, outpitch, bh, nox, noy, px, py, pwin, pattern2d, psigma, degrid, gridsample );
+            FindPatternBlock( outrez.get(), outwidth, outpitchelems, bh, nox, noy, px, py, pwin.get(), degrid, gridsample.get());
+        SetPattern( outrez.get(), outwidth, outpitchelems, bh, nox, noy, px, py, pwin.get(), pattern2d.get(), psigma, degrid, gridsample.get());
         isPatternSet = true;
     }
     else if( pfactor != 0 && pshow == true )
     {   /* show noise pattern window */
         /* put source bytes to float array of overlapped blocks */
-        FramePlaneToCoverbuf( plane, src, coverbuf, coverwidth, coverheight, coverpitch, mirw, mirh, interlaced, vsapi );
-        FFT3DFilter::InitOverlapPlane( in, coverbuf, coverpitch, planeBase );
+        FramePlaneToCoverbuf( plane, src, reinterpret_cast<T *>(coverbuf.get()), coverwidth, coverheight, coverpitch, mirw, mirh, interlaced, vsapi );
+        InitOverlapPlane( in.get(), reinterpret_cast<T *>(coverbuf.get()), coverpitch, planeBase );
         /* make FFT 2D */
-        fftwf_execute_dft_r2c( plan, in, outrez );
+        fftwf_execute_dft_r2c( plan.get(), in.get(), outrez.get());
 
         int pxf, pyf;
         if( px == 0 && py == 0 ) /* try find pattern block with minimal noise sigma */
-            FindPatternBlock( outrez, outwidth, outpitch, bh, nox, noy, pxf, pyf, pwin, degrid, gridsample );
+            FindPatternBlock( outrez.get(), outwidth, outpitchelems, bh, nox, noy, pxf, pyf, pwin.get(), degrid, gridsample.get() );
         else
         {
             pxf = px; /* fixed bug in v1.6 */
             pyf = py;
         }
-        SetPattern( outrez, outwidth, outpitch, bh, nox, noy, pxf, pyf, pwin, pattern2d, psigma, degrid, gridsample );
+        SetPattern( outrez.get(), outwidth, outpitchelems, bh, nox, noy, pxf, pyf, pwin.get(), pattern2d.get(), psigma, degrid, gridsample.get());
 
         /* change analysis and synthesis window to constant to show */
         for( int i = 0; i < ow; i++ )
@@ -1537,27 +1322,24 @@ void FFT3DFilter::ApplyFilter
             wanyl[i] = 1;    wanyr[i] = 1;    wsynyl[i] = 1;    wsynyr[i] = 1;
         }
 
-        planeBase = 128;
+        //FIXME, why is planebase assigned here? originally always assigned 128
+        planeBase = (vi.format->sampleType == stInteger) ? (1 << (vi.format->bitsPerSample - 1)) : 0;
 
         /* put source bytes to float array of overlapped blocks */
         /* cur frame */
-        FramePlaneToCoverbuf( plane, src, coverbuf, coverwidth, coverheight, coverpitch, mirw, mirh, interlaced, vsapi );
-        FFT3DFilter::InitOverlapPlane( in, coverbuf, coverpitch, planeBase );
+        FramePlaneToCoverbuf( plane, src, reinterpret_cast<T *>(coverbuf.get()), coverwidth, coverheight, coverpitch, mirw, mirh, interlaced, vsapi );
+        InitOverlapPlane( in.get(), reinterpret_cast<T *>(coverbuf.get()), coverpitch, planeBase );
         /* make FFT 2D */
-        fftwf_execute_dft_r2c( plan, in, outrez );
+        fftwf_execute_dft_r2c( plan.get(), in.get(), outrez.get());
 
-        PutPatternOnly( outrez, outwidth, outpitch, bh, nox, noy, pxf, pyf );
+        PutPatternOnly( outrez.get(), outwidth, outpitchelems, bh, nox, noy, pxf, pyf );
         /* do inverse 2D FFT, get filtered 'in' array */
-        fftwf_execute_dft_c2r( planinv, outrez, in );
+        fftwf_execute_dft_c2r( planinv.get(), outrez.get(), in.get());
 
         /* make destination frame plane from current overlaped blocks */
-        FFT3DFilter::DecodeOverlapPlane( in, norm, coverbuf, coverpitch, planeBase );
-        CoverbufToFramePlane( plane, coverbuf, coverwidth, coverheight, coverpitch, dst, mirw, mirh, interlaced, vsapi );
-        int psigmaint = ((int)(10 * psigma)) / 10;
-        int psigmadec = (int)((psigma - psigmaint) * 10);
-        sprintf( messagebuf," frame=%d, px=%d, py=%d, sigma=%d.%d", n, pxf, pyf, psigmaint, psigmadec );
-        DrawString( dst, 0, 0, messagebuf, vsapi );
-
+        DecodeOverlapPlane( in.get(), norm, reinterpret_cast<T *>(coverbuf.get()), coverpitch, planeBase, maxval );
+        CoverbufToFramePlane( plane, reinterpret_cast<T *>(coverbuf.get()), coverwidth, coverheight, coverpitch, dst, mirw, mirh, interlaced, vsapi );
+        vsapi->propSetData(vsapi->getFramePropsRW(dst), "FFT3DFilterPShowSigma", std::to_string(psigma).c_str(), -1, paAppend);
         return;
     }
 
@@ -1573,7 +1355,7 @@ void FFT3DFilter::ApplyFilter
         sigmaSquaredNoiseNormed = btcur * sigma * sigma / norm; /* normalized variation=sigma^2 */
 
         if( btcur != btcurlast )
-            Pattern2Dto3D( pattern2d, bh, outwidth, outpitch, (float)btcur, pattern3d );
+            Pattern2Dto3D( pattern2d.get(), bh, outwidth, outpitchelems, (float)btcur, pattern3d.get());
 
         /* get power spectral density (abs quadrat) for every block and apply filter */
 
@@ -1582,54 +1364,54 @@ void FFT3DFilter::ApplyFilter
         if( btcur == 1 ) /* 2D */
         {
             /* cur frame */
-            FramePlaneToCoverbuf( plane, src, coverbuf, coverwidth, coverheight, coverpitch, mirw, mirh, interlaced, vsapi );
-            FFT3DFilter::InitOverlapPlane( in, coverbuf, coverpitch, planeBase );
+            FramePlaneToCoverbuf( plane, src, reinterpret_cast<T *>(coverbuf.get()), coverwidth, coverheight, coverpitch, mirw, mirh, interlaced, vsapi );
+            InitOverlapPlane( in.get(), reinterpret_cast<T *>(coverbuf.get()), coverpitch, planeBase );
 
             /* make FFT 2D */
-            fftwf_execute_dft_r2c( plan, in, outrez );
+            fftwf_execute_dft_r2c( plan.get(), in.get(), outrez.get());
             if( degrid != 0 )
             {
                 if( pfactor != 0 )
                 {
-                    ApplyPattern2D_degrid_C( outrez, outwidth, outpitch, bh, howmanyblocks, pfactor, pattern2d, beta, degrid, gridsample );
-                    Sharpen_degrid( outrez, outwidth, outpitch, bh, howmanyblocks, sharpen, sigmaSquaredSharpenMinNormed, sigmaSquaredSharpenMaxNormed, wsharpen, degrid, gridsample, dehalo, wdehalo, ht2n );
+                    ApplyPattern2D_degrid_C( outrez.get(), outwidth, outpitchelems, bh, howmanyblocks, pfactor, pattern2d.get(), beta, degrid, gridsample.get());
+                    Sharpen_degrid( outrez.get(), outwidth, outpitchelems, bh, howmanyblocks, sharpen, sigmaSquaredSharpenMinNormed, sigmaSquaredSharpenMaxNormed, wsharpen.get(), degrid, gridsample.get(), dehalo, wdehalo.get(), ht2n );
                 }
                 else
-                    ApplyWiener2D_degrid_C( outrez, outwidth, outpitch, bh, howmanyblocks, sigmaSquaredNoiseNormed, beta, sharpen, sigmaSquaredSharpenMinNormed, sigmaSquaredSharpenMaxNormed, wsharpen, degrid, gridsample, dehalo, wdehalo, ht2n );
+                    ApplyWiener2D_degrid_C( outrez.get(), outwidth, outpitchelems, bh, howmanyblocks, sigmaSquaredNoiseNormed, beta, sharpen, sigmaSquaredSharpenMinNormed, sigmaSquaredSharpenMaxNormed, wsharpen.get(), degrid, gridsample.get(), dehalo, wdehalo.get(), ht2n );
             }
             else
             {
                 if( pfactor != 0 )
                 {
-                    ApplyPattern2D( outrez, outwidth, outpitch, bh, howmanyblocks, pfactor, pattern2d, beta );
-                    Sharpen( outrez, outwidth, outpitch, bh, howmanyblocks, sharpen, sigmaSquaredSharpenMinNormed, sigmaSquaredSharpenMaxNormed, wsharpen, dehalo, wdehalo, ht2n );
+                    ApplyPattern2D( outrez.get(), outwidth, outpitchelems, bh, howmanyblocks, pfactor, pattern2d.get(), beta );
+                    Sharpen( outrez.get(), outwidth, outpitchelems, bh, howmanyblocks, sharpen, sigmaSquaredSharpenMinNormed, sigmaSquaredSharpenMaxNormed, wsharpen.get(), dehalo, wdehalo.get(), ht2n );
                 }
                 else
-                    ApplyWiener2D( outrez, outwidth, outpitch, bh, howmanyblocks, sigmaSquaredNoiseNormed, beta, sharpen, sigmaSquaredSharpenMinNormed, sigmaSquaredSharpenMaxNormed, wsharpen, dehalo, wdehalo, ht2n );
+                    ApplyWiener2D( outrez.get(), outwidth, outpitchelems, bh, howmanyblocks, sigmaSquaredNoiseNormed, beta, sharpen, sigmaSquaredSharpenMinNormed, sigmaSquaredSharpenMaxNormed, wsharpen.get(), dehalo, wdehalo.get(), ht2n );
             }
 
             /* do inverse FFT 2D, get filtered 'in' array */
-            fftwf_execute_dft_c2r( planinv, outrez, in );
+            fftwf_execute_dft_c2r( planinv.get(), outrez.get(), in.get());
         }
         else if( btcur == 2 ) /* 3D2 */
         {
-            Wiener3D< 2 >( n, src, frame_ctx, vsapi );
+            Wiener3D< T, 2 >( n, src, frame_ctx, vsapi );
         }
         else if( btcur == 3 ) /* 3D3 */
         {
-            Wiener3D< 3 >( n, src, frame_ctx, vsapi );
+            Wiener3D< T, 3 >( n, src, frame_ctx, vsapi );
         }
         else if( btcur == 4 ) /* 3D4 */
         {
-            Wiener3D< 4 >( n, src, frame_ctx, vsapi );
+            Wiener3D< T, 4 >( n, src, frame_ctx, vsapi );
         }
         else if( btcur == 5 ) /* 3D5 */
         {
-            Wiener3D< 5 >( n, src, frame_ctx, vsapi );
+            Wiener3D< T, 5 >( n, src, frame_ctx, vsapi );
         }
         /* make destination frame plane from current overlaped blocks */
-        FFT3DFilter::DecodeOverlapPlane( in, norm, coverbuf, coverpitch, planeBase );
-        CoverbufToFramePlane( plane, coverbuf, coverwidth, coverheight, coverpitch, dst, mirw, mirh, interlaced, vsapi );
+        DecodeOverlapPlane( in.get(), norm, reinterpret_cast<T *>(coverbuf.get()), coverpitch, planeBase, maxval);
+        CoverbufToFramePlane( plane, reinterpret_cast<T *>(coverbuf.get()), coverwidth, coverheight, coverpitch, dst, mirw, mirh, interlaced, vsapi );
     }
     else if( bt == 0 ) /* Kalman filter */
     {
@@ -1640,47 +1422,47 @@ void FFT3DFilter::ApplyFilter
 
         /* put source bytes to float array of overlapped blocks */
         /* cur frame */
-        FramePlaneToCoverbuf( plane, src, coverbuf, coverwidth, coverheight, coverpitch, mirw, mirh, interlaced, vsapi );
-        FFT3DFilter::InitOverlapPlane( in, coverbuf, coverpitch, planeBase );
+        FramePlaneToCoverbuf( plane, src, reinterpret_cast<T *>(coverbuf.get()), coverwidth, coverheight, coverpitch, mirw, mirh, interlaced, vsapi );
+        InitOverlapPlane( in.get(), reinterpret_cast<T *>(coverbuf.get()), coverpitch, planeBase );
         /* make FFT 2D */
-        fftwf_execute_dft_r2c( plan, in, outrez );
+        fftwf_execute_dft_r2c( plan.get(), in.get(), outrez.get());
         if( pfactor != 0 )
-            ApplyKalmanPattern( outrez, outLast, covar, covarProcess, outwidth, outpitch, bh, howmanyblocks, pattern2d, kratio * kratio );
+            ApplyKalmanPattern( outrez.get(), outLast.get(), covar.get(), covarProcess.get(), outwidth, outpitchelems, bh, howmanyblocks, pattern2d.get(), kratio * kratio );
         else
-            ApplyKalman( outrez, outLast, covar, covarProcess, outwidth, outpitch, bh, howmanyblocks, sigmaSquaredNoiseNormed2D, kratio * kratio );
+            ApplyKalman( outrez.get(), outLast.get(), covar.get(), covarProcess.get(), outwidth, outpitchelems, bh, howmanyblocks, sigmaSquaredNoiseNormed2D, kratio * kratio );
 
         /* copy outLast to outrez */
-        BitBlt( (uint8_t *)&outrez [0][0], outsize * sizeof(fftwf_complex),
-                (uint8_t *)&outLast[0][0], outsize * sizeof(fftwf_complex),
-                outsize * sizeof(fftwf_complex), 1 );  /* v.0.9.2 */
+        memcpy( outrez.get(),
+                outLast.get(),
+                outsize * sizeof(fftwf_complex) );  /* v.0.9.2 */
         if( degrid != 0 )
-            Sharpen_degrid( outrez, outwidth, outpitch, bh, howmanyblocks, sharpen, sigmaSquaredSharpenMinNormed, sigmaSquaredSharpenMaxNormed, wsharpen, degrid, gridsample, dehalo, wdehalo, ht2n );
+            Sharpen_degrid( outrez.get(), outwidth, outpitchelems, bh, howmanyblocks, sharpen, sigmaSquaredSharpenMinNormed, sigmaSquaredSharpenMaxNormed, wsharpen.get(), degrid, gridsample.get(), dehalo, wdehalo.get(), ht2n );
         else
-            Sharpen( outrez, outwidth, outpitch, bh, howmanyblocks, sharpen, sigmaSquaredSharpenMinNormed, sigmaSquaredSharpenMaxNormed, wsharpen, dehalo, wdehalo, ht2n );
+            Sharpen( outrez.get(), outwidth, outpitchelems, bh, howmanyblocks, sharpen, sigmaSquaredSharpenMinNormed, sigmaSquaredSharpenMaxNormed, wsharpen.get(), dehalo, wdehalo.get(), ht2n );
         /* do inverse FFT 2D, get filtered 'in' array
          * note: input "out" array is destroyed by execute algo.
          * that is why we must have its copy in "outLast" array */
-        fftwf_execute_dft_c2r( planinv, outrez, in );
+        fftwf_execute_dft_c2r( planinv.get(), outrez.get(), in.get());
         /* make destination frame plane from current overlaped blocks */
-        FFT3DFilter::DecodeOverlapPlane( in, norm, coverbuf, coverpitch, planeBase );
-        CoverbufToFramePlane( plane, coverbuf, coverwidth, coverheight, coverpitch, dst, mirw, mirh, interlaced, vsapi );
+        DecodeOverlapPlane( in.get(), norm, reinterpret_cast<T *>(coverbuf.get()), coverpitch, planeBase, maxval);
+        CoverbufToFramePlane( plane, reinterpret_cast<T *>(coverbuf.get()), coverwidth, coverheight, coverpitch, dst, mirw, mirh, interlaced, vsapi );
     }
     else if( bt == -1 ) /* sharpen only */
     {
         /* put source bytes to float array of overlapped blocks */
-        FramePlaneToCoverbuf( plane, src, coverbuf, coverwidth, coverheight, coverpitch, mirw, mirh, interlaced, vsapi );
-        FFT3DFilter::InitOverlapPlane( in, coverbuf, coverpitch, planeBase );
+        FramePlaneToCoverbuf( plane, src, reinterpret_cast<T *>(coverbuf.get()), coverwidth, coverheight, coverpitch, mirw, mirh, interlaced, vsapi );
+        InitOverlapPlane( in.get(), reinterpret_cast<T *>(coverbuf.get()), coverpitch, planeBase );
         /* make FFT 2D */
-        fftwf_execute_dft_r2c( plan, in, outrez );
+        fftwf_execute_dft_r2c( plan.get(), in.get(), outrez.get());
         if( degrid != 0 )
-            Sharpen_degrid( outrez, outwidth, outpitch, bh, howmanyblocks, sharpen, sigmaSquaredSharpenMinNormed, sigmaSquaredSharpenMaxNormed, wsharpen, degrid, gridsample, dehalo, wdehalo, ht2n );
+            Sharpen_degrid( outrez.get(), outwidth, outpitchelems, bh, howmanyblocks, sharpen, sigmaSquaredSharpenMinNormed, sigmaSquaredSharpenMaxNormed, wsharpen.get(), degrid, gridsample.get(), dehalo, wdehalo.get(), ht2n );
         else
-            Sharpen( outrez, outwidth, outpitch, bh, howmanyblocks, sharpen, sigmaSquaredSharpenMinNormed, sigmaSquaredSharpenMaxNormed, wsharpen, dehalo, wdehalo, ht2n );
+            Sharpen( outrez.get(), outwidth, outpitchelems, bh, howmanyblocks, sharpen, sigmaSquaredSharpenMinNormed, sigmaSquaredSharpenMaxNormed, wsharpen.get(), dehalo, wdehalo.get(), ht2n );
         /* do inverse FFT 2D, get filtered 'in' array */
-        fftwf_execute_dft_c2r( planinv, outrez, in );
+        fftwf_execute_dft_c2r( planinv.get(), outrez.get(), in.get());
         /* make destination frame plane from current overlaped blocks */
-        FFT3DFilter::DecodeOverlapPlane( in, norm, coverbuf, coverpitch, planeBase );
-        CoverbufToFramePlane( plane, coverbuf, coverwidth, coverheight, coverpitch, dst, mirw, mirh, interlaced, vsapi );
+        DecodeOverlapPlane( in.get(), norm, reinterpret_cast<T *>(coverbuf.get()), coverpitch, planeBase, maxval);
+        CoverbufToFramePlane( plane, reinterpret_cast<T *>(coverbuf.get()), coverwidth, coverheight, coverpitch, dst, mirw, mirh, interlaced, vsapi );
     }
 
     if( btcur == bt )
@@ -1695,71 +1477,50 @@ void FFT3DFilter::ApplyFilter
 //-------------------------------------------------------------------
 FFT3DFilterMulti::FFT3DFilterMulti
 (
-    float _sigma, float _beta, int _multiplane, int _bw, int _bh, int _bt, int _ow, int _oh,
+    float _sigma, float _beta, bool _process[3], int _bw, int _bh, int _bt, int _ow, int _oh,
     float _kratio, float _sharpen, float _scutoff, float _svr, float _smin, float _smax,
     bool _measure, bool _interlaced, int _wintype,
     int _pframe, int _px, int _py, bool _pshow, float _pcutoff, float _pfactor,
     float _sigma2, float _sigma3, float _sigma4, float _degrid,
     float _dehalo, float _hr, float _ht, int _ncpu,
     const VSMap *in, const VSAPI *vsapi
-) : filtered( nullptr ), YClip( nullptr ), UClip( nullptr ), VClip( nullptr ),
+) : Clips(),
     bt( _bt ), pframe( _pframe ), pshow( _pshow ), pfactor( _pfactor )
 {
     node =  vsapi->propGetNode( in, "clip", 0, 0 );
     vi   = *vsapi->getVideoInfo( node );
 
-    if( vi.format->colorFamily == cmGray )
-        _multiplane = 0;
-    multiplane = _multiplane;
+    try {
+        if ((vi.format->bitsPerSample > 16 && vi.format->sampleType == stInteger) || (vi.format->bitsPerSample != 32 && vi.format->sampleType == stFloat))
+            throw std::runtime_error{ "only 8-16 bit integer and 32 bit float are supported" };
 
-    if( _multiplane == 0 || _multiplane == 1 || _multiplane == 2 )
-    {
-        filtered = new FFT3DFilter( _sigma, _beta, _multiplane, _bw, _bh, _bt, _ow, _oh,
-                                    _kratio, _sharpen, _scutoff, _svr, _smin, _smax,
-                                    _measure, _interlaced, _wintype,
-                                    _pframe, _px, _py, _pshow, _pcutoff, _pfactor,
-                                    _sigma2, _sigma3, _sigma4, _degrid, _dehalo, _hr, _ht, _ncpu, _multiplane,
-                                    vi, node );
-        isPatternSet = filtered->getIsPatternSet();
-    }
-    else if( _multiplane == 3 || _multiplane == 4 )
-    {
-
-        UClip = new FFT3DFilter( _sigma, _beta, 1, _bw, _bh, _bt, _ow, _oh,
-                                 _kratio, _sharpen, _scutoff, _svr, _smin, _smax,
-                                 _measure, _interlaced, _wintype,
-                                 _pframe, _px, _py, _pshow, _pcutoff, _pfactor,
-                                 _sigma2, _sigma3, _sigma4, _degrid, _dehalo, _hr,  _ht, _ncpu, _multiplane,
-                                 vi, node );
-
-        VClip = new FFT3DFilter( _sigma, _beta, 2, _bw, _bh, _bt, _ow, _oh,
-                                 _kratio, _sharpen, _scutoff, _svr, _smin, _smax,
-                                 _measure, _interlaced, _wintype,
-                                 _pframe, _px, _py, _pshow, _pcutoff, _pfactor,
-                                 _sigma2, _sigma3, _sigma4, _degrid, _dehalo, _hr,  _ht, _ncpu, _multiplane,
-                                 vi, node );
-
-        if( _multiplane != 3 )
-        {
-            YClip = new FFT3DFilter( _sigma, _beta, 0, _bw, _bh, _bt, _ow, _oh,
-                                     _kratio, _sharpen, _scutoff, _svr, _smin, _smax,
-                                     _measure, _interlaced, _wintype,
-                                     _pframe, _px, _py, _pshow, _pcutoff, _pfactor,
-                                     _sigma2, _sigma3, _sigma4, _degrid, _dehalo, _hr, _ht, _ncpu, _multiplane,
-                                     vi, node );
+        for (int i = 0; i < vi.format->numPlanes; i++) {
+            if (_process[i])
+                Clips[i] = new FFT3DFilter(_sigma, _beta, i, _bw, _bh, _bt, _ow, _oh,
+                    _kratio, _sharpen, _scutoff, _svr, _smin, _smax,
+                    _measure, _interlaced, _wintype,
+                    _pframe, _px, _py, _pshow, _pcutoff, _pfactor,
+                    _sigma2, _sigma3, _sigma4, _degrid, _dehalo, _hr, _ht, _ncpu,
+                    vi, node);
         }
-        isPatternSet = UClip->getIsPatternSet();
+
+        for (int i = 2; i >= 0; i--) {
+            if (Clips[i]) {
+                isPatternSet = Clips[i]->getIsPatternSet();
+                break;
+            }
+        }
+    } catch (std::runtime_error &) {
+        Free(vsapi);
+        throw;
     }
-    else
-        throw bad_param{ "plane must be from 0 to 4!" };
 }
 
-FFT3DFilterMulti::~FFT3DFilterMulti()
-{
-    delete filtered;
-    delete YClip;
-    delete UClip;
-    delete VClip;
+void FFT3DFilterMulti::Free(const VSAPI *vsapi) {
+    for (int i = 0; i < 3; i++)
+        delete Clips[i];
+    vsapi->freeNode(node);
+    delete this;
 }
 
 void FFT3DFilterMulti::RequestFrame
@@ -1789,23 +1550,6 @@ void FFT3DFilterMulti::RequestFrame
         vsapi->requestFrameFilter( n, node, frame_ctx );
 }
 
-VSFrameRef *FFT3DFilterMulti::newVideoFrame
-(
-    const VSFrameRef *src,
-    VSCore           *core,
-    const VSAPI      *vsapi
-)
-{
-    VSFrameRef *dst = vsapi->newVideoFrame
-    (
-        vsapi->getFrameFormat( src ),
-        vsapi->getFrameWidth ( src, 0 ),
-        vsapi->getFrameHeight( src, 0 ),
-        src, core
-    );
-    return dst;
-}
-
 VSFrameRef *FFT3DFilterMulti::GetFrame
 (
     int             n,
@@ -1817,34 +1561,35 @@ VSFrameRef *FFT3DFilterMulti::GetFrame
     /* Request frame 'n' from the source clip. */
     const VSFrameRef *src = vsapi->getFrameFilter( n, node, frame_ctx );
 
-    VSFrameRef *dst;
+    VSFrameRef *dst = nullptr;
     if( pfactor != 0 && pshow == true )
         dst = vsapi->copyFrame( src, core );
     else if( bt == 0 && n == 0 )
         /* Kalman filter does nothing for the first frame. */
-        dst = const_cast<VSFrameRef *>(vsapi->cloneFrameRef( src ));
+        dst = vsapi->copyFrame(src, core);
     else
     {
-        dst = newVideoFrame( src, core, vsapi );
-        if( multiplane < 3 )
-            CopyFrame( src, dst, vi, multiplane, vsapi );
+        int planes[3] = { 0, 1, 2 };
+        const VSFrameRef *srcf[3] = { Clips[0] ? nullptr : src, Clips[1] ? nullptr : src, Clips[2] ? nullptr : src };
+        dst = vsapi->newVideoFrame2(vsapi->getFrameFormat(src), vsapi->getFrameWidth(src, 0), vsapi->getFrameHeight(src, 0), srcf, planes, src, core);
+    }
+    
+    for (int i = 0; i < 3; i++) {
+        if (Clips[i]) {
+            if (vi.format->bytesPerSample == 1)
+                Clips[i]->ApplyFilter<uint8_t>(n, dst, src, frame_ctx, core, vsapi);
+            else if (vi.format->bytesPerSample == 2)
+                Clips[i]->ApplyFilter<uint16_t>(n, dst, src, frame_ctx, core, vsapi);
+            else if (vi.format->bytesPerSample == 4)
+                Clips[i]->ApplyFilter<float>(n, dst, src, frame_ctx, core, vsapi);
+        }
     }
 
-    if( multiplane < 3 )
-    {
-        filtered->ApplyFilter( n, dst, src, frame_ctx, core, vsapi );
-        isPatternSet = filtered->getIsPatternSet();
-    }
-    else
-    {
-        if( YClip != nullptr )
-            YClip->ApplyFilter( n, dst, src, frame_ctx, core, vsapi );
-        else
-            BitBlt( vsapi->getWritePtr( dst, 0 ), vsapi->getStride( dst, 0 ), vsapi->getReadPtr( src, 0 ),
-                    vsapi->getStride( src, 0 ), vsapi->getFrameWidth( src, 0 ), vsapi->getFrameHeight( src, 0 ) );
-        UClip->ApplyFilter( n, dst, src, frame_ctx, core, vsapi );
-        VClip->ApplyFilter( n, dst, src, frame_ctx, core, vsapi );
-        isPatternSet = UClip->getIsPatternSet();
+    for (int i = 2; i >= 0; i--) {
+        if (Clips[i]) {
+            isPatternSet = Clips[i]->getIsPatternSet();
+            break;
+        }
     }
 
     vsapi->freeFrame( src );

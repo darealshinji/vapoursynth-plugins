@@ -86,6 +86,9 @@ AX_CHECK_LIB_LINK([sndfile])
 AX_CHECK_LIB_LINK([xvidcore])
 AX_CHECK_LIB_LINK([bluray])
 AX_CHECK_LIB_LINK([fftw3f])
+AC_CHECK_LIB([fftw3f], [fftwf_make_planner_thread_safe], [
+    AC_SUBST([HAVE_FFTW3_MAKE_PLANNER_THREAD_SAFE], [yes])
+])
 AX_CHECK_LIB_LINK([opencv_core])
 AX_CHECK_CL
 

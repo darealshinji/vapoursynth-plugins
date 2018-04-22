@@ -22,17 +22,15 @@
  *****************************************************************************/
 
 #include <algorithm>
-#include <math.h>
-
+#include <cmath>
 #include <fftw3.h>
 
-// since v1.7 we use outpitch instead of outwidth
 
 //-----------------------------------------------------------------------------------------
 //
 void ApplyWiener2D_C
 (
-    fftwf_complex *outcur, int outwidth, int outpitch, int bh,
+    fftwf_complex *outcur, int outwidth, int outpitchelems, int bh,
     int howmanyblocks, float sigmaSquaredNoiseNormed, float beta,
     float sharpen, float sigmaSquaredSharpenMin,
     float sigmaSquaredSharpenMax, const float *wsharpen, float dehalo, const float *wdehalo, float ht2n
@@ -58,7 +56,7 @@ void ApplyWiener2D_C
                     outcur[w][0] *= WienerFactor; // apply filter on real  part
                     outcur[w][1] *= WienerFactor; // apply filter on imaginary part
                 }
-                outcur += outpitch;
+                outcur += outpitchelems;
             }
         }
     }
@@ -76,10 +74,10 @@ void ApplyWiener2D_C
                     outcur[w][0] *= WienerFactor; // apply filter on real  part
                     outcur[w][1] *= WienerFactor; // apply filter on imaginary part
                 }
-                outcur   += outpitch;
-                wsharpen += outpitch;
+                outcur   += outpitchelems;
+                wsharpen += outpitchelems;
             }
-            wsharpen -= outpitch*bh;
+            wsharpen -= outpitchelems*bh;
         }
     }
     else if (sharpen == 0 && dehalo != 0)
@@ -96,10 +94,10 @@ void ApplyWiener2D_C
                     outcur[w][0] *= WienerFactor; // apply filter on real  part
                     outcur[w][1] *= WienerFactor; // apply filter on imaginary part
                 }
-                outcur  += outpitch;
-                wdehalo += outpitch;
+                outcur  += outpitchelems;
+                wdehalo += outpitchelems;
             }
-            wdehalo -= outpitch*bh;
+            wdehalo -= outpitchelems*bh;
         }
     }
     else if (sharpen != 0 && dehalo != 0)
@@ -117,19 +115,19 @@ void ApplyWiener2D_C
                     outcur[w][0] *= WienerFactor; // apply filter on real  part
                     outcur[w][1] *= WienerFactor; // apply filter on imaginary part
                 }
-                outcur   += outpitch;
-                wsharpen += outpitch;
-                wdehalo  += outpitch;
+                outcur   += outpitchelems;
+                wsharpen += outpitchelems;
+                wdehalo  += outpitchelems;
             }
-            wsharpen -= outpitch*bh;
-            wdehalo  -= outpitch*bh;
+            wsharpen -= outpitchelems*bh;
+            wdehalo  -= outpitchelems*bh;
         }
     }
 
 }
 //-------------------------------------------------------------------------------------------
 //
-void ApplyPattern2D_C( fftwf_complex *outcur, int outwidth, int outpitch, int bh, int howmanyblocks, float pfactor, const float *pattern2d0, float beta )
+void ApplyPattern2D_C( fftwf_complex *outcur, int outwidth, int outpitchelems, int bh, int howmanyblocks, float pfactor, const float *pattern2d0, float beta )
 {
     int h,w, block;
     float psd;
@@ -152,8 +150,8 @@ void ApplyPattern2D_C( fftwf_complex *outcur, int outwidth, int outpitch, int bh
                     outcur[w][0] *= patternfactor;
                     outcur[w][1] *= patternfactor;
                 }
-                outcur    += outpitch;
-                pattern2d += outpitch;
+                outcur    += outpitchelems;
+                pattern2d += outpitchelems;
             }
         }
     }
@@ -164,7 +162,7 @@ void ApplyPattern2D_C( fftwf_complex *outcur, int outwidth, int outpitch, int bh
 void ApplyWiener3D2_C
 (
     const fftwf_complex *outcur, fftwf_complex *outprev,
-    int outwidth, int outpitch, int bh, int howmanyblocks,
+    int outwidth, int outpitchelems, int bh, int howmanyblocks,
     float sigmaSquaredNoiseNormed, float beta
 )
 {
@@ -201,8 +199,8 @@ void ApplyWiener3D2_C
                 outprev[w][1] = (f3d0i + f3d1i)*0.5f; // get imaginary part
                 // Attention! return filtered "out" in "outprev" to preserve "out" for next step
             }
-            outcur  += outpitch;
-            outprev += outpitch;
+            outcur  += outpitchelems;
+            outprev += outpitchelems;
         }
     }
 }
@@ -212,7 +210,7 @@ void ApplyWiener3D2_C
 void ApplyPattern3D2_C
 (
     const fftwf_complex *outcur, fftwf_complex *outprev,
-    int outwidth, int outpitch, int bh,
+    int outwidth, int outpitchelems, int bh,
     int howmanyblocks, const float *pattern3d, float beta
 )
 {
@@ -249,11 +247,11 @@ void ApplyPattern3D2_C
                 outprev[w][1] = (f3d0i + f3d1i)*0.5f; // get imaginary part
                 // Attention! return filtered "out" in "outprev" to preserve "out" for next step
             }
-            outcur    += outpitch;
-            outprev   += outpitch;
-            pattern3d += outpitch;
+            outcur    += outpitchelems;
+            outprev   += outpitchelems;
+            pattern3d += outpitchelems;
         }
-        pattern3d -= outpitch*bh; // restore pointer for new block
+        pattern3d -= outpitchelems*bh; // restore pointer for new block
     }
 }
 //
@@ -262,7 +260,7 @@ void ApplyPattern3D2_C
 void ApplyWiener3D3_C
 (
     const fftwf_complex *outcur, fftwf_complex *outprev, const fftwf_complex *outnext,
-    int outwidth, int outpitch, int bh, int howmanyblocks,
+    int outwidth, int outpitchelems, int bh, int howmanyblocks,
     float sigmaSquaredNoiseNormed, float beta
 )
 {
@@ -313,9 +311,9 @@ void ApplyWiener3D3_C
                 outprev[w][1] = (fci + fpi + fni)*0.33333333333f; // get imaginary part
                 // Attention! return filtered "out" in "outprev" to preserve "out" for next step
             }
-            outcur  += outpitch;
-            outprev += outpitch;
-            outnext += outpitch;
+            outcur  += outpitchelems;
+            outprev += outpitchelems;
+            outnext += outpitchelems;
         }
     }
 }
@@ -324,7 +322,7 @@ void ApplyWiener3D3_C
 void ApplyPattern3D3_C
 (
     const fftwf_complex *outcur, fftwf_complex *outprev, const fftwf_complex *outnext,
-    int outwidth, int outpitch, int bh, int howmanyblocks,
+    int outwidth, int outpitchelems, int bh, int howmanyblocks,
     const float *pattern3d, float beta
 )
 {
@@ -373,12 +371,12 @@ void ApplyPattern3D3_C
                 outprev[w][1] = (fci + fpi + fni)*0.33333333333f; // get imaginary part
                 // Attention! return filtered "out" in "outprev" to preserve "out" for next step
             }
-            outcur    += outpitch;
-            outprev   += outpitch;
-            outnext   += outpitch;
-            pattern3d += outpitch;
+            outcur    += outpitchelems;
+            outprev   += outpitchelems;
+            outnext   += outpitchelems;
+            pattern3d += outpitchelems;
         }
-        pattern3d -= outpitch*bh; // restore pointer for new block
+        pattern3d -= outpitchelems*bh; // restore pointer for new block
     }
 }
 
@@ -388,7 +386,7 @@ void ApplyPattern3D3_C
 void ApplyWiener3D4_C
 (
     const fftwf_complex *outcur, fftwf_complex *outprev2, const fftwf_complex *outprev,
-    const fftwf_complex *outnext, int outwidth, int outpitch, int bh,
+    const fftwf_complex *outnext, int outwidth, int outpitchelems, int bh,
     int howmanyblocks, float sigmaSquaredNoiseNormed, float beta
 )
 {
@@ -444,10 +442,10 @@ void ApplyWiener3D4_C
                 outprev2[w][1] = (fp2i + fpi + fci + fni)*0.25f; // get imaginary part
                 // Attention! return filtered "out" in "outprev2" to preserve "out" for next step
             }
-            outcur   += outpitch;
-            outprev2 += outpitch;
-            outprev  += outpitch;
-            outnext  += outpitch;
+            outcur   += outpitchelems;
+            outprev2 += outpitchelems;
+            outprev  += outpitchelems;
+            outnext  += outpitchelems;
         }
     }
 }
@@ -456,7 +454,7 @@ void ApplyWiener3D4_C
 void ApplyPattern3D4_C
 (
     const fftwf_complex *outcur, fftwf_complex *outprev2, const fftwf_complex *outprev,
-    const fftwf_complex *outnext, int outwidth, int outpitch, int bh,
+    const fftwf_complex *outnext, int outwidth, int outpitchelems, int bh,
     int howmanyblocks, const float *pattern3d, float beta
 )
 {
@@ -512,13 +510,13 @@ void ApplyPattern3D4_C
                 outprev2[w][1] = (fp2i + fpi + fci + fni)*0.25f; // get imaginary part
                 // Attention! return filtered "out" in "outprev2" to preserve "out" for next step
             }
-            outcur    += outpitch;
-            outprev2  += outpitch;
-            outprev   += outpitch;
-            outnext   += outpitch;
-            pattern3d += outpitch;
+            outcur    += outpitchelems;
+            outprev2  += outpitchelems;
+            outprev   += outpitchelems;
+            outnext   += outpitchelems;
+            pattern3d += outpitchelems;
         }
-        pattern3d -= outpitch*bh; // restore pointer
+        pattern3d -= outpitchelems*bh; // restore pointer
     }
 }
 //
@@ -528,7 +526,7 @@ void ApplyKalmanPattern_C
 (
     const fftwf_complex *outcur, fftwf_complex *outLast,
     fftwf_complex *covar, fftwf_complex *covarProcess,
-    int outwidth, int outpitch, int bh, int howmanyblocks,
+    int outwidth, int outpitchelems, int bh, int howmanyblocks,
     const float *covarNoiseNormed, float kratio2
 )
 {
@@ -578,13 +576,13 @@ void ApplyKalmanPattern_C
                     //return filtered result in outLast
                 }
             }
-            outcur           += outpitch;
-            outLast          += outpitch;
-            covar            += outpitch;
-            covarProcess     += outpitch;
-            covarNoiseNormed += outpitch;
+            outcur           += outpitchelems;
+            outLast          += outpitchelems;
+            covar            += outpitchelems;
+            covarProcess     += outpitchelems;
+            covarNoiseNormed += outpitchelems;
         }
-        covarNoiseNormed -= outpitch*bh;
+        covarNoiseNormed -= outpitchelems*bh;
     }
 
 }
@@ -593,7 +591,7 @@ void ApplyKalmanPattern_C
 void ApplyKalman_C
 (
     const fftwf_complex *outcur, fftwf_complex *outLast, fftwf_complex *covar,
-    fftwf_complex *covarProcess, int outwidth, int outpitch, int bh,
+    fftwf_complex *covarProcess, int outwidth, int outpitchelems, int bh,
     int howmanyblocks,  float covarNoiseNormed, float kratio2
 )
 {
@@ -645,10 +643,10 @@ void ApplyKalman_C
                     //return filtered result in outLast
                 }
             }
-            outcur       += outpitch;
-            outLast      += outpitch;
-            covar        += outpitch;
-            covarProcess += outpitch;
+            outcur       += outpitchelems;
+            outLast      += outpitchelems;
+            covar        += outpitchelems;
+            covarProcess += outpitchelems;
         }
     }
 
@@ -658,7 +656,7 @@ void ApplyKalman_C
 //
 void Sharpen_C
 (
-    fftwf_complex *outcur, int outwidth, int outpitch, int bh,
+    fftwf_complex *outcur, int outwidth, int outpitchelems, int bh,
     int howmanyblocks, float sharpen, float sigmaSquaredSharpenMin,
     float sigmaSquaredSharpenMax, const float *wsharpen, float dehalo, const float *wdehalo, float ht2n
 )
@@ -683,10 +681,10 @@ void Sharpen_C
                     outcur[w][0] *= sfact;
                     outcur[w][1] *= sfact;
                 }
-                outcur   += outpitch;
-                wsharpen += outpitch;
+                outcur   += outpitchelems;
+                wsharpen += outpitchelems;
             }
-            wsharpen -= outpitch*bh;
+            wsharpen -= outpitchelems*bh;
         }
     }
     else if (sharpen == 0 && dehalo != 0)
@@ -704,10 +702,10 @@ void Sharpen_C
                     outcur[w][0] *= sfact;
                     outcur[w][1] *= sfact;
                 }
-                outcur  += outpitch;
-                wdehalo += outpitch;
+                outcur  += outpitchelems;
+                wdehalo += outpitchelems;
             }
-            wdehalo -= outpitch*bh;
+            wdehalo -= outpitchelems*bh;
         }
     }
     else if (sharpen != 0 && dehalo != 0)
@@ -726,12 +724,12 @@ void Sharpen_C
                     outcur[w][0] *= sfact;
                     outcur[w][1] *= sfact;
                 }
-                outcur   += outpitch;
-                wsharpen += outpitch;
-                wdehalo  += outpitch;
+                outcur   += outpitchelems;
+                wsharpen += outpitchelems;
+                wdehalo  += outpitchelems;
             }
-            wsharpen -= outpitch*bh;
-            wdehalo  -= outpitch*bh;
+            wsharpen -= outpitchelems*bh;
+            wdehalo  -= outpitchelems*bh;
         }
     }
 }
@@ -743,7 +741,7 @@ void Sharpen_C
 //
 void Sharpen_degrid_C
 (
-    fftwf_complex *outcur, int outwidth, int outpitch, int bh,
+    fftwf_complex *outcur, int outwidth, int outpitchelems, int bh,
     int howmanyblocks, float sharpen, float sigmaSquaredSharpenMin,
     float sigmaSquaredSharpenMax, const float *wsharpen,
     float degrid, const fftwf_complex *gridsample, float dehalo, const float *wdehalo, float ht2n
@@ -777,12 +775,12 @@ void Sharpen_degrid_C
                     outcur[w][0] = re + gridcorrection0;
                     outcur[w][1] = im + gridcorrection1;
                 }
-                outcur     += outpitch;
-                wsharpen   += outpitch;
-                gridsample += outpitch;
+                outcur     += outpitchelems;
+                wsharpen   += outpitchelems;
+                gridsample += outpitchelems;
             }
-            wsharpen   -= outpitch*bh;
-            gridsample -= outpitch*bh; // restore pointer to only valid first block - bug fixed in v1.8.1
+            wsharpen   -= outpitchelems*bh;
+            gridsample -= outpitchelems*bh; // restore pointer to only valid first block - bug fixed in v1.8.1
         }
     }
     if (sharpen == 0 && dehalo != 0)
@@ -808,14 +806,14 @@ void Sharpen_degrid_C
                     outcur[w][0] = re + gridcorrection0;
                     outcur[w][1] = im + gridcorrection1;
                 }
-                outcur     += outpitch;
-                wsharpen   += outpitch;
-                wdehalo    += outpitch;
-                gridsample += outpitch;
+                outcur     += outpitchelems;
+                wsharpen   += outpitchelems;
+                wdehalo    += outpitchelems;
+                gridsample += outpitchelems;
             }
-            wsharpen   -= outpitch*bh;
-            wdehalo    -= outpitch*bh;
-            gridsample -= outpitch*bh; // restore pointer to only valid first block - bug fixed in v1.8.1
+            wsharpen   -= outpitchelems*bh;
+            wdehalo    -= outpitchelems*bh;
+            gridsample -= outpitchelems*bh; // restore pointer to only valid first block - bug fixed in v1.8.1
         }
     }
     if (sharpen != 0 && dehalo != 0)
@@ -842,14 +840,14 @@ void Sharpen_degrid_C
                     outcur[w][0] = re + gridcorrection0;
                     outcur[w][1] = im + gridcorrection1;
                 }
-                outcur     += outpitch;
-                wsharpen   += outpitch;
-                wdehalo    += outpitch;
-                gridsample += outpitch;
+                outcur     += outpitchelems;
+                wsharpen   += outpitchelems;
+                wdehalo    += outpitchelems;
+                gridsample += outpitchelems;
             }
-            wsharpen   -= outpitch*bh;
-            wdehalo    -= outpitch*bh;
-            gridsample -= outpitch*bh; // restore pointer to only valid first block - bug fixed in v1.8.1
+            wsharpen   -= outpitchelems*bh;
+            wdehalo    -= outpitchelems*bh;
+            gridsample -= outpitchelems*bh; // restore pointer to only valid first block - bug fixed in v1.8.1
         }
     }
 }
@@ -857,7 +855,7 @@ void Sharpen_degrid_C
 //-----------------------------------------------------------------------------------------
 void ApplyWiener2D_degrid_C
 (
-    fftwf_complex *outcur, int outwidth, int outpitch, int bh,
+    fftwf_complex *outcur, int outwidth, int outpitchelems, int bh,
     int howmanyblocks, float sigmaSquaredNoiseNormed, float beta,
     float sharpen, float sigmaSquaredSharpenMin,
     float sigmaSquaredSharpenMax, const float *wsharpen,
@@ -892,10 +890,10 @@ void ApplyWiener2D_degrid_C
                     outcur[w][0] = corrected0 + gridcorrection0;
                     outcur[w][1] = corrected1 + gridcorrection1;
                 }
-                outcur     += outpitch;
-                gridsample += outpitch;
+                outcur     += outpitchelems;
+                gridsample += outpitchelems;
             }
-            gridsample -= outpitch*bh; // restore pointer to only valid first block
+            gridsample -= outpitchelems*bh; // restore pointer to only valid first block
         }
     }
     else if (sharpen != 0 && dehalo==0) // sharpen
@@ -922,12 +920,12 @@ void ApplyWiener2D_degrid_C
                     outcur[w][0] = corrected0 + gridcorrection0;
                     outcur[w][1] = corrected1 + gridcorrection1;
                 }
-                outcur     += outpitch;
-                wsharpen   += outpitch;
-                gridsample += outpitch;
+                outcur     += outpitchelems;
+                wsharpen   += outpitchelems;
+                gridsample += outpitchelems;
             }
-            wsharpen   -= outpitch*bh;
-            gridsample -= outpitch*bh; // restore pointer to only valid first block
+            wsharpen   -= outpitchelems*bh;
+            gridsample -= outpitchelems*bh; // restore pointer to only valid first block
         }
     }
     else if (sharpen == 0 && dehalo != 0)
@@ -954,12 +952,12 @@ void ApplyWiener2D_degrid_C
                     outcur[w][0] = corrected0 + gridcorrection0;
                     outcur[w][1] = corrected1 + gridcorrection1;
                 }
-                outcur     += outpitch;
-                wdehalo    += outpitch;
-                gridsample += outpitch;
+                outcur     += outpitchelems;
+                wdehalo    += outpitchelems;
+                gridsample += outpitchelems;
             }
-            wdehalo    -= outpitch*bh;
-            gridsample -= outpitch*bh; // restore pointer to only valid first block
+            wdehalo    -= outpitchelems*bh;
+            gridsample -= outpitchelems*bh; // restore pointer to only valid first block
         }
     }
     else if (sharpen != 0 && dehalo != 0)
@@ -987,14 +985,14 @@ void ApplyWiener2D_degrid_C
                     outcur[w][0] = corrected0 + gridcorrection0;
                     outcur[w][1] = corrected1 + gridcorrection1;
                 }
-                outcur     += outpitch;
-                wsharpen   += outpitch;
-                gridsample += outpitch;
-                wdehalo    += outpitch;
+                outcur     += outpitchelems;
+                wsharpen   += outpitchelems;
+                gridsample += outpitchelems;
+                wdehalo    += outpitchelems;
             }
-            wsharpen   -= outpitch*bh;
-            wdehalo    -= outpitch*bh;
-            gridsample -= outpitch*bh; // restore pointer to only valid first block
+            wsharpen   -= outpitchelems*bh;
+            wdehalo    -= outpitchelems*bh;
+            gridsample -= outpitchelems*bh; // restore pointer to only valid first block
         }
     }
 
@@ -1004,7 +1002,7 @@ void ApplyWiener2D_degrid_C
 void ApplyWiener3D2_degrid_C
 (
     const fftwf_complex *outcur, fftwf_complex *outprev,
-    int outwidth, int outpitch, int bh, int howmanyblocks,
+    int outwidth, int outpitchelems, int bh, int howmanyblocks,
     float sigmaSquaredNoiseNormed, float beta,
     float degrid, const fftwf_complex *gridsample
 )
@@ -1046,11 +1044,11 @@ void ApplyWiener3D2_degrid_C
                 outprev[w][1] = (f3d0i + f3d1i + gridcorrection1_2)*0.5f ; // get imaginary part
                 // Attention! return filtered "out" in "outprev" to preserve "out" for next step
             }
-            outcur     += outpitch;
-            outprev    += outpitch;
-            gridsample += outpitch;
+            outcur     += outpitchelems;
+            outprev    += outpitchelems;
+            gridsample += outpitchelems;
         }
-        gridsample -= outpitch*bh; // restore pointer to only valid first block
+        gridsample -= outpitchelems*bh; // restore pointer to only valid first block
     }
 }
 //-----------------------------------------------------------------------------------------
@@ -1058,7 +1056,7 @@ void ApplyWiener3D2_degrid_C
 void ApplyWiener3D3_degrid_C
 (
     const fftwf_complex *outcur, fftwf_complex *outprev, const fftwf_complex *outnext,
-    int outwidth, int outpitch, int bh, int howmanyblocks,
+    int outwidth, int outpitchelems, int bh, int howmanyblocks,
     float sigmaSquaredNoiseNormed, float beta,
     float degrid, const fftwf_complex *gridsample
 )
@@ -1113,12 +1111,12 @@ void ApplyWiener3D3_degrid_C
                 outprev[w][1] = (fci + fpi + fni + gridcorrection1_3)*0.33333333333f; // get imaginary part
                 // Attention! return filtered "out" in "outprev" to preserve "out" for next step
             }
-            outcur     += outpitch;
-            outprev    += outpitch;
-            outnext    += outpitch;
-            gridsample += outpitch;
+            outcur     += outpitchelems;
+            outprev    += outpitchelems;
+            outnext    += outpitchelems;
+            gridsample += outpitchelems;
         }
-        gridsample -= outpitch*bh; // restore pointer to only valid first block
+        gridsample -= outpitchelems*bh; // restore pointer to only valid first block
     }
 }
 //-----------------------------------------------------------------------------------------
@@ -1126,7 +1124,7 @@ void ApplyWiener3D3_degrid_C
 void ApplyWiener3D4_degrid_C
 (
     const fftwf_complex *outcur, fftwf_complex *outprev2, const fftwf_complex *outprev,
-    const fftwf_complex *outnext, int outwidth, int outpitch, int bh,
+    const fftwf_complex *outnext, int outwidth, int outpitchelems, int bh,
     int howmanyblocks, float sigmaSquaredNoiseNormed, float beta,
     float degrid, const fftwf_complex *gridsample
 )
@@ -1188,20 +1186,20 @@ void ApplyWiener3D4_degrid_C
                 outprev2[w][1] = (fp2i + fpi + fci + fni + gridcorrection1_4)*0.25f; // get imaginary part
                 // Attention! return filtered "out" in "outprev2" to preserve "out" for next step
             }
-            outcur     += outpitch;
-            outprev2   += outpitch;
-            outprev    += outpitch;
-            outnext    += outpitch;
-            gridsample += outpitch;
+            outcur     += outpitchelems;
+            outprev2   += outpitchelems;
+            outprev    += outpitchelems;
+            outnext    += outpitchelems;
+            gridsample += outpitchelems;
         }
-        gridsample -= outpitch*bh; // restore pointer to only valid first block
+        gridsample -= outpitchelems*bh; // restore pointer to only valid first block
     }
 }
 //-------------------------------------------------------------------------------------------
 //
 void ApplyPattern2D_degrid_C
 (
-    fftwf_complex *outcur, int outwidth, int outpitch, int bh,
+    fftwf_complex *outcur, int outwidth, int outpitchelems, int bh,
     int howmanyblocks, float pfactor, const float *pattern2d0, float beta,
     float degrid, const fftwf_complex *gridsample
 )
@@ -1235,11 +1233,11 @@ void ApplyPattern2D_degrid_C
                     outcur[w][0] = corrected0 + gridcorrection0;
                     outcur[w][1] = corrected1 + gridcorrection1;
                 }
-                outcur     += outpitch;
-                pattern2d  += outpitch;
-                gridsample += outpitch;
+                outcur     += outpitchelems;
+                pattern2d  += outpitchelems;
+                gridsample += outpitchelems;
             }
-            gridsample -= outpitch*bh; // restore pointer to only valid first block
+            gridsample -= outpitchelems*bh; // restore pointer to only valid first block
         }
     }
 }
@@ -1248,7 +1246,7 @@ void ApplyPattern2D_degrid_C
 void ApplyPattern3D2_degrid_C
 (
     const fftwf_complex *outcur, fftwf_complex *outprev,
-    int outwidth, int outpitch, int bh,
+    int outwidth, int outpitchelems, int bh,
     int howmanyblocks, const float *pattern3d, float beta,
     float degrid, const fftwf_complex *gridsample
 )
@@ -1289,13 +1287,13 @@ void ApplyPattern3D2_degrid_C
                 outprev[w][1] = (f3d0i + f3d1i + gridcorrection1_2)*0.5f; // get imaginary part
                 // Attention! return filtered "out" in "outprev" to preserve "out" for next step
             }
-            outcur     += outpitch;
-            outprev    += outpitch;
-            pattern3d  += outpitch;
-            gridsample += outpitch;
+            outcur     += outpitchelems;
+            outprev    += outpitchelems;
+            pattern3d  += outpitchelems;
+            gridsample += outpitchelems;
         }
-        pattern3d  -= outpitch*bh; // restore pointer for new block
-        gridsample -= outpitch*bh; // restore pointer to only valid first block
+        pattern3d  -= outpitchelems*bh; // restore pointer for new block
+        gridsample -= outpitchelems*bh; // restore pointer to only valid first block
     }
 }
 //
@@ -1304,7 +1302,7 @@ void ApplyPattern3D2_degrid_C
 void ApplyPattern3D3_degrid_C
 (
     const fftwf_complex *outcur, fftwf_complex *outprev, const fftwf_complex *outnext,
-    int outwidth, int outpitch, int bh, int howmanyblocks,
+    int outwidth, int outpitchelems, int bh, int howmanyblocks,
     const float *pattern3d, float beta,
     float degrid, const fftwf_complex *gridsample
 )
@@ -1359,14 +1357,14 @@ void ApplyPattern3D3_degrid_C
                 outprev[w][1] = (fci + fpi + fni + gridcorrection1_3)*0.33333333333f; // get imaginary part
                 // Attention! return filtered "out" in "outprev" to preserve "out" for next step
             }
-            outcur     += outpitch;
-            outprev    += outpitch;
-            outnext    += outpitch;
-            pattern3d  += outpitch;
-            gridsample += outpitch;
+            outcur     += outpitchelems;
+            outprev    += outpitchelems;
+            outnext    += outpitchelems;
+            pattern3d  += outpitchelems;
+            gridsample += outpitchelems;
         }
-        pattern3d  -= outpitch*bh; // restore pointer for new block
-        gridsample -= outpitch*bh; // restore pointer to only valid first block
+        pattern3d  -= outpitchelems*bh; // restore pointer for new block
+        gridsample -= outpitchelems*bh; // restore pointer to only valid first block
     }
 }
 
@@ -1375,7 +1373,7 @@ void ApplyPattern3D3_degrid_C
 void ApplyPattern3D4_degrid_C
 (
     const fftwf_complex *outcur, fftwf_complex *outprev2, const fftwf_complex *outprev,
-    const fftwf_complex *outnext, int outwidth, int outpitch, int bh,
+    const fftwf_complex *outnext, int outwidth, int outpitchelems, int bh,
     int howmanyblocks, const float *pattern3d, float beta,
     float degrid, const fftwf_complex *gridsample
 )
@@ -1437,15 +1435,15 @@ void ApplyPattern3D4_degrid_C
                 outprev2[w][1] = (fp2i + fpi + fci + fni + gridcorrection1_4)*0.25f; // get imaginary part
                 // Attention! return filtered "out" in "outprev2" to preserve "out" for next step
             }
-            outcur     += outpitch;
-            outprev2   += outpitch;
-            outprev    += outpitch;
-            outnext    += outpitch;
-            pattern3d  += outpitch;
-            gridsample += outpitch;
+            outcur     += outpitchelems;
+            outprev2   += outpitchelems;
+            outprev    += outpitchelems;
+            outnext    += outpitchelems;
+            pattern3d  += outpitchelems;
+            gridsample += outpitchelems;
         }
-        pattern3d -= outpitch*bh; // restore pointer
-        gridsample -= outpitch*bh; // restore pointer to only valid first block
+        pattern3d -= outpitchelems*bh; // restore pointer
+        gridsample -= outpitchelems*bh; // restore pointer to only valid first block
     }
 }
 //-----------------------------------------------------------------------------------------
@@ -1453,7 +1451,7 @@ void ApplyPattern3D4_degrid_C
 void ApplyPattern3D5_degrid_C
 (
     const fftwf_complex *outcur, fftwf_complex *outprev2, const fftwf_complex *outprev,
-    const fftwf_complex *outnext, const fftwf_complex *outnext2, int outwidth, int outpitch, int bh,
+    const fftwf_complex *outnext, const fftwf_complex *outnext2, int outwidth, int outpitchelems, int bh,
     int howmanyblocks, const float *pattern3d, float beta,
     float degrid, const fftwf_complex *gridsample
 )
@@ -1533,16 +1531,16 @@ void ApplyPattern3D5_degrid_C
                 outprev2[w][1] = (fp2i + fpi + fci + fni + fn2i + gridcorrection1_5)*0.2f; // get imaginary part
                 // Attention! return filtered "out" in "outprev2" to preserve "out" for next step
             }
-            outcur     += outpitch;
-            outprev2   += outpitch;
-            outprev    += outpitch;
-            outnext    += outpitch;
-            outnext2   += outpitch;
-            gridsample += outpitch;
-            pattern3d  += outpitch;
+            outcur     += outpitchelems;
+            outprev2   += outpitchelems;
+            outprev    += outpitchelems;
+            outnext    += outpitchelems;
+            outnext2   += outpitchelems;
+            gridsample += outpitchelems;
+            pattern3d  += outpitchelems;
         }
-        gridsample -= outpitch*bh; // restore pointer to only valid first block
-        pattern3d  -= outpitch*bh; // restore pointer
+        gridsample -= outpitchelems*bh; // restore pointer to only valid first block
+        pattern3d  -= outpitchelems*bh; // restore pointer
     }
 }
 
@@ -1551,7 +1549,7 @@ void ApplyPattern3D5_degrid_C
 void ApplyWiener3D5_degrid_C
 (
     const fftwf_complex *outcur, fftwf_complex *outprev2, const fftwf_complex *outprev,
-    const fftwf_complex *outnext, const fftwf_complex *outnext2, int outwidth, int outpitch, int bh,
+    const fftwf_complex *outnext, const fftwf_complex *outnext2, int outwidth, int outpitchelems, int bh,
     int howmanyblocks, float sigmaSquaredNoiseNormed, float beta,
     float degrid, const fftwf_complex *gridsample
 )
@@ -1647,14 +1645,14 @@ void ApplyWiener3D5_degrid_C
                 outprev2[w][1] = (fp2i + fpi + fci + fni + fn2i + gridcorrection1_5)*0.2f; // get imaginary part
                 // Attention! return filtered "out" in "outprev2" to preserve "out" for next step
             }
-            outcur     += outpitch;
-            outprev2   += outpitch;
-            outprev    += outpitch;
-            outnext    += outpitch;
-            outnext2   += outpitch;
-            gridsample += outpitch;
+            outcur     += outpitchelems;
+            outprev2   += outpitchelems;
+            outprev    += outpitchelems;
+            outnext    += outpitchelems;
+            outnext2   += outpitchelems;
+            gridsample += outpitchelems;
         }
-        gridsample -= outpitch*bh; // restore pointer to only valid first block
+        gridsample -= outpitchelems*bh; // restore pointer to only valid first block
     }
 }
 //-----------------------------------------------------------------------------------------
@@ -1662,7 +1660,7 @@ void ApplyWiener3D5_degrid_C
 void ApplyPattern3D5_C
 (
     const fftwf_complex *outcur, fftwf_complex *outprev2, const fftwf_complex *outprev,
-    const fftwf_complex *outnext, const fftwf_complex *outnext2, int outwidth, int outpitch, int bh,
+    const fftwf_complex *outnext, const fftwf_complex *outnext2, int outwidth, int outpitchelems, int bh,
     int howmanyblocks, const float *pattern3d, float beta
 )
 {
@@ -1736,14 +1734,14 @@ void ApplyPattern3D5_C
                 outprev2[w][1] = (fp2i + fpi + fci + fni + fn2i)*0.2f; // get imaginary part
                 // Attention! return filtered "out" in "outprev2" to preserve "out" for next step
             }
-            outcur    += outpitch;
-            outprev2  += outpitch;
-            outprev   += outpitch;
-            outnext   += outpitch;
-            outnext2  += outpitch;
-            pattern3d += outpitch;
+            outcur    += outpitchelems;
+            outprev2  += outpitchelems;
+            outprev   += outpitchelems;
+            outnext   += outpitchelems;
+            outnext2  += outpitchelems;
+            pattern3d += outpitchelems;
         }
-        pattern3d -= outpitch*bh; // restore pointer
+        pattern3d -= outpitchelems*bh; // restore pointer
     }
 }
 
@@ -1752,7 +1750,7 @@ void ApplyPattern3D5_C
 void ApplyWiener3D5_C
 (
     const fftwf_complex *outcur, fftwf_complex *outprev2, const fftwf_complex *outprev,
-    const fftwf_complex *outnext, const fftwf_complex *outnext2, int outwidth, int outpitch, int bh,
+    const fftwf_complex *outnext, const fftwf_complex *outnext2, int outwidth, int outpitchelems, int bh,
     int howmanyblocks, float sigmaSquaredNoiseNormed, float beta
 )
 {
@@ -1826,11 +1824,11 @@ void ApplyWiener3D5_C
                 outprev2[w][1] = (fp2i + fpi + fci + fni + fn2i)*0.2f; // get imaginary part
                 // Attention! return filtered "out" in "outprev2" to preserve "out" for next step
             }
-            outcur   += outpitch;
-            outprev2 += outpitch;
-            outprev  += outpitch;
-            outnext  += outpitch;
-            outnext2 += outpitch;
+            outcur   += outpitchelems;
+            outprev2 += outpitchelems;
+            outprev  += outpitchelems;
+            outnext  += outpitchelems;
+            outnext2 += outpitchelems;
         }
     }
 }
