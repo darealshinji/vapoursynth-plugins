@@ -1,3 +1,9 @@
+vapoursynth-extra-plugins (20180422-1~xenial) xenial; urgency=low
+
+  * Use myrsloik's fork of FFT3DFilter
+
+ -- Marshall Banana <djcj@gmx.de>  Sun, 22 Apr 2018 07:23:52 +0200
+
 vapoursynth-extra-plugins (20180415-1~xenial) xenial; urgency=low
 
   * Updates: dfttest, eedi3, knlmeanscl, lsmashsource, nnedi3cl, tdeintmod
