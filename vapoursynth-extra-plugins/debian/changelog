@@ -13,7 +13,7 @@ vapoursynth-extra-plugins (20180415-1~xenial) xenial; urgency=low
     psharpen, resamplehq, sharpaamcmod, vstaambk, vshelpers
   * Update VS headers (r43)
 
- -- Marshall Banana <djcj@gmx.de>  Sun, 15 Apr 2018 16:14:40 +020
+ -- Marshall Banana <djcj@gmx.de>  Sun, 15 Apr 2018 16:14:40 +0200
 
 vapoursynth-extra-plugins (20171104-1~xenial) xenial; urgency=low
 
