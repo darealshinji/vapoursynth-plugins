@@ -1,4 +1,4 @@
-# vsTAAmbk 0.7.5
+# vsTAAmbk 0.7.6
 An Anti-aliasing script ported from Avisynth  
 For more details NMM-HD：https://www.nmm-hd.org/newbbs/viewtopic.php?f=23&t=1666
 
@@ -64,7 +64,7 @@ For more details please visit our threads in NMM-HD Forum.
 
     Perform a preaa before applying main AA kernel.<br />
 	Preaa is basically a simplified version of daa.<br />
-	Pretty useful for dealing with residual comb caused by poor deinterlace.<br />
+	Pretty useful for dealing with residual comb caused by poor deinterlacing.<br />
 
 * *cycle*: (Default: 0)<br />
     Set times of loop of main AA kernel.<br />
@@ -151,6 +151,7 @@ For more details please visit our threads in NMM-HD Forum.
     Currently there are two processings can use opencl:<br />
     * TCannyCL
     * EEDI3CL
+    * NNEDI3CL
     <br />
 
 * *opencl_device*: (Default: 0)<br />

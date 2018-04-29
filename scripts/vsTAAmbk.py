@@ -28,7 +28,7 @@ class Clip:
 class AAParent(Clip):
     def __init__(self, clip, strength=0.0, down8=False):
         super(AAParent, self).__init__(clip)
-        self.dfactor = 1 - min(strength, 0.5)
+        self.dfactor = 1 - max(min(strength, 0.5), 0)
         self.dw = round(self.clip_width * self.dfactor / 4) * 4
         self.dh = round(self.clip_height * self.dfactor / 4) * 4
         self.upw4 = round(self.dw * 0.375) * 4
@@ -62,13 +62,16 @@ class AAParent(Clip):
 class AANnedi3(AAParent):
     def __init__(self, clip, strength=0, down8=False, **args):
         super(AANnedi3, self).__init__(clip, strength, down8)
-        self.nsize = args.get('nsize', 3)
-        self.nns = args.get('nns', 1)
-        self.qual = args.get('qual', 2)
+        self.nnedi3_args = {
+            'nsize': args.get('nsize', 3),
+            'nns': args.get('nns', 1),
+            'qual': args.get('qual', 2),
+        }
         self.opencl = args.get('opencl', False)
         if self.opencl is True:
             try:
                 self.nnedi3 = self.core.nnedi3cl.NNEDI3CL
+                self.nnedi3_args['device'] = args.get('opencl_device', 0)
             except AttributeError:
                 try:
                     self.nnedi3 = self.core.znedi3.nnedi3
@@ -81,10 +84,10 @@ class AANnedi3(AAParent):
                 self.nnedi3 = self.core.nnedi3.nnedi3
 
     def out(self):
-        aaed = self.nnedi3(self.clip, field=1, dh=True, nsize=self.nsize, nns=self.nns, qual=self.qual)
+        aaed = self.nnedi3(self.clip, field=1, dh=True, **self.nnedi3_args)
         aaed = self.resize(aaed, self.clip_width, self.clip_height, -0.5)
         aaed = self.core.std.Transpose(aaed)
-        aaed = self.nnedi3(aaed, field=1, dh=True, nsize=self.nsize, nns=self.nns, qual=self.qual)
+        aaed = self.nnedi3(aaed, field=1, dh=True, **self.nnedi3_args)
         aaed = self.resize(aaed, self.clip_height, self.clip_width, -0.5)
         aaed = self.core.std.Transpose(aaed)
         return aaed
@@ -96,10 +99,10 @@ class AANnedi3SangNom(AANnedi3):
         self.aa = args.get('aa', 48)
 
     def out(self):
-        aaed = self.nnedi3(self.clip, field=1, dh=True, nsize=self.nsize, nns=self.nns, qual=self.qual)
+        aaed = self.nnedi3(self.clip, field=1, dh=True, **self.nnedi3_args)
         aaed = self.resize(aaed, self.clip_width, self.uph4, shift=-0.5)
         aaed = self.core.std.Transpose(aaed)
-        aaed = self.nnedi3(aaed, field=1, dh=True, nsize=self.nsize, nns=self.nns, qual=self.qual)
+        aaed = self.nnedi3(aaed, field=1, dh=True, **self.nnedi3_args)
         aaed = self.resize(aaed, self.uph4, self.upw4, shift=-0.5)
         aaed = self.core.sangnom.SangNom(aaed, aa=self.aa)
         aaed = self.core.std.Transpose(aaed)
@@ -111,16 +114,25 @@ class AANnedi3SangNom(AANnedi3):
 class AANnedi3UpscaleSangNom(AANnedi3SangNom):
     def __init__(self, clip, strength=0, down8=False, **args):
         super(AANnedi3UpscaleSangNom, self).__init__(clip, strength, down8, **args)
-        self.nsize = args.get('nsize', 1)
-        self.nns = args.get('nns', 3)
-        self.qual = args.get('qual', 2)
+        self.nnedi3_args = {
+            'nsize': args.get('nsize', 1),
+            'nns': args.get('nns', 3),
+            'qual': args.get('qual', 2),
+        }
+        if self.opencl is True:
+            self.nnedi3_args['device'] = args.get('opencl_device', 0)
 
 
 class AAEedi3(AAParent):
     def __init__(self, clip, strength=0, down8=False, **args):
         super(AAEedi3, self).__init__(clip, strength, down8)
-        self.eedi3_args = {'alpha': args.get('alpha', 0.5), 'beta': args.get('beta', 0.2),
-                           'gamma': args.get('gamma', 20), 'nrad': args.get('nrad', 3), 'mdis': args.get('mdis', 30)}
+        self.eedi3_args = {
+            'alpha': args.get('alpha', 0.5),
+            'beta': args.get('beta', 0.2),
+            'gamma': args.get('gamma', 20),
+            'nrad': args.get('nrad', 3),
+            'mdis': args.get('mdis', 30),
+        }
 
         self.opencl = args.get('opencl', False)
         if self.opencl is True:
