@@ -23,6 +23,7 @@ LIB = $(LIBNAME).so
 endif
 
 commonflags  = -c -Wall -Wextra -Wno-unused-parameter -Wno-unused-result -Werror=format-security
+#commonflags += -Wshadow
 commonflags += -fPIC -fno-strict-aliasing -ffast-math -mfpmath=sse -msse2
 commonflags += -DVS_TARGET_CPU_X86 -D_FORTIFY_SOURCE=2
 commonflags += -Isrc -I../../include -I../../include/vapoursynth

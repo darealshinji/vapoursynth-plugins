@@ -1,4 +1,3 @@
-include ../../config.mak
 
 LIBNAME = yadifmod
 local_CXXFLAGS += -Isrc -Isrc/vectorclass
