@@ -56,6 +56,11 @@ Copyright: 2004 Manao
            2014 HolyWu
 License: GPL-2+
 
+Files: plugins/deblockpp7/*
+Copyright: 2005 Michael Niedermayer <michaelni@gmx.at>
+           2018 HolyWu
+License: GPL-3+
+
 Files: plugins/delogo/*
 Copyright: 2003 MakKi
            2014-2015 msg7086
