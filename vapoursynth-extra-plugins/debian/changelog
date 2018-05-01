@@ -1,3 +1,10 @@
+vapoursynth-extra-plugins (20180501-1~xenial) xenial; urgency=low
+
+  * New plugin: DeblockPP7
+  * Update scripts: havsfunc, vstaambk
+
+ -- Marshall Banana <djcj@gmx.de>  Tue, 01 May 2018 15:18:44 +0200
+
 vapoursynth-extra-plugins (20180422-1~xenial) xenial; urgency=low
 
   * Use myrsloik's fork of FFT3DFilter
